@@ -1,0 +1,101 @@
+:root {
+  --darkBlue: #354D65;
+  --coral: #FA6C6C;
+  --lightGray: #d9d9d9;
+  --starYellow: #F5D329;
+  --lightBlue: #51CBC2;
+  /*Add more colors as needed*/ 
+}
+
+
+.nav-bar {
+  padding: 0.5rem 0;
+  color: white;
+}
+.nav-bar ul {
+  display: flex;
+  justify-content: center;
+  gap: 9rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.nav-bar li {
+  font-size: 1.8rem;
+  font-weight: bolder;
+}
+
+/* Membership Page Styles */
+html, body{background: var(--darkBlue);}
+.membership-main {
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    background: var(--darkBlue);
+  width: 100%;
+  margin-bottom: 3rem;
+}
+
+.membership-card {
+width: 90%;
+gap: 2rem;
+  margin: 1rem auto ;
+
+  background: #fff;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  flex: 1;
+}
+.membership-card span {
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: var(--darkBlue);
+  text-align: left;
+  width: 30%;
+}
+#membership-title {
+  margin:2rem;
+  font-size: 2rem;
+}
+.membership-card span.right {
+  text-align: right;
+  width: 30%;
+}
+.membership-benefits {
+  background: #fff;
+    color: var(--darkBlue);
+  border-radius: 10px;
+  margin: 0 auto;
+  padding: 2.5rem 2rem;
+  width: 90%;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.membership-benefits h2 {
+  text-align: center;
+  font-size: 4rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+}
+.membership-benefits ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 1.1rem;
+}
+.membership-benefits li {
+  margin-bottom: 0.7em;
+}
+.membership-benefits strong {
+  font-weight: bold;
+}
+.membership-getstarted {
+  text-align: center;
+  margin-top: 3rem;
+  font-size: 1.5rem;
+  font-weight: bold;
+}
