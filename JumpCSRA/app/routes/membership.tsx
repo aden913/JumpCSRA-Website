@@ -1,5 +1,5 @@
 import React from "react";
-import "../welcome/index.css";
+import "./membership.css";
 import { RouterNav } from "../components/RouterNav";
 import { BannerCarousel } from "../components/BannerCarousel";
 export function Membership() {
