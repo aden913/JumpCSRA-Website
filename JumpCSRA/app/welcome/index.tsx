@@ -5,19 +5,19 @@ import { Link } from "react-router";
 import "./index.css";
 
 const promoCards = [
-  { title: "Become a member" },
-  { title: "10% OFF This Saturday" },
-  { title: "Free SnoK" },
-  { title: "GOGO\nGive One Get One\nGift Card"},
+  { title: "Become a member", img: "/assets/cartoon-bouncehouse.png" },
+  { title: "10% OFF This Saturday", img: "/assets/cartoon-bouncehouse-slide.png" },
+  { title: "Free SnoK", img: "/assets/cartoon-bouncehouse-kids.png" },
+  { title: "GOGO\nGive One Get One\nGift Card", img: "/assets/cartoon-bouncehouse-big.png" },
 ];
 
 const options = [
-  "Castle Tower",
-  "Princess Tower",
-  "Nitro Crush",
-  "Sports Court",
-  "Adventure Island",
-  "Tidal Wave",
+  { name: "Castle Tower", img: "/assets/castle-tower.png" },
+  { name: "Princess Tower", img: "/assets/princess-tower.png" },
+  { name: "Nitro Crush", img: "/assets/nitro-crush.png" },
+  { name: "Sports Court", img: "/assets/sports-court.png" },
+  { name: "Adventure Island", img: "/assets/adventure-island.png" },
+  { name: "Tidal Wave", img: "/assets/tidal-wave.png" },
 ];
 
 export function Welcome() {
@@ -41,7 +41,7 @@ export function Welcome() {
             </div>
           </div>
           <div className="specials-card">
-            <div className="specials-img" />
+            <div className="specials-img"><img src="/assets/kids-bg.png" alt="End of Summer Specials" /></div>
             <div className="specials-text">End of Summer Specials</div>
           </div>
         </div>
@@ -61,6 +61,8 @@ export function Welcome() {
               ) : (
                 <div className="promo-title">{card.title}</div>
               )}
+                            {card.img && <img src={card.img} alt={card.title} className="promo-img" />}
+
             </div>
           ))}
         </div>
@@ -69,9 +71,10 @@ export function Welcome() {
       <section className="options-section">
         <h2>See all the options</h2>
         <div className="options-cards">
-          {options.map((opt, idx) => (
-            <div className="option-card" key={idx}>
-              <div className="option-title">{opt}</div>
+          {options.map(opt => (
+            <div className="option-card" key={opt.name}>
+              <div className="option-title">{opt.name}</div>
+                <img src={opt.img} alt={opt.name} className="option-img" />
               <button className="order-btn">ORDER NOW</button>
             </div>
           ))}

@@ -21,7 +21,7 @@ html, body {
 
 .banner {
   background: var(--coral);
-  color: var(--darkBlue);
+  color: white;
   text-align: center;
   padding: 18px 0 8px 0;
   font-size: 2rem;
@@ -30,7 +30,7 @@ html, body {
 
 .nav-bar {
   padding: 0.5rem 0;
-  color: var(--darkBlue);
+  color: var(--darkBlue) !important;
 }
 .nav-bar ul {
   display: flex;
@@ -44,6 +44,10 @@ html, body {
   font-size: 1.8rem;
   font-weight: bolder;
   cursor: pointer;
+}
+.nav-logo {
+  width: 3rem;
+  height: 3rem;
 }
 
 .main-section {
@@ -98,7 +102,7 @@ html, body {
 }
 
 .specials-card {
-  background: #fff;
+  background: #0b020237;
   border-radius: 32px;
   width: 40%;
   min-height: 110px;
@@ -113,7 +117,7 @@ html, body {
   width: 100%;
   height: 100%;
   position: absolute;
-  top: 0; left: 0;
+  bottom: 60%;
   opacity: 0.5;
 }
 .specials-text {
@@ -121,7 +125,7 @@ html, body {
   color: #fff;
   font-size: 1.8rem;
   font-weight: bold;
-  text-shadow: 0 2px 8px var(--darkBlue);
+  text-shadow: 1px 2px 1px var(--darkBlue);
   z-index: 1;
 }
 .promo-cards {
@@ -143,9 +147,10 @@ html, body {
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
 }
 .promo-card img {
-  width: 60px;
-  height: 60px;
+  width: 9rem;
+  height: 9rem;
   margin-bottom: 0.5rem;
+  margin-top:auto;
 }
 .promo-title {
   text-align: center;
@@ -180,7 +185,7 @@ html, body {
   color: var(--darkBlue);
   border-radius: 32px;
   padding: 1rem 0.7rem 0.7rem 0.7rem;
-  width: 125px;
+  width: 10rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -188,14 +193,16 @@ html, body {
   margin-bottom: 1rem;
 }
 .option-card img {
-  width: 60px;
-  height: 60px;
+  width: 10rem;
+  height: 10rem;
   margin-bottom: 0.5rem;
+    border-radius: 32px;
+
 }
 .option-title {
   font-size: 1.2rem;
     font-weight: bold;
-
+  margin-bottom: auto;
   margin-bottom: 0.5rem;
 }
 .order-btn {
@@ -207,6 +214,7 @@ html, body {
   font-size: 1rem;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  margin-top:auto
 }
 
 .reviews-section {
