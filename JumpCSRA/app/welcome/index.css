@@ -167,6 +167,14 @@ html, body {
   padding: 2rem 0 1.9rem 0;
   text-align: center;
   width:100%;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+}
+.options-carousel {
+  width:70%;
+  margin-top: 4rem;
 }
 .options-section h2 {
   color: #fff;
@@ -177,7 +185,7 @@ html, body {
 .options-cards {
   display: flex;
   justify-content: center;
-  gap: 1.2rem;
+  gap: 1rem;
   flex-wrap: wrap;
 }
 .option-card {
@@ -191,13 +199,13 @@ html, body {
   align-items: center;
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
   margin-bottom: 1rem;
+  margin-right: 0 !important;
 }
 .option-card img {
   width: 10rem;
   height: 10rem;
   margin-bottom: 0.5rem;
     border-radius: 32px;
-
 }
 .option-title {
   font-size: 1.2rem;
@@ -205,6 +213,37 @@ html, body {
   margin-bottom: auto;
   margin-bottom: 0.5rem;
 }
+
+/*/.react-multi-carousel-item{width: 200px !important;}
+
+/* Option Card Title Marquee */
+.option-title.marquee-container {
+  position: relative;
+  width: 160px;
+  height: 1.3em;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+   color: var(--primary-dark);
+  background: transparent;
+}
+
+.marquee-text {
+  display: inline-block;
+  white-space: nowrap;
+  font-size: 1.1rem;
+  font-weight: bold;
+  animation: marquee-scroll 6s linear infinite;
+}
+
+@keyframes marquee-scroll {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
 .order-btn {
     background: var(--darkBlue);
   color: var(--coral);
