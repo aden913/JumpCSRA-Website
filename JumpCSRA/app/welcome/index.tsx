@@ -1,4 +1,7 @@
+
+import { ModalCarousel } from "../components/ModalCarousel";
 import { OptionsCarousel } from "../components/OptionsCarousel";
+
 import React, { useEffect, useLayoutEffect, useState, useRef } from "react";
 import { BannerCarousel } from "../components/BannerCarousel";
 import { RouterNav } from "../components/RouterNav";
@@ -12,7 +15,7 @@ const promoCards = [
   { title: "Become a member", img: "/assets/cartoon-bouncehouse.png" },
   { title: "10% OFF This Saturday", img: "/assets/cartoon-bouncehouse-slide.png" },
   { title: "Free SnoK", img: "/assets/cartoon-bouncehouse-kids.png" },
-  { title: "GOGO\nGive One Get One\nGift Card", img: "/assets/cartoon-bouncehouse-big.png" },
+  { title: "GOGO Give One Get One Gift Card", img: "/assets/cartoon-bouncehouse-big.png" },
 ];
 
 const options = [
@@ -97,6 +100,23 @@ useLayoutEffect(() => {
 }
 
 export function Welcome() {
+  // const [modalOpen, setModalOpen] = useState(false);
+  // const [modalType, setModalType] = useState<string | null>(null);
+
+  // function handleNavClick(type: string) {
+  //   setModalType(type);
+  //   setModalOpen(true);
+  // }
+
+  // // Example filtering logic by type
+  // const filteredOptions = options.filter(opt => {
+  //   if (modalType === "Bounce House") return opt.name.toLowerCase().includes("bounce");
+  //   if (modalType === "Water Slide") return opt.name.toLowerCase().includes("slide");
+  //   if (modalType === "Obstacle Course") return opt.name.toLowerCase().includes("obstacle");
+  //   if (modalType === "Games") return opt.name.toLowerCase().includes("game");
+  //   return true;
+  // });
+
   return (
     <div className="landing-page">
       {/* Header - Carousel */}
@@ -104,7 +124,7 @@ export function Welcome() {
         <BannerCarousel />
       </header>
       {/* Navigation - RouterNav */}
-      <RouterNav />
+  <RouterNav />
       {/* Main Section */}
       <section className="main-section">
         <div className="search-promo">
@@ -145,6 +165,14 @@ export function Welcome() {
         <h2>See all the options</h2>
         <OptionsCarousel options={options} />
       </section>
+      {/*
+      <ModalCarousel
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        options={filteredOptions}
+        title={modalType || ""}
+      />
+      */}
       {/* Footer */}
       <footer className="footer">
         <div>
@@ -155,6 +183,16 @@ export function Welcome() {
         <div>
           803-221-0466<br />
           JumpCSRA@gmail.com
+        </div>
+        <div>
+          <a href="https://www.instagram.com/jumpcsra/" target="_blank" rel="noopener noreferrer">
+            <img src="/assets/instagram-icon.avif" alt="Instagram Logo" className="footer-icons" />
+          </a>
+          </div>
+          <div>
+          <a href="https://www.facebook.com/JUMPCSRA/" target="_blank" rel="noopener noreferrer">
+            <img src="/assets/fb-icon.avif" alt="Facebook Logo" className="footer-icons" />
+          </a>
         </div>
       </footer>
     </div>

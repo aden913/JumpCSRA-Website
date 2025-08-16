@@ -1,18 +1,20 @@
-import React from "react";
 import { Link } from "react-router";
-import "../welcome/index.css";
 
-export function RouterNav() {
+type RouterNavProps = {
+  onNavClick?: (type: string) => void;
+};
+
+export function RouterNav({ onNavClick }: RouterNavProps) {
   return (
     <nav className="nav-bar">
       <ul>
-          <Link to="/" style={{ display: "inline-block" }}>
-            <img src="/favicon.ico" alt="JumpCSRA Logo" className="nav-logo" />
-          </Link>
-        <li><Link to="/">Bounce House</Link></li>
-        <li><Link to="/water-slide">Water Slide</Link></li>
-        <li><Link to="/obstacle-course">Obstacle Course</Link></li>
-        <li><Link to="/games">Games</Link></li>
+        <Link to="/" style={{ display: "inline-block" }}>
+          <img src="/favicon.ico" alt="JumpCSRA Logo" className="nav-logo" />
+        </Link>
+        <li><button type="button" onClick={() => onNavClick && onNavClick("Bounce House")}>Bounce House</button></li>
+        <li><button type="button" onClick={() => onNavClick && onNavClick("Water Slide")}>Water Slide</button></li>
+        <li><button type="button" onClick={() => onNavClick && onNavClick("Obstacle Course")}>Obstacle Course</button></li>
+        <li><button type="button" onClick={() => onNavClick && onNavClick("Games")}>Games</button></li>
       </ul>
     </nav>
   );

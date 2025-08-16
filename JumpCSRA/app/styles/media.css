@@ -1,0 +1,8 @@
+/* Responsive styles */
+@media (max-width: 900px) {
+  .search-promo, .promo-cards, .options-cards {
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+}

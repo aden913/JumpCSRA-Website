@@ -1,0 +1,12 @@
+/* Swiper carousel styles */
+.swiper {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.swiper-slide {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  height: auto;
+}

@@ -1,0 +1,28 @@
+/* Specials card styles */
+.specials-card {
+  background: #0b020237;
+  border-radius: 32px;
+  width: 40%;
+  min-height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+.specials-img {
+  background: var(--lightGray);
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  bottom: 60%;
+  opacity: 0.5;
+}
+.specials-text {
+  position: relative;
+  color: #fff;
+  font-size: 1.8rem;
+  font-weight: bold;
+  text-shadow: 1px 2px 1px var(--darkBlue);
+  z-index: 1;
+}

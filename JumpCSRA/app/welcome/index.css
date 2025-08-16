@@ -172,6 +172,20 @@ html, body {
   flex-direction: column;
   align-items: center;
 }
+
+.swiper {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.swiper-slide {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  height: auto;
+}
+
 .options-carousel {
   width:70%;
   margin-top: 4rem;
@@ -299,6 +313,11 @@ html, body {
 .footer div {
   margin-bottom: 0.5rem;
   padding:2rem;
+}
+.footer-icons{
+  width: 3.5rem;
+  height: 3.5rem;
+
 }
 @media (max-width: 900px) {
   .search-promo, .promo-cards, .options-cards {

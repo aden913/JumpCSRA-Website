@@ -1,0 +1,35 @@
+/* Promo cards styles */
+.promo-cards {
+  display: flex;
+  gap: 1.2rem;
+  margin-top: 1.2rem;
+}
+.promo-card {
+  line-height: 1.3rem;
+  background: #fff;
+  color: var(--darkBlue);
+  font-weight: bolder;
+  border-radius: 32px;
+  padding: 1rem 0.7rem 0.7rem 0.7rem;
+  width: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.promo-card img {
+  width: 9rem;
+  height: 9rem;
+  margin-bottom: 0.5rem;
+  margin-top:auto;
+}
+.promo-title {
+  text-align: center;
+  font-size: 1.2rem;
+  white-space: pre-line;
+}
+.promo-subtext {
+  font-size: 0.8rem;
+  line-height: 1.2;
+  margin-bottom: -0.3rem;
+}

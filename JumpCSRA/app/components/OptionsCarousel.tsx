@@ -1,5 +1,7 @@
 import React, { useLayoutEffect, useState, useRef } from "react";
-import Carousel from "react-multi-carousel";
+import { Swiper, SwiperSlide } from "swiper/react";
+import "swiper/css";
+import "swiper/css/navigation";
 
 export type OptionCardProps = {
   name: string;
@@ -49,22 +51,23 @@ export type OptionsCarouselProps = {
 
 export function OptionsCarousel({ options }: OptionsCarouselProps) {
   return (
-    <Carousel
-      ssr={true}
-      infinite={true}
-      responsive={{
-        desktop: { breakpoint: { max: 3000, min: 1024 }, items: 6, slidesToSlide: 6 },
-        tablet: { breakpoint: { max: 1024, min: 464 }, items: 2, slidesToSlide: 2 },
-        mobile: { breakpoint: { max: 464, min: 0 }, items: 1, slidesToSlide: 1 }
+    <Swiper
+      slidesPerView={6}
+      spaceBetween={24}
+      navigation={true}
+      breakpoints={{
+        1024: { slidesPerView: 6 },
+        464: { slidesPerView: 2 },
+        0: { slidesPerView: 1 }
       }}
-      arrows
-      keyBoardControl={true}
-      containerClass="options-carousel"
-      itemClass="carousel-item-padding-40-px"
+      style={{ padding: "1rem 0" }}
     >
-      {options.map(opt => (
-        <OptionCard key={opt.name} name={opt.name} img={opt.img} />
+      {options.map((opt) => (
+        <SwiperSlide key={opt.name}>
+          <OptionCard name={opt.name} img={opt.img} />
+        </SwiperSlide>
       ))}
-    </Carousel>
+    </Swiper>
   );
 }
+

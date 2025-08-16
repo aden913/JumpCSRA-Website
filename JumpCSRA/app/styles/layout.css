@@ -1,0 +1,69 @@
+/* General layout and variables */
+:root {
+  --darkBlue: #354D65;
+  --coral: #FA6C6C;
+  --lightGray: #d9d9d9;
+  --starYellow: #F5D329;
+  --lightBlue: #51CBC2;
+}
+
+html, body {
+  background:white;
+}
+
+.landing-page {
+  display:flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  color: var(--coral);
+}
+
+.banner {
+  background: var(--coral);
+  color: white;
+  text-align: center;
+  padding: 18px 0 8px 0;
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+.main-section {
+  background: var(--darkBlue);
+  border-radius: 5px;
+  width:70%;
+  padding: 2rem 0 1.5rem 0;
+  margin-top:1rem;
+  margin-bottom: 3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.footer {
+  color: white;
+  background: var(--darkBlue);
+  display: flex;
+  justify-content: center;
+  padding: 2rem 2.5rem 2rem 2.5rem;
+  font-size: 1.1rem;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.footer div {
+  margin-bottom: 0.5rem;
+  padding:2rem;
+}
+.footer-icons{
+  width: 3.5rem;
+  height: 3.5rem;
+}
+
+@media (max-width: 900px) {
+  .footer {
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem;
+    text-align: center;
+  }
+}
