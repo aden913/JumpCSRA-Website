@@ -9,6 +9,7 @@ import { Link } from "react-router";
 
 import "./index.css";
 import "react-multi-carousel/lib/styles.css";
+import "../styles/modal.css";
 
 
 const promoCards = [
@@ -19,46 +20,47 @@ const promoCards = [
 ];
 
 const options = [
-  { name: "Castle Tower", img: "/assets/inflateables/castle-tower.png" },
-  { name: "Princess Tower", img: "/assets/inflateables/princess-tower.png" },
-  { name: "Nitro Crush", img: "/assets/inflateables/nitro-crush.png" },
-  { name: "Sports Court", img: "/assets/inflateables/sports-court.png" },
-  { name: "Adventure Island", img: "/assets/inflateables/adventure-island.png" },
-  { name: "Tidal Wave", img: "/assets/inflateables/tidal-wave.png" },
-  { name: "5 Player Wrecking Ball", img: "/assets/inflateables/5-player-wrecking-ball.png" },
-  { name: "Adrenaline Rush Obstacle Course", img: "/assets/inflateables/adrenaline-rush-obstacle-course.png" },
-  { name: "Basketball Double Jump Shot", img: "/assets/inflateables/basketball-double-jump-shot.png" },
-  { name: "Beach Blast", img: "/assets/inflateables/beach-blast.png" },
-  { name: "Beer Pong", img: "/assets/inflateables/beer-pong.png" },
-  { name: "Chairs", img: "/assets/inflateables/chair.png" },
-  { name: "Color Chaos", img: "/assets/inflateables/color-chaos.png" },
-  { name: "Color Splash Castle", img: "/assets/inflateables/color-splash-castle.png" },
-  { name: "Cotton Candy Castle", img: "/assets/inflateables/cotton-candy-castle.png" },
-  { name: "Custom Theme", img: "/assets/inflateables/custom-theme.png" },
-  { name: "Fire and Ice", img: "/assets/inflateables/fire-and-ice.png" },
-  { name: "Fun in the Sun", img: "/assets/inflateables/fun-in-the-sun.png" },
-  { name: "Gladiator Joust", img: "/assets/inflateables/gladiator-joust.png" },
-  { name: "H2O Slip and Slide", img: "/assets/inflateables/h2o-slip-and-slide.png" },
-  { name: "Hang Time", img: "/assets/inflateables/hang-time.png" },
-  { name: "High Time To Party", img: "/assets/inflateables/high-time-to-party.png" },
-  { name: "High Velocity", img: "/assets/inflateables/high-velocity.png" },
-  { name: "Home Run Challenge", img: "/assets/inflateables/home-run-challenge.png" },
-  { name: "Mega Rush", img: "/assets/inflateables/mega-rush.png" },
-  { name: "Party With the Stars", img: "/assets/inflateables/party-with-the-stars.png" },
-  { name: "Princess Palace", img: "/assets/inflateables/princess-palace.png" },
-  { name: "SpongeBob", img: "/assets/inflateables/spongebob.png" },
-  { name: "Tables", img: "/assets/inflateables/white-table.png" },
-  { name: "Tunnel Tower", img: "/assets/inflateables/tunnel-tower.png" },
-  { name: "Turbo Splash", img: "/assets/inflateables/turbo-splash.png" },
-  { name: "Twinkle Palace", img: "/assets/inflateables/twinkle-palace.png" },
-  { name: "Wave Rider", img: "/assets/inflateables/wave-rider.png" },
-  { name: "Yard Letters", img: "/assets/inflateables/yard-letters.png" },
-
+  { name: "Castle Tower", img: "/assets/inflateables/castle-tower.png", category: ["bounce"] },
+  { name: "Princess Tower", img: "/assets/inflateables/princess-tower.png", category: ["bounce"] },
+  { name: "Nitro Crush", img: "/assets/inflateables/nitro-crush.png", category: ["obstacle"] },
+  { name: "Sports Court", img: "/assets/inflateables/sports-court.png", category: ["bounce", "game"] },
+  { name: "Adventure Island", img: "/assets/inflateables/adventure-island.png", category: ["bounce"] },
+  { name: "Tidal Wave", img: "/assets/inflateables/tidal-wave.png", category: ["obstacle", "water"] },
+  { name: "5 Player Wrecking Ball", img: "/assets/inflateables/5-player-wrecking-ball.png", category: ["game"] },
+  { name: "Adrenaline Rush Obstacle Course", img: "/assets/inflateables/adrenaline-rush-obstacle-course.png", category: ["obstacle"] },
+  { name: "Basketball Double Jump Shot", img: "/assets/inflateables/basketball-double-jump-shot.png", category: ["game"] },
+  { name: "Beach Blast", img: "/assets/inflateables/beach-blast.png", category: ["water"] },
+  { name: "Beer Pong", img: "/assets/inflateables/beer-pong.png", category: ["game"] },
+  { name: "Chairs", img: "/assets/inflateables/chair.png", category: ["none"] },
+  { name: "Color Chaos", img: "/assets/inflateables/color-chaos.png", category: ["water"] },
+  { name: "Color Splash Castle", img: "/assets/inflateables/color-splash-castle.png", category: ["water"] },
+  { name: "Cotton Candy Castle", img: "/assets/inflateables/cotton-candy-castle.png", category: ["bounce"] },
+  { name: "Custom Theme", img: "/assets/inflateables/custom-theme.png", category: ["bounce"] },
+  { name: "Fire and Ice", img: "/assets/inflateables/fire-and-ice.png", category: ["water"] },
+  { name: "Fun in the Sun", img: "/assets/inflateables/fun-in-the-sun.png", category: ["water"] },
+  { name: "Gladiator Joust", img: "/assets/inflateables/gladiator-joust.png", category: ["game"] },
+  { name: "H2O Slip and Slide", img: "/assets/inflateables/h2o-slip-and-slide.png", category: ["water"] },
+  { name: "Hang Time", img: "/assets/inflateables/hang-time.png", category: ["water"] },
+  { name: "High Time To Party", img: "/assets/inflateables/high-time-to-party.png", category: ["water"] },
+  { name: "High Velocity", img: "/assets/inflateables/high-velocity.png", category: ["obstacle"] },
+  { name: "Home Run Challenge", img: "/assets/inflateables/home-run-challenge.png", category: ["game"] },
+  { name: "Mega Rush", img: "/assets/inflateables/mega-rush.png", category: ["obstacle"] },
+  { name: "Party With the Stars", img: "/assets/inflateables/party-with-the-stars.png", category: ["bounce"] },
+  { name: "Princess Palace", img: "/assets/inflateables/princess-palace.png", category: ["bounce"] },
+  { name: "SpongeBob", img: "/assets/inflateables/spongebob.png", category: ["bounce"] },
+  { name: "Tables", img: "/assets/inflateables/white-table.png", category: ["none"] },
+  { name: "Tunnel Tower", img: "/assets/inflateables/tunnel-tower.png", category: ["bounce"] },
+  { name: "Turbo Splash", img: "/assets/inflateables/turbo-splash.png", category: ["water"] },
+  { name: "Twinkle Palace", img: "/assets/inflateables/twinkle-palace.png", category: ["bounce"] },
+  { name: "Wave Rider", img: "/assets/inflateables/wave-rider.png", category: ["water"] },
+  { name: "Yard Letters", img: "/assets/inflateables/yard-letters.png", category: ["none"] },
 ];
+
 
 type OptionCardProps = {
   name: string;
   img: string;
+  category: string[];
 };
 
 function OptionCard({ name, img }: OptionCardProps) {
@@ -100,22 +102,23 @@ useLayoutEffect(() => {
 }
 
 export function Welcome() {
-  // const [modalOpen, setModalOpen] = useState(false);
-  // const [modalType, setModalType] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<string | null>(null);
 
-  // function handleNavClick(type: string) {
-  //   setModalType(type);
-  //   setModalOpen(true);
-  // }
+  function handleNavClick(type: string) {
+    setModalType(type);
+    setModalOpen(true);
+  }
 
-  // // Example filtering logic by type
-  // const filteredOptions = options.filter(opt => {
-  //   if (modalType === "Bounce House") return opt.name.toLowerCase().includes("bounce");
-  //   if (modalType === "Water Slide") return opt.name.toLowerCase().includes("slide");
-  //   if (modalType === "Obstacle Course") return opt.name.toLowerCase().includes("obstacle");
-  //   if (modalType === "Games") return opt.name.toLowerCase().includes("game");
-  //   return true;
-  // });
+  // Filtering logic for modal carousel
+  const filteredOptions = options.filter(opt => {
+    if (!modalType) return true;
+    if (modalType === "Bounce House") return opt.category.includes("bounce");
+    if (modalType === "Water Slide") return opt.category.includes("water");
+    if (modalType === "Obstacle Course") return opt.category.includes("obstacle");
+    if (modalType === "Games") return opt.category.includes("game");
+    return true;
+  });
 
   return (
     <div className="landing-page">
@@ -123,8 +126,8 @@ export function Welcome() {
       <header className="banner">
         <BannerCarousel />
       </header>
-      {/* Navigation - RouterNav */}
-  <RouterNav />
+  {/* Navigation - RouterNav */}
+  <RouterNav onNavClick={handleNavClick} />
       {/* Main Section */}
       <section className="main-section">
         <div className="search-promo">
@@ -165,14 +168,13 @@ export function Welcome() {
         <h2>See all the options</h2>
         <OptionsCarousel options={options} />
       </section>
-      {/*
+      {/* Modal for filtered carousel */}
       <ModalCarousel
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         options={filteredOptions}
         title={modalType || ""}
       />
-      */}
       {/* Footer */}
       <footer className="footer">
         <div>

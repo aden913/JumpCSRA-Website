@@ -11,10 +11,18 @@ export function RouterNav({ onNavClick }: RouterNavProps) {
         <Link to="/" style={{ display: "inline-block" }}>
           <img src="/favicon.ico" alt="JumpCSRA Logo" className="nav-logo" />
         </Link>
-        <li><button type="button" onClick={() => onNavClick && onNavClick("Bounce House")}>Bounce House</button></li>
-        <li><button type="button" onClick={() => onNavClick && onNavClick("Water Slide")}>Water Slide</button></li>
-        <li><button type="button" onClick={() => onNavClick && onNavClick("Obstacle Course")}>Obstacle Course</button></li>
-        <li><button type="button" onClick={() => onNavClick && onNavClick("Games")}>Games</button></li>
+        <li>
+          <button type="button" className="nav-btn" onClick={() => onNavClick && onNavClick("Bounce House")}>Bounce House</button>
+        </li>
+        <li>
+          <button type="button" className="nav-btn" onClick={() => onNavClick && onNavClick("Water Slide")}>Water Slide</button>
+        </li>
+        <li>
+          <button type="button" className="nav-btn" onClick={() => onNavClick && onNavClick("Obstacle Course")}>Obstacle Course</button>
+        </li>
+        <li>
+          <button type="button" className="nav-btn" onClick={() => onNavClick && onNavClick("Games")}>Games</button>
+        </li>
       </ul>
     </nav>
   );
