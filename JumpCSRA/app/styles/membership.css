@@ -61,6 +61,7 @@ gap: 2rem;
 #membership-title {
   margin:2rem;
   font-size: 2rem;
+  font-weight: bolder;
 }
 .membership-card span.right {
   text-align: right;
@@ -98,4 +99,11 @@ gap: 2rem;
   margin-top: 3rem;
   font-size: 1.5rem;
   font-weight: bold;
+}
+.membership-div {
+  background-color: #FA6C6C;
+  color:#354D65;
+  padding:1rem;
+  margin:2rem;
+  border-radius: 30px;
 }

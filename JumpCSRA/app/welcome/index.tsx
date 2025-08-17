@@ -10,7 +10,7 @@ import { Link } from "react-router";
 import "./index.css";
 import "react-multi-carousel/lib/styles.css";
 import "../styles/modal.css";
-
+import "../styles/membership.css";
 
 const promoCards = [
   { title: "Become a member", img: "/assets/cartoon-bouncehouse.png" },
@@ -104,6 +104,7 @@ useLayoutEffect(() => {
 export function Welcome() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<string | null>(null);
+  const [membershipOpen, setMembershipOpen] = useState(false);
 
   function handleNavClick(type: string) {
     setModalType(type);
@@ -146,9 +147,14 @@ export function Welcome() {
           {promoCards.map((card, idx) => (
             <div className="promo-card" key={idx}>
               {card.title.includes("Become a member") ? (
-                <Link to="/membership" style={{ textDecoration: "none", color: "inherit", width: "100%", display: "block" }}>
-                  <div className="promo-title">{card.title}</div>
-                </Link>
+                <button
+                  type="button"
+                  className="promo-title"
+                  style={{ background: "none", border: "none", color: "inherit", width: "100%", display: "block", cursor: "pointer", font: "inherit", padding: 0 }}
+                  onClick={() => setMembershipOpen(true)}
+                >
+                  {card.title}
+                </button>
               ) : card.title.includes("Give One Get One") ? (
                 <div className="promo-title">
                   GOGO<br />
@@ -175,6 +181,34 @@ export function Welcome() {
         options={filteredOptions}
         title={modalType || ""}
       />
+      {/* Membership Info Popup */}
+      {membershipOpen && (
+        <div className="modal-overlay fade-in" onClick={() => setMembershipOpen(false)}>
+          <div className="modal-shadow" />
+          <div className="modal-content popup" onClick={e => e.stopPropagation()}>
+            <h2 className="modal-title">Membership Information</h2>
+            <div style={{textAlign: "left", maxWidth: "600px", margin: "0 auto"}}>
+              <div className="membership-div">
+              <h3 id="membership-title">Jump CSRA Membership</h3>
+              </div>
+              <ul style={{fontSize: "1.2rem", lineHeight: "2"}}>
+                <div className="membership-div">
+                <li>Exclusive member discounts on all rentals</li>
+                <li>Priority booking for popular dates</li>
+                <li>Free delivery within service area</li>
+                <li>Special member-only events and offers</li>
+                <li>Early access to new inflatables</li>
+                </div>
+              </ul>
+              <div className="membership-getstarted" style={{marginTop: "2rem"}}>
+                <strong>Ready to join?</strong><br />
+                Call <a href="tel:803-221-0466">803-221-0466</a> or email <a href="mailto:JumpCSRA@gmail.com">JumpCSRA@gmail.com</a>
+              </div>
+            </div>
+            <button className="modal-close" onClick={() => setMembershipOpen(false)}>Close</button>
+          </div>
+        </div>
+      )}
       {/* Footer */}
       <footer className="footer">
         <div>
