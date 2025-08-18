@@ -1,172 +1,172 @@
 [
   {
     "name": "Castle Tower",
-    "price": 200,
-    "description": ""
-  },
-  {
-    "name": "Princess Tower",
-    "price": 200,
+    "price": "$200= Weekday $250= Saturday or Sunday 50% off any additional day",
     "description": ""
   },
   {
     "name": "Nitro Crush",
-    "price": 200,
+    "price":"$= Weekday $= Saturday or Sunday 50% off any additional day",
     "description": ""
   },
   {
     "name": "Sports Court",
-    "price": 200,
+    "price": "175= Weekday $200= Saturday or Sunday 50% off any additional day",
     "description": ""
   },
   {
     "name": "Adventure Island",
-    "price": 200,
-    "description": ""
+    "price": "200= Weekday $250= Saturday or Sunday 50% off any additional day",
+    "description": "Our ADVENTURE ISLAND combo features a large bouncing area and climbing wall with a water slide. Kids will love the color and fun their imaginations will have in this bounce house combo. 20'W x 30'L x 17'H space needed."
   },
   {
     "name": "Tidal Wave",
-    "price": 200,
-    "description": ""
+    "price": "$700 = Weekday $800 = Saturday or Sunday 50% off any additional day",
+    "description": "This is it -- our biggest and baddest inflatable! Book the TIDAL WAVE if you want to have every neighbor stopping by and taking a look. Adults and kids will experience the ultimate thrill rush as they surf down the 27ft high slide and across the slip-n-slide before splashing in the pool. 80ft x 30ft space needed."
   },
   {
     "name": "5 Player Wrecking Ball",
-    "price": 200,
-    "description": ""
+    "price": "$200= Weekday $250= Saturday or Sunday 50% off any additional day",
+    "description": "The 5 Player Wrecking Ball is sure to entertain for hours at any event. Up to five players stand on the inflatable podiums and hurl the wrecking balls and try to knock opponents off their podiums. The rules are simple: last person standing wins! 25'W x 25'L x 18'H space needed."
   },
   {
     "name": "Adrenaline Rush Obstacle Course",
-    "price": 200,
+    "price":"$= Weekday $= Saturday or Sunday 50% off any additional day",
     "description": ""
   },
   {
     "name": "Basketball Double Jump Shot",
-    "price": 200,
-    "description": ""
+    "price": "$100 = Weekday $150 = Saturday or Sunday 50% off any additional day",
+    "description": "Step up your game and start shooting on the DOUBLE JUMP SHOT. Bright colors, two hoops and comes with two basketballs. Add this to any rental or get it by itself."
   },
   {
     "name": "Beach Blast",
-    "price": 200,
-    "description": ""
+    "price":"$250= Weekday $300= Saturday or Sunday 50% off any additional day",
+    "description": "Our BEACH BLAST waterslide features a 14ft tall water slide with a rush down to the inflatable pool at the bottom. This slide will be the hit of your weekend parties or midweek surprises. It's also available as a dry slide for all seasons or indoors. 20'W x 30'L x 18'H space needed."
   },
   {
     "name": "Beer Pong",
-    "price": 200,
+    "price":"$= Weekday $= Saturday or Sunday 50% off any additional day",
     "description": ""
   },
   {
     "name": "Chairs",
-    "price": 200,
+    "price":"$= Weekday $= Saturday or Sunday 50% off any additional day",
     "description": ""
   },
   {
     "name": "Color Chaos",
-    "price": 200,
-    "description": ""
+    "price":"$300= Weekday $350= Saturday or Sunday 50% off any additional day",
+    "description": "Get ready for all the fun your kids can handle on the 15 ft COLOR CHAOS waterslide. Brighter and more colorful than all the colors of summer. Book this amazing waterslide for your next event or party! 20'W x 30'L x 20'H space needed."
   },
   {
     "name": "Color Splash Castle",
-    "price": 200,
+    "price":"$= Weekday $= Saturday or Sunday 50% off any additional day",
     "description": ""
   },
   {
     "name": "Cotton Candy Castle",
-    "price": 200,
+    "price":"$= Weekday $= Saturday or Sunday 50% off any additional day",
     "description": ""
   },
   {
     "name": "Custom Theme",
-    "price": 200,
+    "price": "$175 = Weekday $200 = Saturday or Sunday 50% off any additional day",
     "description": ""
   },
   {
     "name": "Fire and Ice",
-    "price": 200,
-    "description": ""
+    "price":"$450= Weekday $500= Saturday or Sunday 50% off any additional day",
+    "description": "22' FIRE AND ICE double waterslide  when you ride the wave through a slippery curve and launch into the water pool. With two lanes, race down the cool rapids and beat the heat and long lines at the water park. 40ft x 35ft space needed."
   },
   {
     "name": "Fun in the Sun",
-    "price": 200,
-    "description": ""
+    "price": "$250= Weekday $300= Saturday or Sunday 50% off any additional day",
+    "description": "Our FUN IN THE SUN waterslide features a 14ft tall water slide with a rush down to the inflatable pool at the bottom. This slide will be the hit of your weekend parties or midweek surprises. It's also available as a dry slide for all seasons or indoors. 20'W x 30'L x 18'H space needed."
   },
   {
     "name": "Gladiator Joust",
-    "price": 200,
-    "description": ""
+    "price": "$200= Weekday $250= Saturday or Sunday 50% off any additional day",
+    "description": "The Gladiator Joust comes complete with headgear and a pair of jousting poles, ready to start your jousting tournament in minutes! Challenge your opponent by standing on the pedestals and try to knock them off with the poles. Last one standing wins! Great for larger groups and team building exercises. 25'W x 25'L x 10'H space needed."
   },
   {
     "name": "H2O Slip and Slide",
-    "price": 200,
+    "price":"$= Weekday $= Saturday or Sunday 50% off any additional day",
     "description": ""
   },
   {
     "name": "Hang Time",
-    "price": 200,
+    "price":"$= Weekday $= Saturday or Sunday 50% off any additional day",
     "description": ""
   },
   {
     "name": "High Time To Party",
-    "price": 200,
-    "description": ""
+    "price":"$300= Weekday $350= Saturday or Sunday 50% off any additional day",
+    "description": "It's hot and time to get on the 15' HIGH TIME TO PARTY waterslide to cool off. Just turn on the water and let it cool you off as you slide into the pool at the bottom of the inflatable slide. 35ft x 25ft space needed."
   },
   {
     "name": "High Velocity",
-    "price": 200,
-    "description": ""
+    "price":"$325= Weekday $375= Saturday or Sunday 50% off any additional day",
+    "description": "It's time for speed on our 20' HIGH-VELOCITY waterslide. On this double slide, kids will have the time of their lives. You can also upgrade and combine with our HIGH-VELOCITY OBSTACLE COURSE for the ultimate experience. 40ft x 25ft space needed."
   },
   {
     "name": "Home Run Challenge",
-    "price": 200,
-    "description": ""
+    "price": "$100 = Weekday $150 = Saturday or Sunday 50% off any additional day",
+    "description": "Home Run Challenge lets you experience the big leagues with these baseball-themed inflatable games. Players can step up to the plate and hit baseballs into an enclosed outfield."
   },
   {
     "name": "Mega Rush",
-    "price": 200,
+    "price":"$= Weekday $= Saturday or Sunday 50% off any additional day",
     "description": ""
   },
   {
     "name": "Party With the Stars",
-    "price": 200,
-    "description": ""
+    "price": "$200 = Weekday $250 = Saturday or Sunday 50% off any additional day",
+    "description": "The PARTY WITH THE STARS bounce house combo features a red, white, and blue theme with a spacious bouncing area and a slide that will keep kids jumping for hours! \n\n20'W x 30'L x 17'H space needed.\n\n"
   },
   {
     "name": "Princess Palace",
-    "price": 200,
-    "description": ""
+    "price": "$200 = Weekday $250 = Saturday or Sunday 50% off any additional day",
+    "description": "The PRINCESS PALACE bounce house combo is perfect for your little princess! With its beautiful pink and purple design, spacious bouncing area, and slide, it will provide hours of fun for your royal guests! \n\n20'W x 30'L x 17'H space needed.\n\n "
+  },
+  {
+    "name": "Princess Tower",
+    "price": "$175 = Weekday $200 = Saturday or Sunday 50% off any additional day",
+    "description": "On the PRINCESS CASTLE, kids rule the kingdom with plenty of room for bouncing all day long. This Princess Castle also includes a slide for extra fun! This one is better for younger girls compared to our Princess Palace. 18'W x 20'L x 17'H space needed. "
   },
   {
     "name": "SpongeBob",
-    "price": 200,
+    "price":"$= Weekday $= Saturday or Sunday 50% off any additional day",
     "description": ""
   },
   {
     "name": "Tables",
-    "price": 200,
+    "price":"$= Weekday $= Saturday or Sunday 50% off any additional day",
     "description": ""
   },
   {
     "name": "Tunnel Tower",
-    "price": 200,
+    "price": "$200= Weekday $250= Saturday or Sunday 50% off any additional day",
     "description": ""
   },
   {
     "name": "Turbo Splash",
-    "price": 200,
-    "description": ""
+    "price":"$200= Weekday $250= Saturday or Sunday 50% off any additional day",
+    "description": "Your kids will stay on our 15' TURBO SPLASH waterslide for the entire day. That's right -- kids, teenagers, and adults can all have fun on this waterslide! It is perfectly designed with a front side load in for safety and fun.  35ft x 25ft space needed."
   },
   {
     "name": "Twinkle Palace",
-    "price": 200,
+    "price":"$= Weekday $= Saturday or Sunday 50% off any additional day",
     "description": ""
   },
   {
     "name": "Wave Rider",
-    "price": 200,
-    "description": ""
+    "price":"$400= Weekday $450= Saturday or Sunday 50% off any additional day",
+    "description": "Brand NEW in 2022! Kids are ready to race and surf down this 18ft WAVE RIDER double waterslide and splash into the water pool at the bottom. This double water slide is perfect for large and small events. Also available dry if you don't need water. 20ftW x 40ftL x 20ftH area needed."
   },
   {
     "name": "Yard Letters",
-    "price": 200,
+    "price":"$= Weekday $= Saturday or Sunday 50% off any additional day",
     "description": ""
   }
 ]
