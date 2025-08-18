@@ -6,9 +6,10 @@ import "swiper/css/navigation";
 export type OptionCardProps = {
   name: string;
   img: string;
+  onOrder?: (name: string) => void;
 };
 
-function OptionCard({ name, img }: OptionCardProps) {
+function OptionCard({ name, img, onOrder }: OptionCardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLSpanElement>(null);
   const [isOverflow, setIsOverflow] = useState(true);
@@ -40,7 +41,7 @@ function OptionCard({ name, img }: OptionCardProps) {
         </span>
       </div>
       <img src={img} draggable="false" alt={name} className="option-img" />
-      <button className="order-btn">ORDER NOW</button>
+      <button className="order-btn" onClick={() => onOrder && onOrder(name)}>ORDER NOW</button>
     </div>
   );
 }
@@ -64,7 +65,7 @@ export function OptionsCarousel({ options }: OptionsCarouselProps) {
     >
       {options.map((opt) => (
         <SwiperSlide key={opt.name}>
-          <OptionCard name={opt.name} img={opt.img} />
+          <OptionCard {...opt} />
         </SwiperSlide>
       ))}
     </Swiper>

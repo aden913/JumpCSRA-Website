@@ -3,6 +3,8 @@ import { ModalCarousel } from "../components/ModalCarousel";
 import { OptionsCarousel } from "../components/OptionsCarousel";
 
 import React, { useEffect, useLayoutEffect, useState, useRef } from "react";
+import { Swiper, SwiperSlide } from "swiper/react";
+import "swiper/css";
 import { BannerCarousel } from "../components/BannerCarousel";
 import { RouterNav } from "../components/RouterNav";
 import { Link } from "react-router";
@@ -18,6 +20,9 @@ const promoCards = [
   { title: "Free SnoK", img: "/assets/cartoon-bouncehouse-kids.png" },
   { title: "GOGO Give One Get One Gift Card", img: "/assets/cartoon-bouncehouse-big.png" },
 ];
+
+// import inflateableDescriptions from "../public/assets/inflateable-descriptions.json";
+
 
 const options = [
   { name: "Castle Tower", img: "/assets/inflateables/castle-tower.png", category: ["bounce"] },
@@ -63,27 +68,26 @@ type OptionCardProps = {
   category: string[];
 };
 
-function OptionCard({ name, img }: OptionCardProps) {
+function OptionCard({ name, img, onOrder }: OptionCardProps & { onOrder?: (name: string) => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLSpanElement>(null);
   const [isOverflow, setIsOverflow] = useState(true);
 
-useLayoutEffect(() => {
-  function checkOverflow() {
-    if (containerRef.current && textRef.current) {
-      const containerWidth = containerRef.current.offsetWidth;
-      const textWidth = textRef.current.scrollWidth;
-      setIsOverflow(textWidth > containerWidth);
+  useLayoutEffect(() => {
+    function checkOverflow() {
+      if (containerRef.current && textRef.current) {
+        const containerWidth = containerRef.current.offsetWidth;
+        const textWidth = textRef.current.scrollWidth;
+        setIsOverflow(textWidth > containerWidth);
+      }
     }
-  }
-  // Use requestAnimationFrame for more reliable measurement
-  const id = requestAnimationFrame(checkOverflow);
-  window.addEventListener('resize', checkOverflow);
-  return () => {
-    cancelAnimationFrame(id);
-    window.removeEventListener('resize', checkOverflow);
-  };
-}, [name]);
+    const id = requestAnimationFrame(checkOverflow);
+    window.addEventListener('resize', checkOverflow);
+    return () => {
+      cancelAnimationFrame(id);
+      window.removeEventListener('resize', checkOverflow);
+    };
+  }, [name]);
 
   return (
     <div className="option-card">
@@ -96,7 +100,7 @@ useLayoutEffect(() => {
         </span>
       </div>
       <img src={img} alt={name} className="option-img" />
-      <button className="order-btn">ORDER NOW</button>
+      <button className="order-btn" onClick={() => onOrder && onOrder(name)}>ORDER NOW</button>
     </div>
   );
 }
@@ -105,6 +109,15 @@ export function Welcome() {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<string | null>(null);
   const [membershipOpen, setMembershipOpen] = useState(false);
+  const [productOpen, setProductOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const [descriptions, setDescriptions] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('/assets/inflateable-descriptions.json')
+      .then(res => res.json())
+      .then(data => setDescriptions(data));
+  }, []);
 
   function handleNavClick(type: string) {
     setModalType(type);
@@ -120,6 +133,27 @@ export function Welcome() {
     if (modalType === "Games") return opt.category.includes("game");
     return true;
   });
+
+  // Get product details from JSON
+  const productDetails = selectedProduct
+    ? descriptions.find(p => p.name === selectedProduct)
+    : null;
+
+  // Get detail images for selected product
+  const getDetailImages = (name: string) => {
+    // Convert name to folder name (replace spaces, handle casing)
+    const folder = name.replace(/ /g, '-').replace(/[^a-zA-Z0-9\-]/g, '').toLowerCase();
+    // Example: /assets/inflateables/detail-images/Castle Tower/castle-tower-1.png
+    // We'll use the original name for folder lookup, fallback to lower-case
+    // For now, try up to 5 images
+    const basePath = `/assets/inflateables/detail-images/${name}/`;
+    return [1,2,3,4,5].map(i => `${basePath}${folder}-${i}.png`);
+  };
+
+  const handleOrderNow = (name: string) => {
+    setSelectedProduct(name);
+    setProductOpen(true);
+  };
 
   return (
     <div className="landing-page">
@@ -172,7 +206,7 @@ export function Welcome() {
       {/* Options Section */}
       <section className="options-section">
         <h2>See all the options</h2>
-        <OptionsCarousel options={options} />
+  <OptionsCarousel options={options.map(opt => ({ ...opt, onOrder: handleOrderNow }))} />
       </section>
       {/* Modal for filtered carousel */}
       <ModalCarousel
@@ -181,7 +215,43 @@ export function Welcome() {
         options={filteredOptions}
         title={modalType || ""}
       />
-      {/* Membership Info Popup */}
+  {/* Membership Info Popup */}
+      {/* Product Detail Popup */}
+      {productOpen && selectedProduct && (
+        <div className="modal-overlay fade-in" onClick={() => setProductOpen(false)}>
+          <div className="modal-shadow" />
+          <div className="modal-content popup" onClick={e => e.stopPropagation()}>
+            <h2 className="modal-title">{selectedProduct}</h2>
+            <div style={{display: "flex", flexDirection: "column", alignItems: "center"}}>
+              {/* Image carousel */}
+              <Swiper style={{width: "100%", maxWidth: "500px", marginBottom: "1.5rem"}}>
+                {/* Main image first */}
+                <SwiperSlide>
+                  <img src={options.find(o => o.name === selectedProduct)?.img} alt={selectedProduct} style={{width: "100%", borderRadius: "16px"}} />
+                </SwiperSlide>
+                {/* Detail images */}
+                {getDetailImages(selectedProduct).map((src, idx) => (
+                  <SwiperSlide key={src}>
+                    <img src={src} alt={`${selectedProduct} detail ${idx+1}`} style={{width: "100%", borderRadius: "16px"}} />
+                  </SwiperSlide>
+                ))}
+              </Swiper>
+              {/* Product info */}
+              {productDetails && (
+                <div style={{textAlign: "left", maxWidth: "500px", width: "100%"}}>
+                  <div style={{fontSize: "1.3rem", fontWeight: "bold", marginBottom: "0.5rem"}}>
+                    Price: ${productDetails.price}
+                  </div>
+                  <div style={{fontSize: "1.1rem", marginBottom: "1rem"}}>
+                    {productDetails.description || "No description yet."}
+                  </div>
+                </div>
+              )}
+            </div>
+            <button className="modal-close" onClick={() => setProductOpen(false)}>Close</button>
+          </div>
+        </div>
+      )}
       {membershipOpen && (
         <div className="modal-overlay fade-in" onClick={() => setMembershipOpen(false)}>
           <div className="modal-shadow" />

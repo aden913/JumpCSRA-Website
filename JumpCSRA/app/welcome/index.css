@@ -7,6 +7,11 @@
   --lightBlue: #51CBC2;
 }
 
+::selection {
+  background: var(--lightBlue);   /* Highlight background color */
+  color: var(--darkBlue);           /* Highlighted text color */
+}
+
 html, body {
   background:white;
 }
