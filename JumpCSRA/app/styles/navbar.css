@@ -2,21 +2,26 @@
 .nav-bar {
   padding: 0.5rem 0;
   color: var(--darkBlue) !important;
+  background: white;
 }
 .nav-bar ul {
   display: flex;
   justify-content: center;
+  align-items: center;
   gap: 9rem;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 .nav-bar li {
-  font-size: 1.8rem;
+  font-size: 1.3rem;
   font-weight: bolder;
-  cursor: pointer;
 }
 .nav-logo {
   width: 3rem;
   height: 3rem;
+}
+
+.nav-btn {
+  cursor: pointer;
 }

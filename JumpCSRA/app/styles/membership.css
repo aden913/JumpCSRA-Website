@@ -8,22 +8,6 @@
 }
 
 
-.nav-bar {
-  padding: 0.5rem 0;
-  color: white;
-}
-.nav-bar ul {
-  display: flex;
-  justify-content: center;
-  gap: 9rem;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.nav-bar li {
-  font-size: 1.8rem;
-  font-weight: bolder;
-}
 
 /* Membership Page Styles */
 html{background: var(--darkBlue);}

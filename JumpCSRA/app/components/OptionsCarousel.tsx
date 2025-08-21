@@ -1,7 +1,9 @@
 import React, { useLayoutEffect, useState, useRef } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
+import {Navigation} from 'swiper/modules';
 import "swiper/css";
 import "swiper/css/navigation";
+import "../styles/options-carousel.css";
 
 export type OptionCardProps = {
   name: string;
@@ -53,15 +55,16 @@ export type OptionsCarouselProps = {
 export function OptionsCarousel({ options }: OptionsCarouselProps) {
   return (
     <Swiper
-      slidesPerView={6}
-      spaceBetween={24}
-      navigation={true}
+      slidesPerView={3}
+      modules={[Navigation]}
+      spaceBetween={1}
+      navigation
       breakpoints={{
-        1024: { slidesPerView: 6 },
+        1024: { slidesPerView: 3 },
         464: { slidesPerView: 2 },
         0: { slidesPerView: 1 }
       }}
-      style={{ padding: "1rem 0" }}
+      style={{ padding: ".5rem 0" }}
     >
       {options.map((opt) => (
         <SwiperSlide key={opt.name}>

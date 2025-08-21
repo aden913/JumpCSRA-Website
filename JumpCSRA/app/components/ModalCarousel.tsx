@@ -1,6 +1,8 @@
 import React from "react";
 import { OptionsCarousel } from "./OptionsCarousel";
 import type { OptionCardProps } from "./OptionsCarousel";
+import "../styles/modal.css";
+
 
 type ModalCarouselProps = {
   open: boolean;

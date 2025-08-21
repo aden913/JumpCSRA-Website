@@ -1,4 +1,6 @@
 import { Link } from "react-router";
+import "../styles/navbar.css";
+
 
 type RouterNavProps = {
   onNavClick?: (type: string) => void;
@@ -22,6 +24,9 @@ export function RouterNav({ onNavClick }: RouterNavProps) {
         </li>
         <li>
           <button type="button" className="nav-btn" onClick={() => onNavClick && onNavClick("Games")}>Games</button>
+        </li>
+        <li>
+          <button type="button" className="nav-btn" onClick={() => onNavClick && onNavClick("Party Essentials")}>Party Essentials</button>
         </li>
       </ul>
     </nav>

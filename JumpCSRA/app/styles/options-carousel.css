@@ -1,0 +1,6 @@
+:root {
+--swiper-navigation-color: #FA6C6C !important;
+}
+.swiper-slide {
+  width:25rem !important;
+}

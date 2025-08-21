@@ -11,7 +11,6 @@ import { Link } from "react-router";
 
 import "./index.css";
 import "react-multi-carousel/lib/styles.css";
-import "../styles/modal.css";
 import "../styles/membership.css";
 
 const promoCards = [
@@ -205,7 +204,7 @@ export function Welcome() {
       </section>
       {/* Options Section */}
       <section className="options-section">
-        <h2>See all the options</h2>
+        <h2>SWIPE FOR MORE FUN</h2>
   <OptionsCarousel options={options.map(opt => ({ ...opt, onOrder: handleOrderNow }))} />
       </section>
       {/* Modal for filtered carousel */}
