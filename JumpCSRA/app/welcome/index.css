@@ -28,8 +28,8 @@ html, body {
   background: var(--coral);
   color: white;
   text-align: center;
-  padding: 18px 0 8px 0;
-  font-size: 2rem;
+  padding: 6px 0 4px 0;
+  font-size: 1.5rem;
   font-weight: bold;
 }
 
@@ -125,14 +125,19 @@ html, body {
   font-weight: bolder;
   border-radius: 32px;
   padding: 1rem 0.7rem 0.7rem 0.7rem;
-  width: 150px;
+  width: 11rem;
   display: flex;
   flex-direction: column;
   align-items: center;
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  cursor:pointer;
+  
+}
+.promo-card:hover {
+  color: var(--coral) !important;
 }
 .promo-card img {
-  width: 9rem;
+  width: auto;
   height: 9rem;
   margin-bottom: 0.5rem;
   margin-top:auto;
@@ -186,61 +191,6 @@ html, body {
   justify-content: center;
   gap: 1rem;
   flex-wrap: wrap;
-}
-.option-card {
-    background: var(--coral);
-  color: var(--darkBlue);
-  border-radius: 32px;
-  padding: 1rem 0.7rem 0.7rem 0.7rem;
-  width: 10rem;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-  margin-bottom: 1rem;
-  margin-right: 0 !important;
-}
-.option-card img {
-  width: 10rem;
-  height: 10rem;
-  margin-bottom: 0.5rem;
-    border-radius: 32px;
-}
-.option-title {
-  font-size: 1.2rem;
-    font-weight: bold;
-  margin-bottom: auto;
-  margin-bottom: 0.5rem;
-}
-
-/*/.react-multi-carousel-item{width: 200px !important;}
-
-/* Option Card Title Marquee */
-.option-title.marquee-container {
-  position: relative;
-  width: 160px;
-  height: 1.3em;
-  overflow: hidden;
-  margin-bottom: 0.5rem;
-   color: var(--primary-dark);
-  background: transparent;
-}
-
-.marquee-text {
-  display: inline-block;
-  white-space: nowrap;
-  font-size: 1.1rem;
-  font-weight: bold;
-  animation: marquee-scroll 6s linear infinite;
-}
-
-@keyframes marquee-scroll {
-  0% {
-    transform: translateX(100%);
-  }
-  100% {
-    transform: translateX(-100%);
-  }
 }
 
 .order-btn {

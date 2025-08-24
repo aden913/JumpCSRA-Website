@@ -11,7 +11,7 @@ export function RouterNav({ onNavClick }: RouterNavProps) {
     <nav className="nav-bar">
       <ul>
         <Link to="/" style={{ display: "inline-block" }}>
-          <img src="/favicon.ico" alt="JumpCSRA Logo" className="nav-logo" />
+          <img src="/assets/logo.avif" alt="JumpCSRA Logo" className="nav-logo" />
         </Link>
         <li>
           <button type="button" className="nav-btn" onClick={() => onNavClick && onNavClick("Bounce House")}>Bounce House</button>
@@ -27,6 +27,9 @@ export function RouterNav({ onNavClick }: RouterNavProps) {
         </li>
         <li>
           <button type="button" className="nav-btn" onClick={() => onNavClick && onNavClick("Party Essentials")}>Party Essentials</button>
+        </li>
+        <li>
+          <button type="button" className="nav-btn" onClick={() => onNavClick && onNavClick("Cart")}><img src="../public/assets/cart.png" alt="Cart" className="cart-icon" /></button>
         </li>
       </ul>
     </nav>

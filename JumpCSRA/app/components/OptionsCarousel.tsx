@@ -1,9 +1,15 @@
-import React, { useLayoutEffect, useState, useRef } from "react";
+import React, { useLayoutEffect, useState, useRef, useEffect } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
-import {Navigation} from 'swiper/modules';
+import { Navigation } from 'swiper/modules';
+import { getDatabase, ref, onValue } from "firebase/database";
+import { initializeApp } from "firebase/app";
+import { firebaseConfig } from "./FirebaseConfig";
+
+
 import "swiper/css";
 import "swiper/css/navigation";
 import "../styles/options-carousel.css";
+import "../styles/options.css";
 
 export type OptionCardProps = {
   name: string;
@@ -12,35 +18,15 @@ export type OptionCardProps = {
 };
 
 function OptionCard({ name, img, onOrder }: OptionCardProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const textRef = useRef<HTMLSpanElement>(null);
-  const [isOverflow, setIsOverflow] = useState(true);
-
-  useLayoutEffect(() => {
-    function checkOverflow() {
-      if (containerRef.current && textRef.current) {
-        const containerWidth = containerRef.current.offsetWidth;
-        const textWidth = textRef.current.scrollWidth;
-        setIsOverflow(textWidth > containerWidth);
-      }
-    }
-    const id = requestAnimationFrame(checkOverflow);
-    window.addEventListener('resize', checkOverflow);
-    return () => {
-      cancelAnimationFrame(id);
-      window.removeEventListener('resize', checkOverflow);
-    };
-  }, [name]);
+  // Dynamically scale font size if name is too long
+  let fontSize = "1.2rem";
+  if (name.length > 18) fontSize = "1rem";
+  if (name.length > 28) fontSize = ".85rem";
 
   return (
     <div className="option-card">
-      <div className="option-title marquee-container" ref={containerRef}>
-        <span
-          ref={textRef}
-          className={isOverflow ? "marquee-text" : ""}
-        >
-          {name}
-        </span>
+      <div className="option-title marquee-container" style={{ fontSize }}>
+        <span>{name}</span>
       </div>
       <img src={img} draggable="false" alt={name} className="option-img" />
       <button className="order-btn" onClick={() => onOrder && onOrder(name)}>ORDER NOW</button>
@@ -53,12 +39,28 @@ export type OptionsCarouselProps = {
 };
 
 export function OptionsCarousel({ options }: OptionsCarouselProps) {
+  // Firebase setup
+  const [inflateables, setInflateables] = useState<OptionCardProps[]>([]);
+  useEffect(() => {
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const inflateablesRef = ref(db, "inflateables");
+    onValue(inflateablesRef, (snapshot) => {
+      const data = snapshot.val();
+      if (Array.isArray(data)) {
+        setInflateables(data);
+      } else if (typeof data === "object" && data !== null) {
+        setInflateables(Object.values(data));
+      }
+    });
+  }, []);
+
   return (
     <Swiper
-      slidesPerView={3}
       modules={[Navigation]}
+      slidesPerView={3}
       spaceBetween={1}
-      navigation
+      navigation={true}
       breakpoints={{
         1024: { slidesPerView: 3 },
         464: { slidesPerView: 2 },
@@ -66,7 +68,7 @@ export function OptionsCarousel({ options }: OptionsCarouselProps) {
       }}
       style={{ padding: ".5rem 0" }}
     >
-      {options.map((opt) => (
+      {inflateables.map((opt: OptionCardProps) => (
         <SwiperSlide key={opt.name}>
           <OptionCard {...opt} />
         </SwiperSlide>

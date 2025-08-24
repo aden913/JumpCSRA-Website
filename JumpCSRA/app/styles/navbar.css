@@ -13,15 +13,22 @@
   margin: 0;
   padding: 0;
 }
+.cart-icon {
+  width:3rem;
+  height: 3rem;
+}
 .nav-bar li {
   font-size: 1.3rem;
   font-weight: bolder;
 }
 .nav-logo {
-  width: 3rem;
+  width: auto;
   height: 3rem;
 }
 
 .nav-btn {
   cursor: pointer;
+}
+.nav-btn:hover {
+  color: var(--coral);
 }

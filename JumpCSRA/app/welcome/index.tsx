@@ -4,7 +4,6 @@ import { OptionsCarousel } from "../components/OptionsCarousel";
 
 import React, { useEffect, useLayoutEffect, useState, useRef } from "react";
 import { Swiper, SwiperSlide } from "swiper/react";
-import "swiper/css";
 import { BannerCarousel } from "../components/BannerCarousel";
 import { RouterNav } from "../components/RouterNav";
 import { Link } from "react-router";
@@ -12,6 +11,7 @@ import { Link } from "react-router";
 import "./index.css";
 import "react-multi-carousel/lib/styles.css";
 import "../styles/membership.css";
+import "swiper/css";
 
 const promoCards = [
   { title: "Become a member", img: "/assets/cartoon-bouncehouse.png" },
@@ -178,16 +178,19 @@ export function Welcome() {
         </div>
         <div className="promo-cards">
           {promoCards.map((card, idx) => (
-            <div className="promo-card" key={idx}>
+            <button
+              className="promo-card"
+              key={idx}
+              type="button"
+              onClick={() => {
+                if (card.title.includes("Become a member")) {
+                  setMembershipOpen(true);
+                }
+                // Add other card click logic here as needed
+              }}
+            >
               {card.title.includes("Become a member") ? (
-                <button
-                  type="button"
-                  className="promo-title"
-                  style={{ background: "none", border: "none", color: "inherit", width: "100%", display: "block", cursor: "pointer", font: "inherit", padding: 0 }}
-                  onClick={() => setMembershipOpen(true)}
-                >
-                  {card.title}
-                </button>
+                <div className="promo-title">{card.title}</div>
               ) : card.title.includes("Give One Get One") ? (
                 <div className="promo-title">
                   GOGO<br />
@@ -198,7 +201,7 @@ export function Welcome() {
                 <div className="promo-title">{card.title}</div>
               )}
               {card.img && <img src={card.img} alt={card.title} className="promo-img" />}
-            </div>
+            </button>
           ))}
         </div>
       </section>
