@@ -93,3 +93,12 @@
 .swiper-slide {
   width:25rem !important;
 }
+.wetdry-box {
+  background: var(  --lightBlue);
+  color: var(--coral);
+  border-radius: 12px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  margin-bottom: .2rem;
+}
