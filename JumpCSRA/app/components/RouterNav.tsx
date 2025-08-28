@@ -29,7 +29,7 @@ export function RouterNav({ onNavClick }: RouterNavProps) {
           <button type="button" className="nav-btn" onClick={() => onNavClick && onNavClick("Party Essentials")}>Party Essentials</button>
         </li>
         <li>
-          <button type="button" className="nav-btn" onClick={() => onNavClick && onNavClick("Cart")}><img src="/cart.png" alt="Cart" className="cart-icon" /></button>
+          <button type="button" className="nav-btn" onClick={() => onNavClick && onNavClick("Cart")}><img src="/cart.png" className="cart-icon" /></button>
         </li>
       </ul>
     </nav>

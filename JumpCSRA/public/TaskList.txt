@@ -1,0 +1,32 @@
+Jumpsra123!
+aden@170.187.145.7
+2600:3c02::200:a1ff:fef6:9d2e
+
+aden
+password
+
+sudo apt install certbot python3-certbot-nginx -y
+sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
+
+
+to do 
+
+setup server cron
+get domain setup
+get https setup
+Finish developing the site
+	develope product information popups
+	dev. search bar 
+	fix nav 
+    cart functionality
+    date functionality
+    user identification
+    aesthetics
+make mobile responsive
+add other promo card functionality
+Integration into a saas.
+
+add Wet Or Dry, Dry Only, Wet Only on corresponding units?
+
+LAST WORKED ON
+	modal
