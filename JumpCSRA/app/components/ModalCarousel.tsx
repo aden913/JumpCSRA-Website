@@ -1,6 +1,6 @@
 import React from "react";
-import OptionsCarousel from "./OptionsCarousel";
-import type { OptionCardProps } from "./OptionCard";
+import { OptionsCarousel } from "./OptionsCarousel";
+import type { OptionCardProps } from "./OptionsCarousel";
 import "../styles/modal.css";
 
 
@@ -39,7 +39,7 @@ export function ModalCarousel({ open, onClose, options, title }: ModalCarouselPr
       <div className="modal-content popup" onClick={e => e.stopPropagation()}>
         <h2 className="modal-title">{title}</h2>
         <OptionsCarousel options={options} />
-        <button className="modal-close" onClick={onClose}>X</button>
+        <button className="modal-close" onClick={onClose}>Close</button>
       </div>
     </div>
   );
