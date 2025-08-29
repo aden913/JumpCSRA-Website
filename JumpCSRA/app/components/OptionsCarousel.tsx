@@ -84,6 +84,15 @@ export type OptionsCarouselProps = {
 export function OptionsCarousel({ options }: OptionsCarouselProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<OptionCardProps | null>(null);
+  const [detailImagesManifest, setDetailImagesManifest] = useState<{ [key: string]: string[] }>({});
+
+  // Fetch manifest on mount
+  React.useEffect(() => {
+    fetch("/assets/inflateables-detail-images.json")
+      .then(res => res.json())
+      .then(data => setDetailImagesManifest(data))
+      .catch(() => setDetailImagesManifest({}));
+  }, []);
 
   const handleOrderNow = (product: OptionCardProps) => {
     setSelectedProduct(product);
@@ -128,7 +137,13 @@ export function OptionsCarousel({ options }: OptionsCarouselProps) {
               {selectedProduct.name}
             </h2>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <ProductImageGallery images={[selectedProduct.img]} />
+              {(() => {
+                const mainImg = selectedProduct.img;
+                const manifestImages = detailImagesManifest[selectedProduct.name] || [];
+                // Only include main image if not already in manifest
+                const images = manifestImages.includes(mainImg) ? manifestImages : [mainImg, ...manifestImages];
+                return <ProductImageGallery images={images.filter(Boolean)} />;
+              })()}
               <div style={{ marginTop: "1rem", textAlign: "left" }}>
                 <strong>Prices:</strong>
                 <br />
