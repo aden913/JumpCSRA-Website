@@ -136,7 +136,7 @@ export function OptionsCarousel({ options }: OptionsCarouselProps) {
             <h2 className="modal-title" style={{ textAlign: "center", marginBottom: "2rem" }}>
               {selectedProduct.name}
             </h2>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
               {(() => {
                 const mainImg = selectedProduct.img;
                 const manifestImages = detailImagesManifest[selectedProduct.name] || [];
@@ -171,7 +171,7 @@ export function OptionsCarousel({ options }: OptionsCarouselProps) {
               </div>
             </div>
             <button className="modal-close" onClick={() => setModalOpen(false)}>
-              Close
+              X
             </button>
           </div>
         </div>

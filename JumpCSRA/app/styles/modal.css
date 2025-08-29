@@ -70,6 +70,13 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
 }
 .image-gallery{
-  width:55%;
-  
+  width:50%;
+  margin-right: 3rem;
+}
+.modal-close{
+  color:white;
+  background:none;
+  position:absolute;
+  top:0;
+  right:0;
 }
