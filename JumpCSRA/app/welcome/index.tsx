@@ -3,6 +3,9 @@ import { ModalCarousel } from "../components/ModalCarousel";
 import { OptionsCarousel } from "../components/OptionsCarousel";
 
 import React, { useEffect, useLayoutEffect, useState, useRef } from "react";
+import { getDatabase, ref, onValue } from "firebase/database";
+import { firebaseConfig } from "../components/FirebaseConfig";
+import { initializeApp } from "firebase/app";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { BannerCarousel } from "../components/BannerCarousel";
 import { RouterNav } from "../components/RouterNav";
@@ -23,48 +26,22 @@ const promoCards = [
 // import inflateableDescriptions from "../public/assets/inflateable-descriptions.json";
 
 
-const options = [
-  { name: "Castle Tower", img: "/assets/inflateables/castle-tower.png", category: ["bounce"] },
-  { name: "Princess Tower", img: "/assets/inflateables/princess-tower.png", category: ["bounce"] },
-  { name: "Nitro Crush", img: "/assets/inflateables/nitro-crush.png", category: ["obstacle"] },
-  { name: "Sports Court", img: "/assets/inflateables/sports-court.png", category: ["bounce", "game"] },
-  { name: "Adventure Island", img: "/assets/inflateables/adventure-island.png", category: ["bounce"] },
-  { name: "Tidal Wave", img: "/assets/inflateables/tidal-wave.png", category: ["obstacle", "water"] },
-  { name: "5 Player Wrecking Ball", img: "/assets/inflateables/5-player-wrecking-ball.png", category: ["game"] },
-  { name: "Adrenaline Rush Obstacle Course", img: "/assets/inflateables/adrenaline-rush-obstacle-course.png", category: ["obstacle"] },
-  { name: "Basketball Double Jump Shot", img: "/assets/inflateables/basketball-double-jump-shot.png", category: ["game"] },
-  { name: "Beach Blast", img: "/assets/inflateables/beach-blast.png", category: ["water"] },
-  { name: "Beer Pong", img: "/assets/inflateables/beer-pong.png", category: ["game"] },
-  { name: "Chairs", img: "/assets/inflateables/chair.png", category: ["none"] },
-  { name: "Color Chaos", img: "/assets/inflateables/color-chaos.png", category: ["water"] },
-  { name: "Color Splash Castle", img: "/assets/inflateables/color-splash-castle.png", category: ["water"] },
-  { name: "Cotton Candy Castle", img: "/assets/inflateables/cotton-candy-castle.png", category: ["bounce"] },
-  { name: "Custom Theme", img: "/assets/inflateables/custom-theme.png", category: ["bounce"] },
-  { name: "Fire and Ice", img: "/assets/inflateables/fire-and-ice.png", category: ["water"] },
-  { name: "Fun in the Sun", img: "/assets/inflateables/fun-in-the-sun.png", category: ["water"] },
-  { name: "Gladiator Joust", img: "/assets/inflateables/gladiator-joust.png", category: ["game"] },
-  { name: "H2O Slip and Slide", img: "/assets/inflateables/h2o-slip-and-slide.png", category: ["water"] },
-  { name: "Hang Time", img: "/assets/inflateables/hang-time.png", category: ["water"] },
-  { name: "High Time To Party", img: "/assets/inflateables/high-time-to-party.png", category: ["water"] },
-  { name: "High Velocity", img: "/assets/inflateables/high-velocity.png", category: ["obstacle"] },
-  { name: "Home Run Challenge", img: "/assets/inflateables/home-run-challenge.png", category: ["game"] },
-  { name: "Mega Rush", img: "/assets/inflateables/mega-rush.png", category: ["obstacle"] },
-  { name: "Party With the Stars", img: "/assets/inflateables/party-with-the-stars.png", category: ["bounce"] },
-  { name: "Princess Palace", img: "/assets/inflateables/princess-palace.png", category: ["bounce"] },
-  { name: "SpongeBob", img: "/assets/inflateables/spongebob.png", category: ["bounce"] },
-  { name: "Tables", img: "/assets/inflateables/white-table.png", category: ["none"] },
-  { name: "Tunnel Tower", img: "/assets/inflateables/tunnel-tower.png", category: ["bounce"] },
-  { name: "Turbo Splash", img: "/assets/inflateables/turbo-splash.png", category: ["water"] },
-  { name: "Twinkle Palace", img: "/assets/inflateables/twinkle-palace.png", category: ["bounce"] },
-  { name: "Wave Rider", img: "/assets/inflateables/wave-rider.png", category: ["water"] },
-  { name: "Yard Letters", img: "/assets/inflateables/yard-letters.png", category: ["none"] },
-];
+
+// Options are now loaded from the database (inflateable-descriptions.json)
+
 
 
 type OptionCardProps = {
   name: string;
   img: string;
-  category: string[];
+  description: string;
+  dimensions: string;
+  dry: boolean;
+  wet: boolean;
+  weekdayPrice: number;
+  weekdayWaterPrice: number;
+  weekendPrice: number;
+  weekendWaterPrice: number;
 };
 
 function OptionCard({ name, img, onOrder }: OptionCardProps & { onOrder?: (name: string) => void }) {
@@ -113,9 +90,21 @@ export function Welcome() {
   const [descriptions, setDescriptions] = useState<any[]>([]);
 
   useEffect(() => {
-    fetch('/assets/inflateable-descriptions.json')
-      .then(res => res.json())
-      .then(data => setDescriptions(data));
+    // Initialize Firebase app (safe to call multiple times)
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const inflateablesRef = ref(db, "inflateables");
+    onValue(inflateablesRef, (snapshot) => {
+      const val = snapshot.val();
+      // If data is an array, use directly; if object, convert to array
+      if (Array.isArray(val)) {
+        setDescriptions(val);
+      } else if (val && typeof val === "object") {
+        setDescriptions(Object.values(val));
+      } else {
+        setDescriptions([]);
+      }
+    });
   }, []);
 
   function handleNavClick(type: string) {
@@ -124,12 +113,14 @@ export function Welcome() {
   }
 
   // Filtering logic for modal carousel
-  const filteredOptions = options.filter(opt => {
+  const filteredOptions = descriptions.filter(opt => {
     if (!modalType) return true;
-    if (modalType === "Bounce House") return opt.category.includes("bounce");
-    if (modalType === "Water Slide") return opt.category.includes("water");
-    if (modalType === "Obstacle Course") return opt.category.includes("obstacle");
-    if (modalType === "Games") return opt.category.includes("game");
+    if (modalType === "Bounce House") return opt.category?.includes("bounce");
+    if (modalType === "Water Slide") return opt.category?.includes("slide");
+    if (modalType === "Obstacle Course") return opt.category?.includes("obstacle");
+    if (modalType === "Games") return opt.category?.includes("game");
+    if (modalType === "Party Essentials") return opt.category?.includes("party-essentials");
+
     return true;
   });
 
@@ -208,13 +199,13 @@ export function Welcome() {
       {/* Options Section */}
       <section className="options-section">
         <h2>SWIPE FOR MORE FUN</h2>
-  <OptionsCarousel options={options.map(opt => ({ ...opt, onOrder: handleOrderNow }))} />
+  <OptionsCarousel options={descriptions.map(opt => ({ ...opt, onOrder: handleOrderNow }))} />
       </section>
       {/* Modal for filtered carousel */}
       <ModalCarousel
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        options={filteredOptions}
+        options={filteredOptions.map(opt => ({ ...opt, onOrder: handleOrderNow }))}
         title={modalType || ""}
       />
   {/* Membership Info Popup */}
@@ -229,7 +220,7 @@ export function Welcome() {
               <Swiper style={{width: "100%", maxWidth: "500px", marginBottom: "1.5rem"}}>
                 {/* Main image first */}
                 <SwiperSlide>
-                  <img src={options.find(o => o.name === selectedProduct)?.img} alt={selectedProduct} style={{width: "100%", borderRadius: "16px"}} />
+                  <img src={descriptions.find(o => o.name === selectedProduct)?.img} alt={selectedProduct} style={{width: "100%", borderRadius: "16px"}} />
                 </SwiperSlide>
                 {/* Detail images */}
                 {getDetailImages(selectedProduct).map((src, idx) => (
