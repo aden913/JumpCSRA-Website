@@ -7,6 +7,7 @@ import { firebaseConfig } from "../components/FirebaseConfig";
 import { initializeApp, getApps } from "firebase/app";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { BannerCarousel } from "../components/BannerCarousel";
+import { SearchBar } from "../components/SearchBar";
 import { RouterNav } from "../components/RouterNav";
 import { Link } from "react-router";
 
@@ -78,7 +79,8 @@ export function Welcome() {
   const [modalType, setModalType] = useState<string | null>(null);
   const [membershipOpen, setMembershipOpen] = useState(false);
   const [productOpen, setProductOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
 
   // Firebase data
   const [inflateables, setInflateables] = useState<any[]>([]);
@@ -133,9 +135,13 @@ export function Welcome() {
     );
   }, [inflateables, selectedCategory]);
 
+  // If selectedProduct is an object, use it directly; if string, find in inflateables
   const productDetails = selectedProduct
-    ? inflateables.find((p: any) => p.name === selectedProduct)
+    ? typeof selectedProduct === "object"
+      ? selectedProduct
+      : inflateables.find((p: any) => (p.name || "").trim().toLowerCase() === selectedProduct.trim().toLowerCase()) || null
     : null;
+
 
   const getDetailImages = (name: string) => {
     const folder = name.replace(/ /g, "-").replace(/[^a-zA-Z0-9\-]/g, "").toLowerCase();
@@ -143,8 +149,8 @@ export function Welcome() {
     return [1, 2, 3, 4, 5].map((i) => `${basePath}${folder}-${i}.png`);
   };
 
-  const handleOrderNow = (name: string) => {
-    setSelectedProduct(name);
+  const handleOrderNow = (product: any) => {
+    setSelectedProduct(product);
     setProductOpen(true);
   };
 
@@ -164,7 +170,20 @@ export function Welcome() {
           <div className="search-card">
             <h2>Find Your Fun</h2>
             <div className="search-bar">
-              <input type="text" placeholder="Search..." />
+              <SearchBar
+                inflateables={inflateables}
+                categories={categories}
+                onCategorySelect={category => setSelectedCategory(category)}
+                onInflateableSelect={product => {
+                  setSelectedProduct(product);
+                  setProductOpen(true);
+                }}
+                focusCarousel={() => {
+                  if (carouselRef.current) {
+                    carouselRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }
+                }}
+              />
             </div>
           </div>
           <div className="specials-card">
@@ -211,6 +230,7 @@ export function Welcome() {
       <section className="options-section">
         <h2>SWIPE FOR MORE FUN</h2>
         <div
+          ref={carouselRef}
           className="category-dropdown-container"
           style={{ marginBottom: "1rem", textAlign: "center" }}
         >
@@ -232,7 +252,7 @@ export function Welcome() {
         </div>
 
         <OptionsCarousel
-          options={filteredOptions.map((opt) => ({ ...opt, onOrder: handleOrderNow }))}
+          options={filteredOptions.map((opt) => ({ ...opt, onOrder: () => handleOrderNow(opt) }))}
         />
       </section>
 
@@ -245,35 +265,34 @@ export function Welcome() {
       />
 
       {/* Product Detail Modal */}
-      {productOpen && typeof selectedProduct === "string" && (
+      {productOpen && selectedProduct && (
         <div className="modal-overlay fade-in" onClick={() => setProductOpen(false)}>
           <div className="modal-shadow" />
           <div
             className="modal-content popup"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="modal-title">{selectedProduct}</h2>
+            <h2 className="modal-title">{productDetails?.name || "Product Details"}</h2>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
               <Swiper style={{ width: "100%", maxWidth: "500px", marginBottom: "1.5rem" }}>
                 <SwiperSlide>
                   <img
-                    src={inflateables.find((o: any) => o.name === selectedProduct)?.img || ""}
-                    alt={selectedProduct || ""}
+                    src={productDetails?.img || ""}
+                    alt={productDetails?.name || ""}
                     style={{ width: "100%", borderRadius: "16px" }}
                   />
                 </SwiperSlide>
-                {getDetailImages(selectedProduct).map((src, idx) => (
+                {productDetails && getDetailImages(productDetails.name).map((src, idx) => (
                   <SwiperSlide key={src}>
                     <img
                       src={src}
-                      alt={`${selectedProduct} detail ${idx + 1}`}
+                      alt={`${productDetails.name} detail ${idx + 1}`}
                       style={{ width: "100%", borderRadius: "16px" }}
                     />
                   </SwiperSlide>
                 ))}
               </Swiper>
-
-              {productDetails && (
+              {productDetails ? (
                 <div style={{ textAlign: "left", maxWidth: "500px", width: "100%" }}>
                   <div
                     style={{ fontSize: "1.3rem", fontWeight: "bold", marginBottom: "0.5rem" }}
@@ -283,6 +302,11 @@ export function Welcome() {
                   <div style={{ fontSize: "1.1rem", marginBottom: "1rem" }}>
                     {productDetails.description || "No description yet."}
                   </div>
+                </div>
+              ) : (
+                <div style={{ color: "red", fontWeight: "bold", margin: "2rem 0" }}>
+                  Sorry, no details found for this product.<br />
+                  Please check your data for a matching name.
                 </div>
               )}
             </div>
