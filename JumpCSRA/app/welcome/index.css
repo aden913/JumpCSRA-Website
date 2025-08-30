@@ -1,3 +1,18 @@
+/* Montserrat font import */
+@font-face {
+  font-family: 'Montserrat';
+  src: url('/assets/fonts/Montserrat-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Montserrat';
+  src: url('/assets/fonts/Montserrat-Italic-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
 /* General layout */
 :root {
   --darkBlue: #354D65;
@@ -14,13 +29,14 @@
 
 html, body {
   background:white;
+  font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
 }
 
 .landing-page {
   display:flex;
   flex-direction: column;
   align-items: center;
-  font-family: 'Segoe UI', Arial, sans-serif;
+  font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
   color: var(--coral);
 }
 

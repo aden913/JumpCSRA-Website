@@ -162,7 +162,7 @@ export function Welcome() {
       <section className="main-section">
         <div className="search-promo">
           <div className="search-card">
-            <h2>Find your fun</h2>
+            <h2>Find Your Fun</h2>
             <div className="search-bar">
               <input type="text" placeholder="Search..." />
             </div>
