@@ -1,5 +1,6 @@
 import { ModalCarousel } from "../components/ModalCarousel";
 import { OptionsCarousel } from "../components/OptionsCarousel";
+import { ProductDetailModal } from "../components/ProductDetailModal";
 
 import React, { useEffect, useLayoutEffect, useState, useRef, useMemo } from "react";
 import { getDatabase, ref, onValue } from "firebase/database";
@@ -264,58 +265,7 @@ export function Welcome() {
         title={modalType || ""}
       />
 
-      {/* Product Detail Modal */}
-      {productOpen && selectedProduct && (
-        <div className="modal-overlay fade-in" onClick={() => setProductOpen(false)}>
-          <div className="modal-shadow" />
-          <div
-            className="modal-content popup"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="modal-title">{productDetails?.name || "Product Details"}</h2>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <Swiper style={{ width: "100%", maxWidth: "500px", marginBottom: "1.5rem" }}>
-                <SwiperSlide>
-                  <img
-                    src={productDetails?.img || ""}
-                    alt={productDetails?.name || ""}
-                    style={{ width: "100%", borderRadius: "16px" }}
-                  />
-                </SwiperSlide>
-                {productDetails && getDetailImages(productDetails.name).map((src, idx) => (
-                  <SwiperSlide key={src}>
-                    <img
-                      src={src}
-                      alt={`${productDetails.name} detail ${idx + 1}`}
-                      style={{ width: "100%", borderRadius: "16px" }}
-                    />
-                  </SwiperSlide>
-                ))}
-              </Swiper>
-              {productDetails ? (
-                <div style={{ textAlign: "left", maxWidth: "500px", width: "100%" }}>
-                  <div
-                    style={{ fontSize: "1.3rem", fontWeight: "bold", marginBottom: "0.5rem" }}
-                  >
-                    Price: ${productDetails.price}
-                  </div>
-                  <div style={{ fontSize: "1.1rem", marginBottom: "1rem" }}>
-                    {productDetails.description || "No description yet."}
-                  </div>
-                </div>
-              ) : (
-                <div style={{ color: "red", fontWeight: "bold", margin: "2rem 0" }}>
-                  Sorry, no details found for this product.<br />
-                  Please check your data for a matching name.
-                </div>
-              )}
-            </div>
-            <button className="modal-close" onClick={() => setProductOpen(false)}>
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+  <ProductDetailModal open={productOpen} product={selectedProduct} onClose={() => setProductOpen(false)} />
 
       {/* Membership Modal */}
       {membershipOpen && (

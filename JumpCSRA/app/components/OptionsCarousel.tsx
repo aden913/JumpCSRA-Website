@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { ProductDetailModal } from "./ProductDetailModal";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation } from "swiper/modules";
 import { ProductImageGallery } from "./ProductImageGallery";
@@ -84,16 +85,6 @@ export type OptionsCarouselProps = {
 export function OptionsCarousel({ options }: OptionsCarouselProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<OptionCardProps | null>(null);
-  const [detailImagesManifest, setDetailImagesManifest] = useState<{ [key: string]: string[] }>({});
-
-  // Fetch manifest on mount
-  React.useEffect(() => {
-    fetch("/assets/inflateables-detail-images.json")
-      .then(res => res.json())
-      .then(data => setDetailImagesManifest(data))
-      .catch(() => setDetailImagesManifest({}));
-  }, []);
-
   const handleOrderNow = (product: OptionCardProps) => {
     setSelectedProduct(product);
     setModalOpen(true);
@@ -120,62 +111,7 @@ export function OptionsCarousel({ options }: OptionsCarouselProps) {
         ))}
       </Swiper>
 
-      {modalOpen && selectedProduct && (
-        <div className="modal-overlay fade-in" onClick={() => setModalOpen(false)}>
-          <div className="modal-shadow" />
-          <div
-            className="modal-content popup"
-            style={{
-              maxHeight: "80vh",
-              overflowY: "auto",
-              display: "flex",
-              flexDirection: "column",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="modal-title" style={{ textAlign: "center", marginBottom: "2rem" }}>
-              {selectedProduct.name}
-            </h2>
-            <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
-              {(() => {
-                const mainImg = selectedProduct.img;
-                const manifestImages = detailImagesManifest[selectedProduct.name] || [];
-                // Only include main image if not already in manifest
-                const images = manifestImages.includes(mainImg) ? manifestImages : [mainImg, ...manifestImages];
-                return <ProductImageGallery images={images.filter(Boolean)} />;
-              })()}
-              <div style={{ marginTop: "1rem", textAlign: "left" }}>
-                <strong>Prices:</strong>
-                <br />
-                Weekday (Dry):{" "}
-                {typeof selectedProduct.weekdayPrice === "number"
-                  ? `$${selectedProduct.weekdayPrice}`
-                  : "N/A"}
-                <br />
-                Weekend (Dry):{" "}
-                {typeof selectedProduct.weekendPrice === "number"
-                  ? `$${selectedProduct.weekendPrice}`
-                  : "N/A"}
-                <br />
-                Weekday (Wet):{" "}
-                {typeof selectedProduct.weekdayWaterPrice === "number"
-                  ? `$${selectedProduct.weekdayWaterPrice}`
-                  : "N/A"}
-                <br />
-                Weekend (Wet):{" "}
-                {typeof selectedProduct.weekendWaterPrice === "number"
-                  ? `$${selectedProduct.weekendWaterPrice}`
-                  : "N/A"}
-                <br />
-                <strong>Dimensions:</strong> {selectedProduct.dimensions || "N/A"}
-              </div>
-            </div>
-            <button className="modal-close" onClick={() => setModalOpen(false)}>
-              X
-            </button>
-          </div>
-        </div>
-      )}
+  <ProductDetailModal open={modalOpen} product={selectedProduct} onClose={() => setModalOpen(false)} />
     </>
   );
 }
