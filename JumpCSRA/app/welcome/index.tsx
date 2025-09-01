@@ -10,12 +10,15 @@ import { Swiper, SwiperSlide } from "swiper/react";
 import { BannerCarousel } from "../components/BannerCarousel";
 import { SearchBar } from "../components/SearchBar";
 import { RouterNav } from "../components/RouterNav";
+import { CartSidebar } from "../components/CartSidebar";
+import type { CartItem } from "../components/CartSidebar";
 import { Link } from "react-router";
 
 import "./index.css";
 import "react-multi-carousel/lib/styles.css";
 import "../styles/membership.css";
 import "swiper/css";
+import "../styles/cart.css";
 
 const promoCards = [
   { title: "Become a member", img: "/assets/cartoon-bouncehouse.png" },
@@ -83,6 +86,16 @@ export function Welcome() {
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
 
+  // Cart state
+  const [cartOpen, setCartOpen] = useState(false);
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    if (typeof window !== "undefined" && window.localStorage) {
+      const saved = window.localStorage.getItem("cart");
+      return saved ? JSON.parse(saved) : [];
+    }
+    return [];
+  });
+
   // Firebase data
   const [inflateables, setInflateables] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
@@ -107,6 +120,12 @@ export function Welcome() {
   }, []);
 
   function handleNavClick(type: string) {
+    console.log("handleNavClick called with type:", type);
+    if (type === "Cart") {
+      setCartOpen(true);
+      console.log("Cart sidebar should open, cartOpen:", true);
+      return;
+    }
     setModalType(type);
     setModalOpen(true);
   }
@@ -143,7 +162,6 @@ export function Welcome() {
       : inflateables.find((p: any) => (p.name || "").trim().toLowerCase() === selectedProduct.trim().toLowerCase()) || null
     : null;
 
-
   const getDetailImages = (name: string) => {
     const folder = name.replace(/ /g, "-").replace(/[^a-zA-Z0-9\-]/g, "").toLowerCase();
     const basePath = `/assets/inflateables/detail-images/${name}/`;
@@ -155,6 +173,27 @@ export function Welcome() {
     setProductOpen(true);
   };
 
+  // Add to cart function
+  const addToCart = (product: any) => {
+    const wetDry = product.wet && product.dry ? "Wet/Dry" : product.wet ? "Wet" : "Dry";
+    const price = typeof product.weekdayPrice === "number" ? product.weekdayPrice : 0; // Placeholder, update later
+    const existing = cart.find(item => item.name === product.name && item.wetDry === wetDry);
+    let newCart;
+    if (existing) {
+      newCart = cart.map(item =>
+        item.name === product.name && item.wetDry === wetDry
+          ? { ...item, quantity: item.quantity + 1 }
+          : item
+      );
+    } else {
+      newCart = [...cart, { name: product.name, price, wetDry, quantity: 1 }];
+    }
+    setCart(newCart);
+    if (typeof window !== "undefined" && window.localStorage) {
+      window.localStorage.setItem("cart", JSON.stringify(newCart));
+    }
+  };
+
   return (
     <div className="landing-page">
       {/* Header */}
@@ -163,7 +202,7 @@ export function Welcome() {
       </header>
 
       {/* Navigation */}
-      <RouterNav onNavClick={handleNavClick} />
+  <RouterNav onNavClick={handleNavClick} cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)} />
 
       {/* Main Section */}
       <section className="main-section">
@@ -253,7 +292,10 @@ export function Welcome() {
         </div>
 
         <OptionsCarousel
-          options={filteredOptions.map((opt) => ({ ...opt, onOrder: () => handleOrderNow(opt) }))}
+          options={filteredOptions.map((opt) => ({
+            ...opt,
+            onOrder: () => handleOrderNow(opt)
+          }))}
         />
       </section>
 
@@ -266,6 +308,9 @@ export function Welcome() {
       />
 
   <ProductDetailModal open={productOpen} product={selectedProduct} onClose={() => setProductOpen(false)} />
+
+  {/* Cart Sidebar */}
+  <CartSidebar open={cartOpen} onClose={() => setCartOpen(false)} cart={cart} setCart={setCart} />
 
       {/* Membership Modal */}
       {membershipOpen && (
