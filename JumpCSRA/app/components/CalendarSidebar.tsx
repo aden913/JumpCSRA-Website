@@ -19,10 +19,21 @@ export function CalendarSidebar({ open, onClose, value, onChange }: CalendarSide
 
   // Convert string[] from DatePicker to Date[] for parent
   const handleChange = (val: [string | null, string | null]) => {
-    onChange([
-      val[0] ? new Date(val[0]) : null,
-      val[1] ? new Date(val[1]) : null,
-    ]);
+    // Parse as local midnight to avoid off-by-one
+    const parseLocal = (s: string | null) => s ? new Date(s + 'T00:00') : null;
+    const start = parseLocal(val[0]);
+    const end = parseLocal(val[1]);
+    // Limit to max 3 days
+    if (start && end) {
+      const diff = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+      if (diff > 2) {
+        // If range is too large, set end to start + 2 days
+        const limitedEnd = new Date(start.getTime() + 2 * 24 * 60 * 60 * 1000);
+        onChange([start, limitedEnd]);
+        return;
+      }
+    }
+    onChange([start, end]);
   };
 
   return (
@@ -37,11 +48,16 @@ export function CalendarSidebar({ open, onClose, value, onChange }: CalendarSide
         </div>
         <DatePicker
           type="range"
+          allowSingleDateInRange 
           value={stringValue}
           onChange={handleChange}
           minDate={new Date()}
           size="lg"
         />
+        <div style={{ marginTop: "2rem", textAlign: "center", fontSize: "1.1rem" }}>
+          <strong>Selected Dates:</strong><br />
+          {value[0] ? value[0].toLocaleDateString() : "--"} &mdash; {value[1] ? value[1].toLocaleDateString() : "--"}
+        </div>
       </div>
     </>
   );
