@@ -80,9 +80,10 @@ function OptionCard({
 
 export type OptionsCarouselProps = {
   options: OptionCardProps[];
+  onPurchase?: (product: OptionCardProps) => void;
 };
 
-export function OptionsCarousel({ options }: OptionsCarouselProps) {
+export function OptionsCarousel({ options, onPurchase }: OptionsCarouselProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<OptionCardProps | null>(null);
   const handleOrderNow = (product: OptionCardProps) => {
@@ -111,7 +112,12 @@ export function OptionsCarousel({ options }: OptionsCarouselProps) {
         ))}
       </Swiper>
 
-  <ProductDetailModal open={modalOpen} product={selectedProduct} onClose={() => setModalOpen(false)} />
+  <ProductDetailModal
+    open={modalOpen}
+    product={selectedProduct}
+    onClose={() => setModalOpen(false)}
+    onPurchase={onPurchase}
+  />
     </>
   );
 }

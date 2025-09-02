@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import "../styles/navbar.css";
-
+import "../styles/cart.css";
 
 type RouterNavProps = {
   onNavClick?: (type: string) => void;
@@ -26,17 +26,7 @@ export function RouterNav({ onNavClick, cartCount }: RouterNavProps) {
             onNavClick && onNavClick("Cart");
           }}> <img src="/cart.png" alt="Cart" className="cart-icon" />
             {cartCount && cartCount > 0 && (
-              <span className="cart-count" style={{
-                position: "absolute",
-                top: "-8px",
-                right: "-8px",
-                background: "#d7be82",
-                color: "#515a47",
-                borderRadius: "50%",
-                padding: "2px 8px",
-                fontSize: "1rem",
-                fontWeight: "bold"
-              }}>{cartCount}</span>
+              <span className="cart-count" style={{}}>{cartCount}</span>
             )}
           </button>
         </li>

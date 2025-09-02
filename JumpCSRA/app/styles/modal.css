@@ -80,3 +80,19 @@
   top:0;
   right:0;
 }
+.modal-purchase {
+  background-color: var(--coral);
+  color: var(--darkBlue);
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: bold;
+  margin-right: 0.5rem;
+  transition: background 0.2s;
+}
+.modal-purchase:hover {
+  background-color: var(--golden-brown, #d7be82);
+  color: var(--dark-green, #515a47);
+}

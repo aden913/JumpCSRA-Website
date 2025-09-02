@@ -1,0 +1,30 @@
+.calendar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+.calendar-sidebar.open { 
+     width:30%;
+    color:white;
+    background-color: var(--darkBlue);
+    display:flex;
+    align-items: center;
+}
+.topCalendar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid var(--lightGray);
+}
+.close-btn {
+  background: none;
+  border: none;
+  color: var(--lightGray);
+  cursor: pointer;
+  font-size: 1.5rem;
+}

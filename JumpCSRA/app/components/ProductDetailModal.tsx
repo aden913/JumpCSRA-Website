@@ -6,9 +6,10 @@ export type ProductDetailModalProps = {
   open: boolean;
   product: OptionCardProps | null;
   onClose: () => void;
+  onPurchase?: (product: OptionCardProps) => void;
 };
 
-export function ProductDetailModal({ open, product, onClose }: ProductDetailModalProps) {
+export function ProductDetailModal({ open, product, onClose, onPurchase }: ProductDetailModalProps) {
   const [detailImagesManifest, setDetailImagesManifest] = useState<{ [key: string]: string[] }>({});
 
   useEffect(() => {
@@ -60,9 +61,14 @@ export function ProductDetailModal({ open, product, onClose }: ProductDetailModa
             <strong>Description:</strong> {product.description || "No description yet."}
           </div>
         </div>
-        <button className="modal-close" onClick={onClose}>
-          X
-        </button>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginTop: "2rem" }}>
+          <button className="modal-purchase" onClick={() => onPurchase && product && onPurchase(product)}>
+            Add to Cart
+          </button>
+          <button className="modal-close" onClick={onClose}>
+            X
+          </button>
+        </div>
       </div>
     </div>
   );

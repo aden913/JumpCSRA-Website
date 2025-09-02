@@ -1,6 +1,7 @@
 import { ModalCarousel } from "../components/ModalCarousel";
 import { OptionsCarousel } from "../components/OptionsCarousel";
 import { ProductDetailModal } from "../components/ProductDetailModal";
+import { CalendarSidebar } from "../components/CalendarSidebar";
 
 import React, { useEffect, useLayoutEffect, useState, useRef, useMemo } from "react";
 import { getDatabase, ref, onValue } from "firebase/database";
@@ -18,7 +19,7 @@ import "./index.css";
 import "react-multi-carousel/lib/styles.css";
 import "../styles/membership.css";
 import "swiper/css";
-import "../styles/cart.css";
+import { MantineProvider } from "@mantine/core";
 
 const promoCards = [
   { title: "Become a member", img: "/assets/cartoon-bouncehouse.png" },
@@ -96,6 +97,10 @@ export function Welcome() {
     return [];
   });
 
+  // Calendar state
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarDateRange, setCalendarDateRange] = useState<[Date | null, Date | null]>([null, null]);
+
   // Firebase data
   const [inflateables, setInflateables] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
@@ -120,10 +125,12 @@ export function Welcome() {
   }, []);
 
   function handleNavClick(type: string) {
-    console.log("handleNavClick called with type:", type);
     if (type === "Cart") {
       setCartOpen(true);
-      console.log("Cart sidebar should open, cartOpen:", true);
+      return;
+    }
+    if (type === "Calendar") {
+      setCalendarOpen(true);
       return;
     }
     setModalType(type);
@@ -195,6 +202,7 @@ export function Welcome() {
   };
 
   return (
+    <MantineProvider>
     <div className="landing-page">
       {/* Header */}
       <header className="banner">
@@ -202,8 +210,13 @@ export function Welcome() {
       </header>
 
       {/* Navigation */}
-  <RouterNav onNavClick={handleNavClick} cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)} />
-
+      <RouterNav onNavClick={handleNavClick} cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)} />
+      <CalendarSidebar
+        open={calendarOpen}
+        onClose={() => setCalendarOpen(false)}
+        value={calendarDateRange}
+        onChange={setCalendarDateRange}
+      />
       {/* Main Section */}
       <section className="main-section">
         <div className="search-promo">
@@ -371,5 +384,6 @@ export function Welcome() {
         </div>
       </footer>
     </div>
+    </MantineProvider>
   );
 }
