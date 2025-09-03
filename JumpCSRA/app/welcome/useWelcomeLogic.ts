@@ -74,16 +74,17 @@ export function useWelcomeLogic() {
     const wetDry = product.wet && product.dry ? "Wet/Dry" : product.wet ? "Wet" : "Dry";
     const price = typeof product.weekdayPrice === "number" ? product.weekdayPrice : 0;
     const existing = cart.find((item: CartItem) => item.name === product.name && item.wetDry === wetDry);
-    let newCart;
     if (existing) {
-      newCart = cart.map((item: CartItem) =>
-        item.name === product.name && item.wetDry === wetDry
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      );
-    } else {
-      newCart = [...cart, { name: product.name, price, wetDry, quantity: 1 }];
+      notifications.show({
+        title: 'Already in Cart',
+        message: `${product.name} is already in your cart. Only one of each item can be selected.`,
+        color: 'orange',
+      });
+      setProductOpen(false);
+      setModalOpen(false);
+      return;
     }
+    const newCart = [...cart, { name: product.name, price, wetDry, quantity: 1 }];
     setCart(newCart);
     if (typeof window !== "undefined" && window.localStorage) {
       window.localStorage.setItem("cart", JSON.stringify(newCart));
