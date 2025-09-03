@@ -4,6 +4,12 @@ import { ProductDetailModal } from "../components/ProductDetailModal";
 import { CalendarSidebar } from "../components/CalendarSidebar";
 import { Notifications } from '@mantine/notifications';
 import { notifications } from '@mantine/notifications';
+import { useInflateables } from '../hooks/useInflateables';
+import { useCartSidebar } from '../hooks/useCartSidebar';
+import { useCalendarSidebar } from '../hooks/useCalendarSidebar';
+import { useCategories } from '../hooks/useCategories';
+import { useProductDetails } from '../hooks/useProductDetails';
+import { useCart } from '../hooks/useCart';
 
 import React, { useEffect, useLayoutEffect, useState, useRef, useMemo } from "react";
 import { getDatabase, ref, onValue } from "firebase/database";
@@ -24,6 +30,7 @@ import "swiper/css";
 import '@mantine/notifications/styles.css';
 
 import { MantineProvider } from "@mantine/core";
+import { useWelcomeLogic } from './useWelcomeLogic';
 
 const promoCards = [
   { title: "Become a member", img: "/assets/cartoon-bouncehouse.png" },
@@ -82,132 +89,23 @@ function OptionCard({ name, img, onOrder }: OptionCardProps) {
   );
 }
 
+function filterOptions(inflateables: any[], selectedCategory: string): any[] {
+  if (selectedCategory.toLowerCase() === 'all') return inflateables;
+  return inflateables.filter((item: any) =>
+    Array.isArray(item.category)
+      ? item.category.some((cat: string) => cat.toLowerCase() === selectedCategory.toLowerCase())
+      : item.category?.toLowerCase() === selectedCategory.toLowerCase()
+  );
+}
+
+export function getDetailImages(name: string) {
+  const folder = name.replace(/ /g, "-").replace(/[^a-zA-Z0-9\-]/g, "").toLowerCase();
+  const basePath = `/assets/inflateables/detail-images/${name}/`;
+  return [1, 2, 3, 4, 5].map((i) => `${basePath}${folder}-${i}.png`);
+}
+
 export function Welcome() {
-  // Modal & product states
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalType, setModalType] = useState<string | null>(null);
-  const [membershipOpen, setMembershipOpen] = useState(false);
-  const [productOpen, setProductOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
-  const carouselRef = useRef<HTMLDivElement>(null);
-
-  // Cart state
-  const [cartOpen, setCartOpen] = useState(false);
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    if (typeof window !== "undefined" && window.localStorage) {
-      const saved = window.localStorage.getItem("cart");
-      return saved ? JSON.parse(saved) : [];
-    }
-    return [];
-  });
-
-  // Calendar state
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  const [calendarDateRange, setCalendarDateRange] = useState<[Date | null, Date | null]>([null, null]);
-
-  // Firebase data
-  const [inflateables, setInflateables] = useState<any[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
-
-  useEffect(() => {
-    // Initialize Firebase once
-    if (!getApps().length) {
-      initializeApp(firebaseConfig);
-    }
-    const db = getDatabase();
-    const inflateablesRef = ref(db, "inflateables");
-    onValue(inflateablesRef, (snapshot) => {
-      const val = snapshot.val();
-      if (Array.isArray(val)) {
-        setInflateables(val);
-      } else if (val && typeof val === "object") {
-        setInflateables(Object.values(val));
-      } else {
-        setInflateables([]);
-      }
-    });
-  }, []);
-
-  function handleNavClick(type: string) {
-    if (type === "Cart") {
-      setCartOpen(true);
-      return;
-    }
-    if (type === "Calendar") {
-      setCalendarOpen(true);
-      return;
-    }
-    setModalType(type);
-    setModalOpen(true);
-  }
-
-  // Unique categories
-  const categories = useMemo(() => {
-    const catSet = new Set<string>();
-    inflateables.forEach((item) => {
-      if (Array.isArray(item.category)) {
-        item.category.forEach((cat: string) => catSet.add(cat));
-      } else if (typeof item.category === "string") {
-        catSet.add(item.category);
-      }
-    });
-    return ["All", ...Array.from(catSet)];
-  }, [inflateables]);
-
-  // Filter options (case-insensitive)
-  const filteredOptions = useMemo(() => {
-    if (selectedCategory.toLowerCase() === "all") {
-      return inflateables;
-    }
-    return inflateables.filter((item) =>
-      Array.isArray(item.category)
-        ? item.category.some((cat: string) => cat.toLowerCase() === selectedCategory.toLowerCase())
-        : item.category?.toLowerCase() === selectedCategory.toLowerCase()
-    );
-  }, [inflateables, selectedCategory]);
-
-  // If selectedProduct is an object, use it directly; if string, find in inflateables
-  const productDetails = selectedProduct
-    ? typeof selectedProduct === "object"
-      ? selectedProduct
-      : inflateables.find((p: any) => (p.name || "").trim().toLowerCase() === selectedProduct.trim().toLowerCase()) || null
-    : null;
-
-  const getDetailImages = (name: string) => {
-    const folder = name.replace(/ /g, "-").replace(/[^a-zA-Z0-9\-]/g, "").toLowerCase();
-    const basePath = `/assets/inflateables/detail-images/${name}/`;
-    return [1, 2, 3, 4, 5].map((i) => `${basePath}${folder}-${i}.png`);
-  };
-
-  const handleOrderNow = (product: any) => {
-    setSelectedProduct(product);
-    setProductOpen(true);
-  };
-
-  // Add to cart function
-  const addToCart = (product: any) => {
-    const wetDry = product.wet && product.dry ? "Wet/Dry" : product.wet ? "Wet" : "Dry";
-    const price = typeof product.weekdayPrice === "number" ? product.weekdayPrice : 0; // Placeholder, update later
-    const existing = cart.find(item => item.name === product.name && item.wetDry === wetDry);
-    let newCart;
-    if (existing) {
-      newCart = cart.map(item =>
-        item.name === product.name && item.wetDry === wetDry
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      );
-    } else {
-      newCart = [...cart, { name: product.name, price, wetDry, quantity: 1 }];
-    }
-    setCart(newCart);
-    if (typeof window !== "undefined" && window.localStorage) {
-      window.localStorage.setItem("cart", JSON.stringify(newCart));
-    }
-  };
-
-  // Helper to check if a valid date range is selected
-  const hasValidDates = calendarDateRange[0] && calendarDateRange[1];
-
+  const logic = useWelcomeLogic();
   return (
     <MantineProvider>
       <Notifications position="top-right" />
@@ -219,25 +117,15 @@ export function Welcome() {
 
         {/* Navigation */}
         <RouterNav
-          onNavClick={handleNavClick}
-          cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
-          selectedDates={calendarDateRange}
+          onNavClick={logic.handleNavClick}
+          cartCount={logic.cart.reduce((sum: number, item: CartItem) => sum + item.quantity, 0)}
+          selectedDates={logic.calendarDateRange}
         />
         <CalendarSidebar
-          open={calendarOpen || !hasValidDates}
-          onClose={() => {
-            if (hasValidDates) {
-              setCalendarOpen(false);
-            } else {
-              notifications.show({
-                title: 'Select a date range',
-                message: 'Please select both a start and end date before closing the calendar.',
-                color: 'orange',
-              });
-            }
-          }}
-          value={calendarDateRange}
-          onChange={setCalendarDateRange}
+          open={logic.calendarOpen || !logic.hasValidDates}
+          onClose={logic.handleCalendarClose}
+          value={logic.calendarDateRange}
+          onChange={logic.setCalendarDateRange}
         />
         {/* Main Section */}
         <section className="main-section">
@@ -246,16 +134,16 @@ export function Welcome() {
               <h2>Find Your Fun</h2>
               <div className="search-bar">
                 <SearchBar
-                  inflateables={inflateables}
-                  categories={categories}
-                  onCategorySelect={category => setSelectedCategory(category)}
+                  inflateables={logic.inflateables}
+                  categories={logic.categories}
+                  onCategorySelect={logic.setSelectedCategory}
                   onInflateableSelect={product => {
-                    setSelectedProduct(product);
-                    setProductOpen(true);
+                    logic.setSelectedProduct(product);
+                    logic.setProductOpen(true);
                   }}
                   focusCarousel={() => {
-                    if (carouselRef.current) {
-                      carouselRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+                    if (logic.carouselRef.current) {
+                      logic.carouselRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
                     }
                   }}
                 />
@@ -278,7 +166,7 @@ export function Welcome() {
                 type="button"
                 onClick={() => {
                   if (card.title.includes("Become a member")) {
-                    setMembershipOpen(true);
+                    logic.setMembershipOpen(true);
                   }
                 }}
               >
@@ -305,7 +193,7 @@ export function Welcome() {
         <section className="options-section">
           <h2>SWIPE FOR MORE FUN</h2>
           <div
-            ref={carouselRef}
+            ref={logic.carouselRef}
             className="category-dropdown-container"
             style={{ marginBottom: "1rem", textAlign: "center" }}
           >
@@ -314,11 +202,11 @@ export function Welcome() {
             </label>
             <select
               id="category-dropdown"
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
+              value={logic.selectedCategory}
+              onChange={(e) => logic.setSelectedCategory(e.target.value)}
               style={{ padding: "0.5rem", fontSize: "1rem" }}
             >
-              {categories.map((cat) => (
+              {logic.categories.map((cat) => (
                 <option key={cat} value={cat}>
                   {cat.charAt(0).toUpperCase() + cat.slice(1)}
                 </option>
@@ -327,85 +215,85 @@ export function Welcome() {
           </div>
 
           <OptionsCarousel
-            options={filteredOptions.map((opt) => ({
+            options={logic.filteredOptions.map((opt: any) => ({
               ...opt,
-              onOrder: () => handleOrderNow(opt)
+              onOrder: () => logic.handleOrderNow(opt)
             }))}
+            onPurchase={logic.addToCart}
           />
         </section>
 
         {/* Modal for carousel */}
         <ModalCarousel
-          open={modalOpen}
-          onClose={() => setModalOpen(false)}
-          options={filteredOptions.map((opt) => ({ ...opt, onOrder: handleOrderNow }))}
-          title={modalType || ""}
+          open={logic.modalOpen}
+          onClose={() => logic.setModalOpen(false)}
+          options={logic.filteredOptions.map((opt: any) => ({ ...opt, onOrder: logic.handleOrderNow }))}
+          title={logic.modalType || ""}
         />
+        <ProductDetailModal open={logic.productOpen} product={logic.selectedProduct} onClose={() => logic.setProductOpen(false)} onPurchase={logic.addToCart} />
 
-  <ProductDetailModal open={productOpen} product={selectedProduct} onClose={() => setProductOpen(false)} />
+        {/* Cart Sidebar */}
+        <CartSidebar open={logic.cartOpen} onClose={() => logic.setCartOpen(false)} cart={logic.cart} setCart={logic.setCart} />
 
-  {/* Cart Sidebar */}
-  <CartSidebar open={cartOpen} onClose={() => setCartOpen(false)} cart={cart} setCart={setCart} />
-
-      {/* Membership Modal */}
-      {membershipOpen && (
-        <div className="modal-overlay fade-in" onClick={() => setMembershipOpen(false)}>
-          <div className="modal-shadow" />
-          <div className="modal-content popup" onClick={(e) => e.stopPropagation()}>
-            <h2 className="modal-title">Membership Information</h2>
-            <div style={{ textAlign: "left", maxWidth: "600px", margin: "0 auto" }}>
-              <div className="membership-div">
-                <h3 id="membership-title">Jump CSRA Membership</h3>
-              </div>
-              <ul style={{ fontSize: "1.2rem", lineHeight: "2" }}>
+        {/* Membership Modal */}
+        {logic.membershipOpen && (
+          <div className="modal-overlay fade-in" onClick={() => logic.setMembershipOpen(false)}>
+            <div className="modal-shadow" />
+            <div className="modal-content popup" onClick={(e) => e.stopPropagation()}>
+              <h2 className="modal-title">Membership Information</h2>
+              <div style={{ textAlign: "left", maxWidth: "600px", margin: "0 auto" }}>
                 <div className="membership-div">
-                  <li>Exclusive member discounts on all rentals</li>
-                  <li>Priority booking for popular dates</li>
-                  <li>Free delivery within service area</li>
-                  <li>Special member-only events and offers</li>
-                  <li>Early access to new inflatables</li>
+                  <h3 id="membership-title">Jump CSRA Membership</h3>
                 </div>
-              </ul>
-              <div className="membership-getstarted" style={{ marginTop: "2rem" }}>
-                <strong>Ready to join?</strong>
-                <br />
-                Call <a href="tel:803-221-0466">803-221-0466</a> or email{" "}
-                <a href="mailto:JumpCSRA@gmail.com">JumpCSRA@gmail.com</a>
+                <ul style={{ fontSize: "1.2rem", lineHeight: "2" }}>
+                  <div className="membership-div">
+                    <li>Exclusive member discounts on all rentals</li>
+                    <li>Priority booking for popular dates</li>
+                    <li>Free delivery within service area</li>
+                    <li>Special member-only events and offers</li>
+                    <li>Early access to new inflatables</li>
+                  </div>
+                </ul>
+                <div className="membership-getstarted" style={{ marginTop: "2rem" }}>
+                  <strong>Ready to join?</strong>
+                  <br />
+                  Call <a href="tel:803-221-0466">803-221-0466</a> or email{" "}
+                  <a href="mailto:JumpCSRA@gmail.com">JumpCSRA@gmail.com</a>
+                </div>
               </div>
+              <button className="modal-close" onClick={() => logic.setMembershipOpen(false)}>
+                Close
+              </button>
             </div>
-            <button className="modal-close" onClick={() => setMembershipOpen(false)}>
-              Close
-            </button>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Footer */}
-      <footer className="footer">
-        <div>
-          <strong>Jump CSRA Party Rental</strong>
-          <br />
-          410 Carolina Springs Rd.
-          <br />
-          North Augusta, SC. 29841
-        </div>
-        <div>
-          803-221-0466
-          <br />
-          JumpCSRA@gmail.com
-        </div>
-        <div>
-          <a href="https://www.instagram.com/jumpcsra/" target="_blank" rel="noopener noreferrer">
-            <img src="/assets/instagram-icon.avif" alt="Instagram Logo" className="footer-icons" />
-          </a>
-        </div>
-        <div>
-          <a href="https://www.facebook.com/JUMPCSRA/" target="_blank" rel="noopener noreferrer">
-            <img src="/assets/fb-icon.avif" alt="Facebook Logo" className="footer-icons" />
-          </a>
-        </div>
-      </footer>
-    </div>
+        {/* Footer */}
+        <footer className="footer">
+          <div>
+            <strong>Jump CSRA Party Rental</strong>
+            <br />
+            410 Carolina Springs Rd.
+            <br />
+            North Augusta, SC. 29841
+          </div>
+          <div>
+            803-221-0466
+            <br />
+            JumpCSRA@gmail.com
+          </div>
+          <div>
+            <a href="https://www.instagram.com/jumpcsra/" target="_blank" rel="noopener noreferrer">
+              <img src="/assets/instagram-icon.avif" alt="Instagram Logo" className="footer-icons" />
+            </a>
+          </div>
+          <div>
+            <a href="https://www.facebook.com/JUMPCSRA/" target="_blank" rel="noopener noreferrer">
+              <img src="/assets/fb-icon.avif" alt="Facebook Logo" className="footer-icons" />
+            </a>
+          </div>
+        </footer>
+      </div>
     </MantineProvider>
   );
 }
