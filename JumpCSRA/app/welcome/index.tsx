@@ -210,7 +210,11 @@ export function Welcome() {
       </header>
 
       {/* Navigation */}
-      <RouterNav onNavClick={handleNavClick} cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)} />
+      <RouterNav
+        onNavClick={handleNavClick}
+        cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
+        selectedDates={calendarDateRange}
+      />
       <CalendarSidebar
         open={calendarOpen}
         onClose={() => setCalendarOpen(false)}

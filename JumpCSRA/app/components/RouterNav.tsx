@@ -5,20 +5,44 @@ import "../styles/cart.css";
 type RouterNavProps = {
   onNavClick?: (type: string) => void;
   cartCount?: number;
+  selectedDates?: [Date | null, Date | null];
 };
 
-export function RouterNav({ onNavClick, cartCount }: RouterNavProps) {
+export function RouterNav({ onNavClick, cartCount, selectedDates }: RouterNavProps) {
+  const formatDate = (date: Date | null) => date ? date.toLocaleDateString() : "--";
   return (
     <nav className="nav-bar">
       <ul>
         <Link to="/" style={{ display: "inline-block" }}>
           <img src="/assets/logo.avif" alt="JumpCSRA Logo" className="nav-logo" />
         </Link>
-        <li>
-          <button type="button" className="nav-btn" onClick={() => {
+        <li style={{ position: "relative" }}>
+          <button type="button" className="nav-btn calendar-btn" onClick={() => {
             console.log("Calendar icon clicked");
             onNavClick && onNavClick("Calendar");
-          }}> <img src="/calendar.png" alt="calendar" className="cart-icon" /></button>
+          }} style={{ position: "relative", padding: 0, background: "none", border: "none" }}>
+            <img src="/calendar.png" alt="calendar" className="cart-icon" style={{ display: "block", margin: "0 auto" }} />
+            {selectedDates && selectedDates[0] && selectedDates[1] && (
+              <span
+                className="calendar-dates-overlay"
+                style={{
+                
+                  transform: "translate(-50%, -50%)",
+                  background: "rgba(255,255,255,0.85)",
+                  color: "#333",
+                  fontSize: "0.8rem",
+                  padding: "2px 6px",
+                  borderRadius: "6px",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                  whiteSpace: "nowrap",
+                  maxWidth: "80px",
+                  pointerEvents: "none"
+                }}
+              >
+                {formatDate(selectedDates[0])} - {formatDate(selectedDates[1])}
+              </span>
+            )}
+          </button>
         </li>
         <li style={{ position: "relative" }}>
           <button type="button" className="nav-btn" onClick={() => {
