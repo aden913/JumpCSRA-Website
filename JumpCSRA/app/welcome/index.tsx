@@ -2,6 +2,8 @@ import { ModalCarousel } from "../components/ModalCarousel";
 import { OptionsCarousel } from "../components/OptionsCarousel";
 import { ProductDetailModal } from "../components/ProductDetailModal";
 import { CalendarSidebar } from "../components/CalendarSidebar";
+import { Notifications } from '@mantine/notifications';
+import { notifications } from '@mantine/notifications';
 
 import React, { useEffect, useLayoutEffect, useState, useRef, useMemo } from "react";
 import { getDatabase, ref, onValue } from "firebase/database";
@@ -19,6 +21,8 @@ import "./index.css";
 import "react-multi-carousel/lib/styles.css";
 import "../styles/membership.css";
 import "swiper/css";
+import '@mantine/notifications/styles.css';
+
 import { MantineProvider } from "@mantine/core";
 
 const promoCards = [
@@ -201,128 +205,142 @@ export function Welcome() {
     }
   };
 
+  // Helper to check if a valid date range is selected
+  const hasValidDates = calendarDateRange[0] && calendarDateRange[1];
+
   return (
     <MantineProvider>
-    <div className="landing-page">
-      {/* Header */}
-      <header className="banner">
-        <BannerCarousel />
-      </header>
+      <Notifications position="top-right" />
+      <div className="landing-page">
+        {/* Header */}
+        <header className="banner">
+          <BannerCarousel />
+        </header>
 
-      {/* Navigation */}
-      <RouterNav
-        onNavClick={handleNavClick}
-        cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
-        selectedDates={calendarDateRange}
-      />
-      <CalendarSidebar
-        open={calendarOpen}
-        onClose={() => setCalendarOpen(false)}
-        value={calendarDateRange}
-        onChange={setCalendarDateRange}
-      />
-      {/* Main Section */}
-      <section className="main-section">
-        <div className="search-promo">
-          <div className="search-card">
-            <h2>Find Your Fun</h2>
-            <div className="search-bar">
-              <SearchBar
-                inflateables={inflateables}
-                categories={categories}
-                onCategorySelect={category => setSelectedCategory(category)}
-                onInflateableSelect={product => {
-                  setSelectedProduct(product);
-                  setProductOpen(true);
-                }}
-                focusCarousel={() => {
-                  if (carouselRef.current) {
-                    carouselRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+        {/* Navigation */}
+        <RouterNav
+          onNavClick={handleNavClick}
+          cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
+          selectedDates={calendarDateRange}
+        />
+        <CalendarSidebar
+          open={calendarOpen || !hasValidDates}
+          onClose={() => {
+            if (hasValidDates) {
+              setCalendarOpen(false);
+            } else {
+              notifications.show({
+                title: 'Select a date range',
+                message: 'Please select both a start and end date before closing the calendar.',
+                color: 'orange',
+              });
+            }
+          }}
+          value={calendarDateRange}
+          onChange={setCalendarDateRange}
+        />
+        {/* Main Section */}
+        <section className="main-section">
+          <div className="search-promo">
+            <div className="search-card">
+              <h2>Find Your Fun</h2>
+              <div className="search-bar">
+                <SearchBar
+                  inflateables={inflateables}
+                  categories={categories}
+                  onCategorySelect={category => setSelectedCategory(category)}
+                  onInflateableSelect={product => {
+                    setSelectedProduct(product);
+                    setProductOpen(true);
+                  }}
+                  focusCarousel={() => {
+                    if (carouselRef.current) {
+                      carouselRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }
+                  }}
+                />
+              </div>
+            </div>
+            <div className="specials-card">
+              <div className="specials-img">
+                <img src="/assets/kids-bg.png" alt="End of Summer Specials" />
+              </div>
+              <div className="specials-text">End of Summer Specials</div>
+            </div>
+          </div>
+
+          {/* Promo Cards */}
+          <div className="promo-cards">
+            {promoCards.map((card, idx) => (
+              <button
+                className="promo-card"
+                key={idx}
+                type="button"
+                onClick={() => {
+                  if (card.title.includes("Become a member")) {
+                    setMembershipOpen(true);
                   }
                 }}
-              />
-            </div>
-          </div>
-          <div className="specials-card">
-            <div className="specials-img">
-              <img src="/assets/kids-bg.png" alt="End of Summer Specials" />
-            </div>
-            <div className="specials-text">End of Summer Specials</div>
-          </div>
-        </div>
-
-        {/* Promo Cards */}
-        <div className="promo-cards">
-          {promoCards.map((card, idx) => (
-            <button
-              className="promo-card"
-              key={idx}
-              type="button"
-              onClick={() => {
-                if (card.title.includes("Become a member")) {
-                  setMembershipOpen(true);
-                }
-              }}
-            >
-              {card.title.includes("Become a member") ? (
-                <div className="promo-title">{card.title}</div>
-              ) : card.title.includes("Give One Get One") ? (
-                <div className="promo-title">
-                  GOGO
-                  <br />
-                  <span className="promo-subtext">Give One Get One</span>
-                  <br />
-                  Gift Card
-                </div>
-              ) : (
-                <div className="promo-title">{card.title}</div>
-              )}
-              {card.img && <img src={card.img} alt={card.title} className="promo-img" />}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* Options Section */}
-      <section className="options-section">
-        <h2>SWIPE FOR MORE FUN</h2>
-        <div
-          ref={carouselRef}
-          className="category-dropdown-container"
-          style={{ marginBottom: "1rem", textAlign: "center" }}
-        >
-          <label htmlFor="category-dropdown" style={{ marginRight: "0.5rem" }}>
-            Filter by Category:
-          </label>
-          <select
-            id="category-dropdown"
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            style={{ padding: "0.5rem", fontSize: "1rem" }}
-          >
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat.charAt(0).toUpperCase() + cat.slice(1)}
-              </option>
+              >
+                {card.title.includes("Become a member") ? (
+                  <div className="promo-title">{card.title}</div>
+                ) : card.title.includes("Give One Get One") ? (
+                  <div className="promo-title">
+                    GOGO
+                    <br />
+                    <span className="promo-subtext">Give One Get One</span>
+                    <br />
+                    Gift Card
+                  </div>
+                ) : (
+                  <div className="promo-title">{card.title}</div>
+                )}
+                {card.img && <img src={card.img} alt={card.title} className="promo-img" />}
+              </button>
             ))}
-          </select>
-        </div>
+          </div>
+        </section>
 
-        <OptionsCarousel
-          options={filteredOptions.map((opt) => ({
-            ...opt,
-            onOrder: () => handleOrderNow(opt)
-          }))}
+        {/* Options Section */}
+        <section className="options-section">
+          <h2>SWIPE FOR MORE FUN</h2>
+          <div
+            ref={carouselRef}
+            className="category-dropdown-container"
+            style={{ marginBottom: "1rem", textAlign: "center" }}
+          >
+            <label htmlFor="category-dropdown" style={{ marginRight: "0.5rem" }}>
+              Filter by Category:
+            </label>
+            <select
+              id="category-dropdown"
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              style={{ padding: "0.5rem", fontSize: "1rem" }}
+            >
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <OptionsCarousel
+            options={filteredOptions.map((opt) => ({
+              ...opt,
+              onOrder: () => handleOrderNow(opt)
+            }))}
+          />
+        </section>
+
+        {/* Modal for carousel */}
+        <ModalCarousel
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
+          options={filteredOptions.map((opt) => ({ ...opt, onOrder: handleOrderNow }))}
+          title={modalType || ""}
         />
-      </section>
-
-      {/* Modal for carousel */}
-      <ModalCarousel
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        options={filteredOptions.map((opt) => ({ ...opt, onOrder: handleOrderNow }))}
-        title={modalType || ""}
-      />
 
   <ProductDetailModal open={productOpen} product={selectedProduct} onClose={() => setProductOpen(false)} />
 
