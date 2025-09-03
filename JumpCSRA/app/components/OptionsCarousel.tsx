@@ -3,6 +3,7 @@ import { ProductDetailModal } from "./ProductDetailModal";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation } from "swiper/modules";
 import { ProductImageGallery } from "./ProductImageGallery";
+import { notifications } from "@mantine/notifications";
 
 import "swiper/css";
 import "swiper/css/navigation";
@@ -86,9 +87,20 @@ export type OptionsCarouselProps = {
 export function OptionsCarousel({ options, onPurchase }: OptionsCarouselProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<OptionCardProps | null>(null);
+
   const handleOrderNow = (product: OptionCardProps) => {
     setSelectedProduct(product);
     setModalOpen(true);
+  };
+
+  const handlePurchase = (product: OptionCardProps) => {
+    if (onPurchase) onPurchase(product);
+    setModalOpen(false);
+    notifications.show({
+      title: "Added to Cart",
+      message: `${product.name} has been added to your cart!`,
+      color: "green",
+    });
   };
 
   return (
@@ -112,12 +124,12 @@ export function OptionsCarousel({ options, onPurchase }: OptionsCarouselProps) {
         ))}
       </Swiper>
 
-  <ProductDetailModal
-    open={modalOpen}
-    product={selectedProduct}
-    onClose={() => setModalOpen(false)}
-    onPurchase={onPurchase}
-  />
+      <ProductDetailModal
+        open={modalOpen}
+        product={selectedProduct}
+        onClose={() => setModalOpen(false)}
+        onPurchase={handlePurchase}
+      />
     </>
   );
 }

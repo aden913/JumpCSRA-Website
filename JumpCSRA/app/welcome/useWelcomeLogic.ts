@@ -88,6 +88,13 @@ export function useWelcomeLogic() {
     if (typeof window !== "undefined" && window.localStorage) {
       window.localStorage.setItem("cart", JSON.stringify(newCart));
     }
+    setProductOpen(false);
+    setModalOpen(false);
+    notifications.show({
+      title: 'Added to Cart',
+      message: `${product.name} has been added to your cart!`,
+      color: 'green',
+    });
   };
 
   function handleCalendarClose() {
