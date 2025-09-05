@@ -23,7 +23,7 @@ import { CartSidebar } from "../components/CartSidebar";
 import type { CartItem } from "../components/CartSidebar";
 import { Link } from "react-router";
 
-import "./index.css";
+import "../styles/index.css";
 import "react-multi-carousel/lib/styles.css";
 import "../styles/membership.css";
 import "../styles/promo.css";
