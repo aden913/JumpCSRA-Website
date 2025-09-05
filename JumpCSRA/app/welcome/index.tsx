@@ -26,6 +26,8 @@ import { Link } from "react-router";
 import "./index.css";
 import "react-multi-carousel/lib/styles.css";
 import "../styles/membership.css";
+import "../styles/promo.css";
+import "../styles/specials.css";
 import "swiper/css";
 import '@mantine/notifications/styles.css';
 
@@ -282,12 +284,11 @@ export function Welcome() {
             <br />
             JumpCSRA@gmail.com
           </div>
-          <div>
+          <div className="social-icons">
             <a href="https://www.instagram.com/jumpcsra/" target="_blank" rel="noopener noreferrer">
               <img src="/assets/instagram-icon.avif" alt="Instagram Logo" className="footer-icons" />
             </a>
-          </div>
-          <div>
+         
             <a href="https://www.facebook.com/JUMPCSRA/" target="_blank" rel="noopener noreferrer">
               <img src="/assets/fb-icon.avif" alt="Facebook Logo" className="footer-icons" />
             </a>

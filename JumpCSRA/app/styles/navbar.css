@@ -32,3 +32,36 @@
 .nav-btn:hover {
   color: var(--coral);
 }
+
+
+@media (max-width: 600px) {
+  .nav-logo {
+    display: none;
+  }
+  .nav-bar ul {
+    width: 100vw;
+    padding: 0 0.5rem;
+    margin: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0;
+    position: static;
+  }
+  .nav-bar li {
+    flex: none;
+    display: flex;
+    align-items: center;
+    position: static;
+  }
+  .icon-container {
+    width: 45%;
+  }
+  .nav-bar {
+    justify-content: space-between;
+  }
+  .right-icon {
+    float:right;
+    margin-right: 1rem;
+  }
+}

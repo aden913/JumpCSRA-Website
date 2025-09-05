@@ -39,3 +39,13 @@
     color: #51CBC2 !important;
     font-weight: bolder;
 }
+
+
+@media (max-width: 900px) {
+.calendar-sidebar.open { 
+width:100%;
+}
+
+
+
+}

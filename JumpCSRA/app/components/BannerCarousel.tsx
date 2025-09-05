@@ -1,6 +1,7 @@
 import React from "react";
 import { Carousel } from 'react-responsive-carousel';
 import "react-responsive-carousel/lib/styles/carousel.min.css";
+import "../styles/carousel.css";
 
 export function BannerCarousel() {
   return (
@@ -16,13 +17,13 @@ export function BannerCarousel() {
       emulateTouch
     >
       <div>
-        <h1>Turn your backyard into the ultimate party zone!</h1>
+        <h1 className="banner-carousel">Turn your backyard into the ultimate party zone!</h1>
       </div>
       <div>
-        <h1>A water park in your driveway — without the lines!</h1>
+        <h1 className="banner-carousel">A water park in your driveway — without the lines!</h1>
       </div>
       <div>
-        <h1>One click = a stress-free party they’ll never forget!</h1>
+        <h1 className="banner-carousel">One click = a stress-free party they’ll never forget!</h1>
       </div>
     </Carousel>
   );

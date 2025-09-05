@@ -33,3 +33,18 @@
   line-height: 1.2;
   margin-bottom: -0.3rem;
 }
+@media (max-width: 900px) {
+  .promo-cards {
+    width:100%;
+    flex-direction: row;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+.promo-card {
+  width:45%;
+  margin:0;
+  border-radius: 1px;
+}
+
+
+}

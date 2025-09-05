@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ProductImageGallery } from "./ProductImageGallery";
 import type { OptionCardProps } from "./OptionsCarousel";
+import "../styles/modal.css";
 
 export type ProductDetailModalProps = {
   open: boolean;
@@ -41,9 +42,9 @@ export function ProductDetailModal({ open, product, onClose, onPurchase }: Produ
         onClick={e => e.stopPropagation()}
       >
         <h2 className="modal-title" style={{ textAlign: "center", marginBottom: "2rem" }}>{product.name}</h2>
-        <div style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
+        <div className="modal-div" style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
           <ProductImageGallery images={images.filter(Boolean)} />
-          <div style={{ marginTop: "1rem", textAlign: "left" }}>
+          <div className="modal-info">
             <strong>Prices:</strong>
             <br />
             Weekday (Dry): {typeof product.weekdayPrice === "number" ? `$${product.weekdayPrice}` : "N/A"}

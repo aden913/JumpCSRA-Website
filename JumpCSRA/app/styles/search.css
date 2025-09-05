@@ -38,3 +38,12 @@
   outline: none;
   padding: 0.4rem 0;
 }
+
+
+@media (max-width: 900px) {
+
+.search-card {
+  width:90% !important;
+}
+
+}

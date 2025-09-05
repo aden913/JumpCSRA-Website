@@ -56,6 +56,7 @@
   background-color: rgba(0, 0, 0, 0.5);
   z-index: 9998;
   display: none;
+  pointer-events: auto;
 }
 .cart-overlay.open {
   display: block;
@@ -94,8 +95,76 @@
   font-size: 1em;
   margin-top: 10px;
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 0px;
+  right: 0px;
+  z-index: 1002;
+}
+@media (max-width: 600px) {
+  .close-btn {
+    font-size: 2rem;
+    padding: 20px 32px;
+    top: 20px;
+    right: 20px;
+    border-radius: 16px;
+    min-width: 60px;
+    min-height: 60px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    z-index: 1002;
+  }
+  .close-btn {
+    top: 0 !important;
+    right: 0 !important;
+  }
+  .cart-sidebar {
+    width: 100vw;
+    height: 100vh;
+    right: -100vw;
+    top: 0;
+    border-radius: 0;
+    box-shadow: none;
+    z-index: 10001;
+    pointer-events: none;
+    transition: right 0.3s ease;
+    display: block;
+  }
+  .cart-sidebar.open {
+    right: 0;
+    pointer-events: auto;
+  }
+  .cart-overlay {
+    width: 100vw;
+    height: 100vh;
+    left: 0;
+    top: 0;
+    z-index: 10000;
+    display: none;
+    pointer-events: none;
+  }
+  .cart-overlay.open {
+    display: block;
+    pointer-events: auto;
+  }
+  .calendar-sidebar {
+    width: 100vw;
+    height: 100vh;
+    left: 0;
+    top: 0;
+    border-radius: 0;
+    box-shadow: none;
+    z-index: 1001;
+    padding: 2rem 1rem 1rem 1rem;
+    transform: translateX(-100vw);
+    transition: transform 0.3s;
+    display: block;
+  }
+  .calendar-sidebar.open {
+    transform: translateX(0);
+  }
+  .cart-icon {
+    width:2rem;
+    height:auto;
+  }
+  
 }
 .cart-footer {
   text-align: center;
@@ -169,4 +238,57 @@
 .calendar-overlay.open {
   opacity: 1;
   pointer-events: auto;
+}
+
+@media (max-width: 600px) {
+  .cart-sidebar {
+    width: 100vw;
+    height: 100vh;
+    right: -100vw;
+    top: 0;
+    border-radius: 0;
+    box-shadow: none;
+    z-index: 10001;
+    pointer-events: none;
+    transition: right 0.3s ease;
+    display: block;
+  }
+  .cart-sidebar.open {
+    right: 0;
+    pointer-events: auto;
+  }
+  .cart-overlay {
+    width: 100vw;
+    height: 100vh;
+    left: 0;
+    top: 0;
+    z-index: 10000;
+    display: none;
+    pointer-events: none;
+  }
+  .cart-overlay.open {
+    display: block;
+    pointer-events: auto;
+  }
+  .calendar-sidebar {
+    width: 100vw;
+    height: 100vh;
+    left: 0;
+    top: 0;
+    border-radius: 0;
+    box-shadow: none;
+    z-index: 1001;
+    padding: 2rem 1rem 1rem 1rem;
+    transform: translateX(-100vw);
+    transition: transform 0.3s;
+    display: block;
+  }
+  .calendar-sidebar.open {
+    transform: translateX(0);
+  }
+  .cart-icon {
+    width:2rem;
+    height:auto;
+  }
+  
 }

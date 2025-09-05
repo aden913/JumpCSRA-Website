@@ -9,4 +9,14 @@
   justify-content: center;
   align-items: stretch;
   height: auto;
+  
+}
+.banner-carousel {
+  font-size: 1.5rem;
+
+}
+@media (max-width: 900px) {
+  .banner-carousel {
+    font-size: .9rem;
+  }
 }

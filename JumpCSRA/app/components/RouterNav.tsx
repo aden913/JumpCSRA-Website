@@ -16,6 +16,7 @@ export function RouterNav({ onNavClick, cartCount, selectedDates }: RouterNavPro
         <Link to="/" style={{ display: "inline-block" }}>
           <img src="/assets/logo.avif" alt="JumpCSRA Logo" className="nav-logo" />
         </Link>
+      <div className="icon-container">
         <li style={{ position: "relative" }}>
           <button type="button" className="nav-btn calendar-btn" onClick={() => {
             console.log("Calendar icon clicked");
@@ -44,7 +45,9 @@ export function RouterNav({ onNavClick, cartCount, selectedDates }: RouterNavPro
             )}
           </button>
         </li>
-        <li style={{ position: "relative" }}>
+</div>
+<div className="icon-container">
+        <li style={{ position: "relative" }} className="right-icon">
           <button type="button" className="nav-btn" onClick={() => {
             console.log("Cart icon clicked");
             onNavClick && onNavClick("Cart");
@@ -54,6 +57,7 @@ export function RouterNav({ onNavClick, cartCount, selectedDates }: RouterNavPro
             )}
           </button>
         </li>
+        </div>
       </ul>
     </nav>
   );

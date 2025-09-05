@@ -304,4 +304,14 @@ html, body {
     padding: 2rem 1rem;
     text-align: center;
   }
+  .main-section{
+    width: 100%;
+    border-radius: 0;
+  }
+  .social-icons {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    width:45%;
+  }
 }
