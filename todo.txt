@@ -1,0 +1,11 @@
+implement user identity firebase sdk
+ask about 2nd delivery time 
+    rental time?
+    4 hours is 10% off
+    24 is base
+    and 48 hours is 50% more
+add tooltip in cart sidebar to login to save order info
+add profile page
+aesthetics
+    option cards make negative space less
+    

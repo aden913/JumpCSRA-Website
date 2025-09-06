@@ -3,7 +3,6 @@ import { ProductDetailModal } from "./ProductDetailModal";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation } from "swiper/modules";
 import { ProductImageGallery } from "./ProductImageGallery";
-import { notifications } from "@mantine/notifications";
 
 import "swiper/css";
 import "swiper/css/navigation";
