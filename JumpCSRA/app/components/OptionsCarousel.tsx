@@ -22,6 +22,8 @@ export type OptionCardProps = {
   weekdayWaterPrice?: number;
   weekendWaterPrice?: number;
   onOrder?: (product: OptionCardProps) => void;
+  wetDry?: string;
+  category?: string;
 };
 
 function OptionCard({
@@ -89,18 +91,14 @@ export function OptionsCarousel({ options, onPurchase }: OptionsCarouselProps) {
   const [selectedProduct, setSelectedProduct] = useState<OptionCardProps | null>(null);
 
   const handleOrderNow = (product: OptionCardProps) => {
-    setSelectedProduct(product);
+    // Always pass the full product object
+    setSelectedProduct({ ...product });
     setModalOpen(true);
   };
 
   const handlePurchase = (product: OptionCardProps) => {
     if (onPurchase) onPurchase(product);
     setModalOpen(false);
-    notifications.show({
-      title: "Added to Cart",
-      message: `${product.name} has been added to your cart!`,
-      color: "green",
-    });
   };
 
   return (
@@ -119,14 +117,14 @@ export function OptionsCarousel({ options, onPurchase }: OptionsCarouselProps) {
       >
         {options.map((opt: OptionCardProps) => (
           <SwiperSlide key={opt.name}>
-            <OptionCard {...opt} onOrder={handleOrderNow} />
+            <OptionCard {...opt} onOrder={() => handleOrderNow({ ...opt })} />
           </SwiperSlide>
         ))}
       </Swiper>
 
       <ProductDetailModal
         open={modalOpen}
-        product={selectedProduct}
+        product={selectedProduct ? { ...selectedProduct } : null}
         onClose={() => setModalOpen(false)}
         onPurchase={handlePurchase}
       />

@@ -29,8 +29,8 @@ export function ProductDetailModal({ open, product, onClose, onPurchase }: Produ
   const images = manifestImages.includes(mainImg) ? manifestImages : [mainImg, ...manifestImages];
 
   let wetDryLabel = "";
-  if (product.wet === true && product.dry === false) wetDryLabel = "Wet Only";
-  else if (product.wet === false && product.dry === true) wetDryLabel = "Dry Only";
+  if (product.wet === true && product.dry === false) wetDryLabel = "Wet";
+  else if (product.wet === false && product.dry === true) wetDryLabel = "Dry";
   else if (product.wet === true && product.dry === true) wetDryLabel = "Wet and Dry";
 
   return (
@@ -63,7 +63,18 @@ export function ProductDetailModal({ open, product, onClose, onPurchase }: Produ
           </div>
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginTop: "2rem" }}>
-          <button className="modal-purchase" onClick={() => onPurchase && product && onPurchase(product)}>
+          <button
+            className="modal-purchase"
+            onClick={() => {
+              if (onPurchase && product) {
+                onPurchase({
+                  ...product,
+                  wetDry: wetDryLabel,
+                  category: product.category || ""
+                });
+              }
+            }}
+          >
             Add to Cart
           </button>
           <button className="modal-close" onClick={onClose}>

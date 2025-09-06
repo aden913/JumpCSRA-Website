@@ -84,7 +84,7 @@ export function useWelcomeLogic() {
       setModalOpen(false);
       return;
     }
-    const newCart = [...cart, { name: product.name, price, wetDry, quantity: 1 }];
+    const newCart = [...cart, { name: product.name, price, wetDry, quantity: 1,category: product.category }];
     setCart(newCart);
     if (typeof window !== "undefined" && window.localStorage) {
       window.localStorage.setItem("cart", JSON.stringify(newCart));

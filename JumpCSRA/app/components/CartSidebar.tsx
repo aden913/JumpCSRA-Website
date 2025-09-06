@@ -5,6 +5,9 @@ export type CartItem = {
   price: number;
   wetDry: string;
   quantity: number;
+  category: string; // e.g. 'party essential', 'inflateable', 'game', etc.
+  wet?: boolean;
+  dry?: boolean;
 };
 
 export type CartSidebarProps = {
@@ -15,6 +18,24 @@ export type CartSidebarProps = {
 };
 
 export function CartSidebar({ open, onClose, cart, setCart }: CartSidebarProps) {
+  useEffect(() => {
+    if (open && cart.length > 0) {
+      cart.forEach((item, idx) => {
+      });
+    }
+  }, [open, cart]);
+  // Helper: is item a party essential?
+  const isPartyEssential = (item: CartItem) => {
+    return item.category && item.category.toLowerCase() === "party-essentials";
+  };
+  // Helper: does item support both wet and dry?
+  // Use wetDry property from cart item
+  const supportsWetDry = (item: CartItem) => {
+    return item.wetDry === "Wet/Dry";
+  };
+  // Track wet/dry selection for each item
+  const [wetDrySelections, setWetDrySelections] = useState<{[idx: number]: string}>({});
+  // ...existing code...
   const [orderInfo, setOrderInfo] = useState("");
   const [surface, setSurface] = useState<string>("");
   const [deliveryTime, setDeliveryTime] = useState<string>("");
@@ -45,7 +66,14 @@ export function CartSidebar({ open, onClose, cart, setCart }: CartSidebarProps) 
   ];
 
   // Calculate total
-  const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  // Calculate total, add $50 for each item set to wet
+  const cartTotal = cart.reduce((sum, item, idx) => {
+    let itemTotal = item.price * item.quantity;
+    if (supportsWetDry(item) && wetDrySelections[idx] === "Wet") {
+      itemTotal += 50 * item.quantity;
+    }
+    return sum + itemTotal;
+  }, 0);
   const surfaceAdj = surface ? surfacePrices[surface] || 0 : 0;
   const timeAdj = deliveryTime ? timePrices[deliveryTime] || 0 : 0;
   const total = cartTotal + surfaceAdj + timeAdj;
@@ -90,12 +118,30 @@ export function CartSidebar({ open, onClose, cart, setCart }: CartSidebarProps) 
                 <span>
                   {item.name} - ${item.price.toFixed(2)} ({item.wetDry})
                 </span>
-                <input
-                  type="number"
-                  value={item.quantity}
-                  min={1}
-                  onChange={e => updateQuantity(idx, parseInt(e.target.value))}
-                />
+                {supportsWetDry(item) && (
+                  <select
+                    className="wet-dry-select"
+                    value={wetDrySelections[idx] || ""}
+                    onChange={e => {
+                      const value = e.target.value;
+                      setWetDrySelections(prev => ({ ...prev, [idx]: value }));
+                    }}
+                    style={{ marginLeft: '0.5rem' }}
+                    required
+                  >
+                    <option value="">Choose Wet or Dry</option>
+                    <option value="Dry">Dry</option>
+                    <option value="Wet">Wet (+$50)</option>
+                  </select>
+                )}
+                {isPartyEssential(item) && (
+                  <input
+                    type="number"
+                    value={item.quantity}
+                    min={1}
+                    onChange={e => updateQuantity(idx, parseInt(e.target.value))}
+                  />
+                )}
                 <button onClick={() => removeFromCart(idx)}>Remove</button>
               </div>
             ))

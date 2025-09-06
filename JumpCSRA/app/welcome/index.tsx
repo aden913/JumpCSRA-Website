@@ -217,10 +217,12 @@ export function Welcome() {
           </div>
 
           <OptionsCarousel
-            options={logic.filteredOptions.map((opt: any) => ({
-              ...opt,
-              onOrder: () => logic.handleOrderNow(opt)
-            }))}
+            options={logic.filteredOptions.map((opt: any) => {
+              return {
+                ...opt,
+                onOrder: () => logic.handleOrderNow(opt)
+              };
+            })}
             onPurchase={logic.addToCart}
           />
         </section>
@@ -229,10 +231,15 @@ export function Welcome() {
         <ModalCarousel
           open={logic.modalOpen}
           onClose={() => logic.setModalOpen(false)}
-          options={logic.filteredOptions.map((opt: any) => ({ ...opt, onOrder: logic.handleOrderNow }))}
+          options={logic.filteredOptions.map((opt: any) => ({ ...opt, onOrder: logic.handleOrderNow, ...opt }))}
           title={logic.modalType || ""}
         />
-        <ProductDetailModal open={logic.productOpen} product={logic.selectedProduct} onClose={() => logic.setProductOpen(false)} onPurchase={logic.addToCart} />
+        <ProductDetailModal
+          open={logic.productOpen}
+          product={logic.selectedProduct ? (() => { console.log('ProductDetailModal category:', logic.selectedProduct.category); return { ...logic.selectedProduct }; })() : null}
+          onClose={() => logic.setProductOpen(false)}
+          onPurchase={logic.addToCart}
+        />
 
         {/* Cart Sidebar */}
         <CartSidebar open={logic.cartOpen} onClose={() => logic.setCartOpen(false)} cart={logic.cart} setCart={logic.setCart} />
