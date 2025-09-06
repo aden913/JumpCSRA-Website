@@ -16,7 +16,39 @@ export type CartSidebarProps = {
 
 export function CartSidebar({ open, onClose, cart, setCart }: CartSidebarProps) {
   const [orderInfo, setOrderInfo] = useState("");
+  const [surface, setSurface] = useState<string>("");
+  const [deliveryTime, setDeliveryTime] = useState<string>("");
+  const [location, setLocation] = useState<string>("");
 
+  // Pricing adjustments
+  const surfacePrices: Record<string, number> = {
+    "grass-stakes": 0,
+    "grass-sandbags": 50,
+    "concrete": 50,
+    "indoor": 40,
+  };
+  const timePrices: Record<string, number> = {
+    "8am": 50,
+    "9am": 40,
+    "10am": 30,
+    "11am": 20,
+    "12pm": 10,
+    "": 0,
+  };
+  // Location is for documentation only
+  const locationOptions = [
+    "personal home",
+    "someone else's home",
+    "business",
+    "park",
+    "church/school",
+  ];
+
+  // Calculate total
+  const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const surfaceAdj = surface ? surfacePrices[surface] || 0 : 0;
+  const timeAdj = deliveryTime ? timePrices[deliveryTime] || 0 : 0;
+  const total = cartTotal + surfaceAdj + timeAdj;
   useEffect(() => {
     const savedInfo = localStorage.getItem("orderMessage") || "";
     setOrderInfo(savedInfo);
@@ -69,8 +101,49 @@ export function CartSidebar({ open, onClose, cart, setCart }: CartSidebarProps) 
             ))
           )}
         </div>
+        {/* Dropdowns for order requirements */}
+        <div className="cart-dropdowns" style={{ margin: '1rem 0' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+            Surface:
+            <select value={surface} onChange={e => setSurface(e.target.value)} required style={{ marginLeft: '0.5rem' }}>
+              <option value="">Select surface</option>
+              <option value="grass-stakes">Grass (stakes)</option>
+              <option value="grass-sandbags">Grass (sandbags)</option>
+              <option value="concrete">Concrete/Pavement</option>
+              <option value="indoor">Indoor</option>
+            </select>
+          </label>
+          <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+            Delivery Time:
+            <select value={deliveryTime} onChange={e => setDeliveryTime(e.target.value)} required style={{ marginLeft: '0.5rem' }}>
+              <option value="">Select time</option>
+              <option value="8am">8am</option>
+              <option value="9am">9am</option>
+              <option value="10am">10am</option>
+              <option value="11am">11am</option>
+              <option value="12pm">12pm</option>
+            </select>
+          </label>
+          <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+            Location:
+            <select value={location} onChange={e => setLocation(e.target.value)} required style={{ marginLeft: '0.5rem' }}>
+              <option value="">Select location</option>
+              {locationOptions.map(loc => (
+                <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {/* Total price display */}
+        <div className="cart-total" style={{ fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '1rem', textAlign: 'center' }}>
+          Total: ${total.toFixed(2)}
+        </div>
         <div className="cart-footer">
-          <button id="proceedButton" disabled={cart.length === 0} onClick={() => {}}>
+          <button
+            id="proceedButton"
+            disabled={cart.length === 0 || !surface || !deliveryTime || !location}
+            onClick={() => {}}
+          >
             Proceed to Purchase
           </button>
         </div>
