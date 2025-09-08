@@ -1,4 +1,6 @@
 implement user identity firebase sdk
+    have sign in vs login functionality
+    have a form for creating account
 ask about 2nd delivery time 
     rental time?
     4 hours is 10% off

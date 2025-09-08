@@ -78,6 +78,7 @@ export default function Login() {
         {error && <div className="login-error">{error}</div>}
         <label className='identifier-label'>
           Email
+          
           <input
             type="email"
             value={identifier}
@@ -102,7 +103,7 @@ export default function Login() {
           Sign In
         </button>
         <button type="button" className="google-signin-btn" onClick={handleGoogleLogin} style={{
-         width:'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', border: '1px solid #ccc', borderRadius: '4px', padding: '0.5rem 1rem', fontWeight: 500, fontSize: '1rem', cursor: 'pointer', marginTop: '1rem'
+         width:'auto', display: 'flex', alignItems: 'center',color:'grey', justifyContent: 'center', background: '#fff', border: '1px solid #ccc', borderRadius: '4px', padding: '0.5rem 1rem', fontWeight: 500, fontSize: '1rem', cursor: 'pointer', marginTop: '1rem'
         }}>
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google logo" style={{ width: 24, height: 24, marginRight: 8 }} />
           Sign in with Google
