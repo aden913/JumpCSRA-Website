@@ -12,7 +12,7 @@
   --starYellow: #F5D329;
   --lightBlue: #51CBC2;
 }
-.sign-in-btn {
+.sign-in-btn, .sign-up-btn {
     width: 100%;
     padding: 0.7rem;
     border-radius: 8px;
@@ -23,7 +23,7 @@
     border: none;
     cursor: pointer;
 }
-.password-input, .identifier-input {
+#password-input, #identifier-input, #name-input, .phone-input {
     width: 100%;
     padding: 0.5rem;
     margin-top: 0.3rem;
@@ -32,7 +32,7 @@
     color: var(--darkBlue);
 }
  
-.login-form {
+.login-form, .signup-form {
     padding: 2rem;
     border-radius: 16px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.07);
@@ -43,6 +43,7 @@
     flex-direction: column;
 
 }
+
 .login-page {
     display: flex;
     flex-direction: column;
@@ -75,4 +76,11 @@ color:var(--darkBlue)
 }
 .google-signin-btn {
     color:grey;
+}
+.identifier-label
+.identifier-label{
+    margin-bottom: 1rem;
+}
+.login-logo{
+    width:13rem;
 }
