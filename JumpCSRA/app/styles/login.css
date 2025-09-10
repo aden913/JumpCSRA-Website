@@ -12,6 +12,15 @@
   --starYellow: #F5D329;
   --lightBlue: #51CBC2;
 }
+::selection {
+  background: var(--lightBlue);   /* Highlight background color */
+  color: var(--darkBlue);           /* Highlighted text color */
+}
+html, body {
+  background:white;
+  font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
+  color:red;
+}
 .sign-in-btn, .sign-up-btn {
     width: 100%;
     padding: 0.7rem;
@@ -23,13 +32,18 @@
     border: none;
     cursor: pointer;
 }
-#password-input, #identifier-input, #name-input, .phone-input {
+.identifier-input {
     width: 100%;
     padding: 0.5rem;
     margin-top: 0.3rem;
     border-radius: 8px;
     border: 2px solid var(--darkBlue);
     color: var(--darkBlue);
+}
+#identifier-input:focus, #password-input:focus, #name-input:focus, .phone-input:focus {
+    outline: none;
+    border-color: var(--coral);
+    box-shadow: 0 0 5px var(--coral);
 }
  
 .login-form, .signup-form {
@@ -72,9 +86,11 @@
     text-decoration: none;
 }
 .toggle-btn {
-color:var(--darkBlue)
+color:var(--darkBlue);
+cursor: pointer;
+text-decoration: underline;
 }
-.google-signin-btn {
+.google-signin-btn, .phone-signin-btn {
     color:grey;
 }
 .identifier-label
