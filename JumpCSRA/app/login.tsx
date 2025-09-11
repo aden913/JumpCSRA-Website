@@ -44,6 +44,8 @@ export default function Login() {
   const [verificationId, setVerificationId] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [recaptchaVerifier, setRecaptchaVerifier] = useState<any>(null);
+  const [showVerifyMsg, setShowVerifyMsg] = useState(false);
+  const [pendingUser, setPendingUser] = useState<any>(null);
 
   // ----- EMAIL LOGIN -----
   const handleSignIn = async (e: React.FormEvent) => {
@@ -129,15 +131,11 @@ export default function Login() {
       const userCred = await createUserWithEmailAndPassword(auth, email, password);
       const db = getFirestore();
       await setDoc(doc(db, "users", userCred.user.uid), { name, phone });
-      await sendEmailVerification(userCred.user);
-
-      setError("Account created! Please verify your email before signing in.");
-      setIsSignUp(false);
-      setStep("email");
-      setEmail("");
-      setPassword("");
-      setPhone("");
-      setName("");
+  await sendEmailVerification(userCred.user);
+  console.log("Verification email sent to:", userCred.user.email);
+  setPendingUser(userCred.user);
+  setShowVerifyMsg(true);
+  setError(null);
     } catch (err: any) {
       setError(err.message || "Account creation failed");
     }
@@ -186,6 +184,33 @@ export default function Login() {
       <button className="toggle-btn" onClick={() => { setIsSignUp(!isSignUp); setStep("email"); setError(null); }}>
         {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
       </button>
+      {showVerifyMsg && (
+        <div className="verify-msg">
+          <p>Account created! A verification email has been sent to <b>{pendingUser?.email}</b>.</p>
+          <p>Please check your inbox and verify your email before signing in.</p>
+          <button
+            className="resend-btn"
+            onClick={async () => {
+              if (pendingUser) {
+                await sendEmailVerification(pendingUser);
+                console.log("Resent verification email to:", pendingUser.email);
+                setError("Verification email resent!");
+              }
+            }}
+            style={{ marginTop: '1rem' }}
+          >
+            Resend Verification Email
+          </button>
+          <button
+            className="back-btn"
+            onClick={() => { setShowVerifyMsg(false); setIsSignUp(false); setStep("email"); setEmail(""); setPassword(""); setPhone(""); setName(""); setPendingUser(null); }}
+            style={{ marginTop: '1rem' }}
+          >
+            Back to Sign In
+          </button>
+          {error && <div className="login-error">{error}</div>}
+        </div>
+      )}
 
       {isSignUp ? (
         <form className="signup-form" onSubmit={step === "email" ? handleSignUpEmail : handleSignUpDetails}>
