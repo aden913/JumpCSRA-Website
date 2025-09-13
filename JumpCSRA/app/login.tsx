@@ -59,7 +59,7 @@ export default function Login() {
   const [forgotPwEmail, setForgotPwEmail] = useState("");
   const [showForgotPw, setShowForgotPw] = useState(false);
   const [forgotPwMsg, setForgotPwMsg] = useState<string | null>(null);
-const [needsProfile, setNeedsProfile] = useState(false);
+  const [needsProfile, setNeedsProfile] = useState(false);
 
   // SVG icons for password visibility
   const EyeOpen = (
@@ -310,48 +310,53 @@ useEffect(() => {
     }
   };
 
+  // Handler for guest access
+  const handleGuest = () => {
+    setRedirect(true);
+  };
+
   if (redirect) return <Navigate to="/home" replace />;
 
-if (needsProfile && pendingUser) {
-  return (
-    <>
+  if (needsProfile && pendingUser) {
+    return (
+      <>
 
-    <div className="login-page">
-      <img src="/jumpLogo.jpeg" alt="Jump Logo" className="login-logo" />
-      <h2 className="login-title">Complete Your Profile</h2>
-      {error && <div className="login-error">{error}</div>}
-      <form onSubmit={handleCompleteProfile}>
-   <PhoneInput
-  defaultCountry="US"
-  value={phone}
-  onChange={(value) => setPhone(value ?? "")}
-  className="identifier-input"
-  required
-  placeholder="Enter phone number"
-/>
-        <input
-          className="identifier-input"
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          placeholder="Enter your name"
-        />
-        <input
-          className="identifier-input"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          placeholder="Set a password for future logins"
-        />
-        <button className="sign-up-btn" type="submit">
-          Save Profile
-        </button>
-      </form>
-    </div></>
-  );
-}
+      <div className="login-page">
+        <img src="/jumpLogo.jpeg" alt="Jump Logo" className="login-logo" />
+        <h2 className="login-title">Complete Your Profile</h2>
+        {error && <div className="login-error">{error}</div>}
+        <form onSubmit={handleCompleteProfile}>
+     <PhoneInput
+    defaultCountry="US"
+    value={phone}
+    onChange={(value) => setPhone(value ?? "")}
+    className="identifier-input"
+    required
+    placeholder="Enter phone number"
+  />
+          <input
+            className="identifier-input"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            placeholder="Enter your name"
+          />
+          <input
+            className="identifier-input"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            placeholder="Set a password for future logins"
+          />
+          <button className="sign-up-btn" type="submit">
+            Save Profile
+          </button>
+        </form>
+      </div></>
+    );
+  }
 
 
   return (
@@ -368,7 +373,7 @@ if (needsProfile && pendingUser) {
       >
         {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
       </button>
-
+     
       {/* Forgot Password Modal */}
       {showForgotPw && (
         <div className="forgot-pw-modal">
@@ -565,6 +570,7 @@ if (needsProfile && pendingUser) {
       {/* Sign In Form */}
       {!showVerifyMsg && !isSignUp && (
         <form className="signup-form" onSubmit={handleSignIn}>
+          <h2 className="login-title">Login To See Past Events</h2>
           {error && <div className="login-error">{error}</div>}
           <input
             className="identifier-input"
@@ -638,15 +644,7 @@ if (needsProfile && pendingUser) {
             <button
               type="button"
               className="forgot-pw-link"
-              style={{
-                background: "none",
-                border: "none",
-                color: "#007bff",
-                textDecoration: "underline",
-                cursor: "pointer",
-                padding: 0,
-                fontSize: "1rem",
-              }}
+              
               onClick={() => setShowForgotPw(true)}
             >
               Forgot password?
@@ -658,7 +656,7 @@ if (needsProfile && pendingUser) {
       {phoneSignIn && (
         <>
           <form onSubmit={handlePhoneSignInRequest}>
-    <PhoneInput
+      <PhoneInput
   defaultCountry="US"
   value={phone}
   onChange={(value) => setPhoneSignInNumber(value ?? "")}
@@ -686,6 +684,12 @@ if (needsProfile && pendingUser) {
           <button className="back-btn" onClick={() => setPhoneSignIn(false)}>Back</button>
         </>
       )}
+            {/* Add Continue as Guest button */}
+      <button
+        className="guest-btn"
+        onClick={handleGuest}>
+        Continue To Book Events
+      </button>
     </div>
   );
 }

@@ -95,6 +95,7 @@ text-decoration: underline;
 }
 .google-signin-btn, .phone-signin-btn {
     color:grey;
+    margin-bottom: 1rem;
 }
 .identifier-label
 .identifier-label{
@@ -145,4 +146,26 @@ text-decoration: underline;
     border: none;
     cursor: pointer;
     margin-top: 1rem;
+}
+.guest-btn {
+    width: 100%;
+    padding: 0.7rem;
+    border-radius: 8px;
+    background: var(--lightGray);
+    color: var(--darkBlue);
+    font-weight: bold;
+    font-size: 1.1rem;
+    border: none;
+    cursor: pointer;
+    margin-top: 1rem;
+}
+.forgot-pw-link {
+    margin-top: 0.5rem;
+    color: var(--darkBlue);
+    font-size: 1rem;
+    text-decoration: underline;
+    cursor: pointer;
+}
+.forgot-pw-link:hover {
+    color: var(--coral);
 }
