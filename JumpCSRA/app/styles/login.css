@@ -90,6 +90,9 @@ color:var(--darkBlue);
 cursor: pointer;
 text-decoration: underline;
 }
+.toggle-btn:hover {
+    color: var(--coral);
+}
 .google-signin-btn, .phone-signin-btn {
     color:grey;
 }
@@ -99,4 +102,47 @@ text-decoration: underline;
 }
 .login-logo{
     width:13rem;
+}
+.password-icon {
+    width:1.5rem;
+}
+.verify-msg {
+    background: #e0f7fa;
+    color: #00796b;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    border: 2px solid #00796b;
+    display:flex;
+    align-items: center;
+    flex-direction: column;
+}
+.resend-btn {
+    background: none;
+    border: none;
+    color: var(--coral);
+    text-decoration: underline;
+    cursor: pointer;
+}
+.back-btn {
+    float:right;
+    background: none;
+    border: none;
+    color: var(--darkBlue);
+    text-decoration: underline;
+    cursor: pointer;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+}
+.send-verification-btn {
+    width: 100%;
+    padding: 0.7rem;
+    border-radius: 8px;
+    background: var(--darkBlue);
+    color: white;
+    font-weight: bold;
+    font-size: 1.1rem;
+    border: none;
+    cursor: pointer;
+    margin-top: 1rem;
 }

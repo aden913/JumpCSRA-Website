@@ -2,7 +2,8 @@ import { isMobile } from "react-device-detect";
 import React, { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import "./styles/login.css";
-
+import PhoneInput from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
 import {
   GoogleAuthProvider,
   getAuth,
@@ -17,8 +18,11 @@ import {
   fetchSignInMethodsForEmail,
   setPersistence,
   browserLocalPersistence,
+  sendPasswordResetEmail,
+  updatePassword, 
+  RecaptchaVerifier, 
 } from "firebase/auth";
-import { getFirestore, doc, setDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
 import { initializeApp, getApps } from "firebase/app";
 import { firebaseConfig } from "./components/FirebaseConfig";
 
@@ -48,45 +52,149 @@ export default function Login() {
   const [recaptchaVerifier, setRecaptchaVerifier] = useState<any>(null);
   const [showVerifyMsg, setShowVerifyMsg] = useState(false);
   const [pendingUser, setPendingUser] = useState<any>(null);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showSignInPassword, setShowSignInPassword] = useState(false);
+  const [forgotPwEmail, setForgotPwEmail] = useState("");
+  const [showForgotPw, setShowForgotPw] = useState(false);
+  const [forgotPwMsg, setForgotPwMsg] = useState<string | null>(null);
+const [needsProfile, setNeedsProfile] = useState(false);
+
+  // SVG icons for password visibility
+  const EyeOpen = (
+       <img src="../public/password-revealed.png" alt="Eye Open" className="password-icon" />
+  );
+  const EyeClosed = (
+    <img src="../public/password-hidden.png" alt="Eye Closed" className="password-icon" />
+  );
 
   // ----- EMAIL LOGIN -----
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    try {
-      const userCred = await signInWithEmailAndPassword(auth, email, password);
-      if (!userCred.user.emailVerified) {
-        setError("Please verify your email before signing in.");
+ const handleSignIn = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError(null);
+  try {
+    const userCred = await signInWithEmailAndPassword(auth, email, password);
+    if (!userCred.user.emailVerified) {
+      setError("Please verify your email before signing in.");
+      return;
+    }
+
+    const db = getFirestore();
+    const userRef = doc(db, "users", userCred.user.uid);
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists() || !userSnap.data().phone || !userSnap.data().hasPassword) {
+      setPendingUser(userCred.user);
+      setNeedsProfile(true);
+      return;
+    }
+
+    setRedirect(true);
+  } catch (err: any) {
+    setError(err.message || "Login failed");
+  }
+};
+
+const handleCompleteProfile = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setError(null);
+  if (!pendingUser) return;
+
+  // Simple phone normalization: strip non-digits, enforce E.164 later if needed
+  const rawPhone = phone.replace(/\D/g, "");
+  if (rawPhone.length < 10) {
+    setError("Please enter a valid phone number.");
+    return;
+  }
+
+  if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+    setError("Password must be at least 8 chars, with a number & uppercase.");
+    return;
+  }
+
+  try {
+    const db = getFirestore();
+    await setDoc(doc(db, "users", pendingUser.uid), {
+      name,
+      phone: rawPhone,
+      email: pendingUser.email,
+      hasPassword: true,
+    }, { merge: true });
+
+    await updatePassword(pendingUser, password);
+
+    setNeedsProfile(false);
+    setRedirect(true);
+  } catch (err: any) {
+    setError(err.message || "Failed to complete profile");
+  }
+};
+
+const handleGoogleLogin = async () => {
+  setError(null);
+  try {
+    let result;
+    if (isMobile) {
+      await signInWithRedirect(auth, provider);
+    } else {
+      const { signInWithPopup } = await import("firebase/auth");
+      result = await signInWithPopup(auth, provider);
+    }
+
+    if (result?.user) {
+      const db = getFirestore();
+      const userRef = doc(db, "users", result.user.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists() || !userSnap.data().phone || !userSnap.data().hasPassword) {
+        // Incomplete profile → show form
+        setPendingUser(result.user);
+        setNeedsProfile(true);
         return;
-      }
-      setRedirect(true);
-    } catch (err: any) {
-      setError(err.message || "Login failed");
-    }
-  };
-
-  // ----- GOOGLE LOGIN -----
-  const handleGoogleLogin = async () => {
-    setError(null);
-    try {
-      if (isMobile) {
-        await signInWithRedirect(auth, provider);
       } else {
-        const { signInWithPopup } = await import("firebase/auth");
-        await signInWithPopup(auth, provider);
+        setRedirect(true);
       }
-    } catch (err: any) {
-      setError(err.message || "Google login failed");
     }
-  };
+  } catch (err: any) {
+    setError(err.message || "Google login failed");
+  }
+};
 
-  useEffect(() => {
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result?.user) setRedirect(true);
-      })
-      .catch(() => {});
-  }, []);
+// Helper to handle Google user
+const handleGoogleResult = async (user: any) => {
+  try {
+    const db = getFirestore();
+    const userRef = doc(db, "users", user.uid);
+
+    // Only create doc if it doesn't exist
+    await setDoc(
+      userRef,
+      {
+        name: user.displayName || "",
+        phone: user.phoneNumber || "",
+        email: user.email || "",
+      },
+      { merge: true } // don't overwrite existing data
+    );
+
+    setRedirect(true);
+  } catch (err: any) {
+    console.error("Error saving Google user:", err);
+    setError("Failed to save user info");
+  }
+};
+
+// Handle redirect results (mobile)
+useEffect(() => {
+  getRedirectResult(auth)
+    .then((result) => {
+      if (result?.user) {
+        handleGoogleResult(result.user);
+      }
+    })
+    .catch((err) => console.error("Redirect result error:", err));
+}, []);
 
   // ----- SIGN UP -----
   // Step 1: Email check
@@ -123,6 +231,10 @@ export default function Login() {
       setError("Password must be 8+ chars, include a number & uppercase.");
       return;
     }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
     if (!/^\+?1?\d{10,15}$/.test(phone)) {
       setError("Invalid phone number.");
       return;
@@ -151,25 +263,28 @@ export default function Login() {
 
   // ----- PHONE LOGIN -----
   const handlePhoneSignInRequest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    try {
-      let verifier = recaptchaVerifier;
-      if (!verifier) {
-        verifier = new (window as any).firebase.auth.RecaptchaVerifier(
-          "recaptcha-container",
-          { size: "invisible" },
-          auth
-        );
-        setRecaptchaVerifier(verifier);
-      }
-      const confirmation = await signInWithPhoneNumber(auth, phoneSignInNumber, verifier);
-      setVerificationId(confirmation.verificationId);
-      setError("SMS code sent!");
-    } catch (err: any) {
-      setError(err.message || "Failed to send SMS code.");
+  e.preventDefault();
+  setError(null);
+  try {
+    let verifier = recaptchaVerifier;
+    if (!verifier) {
+      verifier = new RecaptchaVerifier(
+        auth,
+        "recaptcha-container",
+        { size: "invisible" }
+      );
+      setRecaptchaVerifier(verifier);
     }
-  };
+    console.log("Phone number being used:", phoneSignInNumber);
+
+    const confirmation = await signInWithPhoneNumber(auth, phoneSignInNumber, verifier);
+    setVerificationId(confirmation.verificationId);
+    setError("SMS code sent!");
+  } catch (err: any) {
+    setError(err.message || "Failed to send SMS code.");
+  }
+};
+
 
   const handlePhoneSignInVerify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,7 +298,61 @@ export default function Login() {
     }
   };
 
+  // ----- FORGOT PASSWORD -----
+  const handleForgotPw = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotPwMsg(null);
+    try {
+      await sendPasswordResetEmail(auth, forgotPwEmail);
+      setForgotPwMsg("Password reset email sent!");
+    } catch (err: any) {
+      setForgotPwMsg(err.message || "Failed to send reset email.");
+    }
+  };
+
   if (redirect) return <Navigate to="/home" replace />;
+
+if (needsProfile && pendingUser) {
+  return (
+    <>
+
+    <div className="login-page">
+      <img src="/jumpLogo.jpeg" alt="Jump Logo" className="login-logo" />
+      <h2 className="login-title">Complete Your Profile</h2>
+      {error && <div className="login-error">{error}</div>}
+      <form onSubmit={handleCompleteProfile}>
+   <PhoneInput
+  defaultCountry="US"
+  value={phone}
+  onChange={(value) => setPhone(value ?? "")}
+  className="identifier-input"
+  required
+  placeholder="Enter phone number"
+/>
+        <input
+          className="identifier-input"
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+          placeholder="Enter your name"
+        />
+        <input
+          className="identifier-input"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          placeholder="Set a password for future logins"
+        />
+        <button className="sign-up-btn" type="submit">
+          Save Profile
+        </button>
+      </form>
+    </div></>
+  );
+}
+
 
   return (
     <div className="login-page">
@@ -199,6 +368,35 @@ export default function Login() {
       >
         {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
       </button>
+
+      {/* Forgot Password Modal */}
+      {showForgotPw && (
+        <div className="forgot-pw-modal">
+          <form onSubmit={handleForgotPw} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <label htmlFor="forgotPwEmail">Enter your email:</label>
+            <input
+              id="forgotPwEmail"
+              type="email"
+              value={forgotPwEmail}
+              onChange={(e) => setForgotPwEmail(e.target.value)}
+              required
+              placeholder="Email address"
+              style={{ paddingRight: "2rem" }}
+            />
+            <button type="submit">Send Reset Email</button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowForgotPw(false);
+                setForgotPwMsg(null);
+              }}
+            >
+              Cancel
+            </button>
+            {forgotPwMsg && <div className="login-error">{forgotPwMsg}</div>}
+          </form>
+        </div>
+      )}
 
       {showVerifyMsg && (
         <div className="verify-msg">
@@ -236,11 +434,13 @@ export default function Login() {
           >
             Back to Sign In
           </button>
+          {/* Show verification email resent message here */}
           {error && <div className="login-error">{error}</div>}
         </div>
       )}
 
-      {isSignUp ? (
+      {/* Hide signup form when verify-msg is showing */}
+      {!showVerifyMsg && isSignUp && (
         <form
           className="signup-form"
           onSubmit={step === "email" ? handleSignUpEmail : handleSignUpDetails}
@@ -289,22 +489,63 @@ export default function Login() {
             </>
           ) : (
             <>
-              <input
-                className="identifier-input"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                placeholder="Create a password"
-              />
-              <input
-                className="identifier-input"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                required
-                placeholder="Enter phone number"
-              />
+              <div style={{ position: "relative" }}>
+                <input
+                  className="identifier-input"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  placeholder="Create a password"
+                  style={{ paddingRight: "2rem" }}
+                />
+                <span
+                  style={{
+                    position: "absolute",
+                    right: "0.5rem",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? EyeOpen : EyeClosed}
+                </span>
+              </div>
+              <div style={{ position: "relative" }}>
+                <input
+                  className="identifier-input"
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  placeholder="Confirm password"
+                  style={{ paddingRight: "2rem" }}
+                />
+                <span
+                  style={{
+                    position: "absolute",
+                    right: "0.5rem",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                >
+                  {showConfirmPassword ? EyeOpen : EyeClosed}
+                </span>
+              </div>
+   <PhoneInput
+  defaultCountry="US"
+  value={phone}
+  onChange={(value) => setPhone(value ?? "")}
+  className="identifier-input"
+  required
+  placeholder="Enter phone number"
+/>
+
               <input
                 className="identifier-input"
                 type="text"
@@ -319,7 +560,10 @@ export default function Login() {
             </>
           )}
         </form>
-      ) : (
+      )}
+
+      {/* Sign In Form */}
+      {!showVerifyMsg && !isSignUp && (
         <form className="signup-form" onSubmit={handleSignIn}>
           {error && <div className="login-error">{error}</div>}
           <input
@@ -330,14 +574,30 @@ export default function Login() {
             required
             placeholder="Enter your email"
           />
-          <input
-            className="identifier-input"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            placeholder="Enter password"
-          />
+          <div style={{ position: "relative" }}>
+            <input
+              className="identifier-input"
+              type={showSignInPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="Enter password"
+              style={{ paddingRight: "2rem" }}
+            />
+            <span
+              style={{
+                position: "absolute",
+                right: "0.5rem",
+                top: "50%",
+                transform: "translateY(-50%)",
+                cursor: "pointer",
+              }}
+              onClick={() => setShowSignInPassword((v) => !v)}
+              aria-label={showSignInPassword ? "Hide password" : "Show password"}
+            >
+              {showSignInPassword ? EyeOpen : EyeClosed}
+            </span>
+          </div>
           <button className="sign-in-btn" type="submit">
             Sign In
           </button>
@@ -374,22 +634,41 @@ export default function Login() {
           >
             Sign in with Phone
           </button>
+          <div style={{ marginTop: "0.5rem" }}>
+            <button
+              type="button"
+              className="forgot-pw-link"
+              style={{
+                background: "none",
+                border: "none",
+                color: "#007bff",
+                textDecoration: "underline",
+                cursor: "pointer",
+                padding: 0,
+                fontSize: "1rem",
+              }}
+              onClick={() => setShowForgotPw(true)}
+            >
+              Forgot password?
+            </button>
+          </div>
         </form>
       )}
 
       {phoneSignIn && (
         <>
           <form onSubmit={handlePhoneSignInRequest}>
-            <input
-              className="identifier-input"
-              type="tel"
-              value={phoneSignInNumber}
-              onChange={(e) => setPhoneSignInNumber(e.target.value)}
-              required
-              placeholder="Enter phone number"
-            />
+    <PhoneInput
+  defaultCountry="US"
+  value={phone}
+  onChange={(value) => setPhoneSignInNumber(value ?? "")}
+  className="identifier-input"
+  required
+  placeholder="Enter phone number"
+/>
+
             <div id="recaptcha-container"></div>
-            <button type="submit">Send Verification Code</button>
+            <button type="submit" className="send-verification-btn">Send Verification Code</button>
           </form>
           {verificationId && (
             <form onSubmit={handlePhoneSignInVerify}>
@@ -404,7 +683,7 @@ export default function Login() {
               <button type="submit">Verify & Sign In</button>
             </form>
           )}
-          <button onClick={() => setPhoneSignIn(false)}>Back</button>
+          <button className="back-btn" onClick={() => setPhoneSignIn(false)}>Back</button>
         </>
       )}
     </div>

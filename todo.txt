@@ -1,6 +1,9 @@
 implement user identity firebase sdk
     have sign in vs login functionality
     have a form for creating account
+
+
+figure out where the observer is needed
 ask about 2nd delivery time 
     rental time?
     4 hours is 10% off
@@ -11,3 +14,9 @@ add profile page
 aesthetics
     option cards make negative space less
     
+
+
+
+
+
+sign in with phone is disabled until billing is added to firebase
