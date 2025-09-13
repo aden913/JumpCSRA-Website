@@ -1,0 +1,128 @@
+.profile-container {
+  display: flex;
+  min-height: 70vh;
+  background: #f8f9fa;
+  border-radius: 16px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+  margin: 2rem auto;
+  max-width: 900px;
+}
+.profile-left {
+  width: 220px;
+  background: #fff;
+  border-right: 1px solid #eee;
+  padding: 2rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.profile-tabs {
+  width: 100%;
+}
+.profile-tab {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  text-align: left;
+  cursor: pointer;
+  color: #333;
+  transition: background 0.2s;
+}
+.profile-tab.active {
+  background: #e6f0ff;
+  color: #1976d2;
+  font-weight: bold;
+}
+.profile-right {
+  flex: 1;
+  padding: 2rem 2.5rem;
+}
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+.profile-row {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+}
+.profile-row label {
+  min-width: 120px;
+  font-weight: 500;
+  color: #555;
+}
+.profile-row input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
+  background: #fff;
+}
+.profile-actions {
+  display: flex;
+  gap: 1rem;
+}
+.profile-edit-btn, .profile-save-btn {
+  padding: 0.5rem 1.2rem;
+  border-radius: 6px;
+  border: none;
+  background: #1976d2;
+  color: #fff;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.profile-edit-btn:hover, .profile-save-btn:hover {
+  background: #1565c0;
+}
+.profile-events {
+  padding: 2rem 0;
+}
+.profile-events-placeholder {
+  color: #888;
+  font-size: 1.1rem;
+  margin-top: 1rem;
+}
+.profile-loading {
+  text-align: center;
+  padding: 3rem;
+  font-size: 1.3rem;
+  color: #888;
+}
+.profile-guest {
+  text-align: center;
+  padding: 3rem;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  margin: 3rem auto;
+  max-width: 400px;
+}
+.profile-signin-btn {
+  margin-top: 1.5rem;
+  padding: 0.7rem 1.5rem;
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.profile-signin-btn:hover {
+  background: #1565c0;
+}
+.profile-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid #eee;
+  object-fit: cover;
+}
