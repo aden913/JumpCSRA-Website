@@ -109,9 +109,16 @@ export function getDetailImages(name: string) {
 export function Welcome() {
   const logic = useWelcomeLogic();
   return (
-    <MantineProvider>
-      <Notifications position="top-right" />
-      <div className="landing-page">
+    <>
+      {/* Google Maps API for Places Autocomplete */}
+      <script
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDKebl8CoMNh9pw_-GtRjiHbn2KG52m6pQ&libraries=places"
+        async
+        defer
+      ></script>
+      <MantineProvider>
+        <Notifications position="top-right" />
+        <div className="landing-page">
         {/* Header */}
         <header className="banner">
           <BannerCarousel />
@@ -303,5 +310,6 @@ export function Welcome() {
         </footer>
       </div>
     </MantineProvider>
+    </>
   );
 }

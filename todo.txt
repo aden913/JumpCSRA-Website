@@ -20,3 +20,4 @@ aesthetics
 
 
 sign in with phone is disabled until billing is added to firebase
+Would like to implement google api for anytime a user is entering an address but will require finalizing account creation for the google developement for the email.

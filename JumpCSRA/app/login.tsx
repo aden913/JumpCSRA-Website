@@ -63,10 +63,10 @@ export default function Login() {
 
   // SVG icons for password visibility
   const EyeOpen = (
-       <img src="../public/password-revealed.png" alt="Eye Open" className="password-icon" />
+       <img src="/password-revealed.png" alt="Eye Open" className="password-icon" />
   );
   const EyeClosed = (
-    <img src="../public/password-hidden.png" alt="Eye Closed" className="password-icon" />
+    <img src="/password-hidden.png" alt="Eye Closed" className="password-icon" />
   );
 
   // ----- EMAIL LOGIN -----
