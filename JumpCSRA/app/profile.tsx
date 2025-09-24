@@ -488,6 +488,34 @@ export default function Profile() {
                 </button>
               )}
             </div>
+            {/* Delete Account Button */}
+<div style={{ marginTop: "2rem", textAlign: "center" }}>
+  <button
+    className="profile-delete-btn"
+    style={{ background: "#c00", color: "#fff", padding: "0.75rem 2rem", borderRadius: "6px", border: "none", fontWeight: "bold" }}
+    onClick={async () => {
+      if (!window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) return;
+      if (!user) return;
+      try {
+        // Delete Firestore user document
+        const docRef = doc(firestore, "users", user.uid);
+        await updateDoc(docRef, { deleted: true }); // Optional: mark as deleted before actual delete
+        await (await import("firebase/firestore")).deleteDoc(docRef);
+
+        // Delete Firebase Auth user
+        await user.delete();
+
+        // Sign out and redirect
+        await auth.signOut();
+        navigate("/");
+      } catch (err: any) {
+        alert("Failed to delete account: " + (err.message || err));
+      }
+    }}
+  >
+    Delete Account
+  </button>
+</div>
           </div>
         ) : (
           <div className="profile-events">
