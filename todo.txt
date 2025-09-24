@@ -1,8 +1,3 @@
-implement user identity firebase sdk
-    have sign in vs login functionality
-    have a form for creating account
-
-
 figure out where the observer is needed
 ask about 2nd delivery time 
     rental time?
@@ -11,11 +6,18 @@ ask about 2nd delivery time
     and 48 hours is 50% more
 add tooltip in cart sidebar to login to save order info
 add profile page
+add functionality for products to be rented out and un-purchasesable.
 aesthetics
     option cards make negative space less
     
-
-
+SIGN IN FLOW + PROFILE FUNCTIONS
+    with google FLOW   
+        password change
+            change styles
+            make box not change width 
+        email change after password change
+            sends verification without notifying user
+            need to force a redirect
 
 
 

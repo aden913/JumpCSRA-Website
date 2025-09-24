@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import type { User as FirebaseUser } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { getFirestore, doc, getDoc, updateDoc } from "firebase/firestore";
+import { auth, firestore } from "./components/FirebaseConfig";
+import { onAuthStateChanged, unlink  } from "firebase/auth";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import "./styles/profile.css";
 
 const TABS = ["Profile Information", "Past Events"];
@@ -17,7 +18,6 @@ export default function Profile() {
   const [showPasswordModal, setShowPasswordModal] = useState<"email" | "password" | null>(null);
   const [confirmPassword, setConfirmPassword] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
-  const [authSuccess, setAuthSuccess] = useState(false);
 
   const [activeTab, setActiveTab] = useState(0);
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -35,9 +35,13 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [guest, setGuest] = useState(false);
 
+  // New states for email verification flow
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [showVerifyNewEmail, setShowVerifyNewEmail] = useState(false);
+
   const navigate = useNavigate();
 
-  // 🔐 Re-authenticate before sensitive changes
+  // 🔐 Re-authenticate user
   const handleConfirmPassword = async () => {
     if (!user || !profile.email) return;
     setAuthError(null);
@@ -46,7 +50,6 @@ export default function Profile() {
       const credential = EmailAuthProvider.credential(profile.email, confirmPassword);
       await reauthenticateWithCredential(user, credential);
 
-      setAuthSuccess(true);
       if (showPasswordModal === "email") setCanEditEmail(true);
       if (showPasswordModal === "password") setCanEditPassword(true);
 
@@ -63,53 +66,70 @@ export default function Profile() {
 
   // 🔄 Load user + Firestore profile
   useEffect(() => {
-  const auth = getAuth();
-  const unsubscribe = onAuthStateChanged(auth, async (u) => {
-    if (!u) {
-      setGuest(true);
-      setLoading(false);
-      return;
-    }
-
-    setUser(u);
-
-    const db = getFirestore();
-    const docRef = doc(db, "users", u.uid);
-    const docSnap = await getDoc(docRef);
-
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-
-      // 🔄 Sync Firestore email if it’s different from Firebase Auth
-      if (u.email && data.email !== u.email) {
-        await updateDoc(docRef, { email: u.email });
+     // On mount, restore pendingEmail from localStorage if present
+  const storedPendingEmail = localStorage.getItem("pendingEmail");
+  if (storedPendingEmail) {
+    setPendingEmail(storedPendingEmail);
+    setShowVerifyNewEmail(true);
+  }
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      if (!u) {
+        setGuest(true);
+        setLoading(false);
+        return;
       }
 
-      setProfile((prev) => ({
-        ...prev,
-        ...data,
-        email: u.email || data.email, // prefer Auth email
-      }));
-    } else {
-      // fallback to Firebase Auth values
-      setProfile({
-        name: u.displayName || "",
-        email: u.email || "",
-        phone: "",
-        company: "",
-        address: "",
-        city: "",
-        state: "",
-        zip: "",
-      });
+    await u.reload(); // Refresh user info from Firebase
+
+      setUser(u);
+
+      // If pendingEmail and user.emailVerified, unlink Google
+    if (pendingEmail && u.email === pendingEmail && u.emailVerified) {
+      try {
+        await unlink(u, "google.com");
+        setPendingEmail(null);
+        localStorage.removeItem("pendingEmail");
+        setShowVerifyNewEmail(false);
+        setEmailChangeMsg("Email verified and Google account unlinked.");
+      } catch (err: any) {
+        setEmailChangeMsg("Email verified, but failed to unlink Google: " + err.message);
+      }
     }
 
-    setLoading(false);
-  });
+      const db = firestore;
+      const docRef = doc(db, "users", u.uid);
+      const docSnap = await getDoc(docRef);
 
-  return () => unsubscribe();
-}, []);
+      if (docSnap.exists()) {
+        setProfile((prev) => ({
+          ...prev,
+          ...docSnap.data(),
+        }));
+      } else {
+        setProfile({
+          ...profile,
+          name: u.displayName || "",
+          email: u.email || "",
+          phone: "",
+          company: "",
+          address: "",
+          city: "",
+          state: "",
+          zip: "",
+        });
+      }
 
+      // 🔄 Always sync email from Firebase Auth to Firestore
+      if (u.email && profile.email !== u.email) {
+        await updateDoc(docRef, { email: u.email });
+        setProfile((prev) => ({ ...prev, email: u.email || "" }));
+      }
+
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [pendingEmail]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
@@ -119,7 +139,7 @@ export default function Profile() {
     if (!user) return;
     setEditing(false);
 
-    const db = getFirestore();
+    const db = firestore;
     const docRef = doc(db, "users", user.uid);
 
     await updateDoc(docRef, {
@@ -137,7 +157,7 @@ export default function Profile() {
     return (
       <div className="profile-guest">
         <h2>Sign in to view your profile</h2>
-        <button className="profile-signin-btn" onClick={() => navigate("/login")}>
+        <button className="profile-signin-btn" onClick={() => navigate("/")}>
           Sign In
         </button>
       </div>
@@ -172,7 +192,49 @@ export default function Profile() {
             {/* Email */}
             <div className="profile-row">
               <label>Email:</label>
-              {canEditEmail ? (
+              {showVerifyNewEmail && pendingEmail ? (
+                <div className="verify-msg">
+                  <p>
+                    We’ve sent a verification link to <b>{pendingEmail}</b>.
+                  </p>
+                  <p>Please check your inbox and confirm your new email address.</p>
+
+                  <button
+                    className="resend-btn"
+                    onClick={async () => {
+                      if (user) {
+                        const { verifyBeforeUpdateEmail } = await import("firebase/auth");
+                        const verificationUrl = "http://localhost:5173/profile";
+                        console.log("Sending verification to:", verificationUrl);
+                        await verifyBeforeUpdateEmail(user, pendingEmail, {
+                          url: "http://localhost:5173/profile",
+                          handleCodeInApp: true,
+                        });
+                        setEmailChangeMsg("Verification email resent!");
+                      }
+                    }}
+                  >
+                    Resend Verification Email
+                  </button>
+
+                  <button
+                    className="back-btn"
+                    onClick={() => {
+                      setShowVerifyNewEmail(false);
+                      setPendingEmail(null);
+                      localStorage.removeItem("pendingEmail");
+                    }}
+                  >
+                    Cancel
+                  </button>
+
+                  {emailChangeMsg && (
+                    <div style={{ marginTop: "0.5rem", color: "#1976d2" }}>
+                      {emailChangeMsg}
+                    </div>
+                  )}
+                </div>
+              ) : canEditEmail ? (
                 <>
                   <input
                     name="newEmail"
@@ -181,34 +243,43 @@ export default function Profile() {
                     placeholder="Enter new email"
                     style={{ width: "60%" }}
                   />
-                  <button
-                    className="profile-save-btn"
-                    onClick={async () => {
-                      setEmailChangeMsg(null);
-                      try {
-                        if (!user) return;
-                        const { verifyBeforeUpdateEmail } = await import("firebase/auth");
+                 <button
+  className="profile-save-btn"
+  onClick={async () => {
+    setEmailChangeMsg(null);
+    try {
+      if (!user) return;
+      const { verifyBeforeUpdateEmail } = await import("firebase/auth");
+      console.log("verifyBeforeUpdateEmail:", {
+        user,
+        newEmail,
+        url: "http://localhost:5173/profile",
+      });
+      await verifyBeforeUpdateEmail(user, newEmail, {
+        url: "http://localhost:5173/profile",
+        handleCodeInApp: true,
+      });
 
-                        await verifyBeforeUpdateEmail(user, newEmail);
-
-                        setEmailChangeMsg(
-                          "We’ve sent a verification link to your new email. Please confirm it to complete the change."
-                        );
-                        setCanEditEmail(false);
-                        setNewEmail("");
-                      } catch (err: any) {
-                        if (err.code === "auth/email-already-in-use") {
-                          setEmailChangeMsg("That email is already in use.");
-                        } else if (err.code === "auth/requires-recent-login") {
-                          setEmailChangeMsg("Please re-login to confirm this action.");
-                        } else {
-                          setEmailChangeMsg(err.message || "Failed to update email");
-                        }
-                      }
-                    }}
-                  >
-                    Save
-                  </button>
+      setPendingEmail(newEmail);
+      localStorage.setItem("pendingEmail", newEmail);
+      setShowVerifyNewEmail(true);
+      setCanEditEmail(false);
+    } catch (err: any) {
+      console.error("verifyBeforeUpdateEmail error:", err);
+      if (err.code === "auth/email-already-in-use") {
+        setEmailChangeMsg("That email is already in use.");
+      } else if (err.code === "auth/requires-recent-login") {
+        setEmailChangeMsg("Please re-login to confirm this action.");
+      } else if (err.code === "auth/invalid-continue-uri") {
+        setEmailChangeMsg("The verification link is not allowed. Check your Firebase authorized domains.");
+      } else {
+        setEmailChangeMsg(err.message || "Failed to update email");
+      }
+    }
+  }}
+>
+  Save
+</button>
                   <button
                     className="profile-edit-btn"
                     style={{ marginLeft: "1rem" }}
@@ -220,14 +291,7 @@ export default function Profile() {
                     Cancel
                   </button>
                   {emailChangeMsg && (
-                    <div
-                      style={{
-                        color: emailChangeMsg.includes("verification") ? "#1976d2" : "#c00",
-                        marginTop: "0.5rem",
-                      }}
-                    >
-                      {emailChangeMsg}
-                    </div>
+                    <div style={{ color: "#c00", marginTop: "0.5rem" }}>{emailChangeMsg}</div>
                   )}
                 </>
               ) : (
