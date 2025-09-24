@@ -7,7 +7,5 @@
 
 html,
 body {
-  @apply bg-white dark:bg-gray-950;
-
-
+  @apply bg-white;
 }
