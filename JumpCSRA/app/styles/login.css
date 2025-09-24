@@ -169,3 +169,43 @@ text-decoration: underline;
 .forgot-pw-link:hover {
     color: var(--coral);
 }
+#forgotPwEmail {
+    width: 100%;
+    padding: 0.5rem;
+    margin-top: 0.3rem;
+    border-radius: 8px;
+    border: 2px solid var(--darkBlue);
+    color: var(--darkBlue);
+    margin-bottom: 1rem;
+}
+.forgot-pw-label {
+    display: block;
+    margin-bottom: 0;
+    color: var(--darkBlue);
+}
+.cancel-btn {
+    width: 100%;
+    padding: 0.7rem;
+    border-radius: 8px;
+    background: var(--lightGray);
+    color: var(--darkBlue);
+    font-weight: bold;
+    font-size: 1.1rem;
+    border: none;
+    cursor: pointer;
+    margin-bottom: 0.5rem;}
+
+    .forgot-pw-modal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        padding: 2rem;
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border: 3px solid var(--darkBlue);
+        z-index: 1000;
+        width: 90%;
+        max-width: 400px;
+    }

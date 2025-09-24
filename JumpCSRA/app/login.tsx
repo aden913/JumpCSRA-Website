@@ -378,7 +378,7 @@ useEffect(() => {
       {showForgotPw && (
         <div className="forgot-pw-modal">
           <form onSubmit={handleForgotPw} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-            <label htmlFor="forgotPwEmail">Enter your email:</label>
+            <label className="forgot-pw-label" htmlFor="forgotPwEmail">Enter your email:</label>
             <input
               id="forgotPwEmail"
               type="email"
@@ -388,9 +388,10 @@ useEffect(() => {
               placeholder="Email address"
               style={{ paddingRight: "2rem" }}
             />
-            <button type="submit">Send Reset Email</button>
+            <button className="send-verification-btn" type="submit">Send Reset Email</button>
             <button
               type="button"
+              className="cancel-btn"
               onClick={() => {
                 setShowForgotPw(false);
                 setForgotPwMsg(null);
