@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { auth, firestore } from "./components/FirebaseConfig";
 import { onAuthStateChanged, unlink  } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
+import PhoneInput from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
 import "./styles/profile.css";
 
 const TABS = ["Profile Information", "Past Events"];
@@ -38,6 +40,9 @@ export default function Profile() {
   // New states for email verification flow
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [showVerifyNewEmail, setShowVerifyNewEmail] = useState(false);
+
+  // Add phone validation state
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   const navigate = useNavigate();
 
@@ -135,9 +140,22 @@ export default function Profile() {
     setProfile({ ...profile, [e.target.name]: e.target.value });
   };
 
+  // PhoneInput change handler
+  const handlePhoneChange = (value: string | undefined) => {
+    setProfile({ ...profile, phone: value ?? "" });
+    setPhoneError(null);
+  };
+
   const handleSave = async () => {
     if (!user) return;
     setEditing(false);
+
+    // Validate phone number (must be E.164 format and at least 10 digits)
+    if (!profile.phone || !/^\+?[1-9]\d{9,14}$/.test(profile.phone)) {
+      setPhoneError("Please enter a valid phone number.");
+      setEditing(true);
+      return;
+    }
 
     const db = firestore;
     const docRef = doc(db, "users", user.uid);
@@ -186,7 +204,13 @@ export default function Profile() {
             {/* Name */}
             <div className="profile-row">
               <label>Name:</label>
-              <span>{profile.name}</span>
+              <input
+                name="name"
+                value={profile.name}
+                onChange={handleChange}
+                disabled={!editing}
+                style={!editing ? { backgroundColor: "#f0f0f0", color: "#888" } : {}}
+              />
             </div>
 
             {/* Email */}
@@ -296,7 +320,12 @@ export default function Profile() {
                 </>
               ) : (
                 <>
-                  <span>{profile.email}</span>
+                  <input
+                    name="email"
+                    value={profile.email}
+                    disabled
+                    style={{ backgroundColor: "#f0f0f0", color: "#888" }}
+                  />
                   <button
                     className="profile-edit-btn"
                     onClick={() => setShowPasswordModal("email")}
@@ -310,12 +339,30 @@ export default function Profile() {
             {/* Phone */}
             <div className="profile-row">
               <label>Phone:</label>
-              <input
-                name="phone"
-                value={profile.phone}
-                onChange={handleChange}
-                disabled={!editing}
-              />
+              {editing ? (
+                <>
+                  <PhoneInput
+                    defaultCountry="US"
+                    value={profile.phone}
+                    onChange={handlePhoneChange}
+                    className="identifier-input"
+                    disabled={!editing}
+                    placeholder="Enter phone number"
+                  />
+                  {phoneError && (
+                    <div style={{ color: "#c00", marginTop: "0.25rem" }}>{phoneError}</div>
+                  )}
+                </>
+              ) : (
+                <PhoneInput
+                  defaultCountry="US"
+                  value={profile.phone}
+                  onChange={() => {}}
+                  className="identifier-input"
+                  disabled
+                  placeholder="Enter phone number"
+                />
+              )}
             </div>
 
             {/* Password */}
@@ -438,6 +485,7 @@ export default function Profile() {
                 value={profile.company}
                 onChange={handleChange}
                 disabled={!editing}
+                style={!editing ? { backgroundColor: "#f0f0f0", color: "#888" } : {}}
               />
             </div>
             <div className="profile-row">
@@ -447,6 +495,7 @@ export default function Profile() {
                 value={profile.address}
                 onChange={handleChange}
                 disabled={!editing}
+                style={!editing ? { backgroundColor: "#f0f0f0", color: "#888" } : {}}
               />
             </div>
             <div className="profile-row">
@@ -456,6 +505,7 @@ export default function Profile() {
                 value={profile.city}
                 onChange={handleChange}
                 disabled={!editing}
+                style={!editing ? { backgroundColor: "#f0f0f0", color: "#888" } : {}}
               />
             </div>
             <div className="profile-row">
@@ -465,6 +515,7 @@ export default function Profile() {
                 value={profile.state}
                 onChange={handleChange}
                 disabled={!editing}
+                style={!editing ? { backgroundColor: "#f0f0f0", color: "#888" } : {}}
               />
             </div>
             <div className="profile-row">
@@ -474,6 +525,7 @@ export default function Profile() {
                 value={profile.zip}
                 onChange={handleChange}
                 disabled={!editing}
+                style={!editing ? { backgroundColor: "#f0f0f0", color: "#888" } : {}}
               />
             </div>
 
