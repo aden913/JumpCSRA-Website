@@ -209,3 +209,12 @@ text-decoration: underline;
         width: 90%;
         max-width: 400px;
     }
+    .login-error {
+        background: #ffebee;
+        color: #c62828;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        border: 2px solid #c62828;
+        text-align: center;
+    }

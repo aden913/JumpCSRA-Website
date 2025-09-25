@@ -108,8 +108,8 @@ const handleCompleteProfile = async (e: React.FormEvent) => {
     return;
   }
 
-  if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
-    setError("Password must be at least 8 chars, with a number & uppercase.");
+  if (password.length < 6 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+    setError("Password must be at least 6 chars, with a number & uppercase.");
     return;
   }
 
@@ -227,8 +227,8 @@ useEffect(() => {
     e.preventDefault();
     setError(null);
 
-    if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
-      setError("Password must be 8+ chars, include a number & uppercase.");
+    if (password.length < 6 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+      setError("Password must be at least 6 chars, with a number & uppercase.");
       return;
     }
     if (password !== confirmPassword) {
