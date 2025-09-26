@@ -19,7 +19,6 @@
 html, body {
   background:white;
   font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
-  color:red;
 }
 .sign-in-btn, .sign-up-btn {
     width: 100%;
@@ -64,7 +63,6 @@ html, body {
     align-items: center;
     justify-content: center;
     min-height: 100vh;
-    background: #f5f5f5;
 }
 .identifier-label, .password-label {
     display: block;

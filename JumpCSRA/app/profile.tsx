@@ -184,6 +184,8 @@ export default function Profile() {
 
   return (
     <div className="profile-container">
+      
+
       <div className="profile-left">
         <div className="profile-tabs">
           {TABS.map((tab, idx) => (
@@ -330,7 +332,7 @@ export default function Profile() {
                     className="profile-edit-btn"
                     onClick={() => setShowPasswordModal("email")}
                   >
-                    Change (Re-login)
+                    Change
                   </button>
                 </>
               )}
@@ -575,6 +577,16 @@ export default function Profile() {
             <div className="profile-events-placeholder">Your past events will appear here.</div>
           </div>
         )}
+
+        {/* Back button */}
+      <div style={{ marginBottom: "1rem" }}>
+        <button
+          className="profile-back-btn"
+          onClick={() => navigate("/home")}
+        >
+          &larr; Back
+        </button>
+      </div>
       </div>
     </div>
   );

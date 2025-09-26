@@ -99,7 +99,15 @@ function filterOptions(inflateables: any[], selectedCategory: string): any[] {
       : item.category?.toLowerCase() === selectedCategory.toLowerCase()
   );
 }
-
+function isDateRangeValid(range: [Date | null, Date | null]) {
+  const now = new Date();
+  return (
+    range[0] instanceof Date &&
+    range[1] instanceof Date &&
+    range[0] >= now &&
+    range[1] >= now
+  );
+}
 export function getDetailImages(name: string) {
   const folder = name.replace(/ /g, "-").replace(/[^a-zA-Z0-9\-]/g, "").toLowerCase();
   const basePath = `/assets/inflateables/detail-images/${name}/`;
@@ -108,6 +116,46 @@ export function getDetailImages(name: string) {
 
 export function Welcome() {
   const logic = useWelcomeLogic();
+
+   // Load dates from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem("calendarDateRange");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        const range: [Date | null, Date | null] = [
+          parsed[0] ? new Date(parsed[0]) : null,
+          parsed[1] ? new Date(parsed[1]) : null,
+        ];
+        if (isDateRangeValid(range)) {
+          logic.setCalendarDateRange(range);
+        } else {
+          localStorage.removeItem("calendarDateRange");
+        }
+      } catch {
+        localStorage.removeItem("calendarDateRange");
+      }
+    }
+  }, []);
+
+  // Save dates to localStorage whenever they change
+  useEffect(() => {
+    if (logic.calendarDateRange[0] && logic.calendarDateRange[1]) {
+      if (isDateRangeValid(logic.calendarDateRange)) {
+        localStorage.setItem(
+          "calendarDateRange",
+          JSON.stringify([
+            logic.calendarDateRange[0].toISOString(),
+            logic.calendarDateRange[1].toISOString(),
+          ])
+        );
+      } else {
+        localStorage.removeItem("calendarDateRange");
+      }
+    }
+  }, [logic.calendarDateRange]);
+
+  
   return (
     <>
       {/* Google Maps API for Places Autocomplete */}

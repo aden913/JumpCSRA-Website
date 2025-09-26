@@ -9,17 +9,14 @@ add profile page
 add functionality for products to be rented out and un-purchasesable.
 aesthetics
     option cards make negative space less
-    
-SIGN IN FLOW + PROFILE FUNCTIONS
-    with google FLOW   
-        password change
-            change styles
-            make box not change width 
-        email change after password change
-            sends verification without notifying user
-            need to force a redirect
-
+STORE dates in local storage
+set default country in profile phone 
 
 
 sign in with phone is disabled until billing is added to firebase
 Would like to implement google api for anytime a user is entering an address but will require finalizing account creation for the google developement for the email.
+
+NEED TO ADD A PROFILE BACK BUTTON 
+FIGURE OUT WHY INFLATEABLES ARE NO LONGER SHOWIN UP -- rules
+
+lytenytegrid

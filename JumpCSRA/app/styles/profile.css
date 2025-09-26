@@ -127,3 +127,21 @@ html, body{ background-color: white;}
   border: 2px solid #eee;
   object-fit: cover;
 }
+.profile-back-btn {
+  background: #1976d2;
+  border: none;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  margin-bottom: 1rem;
+  padding: 0.5rem 1.5rem;
+  border-radius: 6px;
+}
+
+
+@media (max-width: 900px) {
+
+
+
+}
