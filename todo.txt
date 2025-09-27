@@ -20,3 +20,6 @@ NEED TO ADD A PROFILE BACK BUTTON
 FIGURE OUT WHY INFLATEABLES ARE NO LONGER SHOWIN UP -- rules
 
 lytenytegrid
+
+STEP: add date availability functionality to inflateables. *for other products need to consider a quantity availabilty as well*
+    I need to have a database table seperate from the inflateables table to be called bookings, this table will track:orderId, inflateableID(same name for the inflateable in the inflateables table), startDate, endDate, customerID, order status(pending, cancelled, confirmed, etc). This table will be read when the user selects the date of their event. The inflateables then shown to the customer will be disabled/greyed out if they are currently in use by another customer on those days/day.  

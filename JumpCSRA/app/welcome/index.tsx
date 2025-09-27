@@ -33,6 +33,7 @@ import '@mantine/notifications/styles.css';
 
 import { MantineProvider } from "@mantine/core";
 import { useWelcomeLogic } from './useWelcomeLogic';
+import { getUnavailableInflateables } from '../utils/bookingUtils';
 
 const promoCards = [
   { title: "Become a member", img: "/assets/cartoon-bouncehouse.png" },
@@ -53,9 +54,10 @@ type OptionCardProps = {
   weekendPrice: number;
   weekendWaterPrice: number;
   onOrder?: (name: string) => void;
+  unavailable?: boolean;
 };
 
-function OptionCard({ name, img, onOrder }: OptionCardProps) {
+function OptionCard({ name, img, onOrder, unavailable }: OptionCardProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLSpanElement>(null);
   const [isOverflow, setIsOverflow] = useState(true);
@@ -77,15 +79,20 @@ function OptionCard({ name, img, onOrder }: OptionCardProps) {
   }, [name]);
 
   return (
-    <div className="option-card">
+    <div className={`option-card${unavailable ? " option-card-unavailable" : ""}`}>
       <div className="option-title marquee-container" ref={containerRef}>
         <span ref={textRef} className={isOverflow ? "marquee-text" : ""}>
           {name}
         </span>
       </div>
-      <img src={img} alt={name} className="option-img" />
-      <button className="order-btn" onClick={() => onOrder && onOrder(name)}>
-        ORDER NOW
+      <img src={img} alt={name} className="option-img" style={unavailable ? { filter: "grayscale(1)", opacity: 0.6 } : {}} />
+      <button
+        className="order-btn"
+        onClick={() => onOrder && onOrder(name)}
+        disabled={unavailable}
+        style={unavailable ? { backgroundColor: "#ccc", cursor: "not-allowed" } : {}}
+      >
+        {unavailable ? "UNAVAILABLE" : "ORDER NOW"}
       </button>
     </div>
   );
@@ -116,6 +123,22 @@ export function getDetailImages(name: string) {
 
 export function Welcome() {
   const logic = useWelcomeLogic();
+
+  const [unavailableInflateables, setUnavailableInflateables] = useState<Set<string>>(new Set());
+
+  // Fetch unavailable inflateables whenever date range changes
+  useEffect(() => {
+    async function fetchUnavailable() {
+      const [start, end] = logic.calendarDateRange;
+      if (start && end) {
+        const unavailable = await getUnavailableInflateables(start, end);
+        setUnavailableInflateables(unavailable);
+      } else {
+        setUnavailableInflateables(new Set());
+      }
+    }
+    fetchUnavailable();
+  }, [logic.calendarDateRange]);
 
    // Load dates from localStorage on mount
   useEffect(() => {
@@ -155,7 +178,7 @@ export function Welcome() {
     }
   }, [logic.calendarDateRange]);
 
-  
+
   return (
     <>
       {/* Google Maps API for Places Autocomplete */}
@@ -273,8 +296,10 @@ export function Welcome() {
 
           <OptionsCarousel
             options={logic.filteredOptions.map((opt: any) => {
+              const isUnavailable = unavailableInflateables.has(opt.name);
               return {
                 ...opt,
+                unavailable: isUnavailable,
                 onOrder: () => logic.handleOrderNow(opt)
               };
             })}

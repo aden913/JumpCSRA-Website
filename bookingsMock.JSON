@@ -1,0 +1,32 @@
+{
+  "booking1": {
+    "orderId": "booking1",
+    "inflateableIDs": ["Bounce House", "Water Slide"],
+    "startDate": "2025-10-04T10:00:00Z",
+    "endDate": "2025-10-04T18:00:00Z",
+    "requestedTime": "2025-10-04T12:00:00Z",
+    "customerID": "fqeGlr0kCldR6Lz75Rgr2LR0LaA2",
+    "status": "confirmed",
+    "createdAt": "2025-09-26T12:00:00Z"
+  },
+  "booking2": {
+    "orderId": "booking2",
+    "inflateableIDs": ["Obstacle Course"],
+    "startDate": "2025-10-05T09:00:00Z",
+    "endDate": "2025-10-05T13:00:00Z",
+    "requestedTime": "2025-10-05T10:00:00Z",
+    "customerID": "fqeGlr0kCldR6Lz75Rgr2LR0LaA2",
+    "status": "pending",
+    "createdAt": "2025-09-26T13:00:00Z"
+  },
+  "booking3": {
+    "orderId": "booking3",
+    "inflateableIDs": ["Bounce House"],
+    "startDate": "2025-10-06T14:00:00Z",
+    "endDate": "2025-10-06T18:00:00Z",
+    "requestedTime": "2025-10-06T15:00:00Z",
+    "customerID": "fqeGlr0kCldR6Lz75Rgr2LR0LaA2",
+    "status": "cancelled",
+    "createdAt": "2025-09-26T14:00:00Z"
+  }
+}
