@@ -78,6 +78,15 @@ function OptionCard({ name, img, onOrder, unavailable }: OptionCardProps) {
     };
   }, [name]);
 
+  const handleOrder = () => {
+    if (unavailable) {
+      console.log(`Attempted to order unavailable inflateable: ${name}`);
+      return;
+    }
+    console.log(`Ordering available inflateable: ${name}`);
+    if (onOrder) onOrder(name);
+  };
+
   return (
     <div className={`option-card${unavailable ? " option-card-unavailable" : ""}`}>
       <div className="option-title marquee-container" ref={containerRef}>
@@ -88,7 +97,7 @@ function OptionCard({ name, img, onOrder, unavailable }: OptionCardProps) {
       <img src={img} alt={name} className="option-img" style={unavailable ? { filter: "grayscale(1)", opacity: 0.6 } : {}} />
       <button
         className="order-btn"
-        onClick={() => onOrder && onOrder(name)}
+        onClick={handleOrder}
         disabled={unavailable}
         style={unavailable ? { backgroundColor: "#ccc", cursor: "not-allowed" } : {}}
       >
@@ -131,9 +140,12 @@ export function Welcome() {
     async function fetchUnavailable() {
       const [start, end] = logic.calendarDateRange;
       if (start && end) {
+        console.log('Fetching unavailable inflateables for date range:', start, 'to', end);
         const unavailable = await getUnavailableInflateables(start, end);
+        console.log('Unavailable inflateables:', Array.from(unavailable));
         setUnavailableInflateables(unavailable);
       } else {
+        console.log('No date range selected, clearing unavailable inflateables');
         setUnavailableInflateables(new Set());
       }
     }
@@ -297,6 +309,8 @@ export function Welcome() {
           <OptionsCarousel
             options={logic.filteredOptions.map((opt: any) => {
               const isUnavailable = unavailableInflateables.has(opt.name);
+              console.log(`Checking inflateable: "${opt.name}" against unavailable set:`, Array.from(unavailableInflateables));
+              console.log(`Inflateable "${opt.name}" is ${isUnavailable ? 'UNAVAILABLE' : 'AVAILABLE'}`);
               return {
                 ...opt,
                 unavailable: isUnavailable,

@@ -38,27 +38,46 @@ export function CalendarSidebar({ open, onClose, value, onChange }: CalendarSide
 
   return (
     <>
-      <div className={`calendar-overlay${open ? " open" : ""}`} onClick={onClose}></div>
-      <div className={`calendar-sidebar${open ? " open" : ""}`}>
-<div className="topCalendar">
-        <button className="close-btn" onClick={onClose}>
-          X
-        </button>
-        <h2 className="calendar-sidebar-title">Select Event Date Range</h2>
-        </div>
-        <DatePicker
-          type="range"
-          allowSingleDateInRange 
-          value={stringValue}
-          onChange={handleChange}
-          minDate={new Date()}
-          size="lg"
-        />
-        <div style={{ marginTop: "2rem", textAlign: "center", fontSize: "1.1rem" }}>
-          <strong>Selected Dates:</strong><br />
-          {value[0] ? value[0].toLocaleDateString() : "--"} &mdash; {value[1] ? value[1].toLocaleDateString() : "--"}
-        </div>
-      </div>
+      {open && (
+        <>
+          <div className="calendar-overlay open" onClick={onClose}></div>
+          <div className="calendar-sidebar open">
+            <div className="topCalendar">
+              <button className="close-btn" onClick={onClose}>
+                X
+              </button>
+              <h2 className="calendar-sidebar-title">Select Event Date Range</h2>
+            </div>
+            <DatePicker
+              type="default"
+              value={stringValue[0]}
+              onChange={(val) => {
+                // val is string | null
+                const date = val ? new Date(val + 'T00:00') : null;
+                onChange([date, date]);
+                if (date) {
+                  onClose();
+                }
+              }}
+              minDate={new Date()}
+              size="lg"
+            />
+            <div style={{ marginTop: "2rem", textAlign: "center", fontSize: "1.1rem" }}>
+              <strong>Selected Date:</strong><br />
+              {value[0] ? value[0].toLocaleDateString() : "--"}
+              <br />
+              {value[0] && (
+                <button
+                  style={{ marginTop: "1rem", padding: "0.5rem 1.5rem", fontSize: "1rem", background: "#2e8b57", color: "white", border: "none", borderRadius: "6px", cursor: "pointer" }}
+                  onClick={onClose}
+                >
+                  Close Sidebar
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }

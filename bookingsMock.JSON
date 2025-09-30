@@ -1,7 +1,7 @@
 {
   "booking1": {
     "orderId": "booking1",
-    "inflateableIDs": ["Bounce House", "Water Slide"],
+    "inflateableIDs": ["Adventure Island", "Castle Tower"],
     "startDate": "2025-10-04T10:00:00Z",
     "endDate": "2025-10-04T18:00:00Z",
     "requestedTime": "2025-10-04T12:00:00Z",
@@ -11,7 +11,7 @@
   },
   "booking2": {
     "orderId": "booking2",
-    "inflateableIDs": ["Obstacle Course"],
+    "inflateableIDs": ["Adventure Island"],
     "startDate": "2025-10-05T09:00:00Z",
     "endDate": "2025-10-05T13:00:00Z",
     "requestedTime": "2025-10-05T10:00:00Z",
@@ -21,12 +21,42 @@
   },
   "booking3": {
     "orderId": "booking3",
-    "inflateableIDs": ["Bounce House"],
+    "inflateableIDs": ["Adventure Island"],
     "startDate": "2025-10-06T14:00:00Z",
     "endDate": "2025-10-06T18:00:00Z",
     "requestedTime": "2025-10-06T15:00:00Z",
     "customerID": "fqeGlr0kCldR6Lz75Rgr2LR0LaA2",
     "status": "cancelled",
     "createdAt": "2025-09-26T14:00:00Z"
+  },
+    "booking4": {
+    "orderId": "booking4",
+    "inflateableIDs": ["Castle Bounce House", "Rainbow Slide"],
+    "startDate": "2025-10-03T09:00:00Z",
+    "endDate": "2025-10-03T15:00:00Z",
+    "requestedTime": "2025-10-03T10:00:00Z",
+    "customerID": "fqeGlr0kCldR6Lz75Rgr2LR0LaA2",
+    "status": "pending",
+    "createdAt": "2025-09-29T09:00:00Z"
+  },
+  "booking5": {
+    "orderId": "booking5",
+    "inflateableIDs": ["Obstacle Course", "Dolphin Water Slide"],
+    "startDate": "2025-10-04T12:00:00Z",
+    "endDate": "2025-10-04T20:00:00Z",
+    "requestedTime": "2025-10-04T13:00:00Z",
+    "customerID": "fqeGlr0kCldR6Lz75Rgr2LR0LaA2",
+    "status": "confirmed",
+    "createdAt": "2025-09-29T10:00:00Z"
+  },
+  "booking6": {
+    "orderId": "booking6",
+    "inflateableIDs": ["Princess Castle", "Tropical Combo"],
+    "startDate": "2025-10-05T08:00:00Z",
+    "endDate": "2025-10-05T16:00:00Z",
+    "requestedTime": "2025-10-05T09:00:00Z",
+    "customerID": "fqeGlr0kCldR6Lz75Rgr2LR0LaA2",
+    "status": "pending",
+    "createdAt": "2025-09-29T11:00:00Z"
   }
 }

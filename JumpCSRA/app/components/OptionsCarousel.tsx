@@ -23,6 +23,7 @@ export type OptionCardProps = {
   onOrder?: (product: OptionCardProps) => void;
   wetDry?: string;
   category?: string;
+  unavailable?: boolean;
 };
 
 function OptionCard({
@@ -38,6 +39,7 @@ function OptionCard({
   weekdayWaterPrice,
   weekendWaterPrice,
   onOrder,
+  unavailable,
 }: OptionCardProps) {
   let fontSize = "1.2rem";
   if (name.length > 18) fontSize = "1rem";
@@ -48,33 +50,50 @@ function OptionCard({
   else if (wet === false && dry === true) wetDryLabel = "Dry Only";
   else if (wet === true && dry === true) wetDryLabel = "Wet and Dry";
 
+  const handleOrder = () => {
+    if (unavailable) {
+      console.log(`Attempted to order unavailable inflateable: ${name}`);
+      return;
+    }
+    console.log(`Ordering available inflateable: ${name}`);
+    if (onOrder) {
+      onOrder({
+        name,
+        img,
+        price,
+        description,
+        dimensions,
+        wet,
+        dry,
+        weekdayPrice,
+        weekendPrice,
+        weekdayWaterPrice,
+        weekendWaterPrice,
+        unavailable,
+      });
+    }
+  };
+
   return (
-    <div className="option-card">
+    <div className={`option-card${unavailable ? " option-card-unavailable" : ""}`}>
       <div className="option-title marquee-container" style={{ fontSize }}>
         <span>{name}</span>
       </div>
-      <img src={img} draggable="false" alt={name} className="option-img" />
+      <img 
+        src={img} 
+        draggable="false" 
+        alt={name} 
+        className="option-img" 
+        style={unavailable ? { filter: "grayscale(1)", opacity: 0.6 } : {}}
+      />
       {wetDryLabel && <div className="wetdry-box">{wetDryLabel}</div>}
       <button
         className="order-btn"
-        onClick={() =>
-          onOrder &&
-          onOrder({
-            name,
-            img,
-            price,
-            description,
-            dimensions,
-            wet,
-            dry,
-            weekdayPrice,
-            weekendPrice,
-            weekdayWaterPrice,
-            weekendWaterPrice,
-          })
-        }
+        onClick={handleOrder}
+        disabled={unavailable}
+        style={unavailable ? { backgroundColor: "#ccc", cursor: "not-allowed" } : {}}
       >
-        ORDER NOW
+        {unavailable ? "UNAVAILABLE" : "ORDER NOW"}
       </button>
     </div>
   );
@@ -90,6 +109,11 @@ export function OptionsCarousel({ options, onPurchase }: OptionsCarouselProps) {
   const [selectedProduct, setSelectedProduct] = useState<OptionCardProps | null>(null);
 
   const handleOrderNow = (product: OptionCardProps) => {
+    // Don't open modal for unavailable items
+    if (product.unavailable) {
+      console.log(`Cannot order unavailable inflateable: ${product.name}`);
+      return;
+    }
     // Always pass the full product object
     setSelectedProduct({ ...product });
     setModalOpen(true);

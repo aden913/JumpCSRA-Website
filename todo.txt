@@ -23,3 +23,7 @@ lytenytegrid
 
 STEP: add date availability functionality to inflateables. *for other products need to consider a quantity availabilty as well*
     I need to have a database table seperate from the inflateables table to be called bookings, this table will track:orderId, inflateableID(same name for the inflateable in the inflateables table), startDate, endDate, customerID, order status(pending, cancelled, confirmed, etc). This table will be read when the user selects the date of their event. The inflateables then shown to the customer will be disabled/greyed out if they are currently in use by another customer on those days/day.  
+
+
+    for date purchasing I want to only allow the user to click one date and from there they decide their duration and pickup times. 
+    Need to enforce users to add to the firestore when they sign up. 
