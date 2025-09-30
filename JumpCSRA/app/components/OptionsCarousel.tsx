@@ -4,8 +4,6 @@ import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation } from "swiper/modules";
 import { ProductImageGallery } from "./ProductImageGallery";
 
-import "swiper/css";
-import "swiper/css/navigation";
 import "../styles/options.css";
 
 export type OptionCardProps = {

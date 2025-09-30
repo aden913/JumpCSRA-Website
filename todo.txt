@@ -27,3 +27,8 @@ STEP: add date availability functionality to inflateables. *for other products n
 
     for date purchasing I want to only allow the user to click one date and from there they decide their duration and pickup times. 
     Need to enforce users to add to the firestore when they sign up. 
+
+
+    POTENTIAL PROBLEM: if the user only selects one day then there needs to be some kind of check for if they want multiple days which the calendar only checks for that one day.
+        when the start day is selected you need to query the unavailable inflateables for the next 2 days and if the user picks 24 or 48 in the cart it needs to show they are unavailable there and logic needs to be implemented to not send unavailable infl to purchase page when in cart.
+add duration to cart.
