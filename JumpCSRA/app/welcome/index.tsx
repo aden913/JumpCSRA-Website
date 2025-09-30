@@ -336,7 +336,13 @@ export function Welcome() {
         />
 
         {/* Cart Sidebar */}
-        <CartSidebar open={logic.cartOpen} onClose={() => logic.setCartOpen(false)} cart={logic.cart} setCart={logic.setCart} />
+        <CartSidebar 
+          open={logic.cartOpen} 
+          onClose={() => logic.setCartOpen(false)} 
+          cart={logic.cart} 
+          setCart={logic.setCart}
+          calendarDateRange={logic.calendarDateRange}
+        />
 
         {/* Membership Modal */}
         {logic.membershipOpen && (

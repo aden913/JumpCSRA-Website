@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
+import { getUnavailableInflateables } from '../utils/bookingUtils';
+import '../styles/cart.css';
 
 export type CartItem = {
+  id: string;
   name: string;
   price: number;
   wetDry: string;
@@ -8,6 +11,7 @@ export type CartItem = {
   category: string; // e.g. 'party essential', 'inflateable', 'game', etc.
   wet?: boolean;
   dry?: boolean;
+  image?: string;
 };
 
 export type CartSidebarProps = {
@@ -15,9 +19,10 @@ export type CartSidebarProps = {
   onClose: () => void;
   cart: CartItem[];
   setCart: (cart: CartItem[]) => void;
+  calendarDateRange: [Date | null, Date | null];
 };
 
-export function CartSidebar({ open, onClose, cart, setCart }: CartSidebarProps) {
+export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange }: CartSidebarProps) {
   useEffect(() => {
     if (open && cart.length > 0) {
       cart.forEach((item, idx) => {
@@ -41,6 +46,52 @@ export function CartSidebar({ open, onClose, cart, setCart }: CartSidebarProps) 
   const [deliveryTime, setDeliveryTime] = useState<string>("");
   const [location, setLocation] = useState<string>("");
   const [duration, setDuration] = useState<string>("");
+  const [unavailableItems, setUnavailableItems] = useState<Set<string>>(new Set());
+
+  // Calculate end date based on duration
+  const calculateEndDate = (startDate: Date, durationOption: string): Date => {
+    const endDate = new Date(startDate);
+    switch (durationOption) {
+      case "4hours":
+        endDate.setHours(endDate.getHours() + 4);
+        break;
+      case "24hours":
+        endDate.setDate(endDate.getDate() + 1);
+        break;
+      case "48hours":
+        endDate.setDate(endDate.getDate() + 2);
+        break;
+      default:
+        endDate.setDate(endDate.getDate() + 1); // Default to 24 hours
+    }
+    return endDate;
+  };
+
+  // Check availability when duration or date changes
+  useEffect(() => {
+    const checkAvailability = async () => {
+      if (calendarDateRange[0] && duration) {
+        console.log('=== CART AVAILABILITY CHECK ===');
+        console.log('Selected date:', calendarDateRange[0]);
+        console.log('Selected duration:', duration);
+        
+        const startDate = calendarDateRange[0];
+        const endDate = calculateEndDate(startDate, duration);
+        
+        console.log('Calculated date range:', startDate.toISOString(), 'to', endDate.toISOString());
+        
+        const unavailable = await getUnavailableInflateables(startDate, endDate);
+        console.log('Unavailable items for cart:', Array.from(unavailable));
+        
+        setUnavailableItems(unavailable);
+        console.log('=== END CART AVAILABILITY CHECK ===');
+      } else {
+        setUnavailableItems(new Set());
+      }
+    };
+    
+    checkAvailability();
+  }, [calendarDateRange, duration]);
 
   // Pricing adjustments
   const surfacePrices: Record<string, number> = {
@@ -72,9 +123,14 @@ export function CartSidebar({ open, onClose, cart, setCart }: CartSidebarProps) 
   ];
 
   // Calculate total
-  // Calculate total with duration multiplier
+  // Calculate total with duration multiplier, excluding unavailable items
   const durationMultiplier = duration ? durationMultipliers[duration] || 1.0 : 1.0;
   const cartTotal = cart.reduce((sum, item, idx) => {
+    // Skip unavailable items
+    if (unavailableItems.has(item.id)) {
+      return sum;
+    }
+    
     let itemTotal = item.price * item.quantity * durationMultiplier;
     if (supportsWetDry(item) && wetDrySelections[idx] === "Wet") {
       itemTotal += 50 * item.quantity;
@@ -120,38 +176,70 @@ export function CartSidebar({ open, onClose, cart, setCart }: CartSidebarProps) 
           {cart.length === 0 ? (
             <div className="cart-empty">Your cart is empty.</div>
           ) : (
-            cart.map((item, idx) => (
-              <div className="cart-item" key={item.name + idx}>
-                <span>
-                  {item.name} - ${item.price.toFixed(2)} ({item.wetDry})
-                </span>
-                {supportsWetDry(item) && (
-                  <select
-                    className="wet-dry-select"
-                    value={wetDrySelections[idx] || ""}
-                    onChange={e => {
-                      const value = e.target.value;
-                      setWetDrySelections(prev => ({ ...prev, [idx]: value }));
-                    }}
-                    style={{ marginLeft: '0.5rem' }}
-                    required
-                  >
-                    <option value="">Choose Wet or Dry</option>
-                    <option value="Dry">Dry</option>
-                    <option value="Wet">Wet (+$50)</option>
-                  </select>
-                )}
-                {isPartyEssential(item) && (
-                  <input
-                    type="number"
-                    value={item.quantity}
-                    min={1}
-                    onChange={e => updateQuantity(idx, parseInt(e.target.value))}
-                  />
-                )}
-                <button onClick={() => removeFromCart(idx)}>Remove</button>
-              </div>
-            ))
+            cart.map((item, idx) => {
+              const isUnavailable = unavailableItems.has(item.id);
+              return (
+                <div 
+                  className="cart-item" 
+                  key={item.name + idx}
+                  style={{
+                    opacity: isUnavailable ? 0.6 : 1,
+                    backgroundColor: isUnavailable ? '#ffebee' : 'transparent',
+                    border: isUnavailable ? '2px solid #f44336' : 'none',
+                    borderRadius: '8px',
+                    padding: '10px',
+                    margin: '5px 0',
+                    position: 'relative'
+                  }}
+                >
+                  {isUnavailable && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '5px',
+                      right: '5px',
+                      backgroundColor: '#f44336',
+                      color: 'white',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}>
+                      UNAVAILABLE
+                    </div>
+                  )}
+                  <span style={{ color: isUnavailable ? '#666' : 'inherit' }}>
+                    {item.name} - ${isUnavailable ? '0.00' : (item.price * durationMultiplier).toFixed(2)} ({item.wetDry})
+                  </span>
+                  {supportsWetDry(item) && (
+                    <select
+                      className="wet-dry-select"
+                      value={wetDrySelections[idx] || ""}
+                      onChange={e => {
+                        const value = e.target.value;
+                        setWetDrySelections(prev => ({ ...prev, [idx]: value }));
+                      }}
+                      style={{ marginLeft: '0.5rem' }}
+                      required
+                      disabled={isUnavailable}
+                    >
+                      <option value="">Choose Wet or Dry</option>
+                      <option value="Dry">Dry</option>
+                      <option value="Wet">Wet (+$50)</option>
+                    </select>
+                  )}
+                  {isPartyEssential(item) && (
+                    <input
+                      type="number"
+                      value={item.quantity}
+                      min={1}
+                      onChange={e => updateQuantity(idx, parseInt(e.target.value))}
+                      disabled={isUnavailable}
+                    />
+                  )}
+                  <button onClick={() => removeFromCart(idx)}>Remove</button>
+                </div>
+              );
+            })
           )}
         </div>
         {/* Dropdowns for order requirements */}
