@@ -37,6 +37,7 @@ setPersistence(auth, browserLocalPersistence);
 
 export default function Login() {
   // States
+  const [showSignInForm, setShowSignInForm] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -317,12 +318,37 @@ useEffect(() => {
 
   if (redirect) return <Navigate to="/home" replace />;
 
+  // Show initial landing screen
+  if (!showSignInForm && !needsProfile) {
+    return (
+      <div className="login-page">
+        <img src="/jump-logo.png" alt="Jump Logo" className="login-logo" />
+        
+        <div className="initial-buttons">
+          <button
+            className="guest-btn"
+            onClick={handleGuest}
+          >
+            Continue To Book Events
+          </button>
+          
+          <button
+            className="sign-in-btn"
+            onClick={() => setShowSignInForm(true)}
+          >
+            Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (needsProfile && pendingUser) {
     return (
       <>
 
       <div className="login-page">
-        <img src="/jumpLogo.jpeg" alt="Jump Logo" className="login-logo" />
+        <img src="/jump-logo.png" alt="Jump Logo" className="login-logo" />
         <h2 className="login-title">Complete Your Profile</h2>
         {error && <div className="login-error">{error}</div>}
         <form onSubmit={handleCompleteProfile}>
@@ -361,7 +387,10 @@ useEffect(() => {
 
   return (
     <div className="login-page">
-      <img src="/jumpLogo.jpeg" alt="Jump Logo" className="login-logo" />
+      <img src="/jump-logo.png" alt="Jump Logo" className="login-logo" />
+      
+    
+      
       <h2 className="login-title">{isSignUp ? "Sign Up" : "Sign In"}</h2>
       <button
         className="toggle-btn"
@@ -641,7 +670,7 @@ useEffect(() => {
           >
             Sign in with Phone
           </button>
-          <div style={{ marginTop: "0.5rem" }}>
+         
             <button
               type="button"
               className="forgot-pw-link"
@@ -650,7 +679,21 @@ useEffect(() => {
             >
               Forgot password?
             </button>
-          </div>
+
+              {/* Back button */}
+      <button
+        className="back-btn"
+        onClick={() => {
+          setShowSignInForm(false);
+          setIsSignUp(false);
+          setStep("email");
+          setError(null);
+          setPhoneSignIn(false);
+          setShowForgotPw(false);
+        }}>
+        ← Back
+      </button>
+         
         </form>
       )}
 
@@ -685,12 +728,6 @@ useEffect(() => {
           <button className="back-btn" onClick={() => setPhoneSignIn(false)}>Back</button>
         </>
       )}
-            {/* Add Continue as Guest button */}
-      <button
-        className="guest-btn"
-        onClick={handleGuest}>
-        Continue To Book Events
-      </button>
     </div>
   );
 }

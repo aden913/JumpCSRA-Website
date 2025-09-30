@@ -17,7 +17,7 @@
   color: var(--darkBlue);           /* Highlighted text color */
 }
 html, body {
-  background:white;
+  background: #d3d3d33a;
   font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
 }
 .sign-in-btn, .sign-up-btn {
@@ -216,3 +216,57 @@ text-decoration: underline;
         border: 2px solid #c62828;
         text-align: center;
     }
+
+    .initial-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        width: 100%;
+        max-width: 300px;
+        margin-top: 2rem;
+    }
+
+    .initial-buttons .guest-btn,
+    .initial-buttons .sign-in-btn {
+        width: 100%;
+        padding: 1rem;
+        border-radius: 8px;
+        font-weight: bold;
+        font-size: 1.2rem;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .initial-buttons .guest-btn {
+        background: var(--lightBlue);
+        color: white;
+        order: 1;
+    }
+
+    .initial-buttons .guest-btn:hover {
+        background: #45b8af;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(81, 203, 194, 0.3);
+    }
+
+    .initial-buttons .sign-in-btn {
+        background: var(--darkBlue);
+        color: white;
+        order: 2;
+    }
+
+    .initial-buttons .sign-in-btn:hover {
+        background: #2a3d52;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(53, 77, 101, 0.3);
+    }
+
+    .back-btn {
+        float: none;
+        margin: 1rem auto 0 auto;
+        display: block;
+    }
+    .back-btn:hover {
+    color: var(--coral);
+}
