@@ -40,6 +40,7 @@ export function CartSidebar({ open, onClose, cart, setCart }: CartSidebarProps) 
   const [surface, setSurface] = useState<string>("");
   const [deliveryTime, setDeliveryTime] = useState<string>("");
   const [location, setLocation] = useState<string>("");
+  const [duration, setDuration] = useState<string>("");
 
   // Pricing adjustments
   const surfacePrices: Record<string, number> = {
@@ -56,6 +57,11 @@ export function CartSidebar({ open, onClose, cart, setCart }: CartSidebarProps) 
     "12pm": 10,
     "": 0,
   };
+  const durationMultipliers: Record<string, number> = {
+    "4hours": 0.9,  // 10% discount
+    "24hours": 1.0, // Base price
+    "48hours": 1.5, // 50% increase
+  };
   // Location is for documentation only
   const locationOptions = [
     "personal home",
@@ -66,9 +72,10 @@ export function CartSidebar({ open, onClose, cart, setCart }: CartSidebarProps) 
   ];
 
   // Calculate total
-  // Calculate total, add $50 for each item set to wet
+  // Calculate total with duration multiplier
+  const durationMultiplier = duration ? durationMultipliers[duration] || 1.0 : 1.0;
   const cartTotal = cart.reduce((sum, item, idx) => {
-    let itemTotal = item.price * item.quantity;
+    let itemTotal = item.price * item.quantity * durationMultiplier;
     if (supportsWetDry(item) && wetDrySelections[idx] === "Wet") {
       itemTotal += 50 * item.quantity;
     }
@@ -150,6 +157,15 @@ export function CartSidebar({ open, onClose, cart, setCart }: CartSidebarProps) 
         {/* Dropdowns for order requirements */}
         <div className="cart-dropdowns" style={{ margin: '1rem 0' }}>
           <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+            Event Duration:
+            <select value={duration} onChange={e => setDuration(e.target.value)} required style={{ marginLeft: '0.5rem' }}>
+              <option value="">Select duration</option>
+              <option value="4hours">4 Hours (-10%)</option>
+              <option value="24hours">24 Hours (Standard)</option>
+              <option value="48hours">48 Hours (+50%)</option>
+            </select>
+          </label>
+          <label style={{ display: 'block', marginBottom: '0.5rem' }}>
             Surface:
             <select value={surface} onChange={e => setSurface(e.target.value)} required style={{ marginLeft: '0.5rem' }}>
               <option value="">Select surface</option>
@@ -187,7 +203,7 @@ export function CartSidebar({ open, onClose, cart, setCart }: CartSidebarProps) 
         <div className="cart-footer">
           <button
             id="proceedButton"
-            disabled={cart.length === 0 || !surface || !deliveryTime || !location}
+            disabled={cart.length === 0 || !duration || !surface || !deliveryTime || !location}
             onClick={() => {}}
           >
             Proceed to Purchase
