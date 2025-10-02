@@ -240,7 +240,10 @@
   opacity: 1;
   pointer-events: auto;
 }
-
+#sidebar-footer {
+font-size: 0.8rem;
+text-decoration: solid underline;
+font-weight: bolder;}
 @media (max-width: 600px) {
   .cart-sidebar {
     width: 100vw;

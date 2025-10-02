@@ -66,5 +66,9 @@ Integration into a saas.
 
 add Wet Or Dry, Dry Only, Wet Only on corresponding units?
 
-LAST WORKED ON
-	modal
+    4 hours is 10% off
+    24 is base
+    and 48 hours is 50% more
+
+sign in with phone is disabled until billing is added to firebase
+Would like to implement google api for anytime a user is entering an address but will require finalizing account creation for the google developement for the email.

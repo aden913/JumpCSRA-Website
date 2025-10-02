@@ -299,7 +299,7 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange }:
         </div>
         <div id="sidebar-footer" className="candal-regular">
           <p>
-            Additional Details...
+            Upon proceeding to purchase you will be required to create an account/login for order records
           </p>
         </div>
       </div>

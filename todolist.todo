@@ -1,0 +1,293 @@
+{
+  "todotree": {
+    "tree": [
+      {
+        "key": 1759370779329,
+        "children": [
+          {
+            "key": 1759436584369,
+            "children": [],
+            "todo": {
+              "content": "create order-details page",
+              "id": 1759436584369,
+              "level": "default",
+              "done": false,
+              "start": 1759436584369
+            }
+          },
+          {
+            "key": 1759436592857,
+            "children": [],
+            "todo": {
+              "content": "make login check after clicking proceed to purchase",
+              "id": 1759436592857,
+              "level": "default",
+              "done": false,
+              "start": 1759436592857
+            }
+          },
+          {
+            "key": 1759436630874,
+            "children": [
+              {
+                "key": 1759436646464,
+                "children": [],
+                "todo": {
+                  "content": "store a signed waiver per user",
+                  "id": 1759436646464,
+                  "level": "default",
+                  "done": false,
+                  "start": 1759436646464
+                }
+              }
+            ],
+            "todo": {
+              "content": "Waiver signing implementation",
+              "id": 1759436630874,
+              "level": "default",
+              "done": false,
+              "start": 1759436630874
+            }
+          }
+        ],
+        "todo": {
+          "content": "implement further purcahse functionality",
+          "id": 1759370779329,
+          "level": "default",
+          "done": false,
+          "start": 1759370779329
+        }
+      },
+      {
+        "key": 1759371958896,
+        "children": [],
+        "todo": {
+          "content": "options carousel spacing",
+          "id": 1759371958896,
+          "level": "default",
+          "done": false,
+          "start": 1759371958896
+        }
+      },
+      {
+        "key": 1759372077880,
+        "children": [],
+        "todo": {
+          "content": "set default country in profile phone",
+          "id": 1759372077880,
+          "level": "default",
+          "done": false,
+          "start": 1759372077880
+        }
+      },
+      {
+        "key": 1759372322516,
+        "children": [],
+        "todo": {
+          "content": "implement availability for party essentials",
+          "id": 1759372322516,
+          "level": "default",
+          "done": false,
+          "start": 1759372322516
+        }
+      },
+      {
+        "key": 1759372943052,
+        "children": [],
+        "todo": {
+          "content": "fix profile error: hook.js:608 [react-phone-number-input] Expected the initial `value` to be a E.164 phone number. Got 18039913236",
+          "id": 1759372943052,
+          "level": "default",
+          "done": false,
+          "start": 1759372943053
+        }
+      },
+      {
+        "key": 1759373285106,
+        "children": [
+          {
+            "key": 1759373309342,
+            "children": [],
+            "todo": {
+              "content": "410 carolina springs Rd. North augusta sc. 29841",
+              "id": 1759373309342,
+              "level": "default",
+              "done": false,
+              "start": 1759373309342
+            }
+          },
+          {
+            "key": 1759373341418,
+            "children": [],
+            "todo": {
+              "content": "6 for every mile",
+              "id": 1759373341418,
+              "level": "default",
+              "done": false,
+              "start": 1759373341418
+            }
+          }
+        ],
+        "todo": {
+          "content": "Add delivery pricing",
+          "id": 1759373285106,
+          "level": "default",
+          "done": false,
+          "start": 1759373285106
+        }
+      },
+      {
+        "key": 1759373391378,
+        "children": [
+          {
+            "key": 1759373412350,
+            "children": [
+              {
+                "key": 1759373426295,
+                "children": [],
+                "todo": {
+                  "content": "IF they click on this, it will show a pop up that says10% off has been applied to your booking for Sunday.",
+                  "id": 1759373426295,
+                  "level": "default",
+                  "done": false,
+                  "start": 1759373426295
+                }
+              }
+            ],
+            "todo": {
+              "content": "10% off",
+              "id": 1759373412350,
+              "level": "default",
+              "done": false,
+              "start": 1759373412350
+            }
+          },
+          {
+            "key": 1759373442853,
+            "children": [
+              {
+                "key": 1759373453326,
+                "children": [
+                  {
+                    "key": 1759373470577,
+                    "children": [],
+                    "todo": {
+                      "content": "do an email and phone number check to make this a 1 time offer",
+                      "id": 1759373470577,
+                      "level": "default",
+                      "done": false,
+                      "start": 1759373470577
+                    }
+                  }
+                ],
+                "todo": {
+                  "content": "IF they click on this, can you show what yard games are available for their date and let them add one to the cart for free?",
+                  "id": 1759373453326,
+                  "level": "default",
+                  "done": false,
+                  "start": 1759373453326
+                }
+              }
+            ],
+            "todo": {
+              "content": "free yard game upgrade",
+              "id": 1759373442853,
+              "level": "default",
+              "done": false,
+              "start": 1759373442853
+            }
+          },
+          {
+            "key": 1759373503186,
+            "children": [
+              {
+                "key": 1759373517311,
+                "children": [
+                  {
+                    "key": 1759373545701,
+                    "children": [],
+                    "todo": {
+                      "content": "Do email + phone check as well",
+                      "id": 1759373545701,
+                      "level": "default",
+                      "done": false,
+                      "start": 1759373545701
+                    }
+                  }
+                ],
+                "todo": {
+                  "content": "f they click on this can you do a pop up that and it saysBuy one gift card, get one for free.With Add to Cartand it will add two $50 gift cards to the cart for $50.",
+                  "id": 1759373517311,
+                  "level": "default",
+                  "done": false,
+                  "start": 1759373517311
+                }
+              }
+            ],
+            "todo": {
+              "content": "gift card",
+              "id": 1759373503186,
+              "level": "default",
+              "done": false,
+              "start": 1759373503186
+            }
+          }
+        ],
+        "todo": {
+          "content": "finish developing the promo cards",
+          "id": 1759373391378,
+          "level": "default",
+          "done": false,
+          "start": 1759373391378
+        }
+      },
+      {
+        "key": 1759373590708,
+        "children": [
+          {
+            "key": 1759373604698,
+            "children": [],
+            "todo": {
+              "content": "Add the subdomain in the server and setup its repo",
+              "id": 1759373604698,
+              "level": "default",
+              "done": false,
+              "start": 1759373604698
+            }
+          }
+        ],
+        "todo": {
+          "content": "Continue developing dashboard",
+          "id": 1759373590708,
+          "level": "default",
+          "done": false,
+          "start": 1759373590708
+        }
+      }
+    ],
+    "expandKeys": [
+      1759373285106,
+      1759373391378,
+      1759373412350,
+      1759373442853,
+      1759373453326,
+      1759373503186,
+      1759373517311,
+      1759373590708,
+      1759370779329,
+      1759436630874
+    ],
+    "schema": "https://github.com/Saber2pr/vsc-ext-todolist/blob/master/src/api/type.ts#L3",
+    "add_mode": "bottom",
+    "virtual": false,
+    "timelines": [],
+    "showLine": false,
+    "playFontSize": 24,
+    "title": "todolist",
+    "autoSort": false,
+    "showEndTime": false,
+    "simpleMode": false,
+    "lang": "en",
+    "version": "1759436653967"
+  }
+}
