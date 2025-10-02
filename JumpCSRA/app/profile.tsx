@@ -106,16 +106,30 @@ export default function Profile() {
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
+        const data = docSnap.data();
+        // Convert phone to E.164 format if it exists and doesn't start with +
+        let phone = data.phone || "";
+        if (phone && !phone.startsWith("+")) {
+          // Assume US number if no country code
+          phone = phone.startsWith("1") ? `+${phone}` : `+1${phone}`;
+        }
         setProfile((prev) => ({
           ...prev,
-          ...docSnap.data(),
+          ...data,
+          phone,
         }));
       } else {
+        // Convert phone to E.164 format if it exists and doesn't start with +
+        let phone = u.phoneNumber || "";
+        if (phone && !phone.startsWith("+")) {
+          phone = phone.startsWith("1") ? `+${phone}` : `+1${phone}`;
+        }
+        
         setProfile({
           ...profile,
           name: u.displayName || "",
           email: u.email || "",
-          phone: "",
+          phone,
           company: "",
           address: "",
           city: "",
@@ -150,8 +164,15 @@ export default function Profile() {
     if (!user) return;
     setEditing(false);
 
+    // Ensure phone number is in E.164 format
+    let formattedPhone = profile.phone;
+    if (formattedPhone && !formattedPhone.startsWith("+")) {
+      // Assume US number if no country code
+      formattedPhone = formattedPhone.startsWith("1") ? `+${formattedPhone}` : `+1${formattedPhone}`;
+    }
+
     // Validate phone number (must be E.164 format and at least 10 digits)
-    if (!profile.phone || !/^\+?[1-9]\d{9,14}$/.test(profile.phone)) {
+    if (!formattedPhone || !/^\+?[1-9]\d{9,14}$/.test(formattedPhone)) {
       setPhoneError("Please enter a valid phone number.");
       setEditing(true);
       return;
@@ -161,13 +182,16 @@ export default function Profile() {
     const docRef = doc(db, "users", user.uid);
 
     await updateDoc(docRef, {
-      phone: profile.phone,
+      phone: formattedPhone,
       company: profile.company,
       address: profile.address,
       city: profile.city,
       state: profile.state,
       zip: profile.zip,
     });
+
+    // Update local state with formatted phone
+    setProfile(prev => ({ ...prev, phone: formattedPhone }));
   };
 
   if (loading) return <div className="profile-loading">Loading...</div>;
