@@ -124,24 +124,33 @@ export function OptionsCarousel({ options, onPurchase }: OptionsCarouselProps) {
 
   return (
     <>
-      <Swiper
-        modules={[Navigation]}
-        slidesPerView={3}
-        spaceBetween={1}
-        navigation={true}
-        breakpoints={{
-          1024: { slidesPerView: 3 },
-          464: { slidesPerView: 2 },
-          0: { slidesPerView: 1 },
-        }}
-        style={{ padding: ".5rem 0" }}
-      >
-        {options.map((opt: OptionCardProps) => (
-          <SwiperSlide key={opt.name}>
-            <OptionCard {...opt} onOrder={() => handleOrderNow({ ...opt })} />
-          </SwiperSlide>
-        ))}
-      </Swiper>
+      <div className="carousel-container">
+        {/* Left overlay mask */}
+        <div className="carousel-mask carousel-mask-left"></div>
+        
+        {/* Right overlay mask */}
+        <div className="carousel-mask carousel-mask-right"></div>
+        
+        <Swiper
+          modules={[Navigation]}
+          slidesPerView={5}
+          spaceBetween={10}
+          centeredSlides={true}
+          navigation={true}
+          breakpoints={{
+            1024: { slidesPerView: 5, spaceBetween: 10 },
+            464: { slidesPerView: 3, spaceBetween: 15 },
+            0: { slidesPerView: 1, spaceBetween: 0 },
+          }}
+          style={{ padding: ".5rem 0" }}
+        >
+          {options.map((opt: OptionCardProps) => (
+            <SwiperSlide key={opt.name}>
+              <OptionCard {...opt} onOrder={() => handleOrderNow({ ...opt })} />
+            </SwiperSlide>
+          ))}
+        </Swiper>
+      </div>
 
       <ProductDetailModal
         open={modalOpen}

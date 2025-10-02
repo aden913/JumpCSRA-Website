@@ -65,8 +65,10 @@
           "content": "options carousel spacing",
           "id": 1759371958896,
           "level": "default",
-          "done": false,
-          "start": 1759371958896
+          "done": true,
+          "start": 1759371958896,
+          "focus": false,
+          "end": 1759437796410
         }
       },
       {
@@ -288,6 +290,6 @@
     "showEndTime": false,
     "simpleMode": false,
     "lang": "en",
-    "version": "1759436653967"
+    "version": "1759437796474"
   }
 }
