@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { getUnavailableInflateables } from '../utils/bookingUtils';
+import { useDiscounts, getDiscountDescription, type DiscountCalculation } from '../hooks/useDiscounts';
 import '../styles/cart.css';
 
 export type CartItem = {
@@ -20,9 +21,10 @@ export type CartSidebarProps = {
   cart: CartItem[];
   setCart: (cart: CartItem[]) => void;
   calendarDateRange: [Date | null, Date | null];
+  discountLogic: ReturnType<typeof useDiscounts>;
 };
 
-export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange }: CartSidebarProps) {
+export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, discountLogic }: CartSidebarProps) {
   useEffect(() => {
     if (open && cart.length > 0) {
       cart.forEach((item, idx) => {
@@ -47,6 +49,14 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange }:
   const [location, setLocation] = useState<string>("");
   const [duration, setDuration] = useState<string>("");
   const [unavailableItems, setUnavailableItems] = useState<Set<string>>(new Set());
+  const [discountCalculation, setDiscountCalculation] = useState<DiscountCalculation>({
+    discountAmount: 0,
+    appliedDiscount: null,
+    freeItemId: null,
+    addedGiftCards: [],
+    hasValidDiscount: false,
+    userCanUse: true,
+  });
 
   // Calculate end date based on duration
   const calculateEndDate = (startDate: Date, durationOption: string): Date => {
@@ -137,9 +147,23 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange }:
     }
     return sum + itemTotal;
   }, 0);
+  
   const surfaceAdj = surface ? surfacePrices[surface] || 0 : 0;
   const timeAdj = deliveryTime ? timePrices[deliveryTime] || 0 : 0;
-  const total = cartTotal + surfaceAdj + timeAdj;
+  
+  // Apply discount to total
+  const subtotal = cartTotal + surfaceAdj + timeAdj;
+  const total = subtotal - discountCalculation.discountAmount;
+
+  // Calculate discount asynchronously
+  useEffect(() => {
+    const calculateDiscountAsync = async () => {
+      const calculation = await discountLogic.calculateDiscount(cart, cartTotal, calendarDateRange);
+      setDiscountCalculation(calculation);
+    };
+    
+    calculateDiscountAsync();
+  }, [cart, cartTotal, calendarDateRange, discountLogic.discounts]);
   useEffect(() => {
     const savedInfo = localStorage.getItem("orderMessage") || "";
     setOrderInfo(savedInfo);
@@ -148,6 +172,36 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange }:
   useEffect(() => {
     localStorage.setItem("orderMessage", orderInfo);
   }, [orderInfo]);
+
+  // Handle BOGO gift card auto-addition
+  useEffect(() => {
+    if (discountCalculation.appliedDiscount === 'bogoGiftCard' && 
+        discountCalculation.addedGiftCards.length > 0 && 
+        discountCalculation.hasValidDiscount) {
+      
+      // Check if free gift cards are already in cart
+      const freeGiftCardsInCart = cart.filter(item => 
+        item.category === 'gift-card-free'
+      );
+      
+      // Only add if not already present
+      if (freeGiftCardsInCart.length === 0) {
+        const newCart = [...cart, ...discountCalculation.addedGiftCards];
+        setCart(newCart);
+        localStorage.setItem("cart", JSON.stringify(newCart));
+      }
+    } else if (discountCalculation.appliedDiscount !== 'bogoGiftCard') {
+      // Remove free gift cards if BOGO discount is not active
+      const nonFreeGiftCards = cart.filter(item => 
+        item.category !== 'gift-card-free'
+      );
+      
+      if (nonFreeGiftCards.length !== cart.length) {
+        setCart(nonFreeGiftCards);
+        localStorage.setItem("cart", JSON.stringify(nonFreeGiftCards));
+      }
+    }
+  }, [discountCalculation, cart, setCart]);
 
   const updateQuantity = (index: number, newQuantity: number) => {
     if (newQuantity < 1) return;
@@ -178,14 +232,18 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange }:
           ) : (
             cart.map((item, idx) => {
               const isUnavailable = unavailableItems.has(item.id);
+              const isFreeItem = discountCalculation.freeItemId === item.id;
+              const isFreeGiftCard = item.category === 'gift-card-free';
+              const isSpecialItem = isFreeItem || isFreeGiftCard;
+              
               return (
                 <div 
                   className="cart-item" 
                   key={item.name + idx}
                   style={{
                     opacity: isUnavailable ? 0.6 : 1,
-                    backgroundColor: isUnavailable ? '#ffebee' : 'transparent',
-                    border: isUnavailable ? '2px solid #f44336' : 'none',
+                    backgroundColor: isUnavailable ? '#ffebee' : isSpecialItem ? '#e8f5e8' : 'transparent',
+                    border: isUnavailable ? '2px solid #f44336' : isSpecialItem ? '2px solid #4CAF50' : 'none',
                     borderRadius: '8px',
                     padding: '10px',
                     margin: '5px 0',
@@ -207,8 +265,31 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange }:
                       UNAVAILABLE
                     </div>
                   )}
-                  <span style={{ color: isUnavailable ? '#666' : 'inherit' }}>
-                    {item.name} - ${isUnavailable ? '0.00' : (item.price * durationMultiplier).toFixed(2)} ({item.wetDry})
+                  {isSpecialItem && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '5px',
+                      right: '5px',
+                      backgroundColor: '#4CAF50',
+                      color: 'white',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}>
+                      🎁 FREE
+                    </div>
+                  )}
+                  <span style={{ 
+                    color: isUnavailable ? '#666' : isSpecialItem ? '#2e7d32' : 'inherit',
+                    fontWeight: isSpecialItem ? 'bold' : 'normal'
+                  }}>
+                    {item.name} - ${
+                      isUnavailable ? '0.00' : 
+                      isFreeItem ? '0.00 (FREE)' :
+                      isFreeGiftCard ? '0.00 (FREE)' :
+                      (item.price * durationMultiplier).toFixed(2)
+                    } ({item.wetDry})
                   </span>
                   {supportsWetDry(item) && (
                     <select
@@ -236,7 +317,17 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange }:
                       disabled={isUnavailable}
                     />
                   )}
-                  <button onClick={() => removeFromCart(idx)}>Remove</button>
+                  <button 
+                    onClick={() => removeFromCart(idx)}
+                    disabled={isFreeGiftCard}
+                    style={{
+                      opacity: isFreeGiftCard ? 0.5 : 1,
+                      cursor: isFreeGiftCard ? 'not-allowed' : 'pointer'
+                    }}
+                    title={isFreeGiftCard ? 'Free gift cards are automatically managed by the BOGO discount' : 'Remove item from cart'}
+                  >
+                    {isFreeGiftCard ? '🔒 Auto-managed' : 'Remove'}
+                  </button>
                 </div>
               );
             })
@@ -284,9 +375,127 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange }:
             </select>
           </label>
         </div>
+        {/* Discount Section */}
+        <div className="cart-discounts" style={{ 
+          margin: '1rem 0', 
+          padding: '1rem', 
+          border: discountLogic.hasActiveDiscount() ? '2px solid #4CAF50' : '1px solid #ddd', 
+          borderRadius: '8px',
+          backgroundColor: discountLogic.hasActiveDiscount() ? '#f8fff8' : 'transparent'
+        }}>
+          <h3 style={{ 
+            margin: '0 0 1rem 0', 
+            fontSize: '1.1rem',
+            color: discountLogic.hasActiveDiscount() ? '#2e7d32' : 'inherit'
+          }}>
+            Active Discounts {discountLogic.hasActiveDiscount() ? '🎁' : ''}
+          </h3>
+          
+          {discountLogic.hasActiveDiscount() ? (
+            <div>
+              {/* Show active discount */}
+              <div style={{ 
+                backgroundColor: '#e8f5e8', 
+                padding: '1rem', 
+                borderRadius: '8px', 
+                border: '2px solid #4caf50',
+                marginBottom: '1rem'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <span style={{ fontWeight: 'bold', color: '#2e7d32', fontSize: '1.1rem' }}>
+                    ✅ {(() => {
+                      const activeDiscount = discountLogic.getActiveDiscount();
+                      switch (activeDiscount) {
+                        case 'sunday10': return 'Sunday 10% Off';
+                        case 'freeGame': return 'Free Game';
+                        case 'bogoGiftCard': return 'BOGO Gift Card';
+                        default: return 'Discount';
+                      }
+                    })()} Applied!
+                  </span>
+                  <button 
+                    onClick={() => discountLogic.clearDiscounts()}
+                    style={{
+                      backgroundColor: '#f44336',
+                      color: 'white',
+                      border: 'none',
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      fontSize: '0.9rem',
+                      cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    🗑️ Remove
+                  </button>
+                </div>
+                <div style={{ fontSize: '0.9rem', color: '#2e7d32', marginBottom: '0.5rem' }}>
+                  📝 {getDiscountDescription(discountLogic.getActiveDiscount())}
+                </div>
+                
+                {/* Discount status */}
+                {!discountCalculation.userCanUse ? (
+                  <div style={{ fontSize: '0.9rem', color: '#f44336', fontWeight: 'bold' }}>
+                    ❌ {discountCalculation.usageError || 'Cannot use this discount'}
+                  </div>
+                ) : discountCalculation.hasValidDiscount ? (
+                  <div>
+                    {discountCalculation.discountAmount > 0 && (
+                      <div style={{ fontSize: '0.9rem', color: '#2e7d32', fontWeight: 'bold' }}>
+                        💰 Savings: ${discountCalculation.discountAmount.toFixed(2)}
+                      </div>
+                    )}
+                    {discountCalculation.freeItemId && (
+                      <div style={{ fontSize: '0.9rem', color: '#2e7d32', fontWeight: 'bold' }}>
+                        🎁 Free Item: {cart.find(item => item.id === discountCalculation.freeItemId)?.name || 'Cheapest Game'}
+                      </div>
+                    )}
+                    {discountCalculation.addedGiftCards.length > 0 && (
+                      <div style={{ fontSize: '0.9rem', color: '#2e7d32', fontWeight: 'bold' }}>
+                        🎁 Free Gift Cards: {discountCalculation.addedGiftCards.length}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.9rem', color: '#ff9800', fontStyle: 'italic' }}>
+                    ⚠️ {(() => {
+                      const activeDiscount = discountLogic.getActiveDiscount();
+                      switch (activeDiscount) {
+                        case 'sunday10': return 'Discount only applies if your event includes a Sunday';
+                        case 'freeGame': return 'Add a yard game to your cart to activate this discount';
+                        case 'bogoGiftCard': return 'Add a $50 gift card to your cart to activate this discount';
+                        default: return 'Discount requirements not met';
+                      }
+                    })()}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', color: '#666', fontSize: '0.9rem', fontStyle: 'italic' }}>
+              {discountLogic.isUserAuthenticated() ? (
+                <span>💡 Click a promo card above to activate a discount</span>
+              ) : (
+                <span>🔒 Please log in to use discount codes</span>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Total price display */}
         <div className="cart-total" style={{ fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '1rem', textAlign: 'center' }}>
-          Total: ${total.toFixed(2)}
+          {discountCalculation.discountAmount > 0 ? (
+            <div>
+              <div style={{ fontSize: '1rem', color: '#666', textDecoration: 'line-through' }}>
+                Subtotal: ${subtotal.toFixed(2)}
+              </div>
+              <div style={{ color: '#4CAF50' }}>
+                Total: ${total.toFixed(2)} <span style={{ fontSize: '0.9rem' }}>(Save ${discountCalculation.discountAmount.toFixed(2)})</span>
+              </div>
+            </div>
+          ) : (
+            <div>Total: ${total.toFixed(2)}</div>
+          )}
         </div>
         <div className="cart-footer">
           <button

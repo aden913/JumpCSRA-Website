@@ -121,8 +121,11 @@ const handleCompleteProfile = async (e: React.FormEvent) => {
       phone: rawPhone,
       email: pendingUser.email,
       hasPassword: true,
+      usedDiscounts: [], // Initialize empty array for discount tracking
+      lastUpdated: new Date().toISOString(),
     }, { merge: true });
 
+    console.log("✅ Profile completed with usedDiscounts array");
     await updatePassword(pendingUser, password);
 
     setNeedsProfile(false);
@@ -175,10 +178,15 @@ const handleGoogleResult = async (user: any) => {
         name: user.displayName || "",
         phone: user.phoneNumber || "",
         email: user.email || "",
+        uid: user.uid,
+        usedDiscounts: [], // Initialize empty array for discount tracking
+        createdAt: new Date().toISOString(),
+        lastUpdated: new Date().toISOString(),
       },
       { merge: true } // don't overwrite existing data
     );
 
+    console.log("✅ Google user saved with usedDiscounts array");
     setRedirect(true);
   } catch (err: any) {
     console.error("Error saving Google user:", err);
@@ -248,10 +256,21 @@ useEffect(() => {
     try {
       const userCred = await createUserWithEmailAndPassword(auth, email, password);
       const db = getFirestore();
-      await setDoc(doc(db, "users", userCred.user.uid), { name, phone });
+      
+      // Create user document with all required fields including usedDiscounts array
+      await setDoc(doc(db, "users", userCred.user.uid), { 
+        name, 
+        phone,
+        email: userCred.user.email || email,
+        uid: userCred.user.uid,
+        usedDiscounts: [], // Initialize empty array for discount tracking
+        createdAt: new Date().toISOString(),
+        lastUpdated: new Date().toISOString(),
+      });
 
       await sendEmailVerification(userCred.user);
       console.log("Verification email sent to:", userCred.user.email);
+      console.log("✅ User document created with usedDiscounts array");
 
       setPendingUser(userCred.user);
       setShowVerifyMsg(true);

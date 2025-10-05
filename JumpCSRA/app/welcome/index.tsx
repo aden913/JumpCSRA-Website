@@ -10,6 +10,7 @@ import { useCalendarSidebar } from '../hooks/useCalendarSidebar';
 import { useCategories } from '../hooks/useCategories';
 import { useProductDetails } from '../hooks/useProductDetails';
 import { useCart } from '../hooks/useCart';
+import { useDiscounts, getPromoCardDiscount, getDiscountDescription } from '../hooks/useDiscounts';
 
 import React, { useEffect, useLayoutEffect, useState, useRef, useMemo } from "react";
 import { getDatabase, ref, onValue } from "firebase/database";
@@ -37,8 +38,8 @@ import { getUnavailableInflateables } from '../utils/bookingUtils';
 
 const promoCards = [
   { title: "Become a member", img: "/assets/cartoon-bouncehouse.png" },
-  { title: "10% OFF This Saturday", img: "/assets/cartoon-bouncehouse-slide.png" },
-  { title: "Free SnoK", img: "/assets/cartoon-bouncehouse-kids.png" },
+  { title: "10% OFF Sunday", img: "/assets/cartoon-bouncehouse-slide.png" },
+  { title: "Free Game Upgrade", img: "/assets/cartoon-bouncehouse-kids.png" },
   { title: "GOGO Give One Get One Gift Card", img: "/assets/cartoon-bouncehouse-big.png" },
 ];
 
@@ -132,6 +133,7 @@ export function getDetailImages(name: string) {
 
 export function Welcome() {
   const logic = useWelcomeLogic();
+  const discountLogic = useDiscounts();
 
   const [unavailableInflateables, setUnavailableInflateables] = useState<Set<string>>(new Set());
 
@@ -256,10 +258,56 @@ export function Welcome() {
                 className="promo-card"
                 key={idx}
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   if (card.title.includes("Become a member")) {
                     logic.setMembershipOpen(true);
+                  } else {
+                    // Handle discount promo cards
+                    const discountType = getPromoCardDiscount(card.title);
+                    if (discountType) {
+                      const result = await discountLogic.toggleDiscount(discountType);
+                      
+                      if (result.success) {
+                        if (result.wasActive) {
+                          notifications.show({
+                            title: 'Discount Removed 🔓',
+                            message: `${getDiscountDescription(discountType)} has been deactivated.`,
+                            color: 'blue',
+                            autoClose: 4000,
+                          });
+                        } else {
+                          notifications.show({
+                            title: 'Discount Activated! 🎉',
+                            message: `${getDiscountDescription(discountType)} is now active in your cart!`,
+                            color: 'green',
+                            autoClose: 6000,
+                          });
+                        }
+                      } else {
+                        // Show error notification
+                        notifications.show({
+                          title: 'Cannot Use Discount ❌',
+                          message: result.error || 'Unable to apply discount',
+                          color: 'red',
+                          autoClose: 6000,
+                        });
+                      }
+                    }
                   }
+                }}
+                style={{
+                  // Visual feedback for active discounts
+                  ...((() => {
+                    const discountType = getPromoCardDiscount(card.title);
+                    const isActive = discountType && discountLogic.discounts[discountType];
+                    return isActive ? {
+                      backgroundColor: '#4CAF50',
+                      color: 'white',
+                      boxShadow: '0 4px 15px rgba(76, 175, 80, 0.4)',
+                      transform: 'scale(1.02)',
+                      border: '3px solid #2E7D32'
+                    } : {};
+                  })())
                 }}
               >
                 {card.title.includes("Become a member") ? (
@@ -271,9 +319,20 @@ export function Welcome() {
                     <span className="promo-subtext">Give One Get One</span>
                     <br />
                     Gift Card
+                    {(() => {
+                      const isActive = discountLogic.discounts.bogoGiftCard;
+                      return isActive ? <div style={{ fontSize: '0.8rem', marginTop: '5px' }}>✅ ACTIVE</div> : null;
+                    })()}
                   </div>
                 ) : (
-                  <div className="promo-title">{card.title}</div>
+                  <div className="promo-title">
+                    {card.title}
+                    {(() => {
+                      const discountType = getPromoCardDiscount(card.title);
+                      const isActive = discountType && discountLogic.discounts[discountType];
+                      return isActive ? <div style={{ fontSize: '0.8rem', marginTop: '5px' }}>✅ ACTIVE</div> : null;
+                    })()}
+                  </div>
                 )}
                 {card.img && <img src={card.img} alt={card.title} className="promo-img" />}
               </button>
@@ -342,6 +401,7 @@ export function Welcome() {
           cart={logic.cart} 
           setCart={logic.setCart}
           calendarDateRange={logic.calendarDateRange}
+          discountLogic={discountLogic}
         />
 
         {/* Membership Modal */}
