@@ -1,0 +1,80 @@
+{
+  "giftCards": {
+    "1234-5678-9012": {
+      "id": "1234-5678-9012",
+      "redemptionCode": "1234-5678-9012",
+      "purchaseDate": "2025-10-05T14:30:00.000Z",
+      "originalAmount": 50,
+      "currentBalance": 50,
+      "purchaserUserId": "user123abc",
+      "purchaserEmail": "customer@example.com",
+      "purchaserName": "John Smith",
+      "status": "active",
+      "expirationDate": "2026-10-05T14:30:00.000Z",
+      "isGift": false,
+      "transactionHistory": [
+        {
+          "type": "purchase",
+          "amount": 50,
+          "date": "2025-10-05T14:30:00.000Z",
+          "description": "Gift card purchased"
+        }
+      ],
+      "createdAt": "2025-10-05T14:30:00.000Z",
+      "lastUpdated": "2025-10-05T14:30:00.000Z"
+    },
+    "3456-7890-1234": {
+      "id": "3456-7890-1234",
+      "redemptionCode": "3456-7890-1234",
+      "purchaseDate": "2025-10-05T14:30:00.000Z",
+      "originalAmount": 50,
+      "currentBalance": 50,
+      "purchaserUserId": "user123abc",
+      "purchaserEmail": "customer@example.com",
+      "purchaserName": "John Smith",
+      "status": "active",
+      "expirationDate": "2026-10-05T14:30:00.000Z",
+      "isGift": true,
+      "transactionHistory": [
+        {
+          "type": "promotional_grant",
+          "amount": 50,
+          "date": "2025-10-05T14:30:00.000Z",
+          "description": "Free gift card from BOGO promotion"
+        }
+      ],
+      "createdAt": "2025-10-05T14:30:00.000Z",
+      "lastUpdated": "2025-10-05T14:30:00.000Z"
+    },
+    "5678-9012-3456": {
+      "id": "5678-9012-3456",
+      "redemptionCode": "5678-9012-3456",
+      "purchaseDate": "2025-10-04T10:15:00.000Z",
+      "originalAmount": 100,
+      "currentBalance": 65,
+      "purchaserUserId": "user456def",
+      "purchaserEmail": "buyer@example.com",
+      "purchaserName": "Jane Doe",
+      "status": "active",
+      "expirationDate": "2026-10-04T10:15:00.000Z",
+      "isGift": false,
+      "transactionHistory": [
+        {
+          "type": "purchase",
+          "amount": 100,
+          "date": "2025-10-04T10:15:00.000Z",
+          "description": "Gift card purchased"
+        },
+        {
+          "type": "redemption",
+          "amount": -35,
+          "date": "2025-10-05T09:20:00.000Z",
+          "description": "Applied to order #ORD-2025-001",
+          "orderId": "ORD-2025-001"
+        }
+      ],
+      "createdAt": "2025-10-04T10:15:00.000Z",
+      "lastUpdated": "2025-10-05T09:20:00.000Z"
+    }
+  }
+}

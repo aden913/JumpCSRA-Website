@@ -13,6 +13,9 @@ export type CartItem = {
   wet?: boolean;
   dry?: boolean;
   image?: string;
+  isGiftCard?: boolean;
+  giftCardValue?: number; // For gift cards: 50 or 100
+  excludeFromDiscounts?: boolean;
 };
 
 export type CartSidebarProps = {
@@ -40,8 +43,17 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
   const supportsWetDry = (item: CartItem) => {
     return item.wetDry === "Wet/Dry";
   };
+
+  // Helper: is item a gift card?
+  const isGiftCard = (item: CartItem) => {
+    return item.name?.toLowerCase().includes('gift card') || item.isGiftCard;
+  };
+
   // Track wet/dry selection for each item
   const [wetDrySelections, setWetDrySelections] = useState<{[idx: number]: string}>({});
+  
+  // Track gift card value selection for each gift card item
+  const [giftCardValues, setGiftCardValues] = useState<{[idx: number]: number}>({});
   // ...existing code...
   const [orderInfo, setOrderInfo] = useState("");
   const [surface, setSurface] = useState<string>("");
@@ -133,10 +145,20 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
       return sum;
     }
     
-    let itemTotal = item.price * item.quantity * durationMultiplier;
-    if (supportsWetDry(item) && wetDrySelections[idx] === "Wet") {
-      itemTotal += 50 * item.quantity;
+    let itemTotal: number;
+    
+    // Handle gift cards differently - use selected value, no duration multiplier
+    if (isGiftCard(item)) {
+      const selectedValue = giftCardValues[idx] || 50; // Default to $50
+      itemTotal = selectedValue * item.quantity;
+    } else {
+      // Regular items with duration multiplier
+      itemTotal = item.price * item.quantity * durationMultiplier;
+      if (supportsWetDry(item) && wetDrySelections[idx] === "Wet") {
+        itemTotal += 50 * item.quantity;
+      }
     }
+    
     return sum + itemTotal;
   }, 0);
   
@@ -289,10 +311,31 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                       isUnavailable ? '0.00' : 
                       isFreeItem ? '0.00 (FREE)' :
                       isFreeGiftCard ? '0.00 (FREE)' :
+                      isGiftCard(item) ? (giftCardValues[idx] || 50).toFixed(2) :
                       (item.price * durationMultiplier).toFixed(2)
-                    } ({item.wetDry})
+                    } {!isGiftCard(item) && `(${item.wetDry})`}
                   </span>
-                  {supportsWetDry(item) && (
+                  
+                  {/* Gift Card Value Selection */}
+                  {isGiftCard(item) && !isFreeGiftCard && (
+                    <select
+                      className="gift-card-value-select"
+                      value={giftCardValues[idx] || 50}
+                      onChange={e => {
+                        const value = parseInt(e.target.value);
+                        setGiftCardValues(prev => ({ ...prev, [idx]: value }));
+                      }}
+                      style={{ marginLeft: '0.5rem' }}
+                      required
+                      disabled={isUnavailable}
+                    >
+                      <option value={50}>$50 Gift Card</option>
+                      <option value={100}>$100 Gift Card</option>
+                    </select>
+                  )}
+                  
+                  {/* Wet/Dry Selection for regular items */}
+                  {!isGiftCard(item) && supportsWetDry(item) && (
                     <select
                       className="wet-dry-select"
                       value={wetDrySelections[idx] || ""}

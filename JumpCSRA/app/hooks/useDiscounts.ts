@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { getAuth } from 'firebase/auth';
-import { getDoc, doc, updateDoc, arrayUnion, setDoc } from 'firebase/firestore';
+import { getDoc, doc, updateDoc, arrayUnion, setDoc, addDoc, collection } from 'firebase/firestore';
 import { firestore } from '../components/FirebaseConfig';
 import type { CartItem } from '../components/CartSidebar';
 
@@ -368,8 +368,17 @@ function calculateSunday10Discount(
     };
   }
 
-  const discountAmount = cartTotal * 0.1; // 10% off
-  console.log('✅ Sunday discount qualified! Discount amount:', discountAmount);
+  // Calculate discount only on non-gift card items
+  const discountableTotal = cart.reduce((sum, item) => {
+    const isGiftCardItem = item.name?.toLowerCase().includes('gift card') || item.isGiftCard;
+    if (isGiftCardItem) {
+      return sum; // Exclude gift cards from Sunday discount
+    }
+    return sum + (item.price * item.quantity);
+  }, 0);
+
+  const discountAmount = discountableTotal * 0.1; // 10% off non-gift card items
+  console.log('✅ Sunday discount qualified! Discount amount:', discountAmount, 'on discountable total:', discountableTotal);
   
   return {
     discountAmount,
@@ -424,7 +433,9 @@ function calculateBogoGiftCardDiscount(
 ): DiscountCalculation {
   // Check if there's at least one $50 gift card in cart
   const giftCards = cart.filter(item => 
-    item.category && item.category.toLowerCase().includes('gift') && item.price === 50
+    (item.name && item.name.toLowerCase().includes('gift card')) ||
+    (item.category && item.category.toLowerCase().includes('gift')) && 
+    item.price === 50
   );
   
   if (giftCards.length === 0) {
@@ -438,7 +449,13 @@ function calculateBogoGiftCardDiscount(
     };
   }
 
-  // Add a free gift card for each paid gift card
+  // Generate unique gift card codes for both purchased and free cards
+  const generateGiftCardCode = (): string => {
+    const generateSegment = () => Math.floor(1000 + Math.random() * 9000).toString();
+    return `${generateSegment()}-${generateSegment()}-${generateSegment()}`;
+  };
+
+  // Add a free gift card for each paid gift card (BOGO)
   const freeGiftCards: CartItem[] = giftCards.map((giftCard, index) => ({
     id: `free-gift-card-${index}-${Date.now()}`,
     name: 'FREE $50 Gift Card (BOGO)',
@@ -446,6 +463,9 @@ function calculateBogoGiftCardDiscount(
     wetDry: 'N/A',
     quantity: giftCard.quantity,
     category: 'gift-card-free',
+    giftCardCode: generateGiftCardCode(),
+    isGiftCardItem: true,
+    isPromotionalGift: true,
   }));
 
   return {
@@ -501,6 +521,91 @@ function checkIfRangeIncludesSunday(startDate: Date | null, endDate: Date | null
   
   console.log('❌ No Sunday found in date range');
   return false;
+}
+
+// Helper function to generate unique gift card codes
+function generateGiftCardCode(): string {
+  const generateSegment = () => Math.floor(1000 + Math.random() * 9000).toString();
+  return `${generateSegment()}-${generateSegment()}-${generateSegment()}`;
+}
+
+// Helper function to check if gift card code already exists
+async function isGiftCardCodeUnique(code: string): Promise<boolean> {
+  try {
+    const giftCardDoc = await getDoc(doc(firestore, 'giftCards', code));
+    return !giftCardDoc.exists();
+  } catch (error) {
+    console.error('Error checking gift card code uniqueness:', error);
+    return false;
+  }
+}
+
+// Helper function to generate unique gift card code (ensures uniqueness)
+async function generateUniqueGiftCardCode(): Promise<string> {
+  let code: string;
+  let isUnique = false;
+  let attempts = 0;
+  const maxAttempts = 10;
+
+  do {
+    code = generateGiftCardCode();
+    isUnique = await isGiftCardCodeUnique(code);
+    attempts++;
+  } while (!isUnique && attempts < maxAttempts);
+
+  if (!isUnique) {
+    // Fallback with timestamp to ensure uniqueness
+    const timestamp = Date.now().toString().slice(-4);
+    code = `${generateGiftCardCode().slice(0, -4)}${timestamp}`;
+  }
+
+  return code;
+}
+
+// Helper function to create gift card in database
+async function createGiftCardInDatabase(
+  code: string,
+  amount: number,
+  purchaserUserId: string,
+  purchaserEmail: string,
+  purchaserName: string,
+  isGift: boolean = false
+): Promise<boolean> {
+  try {
+    const now = new Date();
+    const expirationDate = new Date(now);
+    expirationDate.setFullYear(expirationDate.getFullYear() + 1); // 1 year expiration
+
+    const giftCardData = {
+      id: code,
+      redemptionCode: code,
+      purchaseDate: now.toISOString(),
+      originalAmount: amount,
+      currentBalance: amount,
+      purchaserUserId,
+      purchaserEmail,
+      purchaserName,
+      status: 'active',
+      expirationDate: expirationDate.toISOString(),
+      isGift,
+      transactionHistory: [
+        {
+          type: isGift ? 'promotional_grant' : 'purchase',
+          amount,
+          date: now.toISOString(),
+          description: isGift ? 'Free gift card from BOGO promotion' : 'Gift card purchased',
+        }
+      ],
+      createdAt: now.toISOString(),
+      lastUpdated: now.toISOString(),
+    };
+
+    await setDoc(doc(firestore, 'giftCards', code), giftCardData);
+    return true;
+  } catch (error) {
+    console.error('Error creating gift card in database:', error);
+    return false;
+  }
 }
 
 // Helper function to get discount description
