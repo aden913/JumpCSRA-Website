@@ -81,20 +81,12 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
   useEffect(() => {
     const checkAvailability = async () => {
       if (calendarDateRange[0] && duration) {
-        console.log('=== CART AVAILABILITY CHECK ===');
-        console.log('Selected date:', calendarDateRange[0]);
-        console.log('Selected duration:', duration);
-        
         const startDate = calendarDateRange[0];
         const endDate = calculateEndDate(startDate, duration);
         
-        console.log('Calculated date range:', startDate.toISOString(), 'to', endDate.toISOString());
-        
         const unavailable = await getUnavailableInflateables(startDate, endDate);
-        console.log('Unavailable items for cart:', Array.from(unavailable));
         
         setUnavailableItems(unavailable);
-        console.log('=== END CART AVAILABILITY CHECK ===');
       } else {
         setUnavailableItems(new Set());
       }
@@ -158,12 +150,21 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
   // Calculate discount asynchronously
   useEffect(() => {
     const calculateDiscountAsync = async () => {
-      const calculation = await discountLogic.calculateDiscount(cart, cartTotal, calendarDateRange);
+      // Calculate proper date range with duration for discount calculation
+      let dateRangeForDiscount: [Date | null, Date | null] = calendarDateRange;
+      
+      if (calendarDateRange[0] && duration) {
+        const startDate = calendarDateRange[0];
+        const endDate = calculateEndDate(startDate, duration);
+        dateRangeForDiscount = [startDate, endDate];
+      }
+      
+      const calculation = await discountLogic.calculateDiscount(cart, cartTotal, dateRangeForDiscount);
       setDiscountCalculation(calculation);
     };
     
     calculateDiscountAsync();
-  }, [cart, cartTotal, calendarDateRange, discountLogic.discounts]);
+  }, [cart, cartTotal, calendarDateRange, duration, discountLogic.discounts]);
   useEffect(() => {
     const savedInfo = localStorage.getItem("orderMessage") || "";
     setOrderInfo(savedInfo);

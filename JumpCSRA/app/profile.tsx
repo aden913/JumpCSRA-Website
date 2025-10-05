@@ -255,7 +255,6 @@ export default function Profile() {
                       if (user) {
                         const { verifyBeforeUpdateEmail } = await import("firebase/auth");
                         const verificationUrl = "http://localhost:5173/profile";
-                        console.log("Sending verification to:", verificationUrl);
                         await verifyBeforeUpdateEmail(user, pendingEmail, {
                           url: "http://localhost:5173/profile",
                           handleCodeInApp: true,
@@ -300,11 +299,6 @@ export default function Profile() {
     try {
       if (!user) return;
       const { verifyBeforeUpdateEmail } = await import("firebase/auth");
-      console.log("verifyBeforeUpdateEmail:", {
-        user,
-        newEmail,
-        url: "http://localhost:5173/profile",
-      });
       await verifyBeforeUpdateEmail(user, newEmail, {
         url: "http://localhost:5173/profile",
         handleCodeInApp: true,

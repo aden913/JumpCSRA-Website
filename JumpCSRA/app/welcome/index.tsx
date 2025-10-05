@@ -81,10 +81,8 @@ function OptionCard({ name, img, onOrder, unavailable }: OptionCardProps) {
 
   const handleOrder = () => {
     if (unavailable) {
-      console.log(`Attempted to order unavailable inflateable: ${name}`);
       return;
     }
-    console.log(`Ordering available inflateable: ${name}`);
     if (onOrder) onOrder(name);
   };
 
@@ -142,12 +140,9 @@ export function Welcome() {
     async function fetchUnavailable() {
       const [start, end] = logic.calendarDateRange;
       if (start && end) {
-        console.log('Fetching unavailable inflateables for date range:', start, 'to', end);
         const unavailable = await getUnavailableInflateables(start, end);
-        console.log('Unavailable inflateables:', Array.from(unavailable));
         setUnavailableInflateables(unavailable);
       } else {
-        console.log('No date range selected, clearing unavailable inflateables');
         setUnavailableInflateables(new Set());
       }
     }
@@ -368,8 +363,6 @@ export function Welcome() {
           <OptionsCarousel
             options={logic.filteredOptions.map((opt: any) => {
               const isUnavailable = unavailableInflateables.has(opt.name);
-              console.log(`Checking inflateable: "${opt.name}" against unavailable set:`, Array.from(unavailableInflateables));
-              console.log(`Inflateable "${opt.name}" is ${isUnavailable ? 'UNAVAILABLE' : 'AVAILABLE'}`);
               return {
                 ...opt,
                 unavailable: isUnavailable,
@@ -389,7 +382,7 @@ export function Welcome() {
         />
         <ProductDetailModal
           open={logic.productOpen}
-          product={logic.selectedProduct ? (() => { console.log('ProductDetailModal category:', logic.selectedProduct.category); return { ...logic.selectedProduct }; })() : null}
+          product={logic.selectedProduct ? { ...logic.selectedProduct } : null}
           onClose={() => logic.setProductOpen(false)}
           onPurchase={logic.addToCart}
         />

@@ -87,7 +87,6 @@ export function useDiscounts() {
             usedDiscounts: [],
             lastUpdated: new Date().toISOString(),
           });
-          console.log('✅ Added usedDiscounts array to existing user document');
         }
       }
       
@@ -153,7 +152,6 @@ export function useDiscounts() {
         lastUpdated: new Date().toISOString(),
       });
       
-      console.log(`✅ Marked discount "${discountType}" as used for user ${user.uid}`);
       return true;
     } catch (error) {
       console.error('Error marking discount as used:', error);
@@ -331,7 +329,6 @@ export function useDiscounts() {
       if (success) {
         // Clear the active discount after successful purchase
         clearDiscounts();
-        console.log(`✅ Discount ${activeDiscount} finalized and marked as used`);
         return true;
       } else {
         console.error(`❌ Failed to finalize discount ${activeDiscount}`);
@@ -350,12 +347,17 @@ function calculateSunday10Discount(
   cartTotal: number, 
   calendarDateRange: [Date | null, Date | null]
 ): DiscountCalculation {
+  console.log('🎯 CALCULATING SUNDAY 10% DISCOUNT:');
+  console.log('Calendar Date Range:', calendarDateRange);
+  
   const [startDate, endDate] = calendarDateRange;
   
   // Check if the date range includes a Sunday
   const includesSunday = checkIfRangeIncludesSunday(startDate, endDate);
+  console.log('Sunday qualification result:', includesSunday);
   
   if (!includesSunday) {
+    console.log('❌ Sunday discount not qualified - no Sunday detected');
     return {
       discountAmount: 0,
       appliedDiscount: 'sunday10',
@@ -367,6 +369,7 @@ function calculateSunday10Discount(
   }
 
   const discountAmount = cartTotal * 0.1; // 10% off
+  console.log('✅ Sunday discount qualified! Discount amount:', discountAmount);
   
   return {
     discountAmount,
@@ -457,18 +460,46 @@ function calculateBogoGiftCardDiscount(
 
 // Helper function to check if date range includes a Sunday
 function checkIfRangeIncludesSunday(startDate: Date | null, endDate: Date | null): boolean {
-  if (!startDate || !endDate) return false;
+  console.log('🔍 SUNDAY DETECTION DEBUG:');
+  console.log('Start Date:', startDate);
+  console.log('End Date:', endDate);
   
+  if (!startDate || !endDate) {
+    console.log('❌ Missing dates - no Sunday qualification');
+    return false;
+  }
+  
+  const startDay = startDate.getDay(); // 0=Sunday, 1=Monday, ... 6=Saturday
+  console.log('Start Day of Week:', startDay, '(0=Sunday, 6=Saturday)');
+  
+  // Check if start date is Saturday and duration is 48+ hours
+  if (startDay === 6) { // Saturday is day 6
+    const durationHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+    console.log('📅 Saturday detected! Duration:', durationHours, 'hours');
+    if (durationHours >= 48) {
+      console.log('✅ Saturday + 48+ hours = Sunday qualification!');
+      return true; // Saturday + 48 hours extends into Sunday
+    } else {
+      console.log('❌ Saturday but less than 48 hours duration');
+    }
+  }
+  
+  // Original logic: check if any day in the range is Sunday
   const current = new Date(startDate);
   const end = new Date(endDate);
   
+  console.log('🔄 Checking each day in range for Sunday...');
   while (current <= end) {
-    if (current.getDay() === 0) { // Sunday is day 0
+    const dayOfWeek = current.getDay();
+    console.log('Checking date:', current.toDateString(), 'Day:', dayOfWeek);
+    if (dayOfWeek === 0) { // Sunday is day 0
+      console.log('✅ Found Sunday in date range!');
       return true;
     }
     current.setDate(current.getDate() + 1);
   }
   
+  console.log('❌ No Sunday found in date range');
   return false;
 }
 
