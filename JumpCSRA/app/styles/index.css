@@ -28,7 +28,7 @@
 }
 
 html, body {
-  background:white;
+  background:white !important;
   font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
 }
 
