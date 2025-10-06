@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import type { User as FirebaseUser } from "firebase/auth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { auth, firestore } from "./components/FirebaseConfig";
 import { onAuthStateChanged, unlink  } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
