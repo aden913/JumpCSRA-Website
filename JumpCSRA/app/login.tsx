@@ -11,16 +11,12 @@ import {
   createUserWithEmailAndPassword,
   signInWithRedirect,
   getRedirectResult,
-  signInWithPhoneNumber,
-  signInWithCredential,
-  PhoneAuthProvider,
   sendEmailVerification,
   fetchSignInMethodsForEmail,
   setPersistence,
   browserLocalPersistence,
   sendPasswordResetEmail,
-  updatePassword, 
-  RecaptchaVerifier, 
+  updatePassword,
 } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
 import { initializeApp, getApps } from "firebase/app";
@@ -46,11 +42,6 @@ export default function Login() {
   const [redirect, setRedirect] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<"email" | "details">("email");
-  const [phoneSignIn, setPhoneSignIn] = useState(false);
-  const [phoneSignInNumber, setPhoneSignInNumber] = useState("");
-  const [verificationId, setVerificationId] = useState("");
-  const [verificationCode, setVerificationCode] = useState("");
-  const [recaptchaVerifier, setRecaptchaVerifier] = useState<any>(null);
   const [showVerifyMsg, setShowVerifyMsg] = useState(false);
   const [pendingUser, setPendingUser] = useState<any>(null);
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -281,42 +272,7 @@ useEffect(() => {
     }
   };
 
-  // ----- PHONE LOGIN -----
-  const handlePhoneSignInRequest = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError(null);
-  try {
-    let verifier = recaptchaVerifier;
-    if (!verifier) {
-      verifier = new RecaptchaVerifier(
-        auth,
-        "recaptcha-container",
-        { size: "invisible" }
-      );
-      setRecaptchaVerifier(verifier);
-    }
-    console.log("Phone number being used:", phoneSignInNumber);
 
-    const confirmation = await signInWithPhoneNumber(auth, phoneSignInNumber, verifier);
-    setVerificationId(confirmation.verificationId);
-    setError("SMS code sent!");
-  } catch (err: any) {
-    setError(err.message || "Failed to send SMS code.");
-  }
-};
-
-
-  const handlePhoneSignInVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    try {
-      const credential = PhoneAuthProvider.credential(verificationId, verificationCode);
-      await signInWithCredential(auth, credential);
-      setRedirect(true);
-    } catch (err: any) {
-      setError(err.message || "Failed to verify code.");
-    }
-  };
 
   // ----- FORGOT PASSWORD -----
   const handleForgotPw = async (e: React.FormEvent) => {
@@ -682,13 +638,7 @@ useEffect(() => {
             />
             Sign in with Google
           </button>
-          <button
-            className="phone-signin-btn"
-            type="button"
-            onClick={() => setPhoneSignIn(true)}
-          >
-            Sign in with Phone
-          </button>
+
          
             <button
               type="button"
@@ -707,7 +657,6 @@ useEffect(() => {
           setIsSignUp(false);
           setStep("email");
           setError(null);
-          setPhoneSignIn(false);
           setShowForgotPw(false);
         }}>
         ← Back
@@ -716,37 +665,7 @@ useEffect(() => {
         </form>
       )}
 
-      {phoneSignIn && (
-        <>
-          <form onSubmit={handlePhoneSignInRequest}>
-      <PhoneInput
-  defaultCountry="US"
-  value={phone}
-  onChange={(value) => setPhoneSignInNumber(value ?? "")}
-  className="identifier-input"
-  required
-  placeholder="Enter phone number"
-/>
 
-            <div id="recaptcha-container"></div>
-            <button type="submit" className="send-verification-btn">Send Verification Code</button>
-          </form>
-          {verificationId && (
-            <form onSubmit={handlePhoneSignInVerify}>
-              <input
-                className="identifier-input"
-                type="text"
-                value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value)}
-                required
-                placeholder="Enter verification code"
-              />
-              <button type="submit">Verify & Sign In</button>
-            </form>
-          )}
-          <button className="back-btn" onClick={() => setPhoneSignIn(false)}>Back</button>
-        </>
-      )}
     </div>
   );
 }
