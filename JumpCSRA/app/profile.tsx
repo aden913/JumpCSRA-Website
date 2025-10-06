@@ -199,9 +199,14 @@ export default function Profile() {
     return (
       <div className="profile-guest">
         <h2>Sign in to view your profile</h2>
-        <button className="profile-signin-btn" onClick={() => navigate("/")}>
-          Sign In
-        </button>
+        <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
+          <button className="profile-signin-btn" onClick={() => navigate("/")}>
+            Sign In
+          </button>
+          <button className="profile-signin-btn" onClick={() => navigate("/home")}>
+            ← Back
+          </button>
+        </div>
       </div>
     );
   }
