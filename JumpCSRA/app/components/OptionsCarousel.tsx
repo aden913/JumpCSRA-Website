@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { ProductDetailModal } from "./ProductDetailModal";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation } from "swiper/modules";
 import { ProductImageGallery } from "./ProductImageGallery";
+import type { Swiper as SwiperType } from 'swiper';
 
 import "../styles/options.css";
 
@@ -105,6 +106,9 @@ export type OptionsCarouselProps = {
 export function OptionsCarousel({ options, onPurchase }: OptionsCarouselProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<OptionCardProps | null>(null);
+  const [leftMaskWidth, setLeftMaskWidth] = useState(37);
+  const swiperRef = useRef<SwiperType | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const handleOrderNow = (product: OptionCardProps) => {
     // Don't open modal for unavailable items
@@ -122,11 +126,70 @@ export function OptionsCarousel({ options, onPurchase }: OptionsCarouselProps) {
     setModalOpen(false);
   };
 
+  // Function to calculate dynamic mask width
+  const updateMaskWidth = () => {
+    if (!swiperRef.current || !containerRef.current) return;
+
+    const swiper = swiperRef.current;
+    const containerWidth = containerRef.current.offsetWidth;
+    const slides = swiper.slides;
+    
+    if (slides.length === 0) return;
+
+    // Get the last visible slide (rightmost)
+    const lastSlide = slides[slides.length - 1];
+    const lastSlideRect = lastSlide.getBoundingClientRect();
+    const containerRect = containerRef.current.getBoundingClientRect();
+    
+    // Calculate where the left edge of the last slide is relative to the container
+    const lastSlideLeftPosition = lastSlideRect.left - containerRect.left;
+    
+    // Default mask width (37% of container)
+    const defaultMaskWidth = containerWidth * 0.37;
+    
+    // Check if the last slide's left edge is encroaching on the mask
+    if (lastSlideLeftPosition < defaultMaskWidth) {
+      // Calculate how much the slide has entered the mask area
+      const encroachmentDistance = defaultMaskWidth - lastSlideLeftPosition;
+      
+      // Reduce mask width proportionally to keep the slide visible
+      // Minimum mask width should be enough to show at least part of the slide
+      const minMaskWidth = Math.max(15, lastSlideLeftPosition - 20); // 20px buffer
+      const newMaskWidth = Math.max(
+        minMaskWidth,
+        defaultMaskWidth - encroachmentDistance
+      );
+      
+      setLeftMaskWidth((newMaskWidth / containerWidth) * 100);
+    } else {
+      // Reset to default when no encroachment
+      setLeftMaskWidth(37);
+    }
+  };
+
+  useEffect(() => {
+    // Set up resize observer to handle container size changes
+    if (!containerRef.current) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateMaskWidth();
+    });
+
+    resizeObserver.observe(containerRef.current);
+    
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
+
   return (
     <>
-      <div className="carousel-container">
-        {/* Left overlay mask */}
-        <div className="carousel-mask carousel-mask-left"></div>
+      <div className="carousel-container" ref={containerRef}>
+        {/* Left overlay mask with dynamic width */}
+        <div 
+          className="carousel-mask carousel-mask-left"
+          style={{ width: `${leftMaskWidth}%` }}
+        ></div>
         
         {/* Right overlay mask */}
         <div className="carousel-mask carousel-mask-right"></div>
@@ -135,8 +198,22 @@ export function OptionsCarousel({ options, onPurchase }: OptionsCarouselProps) {
           modules={[Navigation]}
           slidesPerView={5}
           spaceBetween={10}
-          centeredSlides={true}
+          centeredSlides={false}
           navigation={true}
+          loop={false}
+          allowTouchMove={true}
+          resistance={true}
+          resistanceRatio={0.85}
+          watchSlidesProgress={true}
+          onSwiper={(swiper) => {
+            swiperRef.current = swiper;
+          }}
+          onSlideChange={() => {
+            updateMaskWidth();
+          }}
+          onProgress={() => {
+            updateMaskWidth();
+          }}
           breakpoints={{
             1024: { slidesPerView: 5, spaceBetween: 10 },
             464: { slidesPerView: 3, spaceBetween: 15 },
