@@ -41,7 +41,7 @@ html, body {
 }
 
 .banner {
-  background: var(--coral);
+  background: var(--darkBlue);
   color: white;
   text-align: center;
   padding: 6px 0 4px 0;

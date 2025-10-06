@@ -20,7 +20,7 @@ html, body {
 }
 
 .banner {
-  background: var(--coral);
+  background: var(--darkBlue);
   color: white;
   text-align: center;
   padding: 18px 0 8px 0;

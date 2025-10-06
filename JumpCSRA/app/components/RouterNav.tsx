@@ -14,7 +14,7 @@ export function RouterNav({ onNavClick, cartCount, selectedDates }: RouterNavPro
     <nav className="nav-bar">
       <ul>
         <Link to="/" style={{ display: "inline-block" }}>
-          <img src="/assets/logo.avif" alt="JumpCSRA Logo" className="nav-logo" />
+          <img src="/logov2.png" alt="JumpCSRA Logo" className="nav-logo" />
         </Link>
         <div className="icon-container">
           <li style={{ position: "relative" }}>
