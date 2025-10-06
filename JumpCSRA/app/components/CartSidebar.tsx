@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { getUnavailableInflateables } from '../utils/bookingUtils';
 import { useDiscounts, getDiscountDescription, type DiscountCalculation } from '../hooks/useDiscounts';
 import '../styles/cart.css';
@@ -54,6 +54,11 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
   
   // Track gift card value selection for each gift card item
   const [giftCardValues, setGiftCardValues] = useState<{[idx: number]: number}>({});
+  
+  // Debug: Track giftCardValues state changes
+  useEffect(() => {
+    console.log('🔍 giftCardValues state changed:', giftCardValues);
+  }, [giftCardValues]);
   // ...existing code...
   const [orderInfo, setOrderInfo] = useState("");
   const [surface, setSurface] = useState<string>("");
@@ -139,7 +144,11 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
   // Calculate total
   // Calculate total with duration multiplier, excluding unavailable items
   const durationMultiplier = duration ? durationMultipliers[duration] || 1.0 : 1.0;
-  const cartTotal = cart.reduce((sum, item, idx) => {
+  
+  // Filter out any existing free gift cards from cart display (they're now handled via email notification)
+  const displayCart = cart.filter(item => !item.category?.includes('gift-card-free'));
+  
+  const cartTotal = displayCart.reduce((sum, item, displayIdx) => {
     // Skip unavailable items
     if (unavailableItems.has(item.id)) {
       return sum;
@@ -149,13 +158,18 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
     
     // Handle gift cards differently - use selected value, no duration multiplier
     if (isGiftCard(item)) {
-      const selectedValue = giftCardValues[idx] || 50; // Default to $50
+      // Find original index in full cart for giftCardValues
+      const originalIdx = cart.findIndex(cartItem => cartItem.id === item.id);
+      const selectedValue = giftCardValues[originalIdx] || 50; // Default to $50
       itemTotal = selectedValue * item.quantity;
     } else {
       // Regular items with duration multiplier
       itemTotal = item.price * item.quantity * durationMultiplier;
-      if (supportsWetDry(item) && wetDrySelections[idx] === "Wet") {
-        itemTotal += 50 * item.quantity;
+      
+      // Add wet surcharge if applicable
+      const originalIdx = cart.findIndex(cartItem => cartItem.id === item.id);
+      if (supportsWetDry(item) && wetDrySelections[originalIdx] === "Wet") {
+        itemTotal += 50 * item.quantity; // $50 surcharge for wet items
       }
     }
     
@@ -186,7 +200,45 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
     };
     
     calculateDiscountAsync();
-  }, [cart, cartTotal, calendarDateRange, duration, discountLogic.discounts]);
+  }, [cart, cartTotal, calendarDateRange, duration, discountLogic.discounts, giftCardValues]);
+
+  // Debug: Track discountCalculation changes
+  useEffect(() => {
+    console.log('🔍 discountCalculation state changed:', {
+      appliedDiscount: discountCalculation.appliedDiscount,
+      hasValidDiscount: discountCalculation.hasValidDiscount,
+      addedGiftCards: discountCalculation.addedGiftCards.length,
+      addedGiftCardDetails: discountCalculation.addedGiftCards.map(card => ({
+        name: card.name,
+        value: card.giftCardValue,
+        category: card.category,
+        id: card.id
+      }))
+    });
+  }, [discountCalculation]);
+
+  // Update cart items with selected gift card values
+  useEffect(() => {
+    const updatedCart = cart.map((item, idx) => {
+      if (isGiftCard(item) && giftCardValues[idx]) {
+        return {
+          ...item,
+          giftCardValue: giftCardValues[idx],
+          price: giftCardValues[idx] // Update price to match selection for BOGO logic
+        };
+      }
+      return item;
+    });
+    
+    // Only update if there are actual changes to prevent infinite loops
+    const hasChanges = cart.some((item, idx) => 
+      isGiftCard(item) && giftCardValues[idx] && item.giftCardValue !== giftCardValues[idx]
+    );
+    
+    if (hasChanges) {
+      setCart(updatedCart);
+    }
+  }, [giftCardValues, cart, setCart]);
   useEffect(() => {
     const savedInfo = localStorage.getItem("orderMessage") || "";
     setOrderInfo(savedInfo);
@@ -196,35 +248,39 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
     localStorage.setItem("orderMessage", orderInfo);
   }, [orderInfo]);
 
-  // Handle BOGO gift card auto-addition
-  useEffect(() => {
-    if (discountCalculation.appliedDiscount === 'bogoGiftCard' && 
-        discountCalculation.addedGiftCards.length > 0 && 
-        discountCalculation.hasValidDiscount) {
-      
-      // Check if free gift cards are already in cart
-      const freeGiftCardsInCart = cart.filter(item => 
-        item.category === 'gift-card-free'
-      );
-      
-      // Only add if not already present
-      if (freeGiftCardsInCart.length === 0) {
-        const newCart = [...cart, ...discountCalculation.addedGiftCards];
-        setCart(newCart);
-        localStorage.setItem("cart", JSON.stringify(newCart));
-      }
-    } else if (discountCalculation.appliedDiscount !== 'bogoGiftCard') {
-      // Remove free gift cards if BOGO discount is not active
-      const nonFreeGiftCards = cart.filter(item => 
-        item.category !== 'gift-card-free'
-      );
-      
-      if (nonFreeGiftCards.length !== cart.length) {
-        setCart(nonFreeGiftCards);
-        localStorage.setItem("cart", JSON.stringify(nonFreeGiftCards));
-      }
+  // Helper function to determine the free gift card value for BOGO notification
+  const getFreeGiftCardValue = (): number | null => {
+    if (discountCalculation.appliedDiscount !== 'bogoGiftCard' || !discountCalculation.hasValidDiscount) {
+      return null;
     }
-  }, [discountCalculation, cart, setCart]);
+    
+    // Find paid gift cards in cart
+    const paidGiftCards = cart.filter(item => 
+      isGiftCard(item) && !item.category?.includes('gift-card-free')
+    );
+    
+    if (paidGiftCards.length === 0) {
+      return null;
+    }
+    
+    // Get the highest value from paid gift cards, using current selections
+    const cardValues: number[] = paidGiftCards.map((card, cardIndex) => {
+      const originalIndex = cart.findIndex(cartItem => cartItem.id === card.id);
+      return giftCardValues[originalIndex] || card.giftCardValue || card.price;
+    });
+    
+    return Math.max(...cardValues);
+  };
+
+  // Use ref to access current cart state without dependency
+  const cartRef = useRef<CartItem[]>(cart);
+  cartRef.current = cart;
+
+  // Note: BOGO gift cards are now handled via email notification instead of cart display
+
+  // Note: Free gift cards are now handled via email notification instead of cart management
+
+  // Note: Free gift card cleanup no longer needed since they're handled via email
 
   const updateQuantity = (index: number, newQuantity: number) => {
     if (newQuantity < 1) return;
@@ -253,11 +309,12 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
           {cart.length === 0 ? (
             <div className="cart-empty">Your cart is empty.</div>
           ) : (
-            cart.map((item, idx) => {
+            displayCart.map((item, idx) => {
+              // Find the original index in the full cart for giftCardValues
+              const originalIdx = cart.findIndex(cartItem => cartItem.id === item.id);
               const isUnavailable = unavailableItems.has(item.id);
               const isFreeItem = discountCalculation.freeItemId === item.id;
-              const isFreeGiftCard = item.category === 'gift-card-free';
-              const isSpecialItem = isFreeItem || isFreeGiftCard;
+              const isSpecialItem = isFreeItem;
               
               return (
                 <div 
@@ -310,20 +367,31 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                     {item.name} - ${
                       isUnavailable ? '0.00' : 
                       isFreeItem ? '0.00 (FREE)' :
-                      isFreeGiftCard ? '0.00 (FREE)' :
-                      isGiftCard(item) ? (giftCardValues[idx] || 50).toFixed(2) :
+                      isGiftCard(item) ? (giftCardValues[originalIdx] || 50).toFixed(2) :
                       (item.price * durationMultiplier).toFixed(2)
                     } {!isGiftCard(item) && `(${item.wetDry})`}
                   </span>
                   
                   {/* Gift Card Value Selection */}
-                  {isGiftCard(item) && !isFreeGiftCard && (
+                  {isGiftCard(item) && (
                     <select
                       className="gift-card-value-select"
-                      value={giftCardValues[idx] || 50}
+                      value={giftCardValues[originalIdx] || 50}
                       onChange={e => {
                         const value = parseInt(e.target.value);
-                        setGiftCardValues(prev => ({ ...prev, [idx]: value }));
+                        console.log('\n💳 ========== GIFT CARD VALUE DROPDOWN CHANGE ==========');
+                        console.log('🎯 Item:', item.name);
+                        console.log('🎯 Item index (originalIdx):', originalIdx);
+                        console.log('🎯 Old value:', giftCardValues[originalIdx] || 50);
+                        console.log('🎯 New value selected:', value);
+                        console.log('🎯 Current giftCardValues state:', giftCardValues);
+                        
+                        const newGiftCardValues = { ...giftCardValues, [originalIdx]: value };
+                        console.log('🎯 New giftCardValues state:', newGiftCardValues);
+                        
+                        setGiftCardValues(newGiftCardValues);
+                        console.log('🎯 setGiftCardValues called with:', newGiftCardValues);
+                        console.log('💳 ========== GIFT CARD DROPDOWN CHANGE END ==========\n');
                       }}
                       style={{ marginLeft: '0.5rem' }}
                       required
@@ -363,14 +431,14 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                   )}
                   <button 
                     onClick={() => removeFromCart(idx)}
-                    disabled={isFreeGiftCard}
+                    disabled={false}
                     style={{
-                      opacity: isFreeGiftCard ? 0.5 : 1,
-                      cursor: isFreeGiftCard ? 'not-allowed' : 'pointer'
+                      opacity: 1,
+                      cursor: 'pointer'
                     }}
-                    title={isFreeGiftCard ? 'Free gift cards are automatically managed by the BOGO discount' : 'Remove item from cart'}
+                    title='Remove item from cart'
                   >
-                    {isFreeGiftCard ? '🔒 Auto-managed' : 'Remove'}
+                    Remove
                   </button>
                 </div>
               );
@@ -476,6 +544,30 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                 <div style={{ fontSize: '0.9rem', color: '#2e7d32', marginBottom: '0.5rem' }}>
                   📝 {getDiscountDescription(discountLogic.getActiveDiscount())}
                 </div>
+                
+                {/* BOGO Gift Card Notification */}
+                {discountCalculation.appliedDiscount === 'bogoGiftCard' && 
+                 discountCalculation.hasValidDiscount && (() => {
+                  const freeCardValue = getFreeGiftCardValue();
+                  return freeCardValue ? (
+                    <div style={{
+                      backgroundColor: '#e8f5e8',
+                      border: '1px solid #4caf50',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      margin: '8px 0',
+                      fontSize: '14px',
+                      color: '#2e7d32'
+                    }}>
+                      <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
+                        🎁 FREE $${freeCardValue} Gift Card Included!
+                      </div>
+                      <div style={{ fontSize: '13px', lineHeight: '1.4' }}>
+                        Your free gift card will be emailed to you after your order is confirmed.
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
                 
                 {/* Discount status */}
                 {!discountCalculation.userCanUse ? (

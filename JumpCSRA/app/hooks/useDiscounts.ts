@@ -240,9 +240,24 @@ export function useDiscounts() {
     cartTotal: number, 
     calendarDateRange: [Date | null, Date | null]
   ): Promise<DiscountCalculation> => {
+    console.log('\n🔄 ========== MAIN DISCOUNT CALCULATION ==========');
+    console.log('📊 Cart items received:', cart.length);
+    console.log('💰 Cart total:', cartTotal);
+    console.log('📅 Calendar range:', calendarDateRange);
+    
+    cart.forEach((item, index) => {
+      console.log(`  ${index + 1}. ${item.name} (${item.category}) - $${item.price}`);
+      if (item.isGiftCard || (item.name && item.name.toLowerCase().includes('gift card'))) {
+        console.log(`     🎫 Gift Card Value: $${item.giftCardValue || item.price}`);
+      }
+    });
+    
     const activeDiscount = getActiveDiscount();
+    console.log('\n🎯 Active discount:', activeDiscount);
     
     if (!activeDiscount) {
+      console.log('⚠️ No active discount found');
+      console.log('🔄 ========== DISCOUNT CALCULATION END ==========\n');
       return {
         discountAmount: 0,
         appliedDiscount: null,
@@ -253,9 +268,15 @@ export function useDiscounts() {
       };
     }
 
+    console.log('🔍 Checking user authentication and usage...');
+    
     // Check if user can use this discount
     const isAuthenticated = isUserAuthenticated();
+    console.log('👤 User authenticated:', isAuthenticated);
+    
     if (!isAuthenticated) {
+      console.log('❌ User not authenticated - discount blocked');
+      console.log('🔄 ========== DISCOUNT CALCULATION END ==========\n');
       return {
         discountAmount: 0,
         appliedDiscount: activeDiscount,
@@ -268,7 +289,11 @@ export function useDiscounts() {
     }
 
     const hasUsed = await hasUserUsedDiscount(activeDiscount);
+    console.log('🔄 Has user used this discount before:', hasUsed);
+    
     if (hasUsed) {
+      console.log('❌ User has already used this discount');
+      console.log('🔄 ========== DISCOUNT CALCULATION END ==========\n');
       return {
         discountAmount: 0,
         appliedDiscount: activeDiscount,
@@ -280,18 +305,30 @@ export function useDiscounts() {
       };
     }
 
+    console.log('✅ User can use discount - proceeding with calculation...');
+    console.log('\n🎯 Calculating discount for type:', activeDiscount);
+
+    let result: DiscountCalculation;
+    
     switch (activeDiscount) {
       case 'sunday10':
-        return calculateSunday10Discount(cart, cartTotal, calendarDateRange);
+        console.log('📅 Calculating Sunday 10% discount...');
+        result = calculateSunday10Discount(cart, cartTotal, calendarDateRange);
+        break;
       
       case 'freeGame':
-        return calculateFreeGameDiscount(cart, cartTotal);
+        console.log('🎮 Calculating free game discount...');
+        result = calculateFreeGameDiscount(cart, cartTotal);
+        break;
       
       case 'bogoGiftCard':
-        return calculateBogoGiftCardDiscount(cart, cartTotal);
+        console.log('🎁 Calculating BOGO gift card discount...');
+        result = calculateBogoGiftCardDiscount(cart, cartTotal);
+        break;
       
       default:
-        return {
+        console.log('❓ Unknown discount type');
+        result = {
           discountAmount: 0,
           appliedDiscount: null,
           freeItemId: null,
@@ -300,6 +337,17 @@ export function useDiscounts() {
           userCanUse: true,
         };
     }
+    
+    console.log('\n📊 Final discount result:', {
+      discountAmount: result.discountAmount,
+      appliedDiscount: result.appliedDiscount,
+      hasValidDiscount: result.hasValidDiscount,
+      addedGiftCards: result.addedGiftCards.length,
+      userCanUse: result.userCanUse
+    });
+    console.log('🔄 ========== DISCOUNT CALCULATION END ==========\n');
+    
+    return result;
   };
 
   return {
@@ -426,19 +474,37 @@ function calculateFreeGameDiscount(
   };
 }
 
-// BOGO Gift Card - buy one $50 gift card, get one free
+// BOGO Gift Card - buy one gift card, get one free (matching value)
 function calculateBogoGiftCardDiscount(
   cart: CartItem[], 
   cartTotal: number
 ): DiscountCalculation {
-  // Check if there's at least one $50 gift card in cart
-  const giftCards = cart.filter(item => 
-    (item.name && item.name.toLowerCase().includes('gift card')) ||
-    (item.category && item.category.toLowerCase().includes('gift')) && 
-    item.price === 50
-  );
+  console.log('\n🎁 ========== BOGO GIFT CARD CALCULATION ==========');
+  console.log('📊 Input cart items:', cart.length);
+  console.log('💰 Cart total:', cartTotal);
+  
+  // Check if there are any gift cards in cart
+  const giftCards = cart.filter(item => {
+    const isGift = (
+      (item.name && item.name.toLowerCase().includes('gift card')) ||
+      (item.category && item.category.toLowerCase().includes('gift')) ||
+      item.isGiftCard
+    );
+    console.log(`  - ${item.name}: isGiftCard=${isGift}, category=${item.category}`);
+    if (isGift && item.giftCardValue) {
+      console.log(`    💳 Gift Card Value: $${item.giftCardValue}`);
+    }
+    return isGift;
+  });
+  
+  console.log('🎯 Found', giftCards.length, 'gift cards in cart:');
+  giftCards.forEach((card, index) => {
+    console.log(`  ${index + 1}. ${card.name} - Price: $${card.price}, Value: $${card.giftCardValue || card.price}`);
+  });
   
   if (giftCards.length === 0) {
+    console.log('⚠️ No gift cards found - BOGO not applicable');
+    console.log('🎁 ================================================\n');
     return {
       discountAmount: 0,
       appliedDiscount: 'bogoGiftCard',
@@ -449,25 +515,66 @@ function calculateBogoGiftCardDiscount(
     };
   }
 
-  // Generate unique gift card codes for both purchased and free cards
+  // Generate unique gift card codes for free cards
   const generateGiftCardCode = (): string => {
     const generateSegment = () => Math.floor(1000 + Math.random() * 9000).toString();
-    return `${generateSegment()}-${generateSegment()}-${generateSegment()}`;
+    const code = `${generateSegment()}-${generateSegment()}-${generateSegment()}`;
+    console.log('🎫 Generated gift card code:', code);
+    return code;
   };
 
-  // Add a free gift card for each paid gift card (BOGO)
-  const freeGiftCards: CartItem[] = giftCards.map((giftCard, index) => ({
-    id: `free-gift-card-${index}-${Date.now()}`,
-    name: 'FREE $50 Gift Card (BOGO)',
+  console.log('\n🔄 Finding highest value gift card for BOGO...');
+  
+  // Find the highest value gift card to give one free (not one for each)
+  const highestValueGiftCard = giftCards.reduce((highest, current) => {
+    const currentValue = current.giftCardValue || current.price;
+    const highestValue = highest.giftCardValue || highest.price;
+    
+    console.log(`  - Comparing: $${currentValue} vs current highest $${highestValue}`);
+    
+    return currentValue > highestValue ? current : highest;
+  });
+  
+  const highestValue = highestValueGiftCard.giftCardValue || highestValueGiftCard.price;
+  
+  console.log(`\n� Highest value gift card selected:`);
+  console.log(`  - Name: ${highestValueGiftCard.name}`);
+  console.log(`  - Price: $${highestValueGiftCard.price}`);
+  console.log(`  - Gift Card Value: $${highestValue}`);
+  
+  // Generate ONE free gift card matching the highest value
+  const freeCard = {
+    id: `free-gift-card-bogo-${Date.now()}`,
+    name: `FREE $${highestValue} Gift Card (BOGO)`,
     price: 0,
     wetDry: 'N/A',
-    quantity: giftCard.quantity,
+    quantity: 1, // Always just one free card
     category: 'gift-card-free',
     giftCardCode: generateGiftCardCode(),
-    isGiftCardItem: true,
+    isGiftCard: true,
+    giftCardValue: highestValue,
     isPromotionalGift: true,
-  }));
-
+  };
+  
+  console.log(`✅ Generated ONE free card:`, {
+    id: freeCard.id,
+    name: freeCard.name,
+    value: freeCard.giftCardValue,
+    price: freeCard.price,
+    code: freeCard.giftCardCode
+  });
+  
+  const freeGiftCards: CartItem[] = [freeCard]; // Only one free card
+  
+  const totalFreeValue = freeGiftCards.reduce((sum, card) => sum + (card.giftCardValue || 0), 0);
+  
+  console.log('\n📊 BOGO Summary:');
+  console.log(`  - Total paid gift cards in cart: ${giftCards.length}`);
+  console.log(`  - Static free cards provided: 2 (both $50 and $100 options)`);
+  console.log(`  - CartSidebar will filter and display appropriate free card`);
+  console.log(`  - Has valid discount: ${freeGiftCards.length > 0}`);
+  console.log('🎁 ================================================\n');
+  
   return {
     discountAmount: 0, // The "discount" is the free items added
     appliedDiscount: 'bogoGiftCard',
@@ -616,7 +723,7 @@ export function getDiscountDescription(discountType: DiscountType | null): strin
     case 'freeGame':
       return 'Free yard game (cheapest game in cart)';
     case 'bogoGiftCard':
-      return 'Buy one $50 gift card, get one free';
+      return 'Buy any gift card, get one of equal value free';
     default:
       return '';
   }
