@@ -2,7 +2,8 @@
 .nav-bar {
   padding: 0.5rem 0;
   color: var(--darkBlue) !important;
-  background: white;
+  background: var(--lightBlue);
+  width:100%;
 }
 .nav-bar ul {
   display: flex;
@@ -22,7 +23,7 @@
   font-weight: bolder;
 }
 .nav-logo {
-  width: 5rem;
+  width: 6rem;
   height: auto;
 }
 

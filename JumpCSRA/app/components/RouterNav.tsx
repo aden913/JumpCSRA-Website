@@ -22,7 +22,6 @@ export function RouterNav({ onNavClick, cartCount, selectedDates }: RouterNavPro
               console.log("Calendar icon clicked");
               onNavClick && onNavClick("Calendar");
             }} style={{ position: "relative", padding: 0, background: "none", border: "none" }}>
-              <img src="/calendar.png" alt="calendar" className="cart-icon" style={{ display: "block", margin: "0 auto" }} />
               {selectedDates && selectedDates[0] && selectedDates[1] && (
                 <span
                   className="calendar-dates-overlay"
@@ -50,7 +49,7 @@ export function RouterNav({ onNavClick, cartCount, selectedDates }: RouterNavPro
             <button type="button" className="nav-btn" onClick={() => {
               console.log("Cart icon clicked");
               onNavClick && onNavClick("Cart");
-            }}> <img src="/cart.png" alt="Cart" className="cart-icon" />
+            }}> <img src="/white-cart.png" alt="Cart" className="cart-icon" />
               {cartCount && cartCount > 0 && (
                 <span className="cart-count" style={{}}>{cartCount}</span>
               )}
