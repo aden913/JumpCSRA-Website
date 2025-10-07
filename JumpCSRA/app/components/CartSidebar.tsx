@@ -75,6 +75,36 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
     userCanUse: true,
   });
 
+  // Load cart sidebar options from localStorage on component mount
+  useEffect(() => {
+    const savedDuration = localStorage.getItem("cartDuration") || "";
+    const savedSurface = localStorage.getItem("cartSurface") || "";
+    const savedDeliveryTime = localStorage.getItem("cartDeliveryTime") || "";
+    const savedLocation = localStorage.getItem("cartLocation") || "";
+    
+    setDuration(savedDuration);
+    setSurface(savedSurface);
+    setDeliveryTime(savedDeliveryTime);
+    setLocation(savedLocation);
+  }, []);
+
+  // Save cart sidebar options to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem("cartDuration", duration);
+  }, [duration]);
+
+  useEffect(() => {
+    localStorage.setItem("cartSurface", surface);
+  }, [surface]);
+
+  useEffect(() => {
+    localStorage.setItem("cartDeliveryTime", deliveryTime);
+  }, [deliveryTime]);
+
+  useEffect(() => {
+    localStorage.setItem("cartLocation", location);
+  }, [location]);
+
   // Calculate end date based on duration
   const calculateEndDate = (startDate: Date, durationOption: string): Date => {
     const endDate = new Date(startDate);
