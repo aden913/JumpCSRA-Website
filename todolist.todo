@@ -11,8 +11,10 @@
               "content": "create order-details page",
               "id": 1759436584369,
               "level": "default",
-              "done": false,
-              "start": 1759436584369
+              "done": true,
+              "start": 1759436584369,
+              "focus": false,
+              "end": 1759896700717
             }
           },
           {
@@ -22,8 +24,10 @@
               "content": "make login check after clicking proceed to purchase",
               "id": 1759436592857,
               "level": "default",
-              "done": false,
-              "start": 1759436592857
+              "done": true,
+              "start": 1759436592857,
+              "focus": false,
+              "end": 1759896704052
             }
           },
           {
@@ -325,6 +329,6 @@
     "showEndTime": false,
     "simpleMode": false,
     "lang": "en",
-    "version": "1759635345069"
+    "version": "1759896704103"
   }
 }

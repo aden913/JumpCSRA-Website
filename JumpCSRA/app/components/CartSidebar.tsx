@@ -1,4 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "./FirebaseConfig";
 import { getUnavailableInflateables } from '../utils/bookingUtils';
 import { useDiscounts, getDiscountDescription, type DiscountCalculation } from '../hooks/useDiscounts';
 import '../styles/cart.css';
@@ -28,6 +31,18 @@ export type CartSidebarProps = {
 };
 
 export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, discountLogic }: CartSidebarProps) {
+  const navigate = useNavigate();
+  const [user, setUser] = useState<any>(null);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  
+  // Check authentication state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+    });
+    return () => unsubscribe();
+  }, []);
+  
   useEffect(() => {
     if (open && cart.length > 0) {
       cart.forEach((item, idx) => {
@@ -667,7 +682,17 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
           <button
             id="proceedButton"
             disabled={cart.length === 0 || !duration || !surface || !deliveryTime || !location}
-            onClick={() => {}}
+            onClick={() => {
+              if (cart.length > 0 && duration && surface && deliveryTime && location) {
+                if (user) {
+                  // User is logged in, proceed to checkout
+                  navigate('/checkout');
+                } else {
+                  // User is not logged in, show prompt
+                  setShowLoginPrompt(true);
+                }
+              }
+            }}
           >
             Proceed to Purchase
           </button>
@@ -678,6 +703,94 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
           </p>
         </div>
       </div>
+
+      {/* Login Prompt Modal */}
+      {showLoginPrompt && (
+        <div 
+          className="modal-overlay fade-in"
+          onClick={() => setShowLoginPrompt(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 2000
+          }}
+        >
+          <div 
+            className="modal-content popup"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: 'white',
+              padding: '2rem',
+              borderRadius: '8px',
+              maxWidth: '400px',
+              width: '90%',
+              textAlign: 'center',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.15)'
+            }}
+          >
+            <h2 style={{ 
+              marginBottom: '1rem', 
+              color: '#333',
+              fontSize: '1.5rem'
+            }}>
+              Login Required
+            </h2>
+            <p style={{ 
+              marginBottom: '2rem', 
+              color: '#666',
+              lineHeight: '1.4'
+            }}>
+              You must be logged in to proceed with your purchase. Please sign in or create an account to continue.
+            </p>
+            <div style={{ 
+              display: 'flex', 
+              gap: '1rem', 
+              justifyContent: 'center',
+              flexWrap: 'wrap'
+            }}>
+              <button
+                onClick={() => setShowLoginPrompt(false)}
+                style={{
+                  backgroundColor: 'transparent',
+                  border: '1px solid #ccc',
+                  color: '#666',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '1rem'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowLoginPrompt(false);
+                  navigate('/');
+                }}
+                style={{
+                  backgroundColor: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: 'bold'
+                }}
+              >
+                Go to Login
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
