@@ -193,6 +193,29 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
   // Filter out any existing free gift cards from cart display (they're now handled via email notification)
   const displayCart = cart.filter(item => !item.category?.includes('gift-card-free'));
   
+  // Helper: Check if all wet/dry selections are complete
+  const areWetDrySelectionsComplete = () => {
+    return cart.every((item, idx) => {
+      // Skip unavailable items
+      if (unavailableItems.has(item.id)) {
+        return true;
+      }
+      
+      // Skip gift cards and party essentials - they don't need wet/dry selection
+      if (isGiftCard(item) || isPartyEssential(item)) {
+        return true;
+      }
+      
+      // If item supports wet/dry, check if selection is made
+      if (supportsWetDry(item)) {
+        return wetDrySelections[idx] && wetDrySelections[idx] !== "";
+      }
+      
+      // If item doesn't support wet/dry, it's complete
+      return true;
+    });
+  };
+
   const cartTotal = displayCart.reduce((sum, item, displayIdx) => {
     // Skip unavailable items
     if (unavailableItems.has(item.id)) {
@@ -681,9 +704,16 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
         <div className="cart-footer">
           <button
             id="proceedButton"
-            disabled={cart.length === 0 || !duration || !surface || !deliveryTime || !location}
+            disabled={
+              cart.length === 0 || 
+              !duration || 
+              !surface || 
+              !deliveryTime || 
+              !location || 
+              !areWetDrySelectionsComplete()
+            }
             onClick={() => {
-              if (cart.length > 0 && duration && surface && deliveryTime && location) {
+              if (cart.length > 0 && duration && surface && deliveryTime && location && areWetDrySelectionsComplete()) {
                 if (user) {
                   // User is logged in, proceed to checkout
                   navigate('/checkout');
@@ -696,6 +726,18 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
           >
             Proceed to Purchase
           </button>
+          {/* Show validation message if wet/dry selections are incomplete */}
+          {!areWetDrySelectionsComplete() && (
+            <div style={{
+              color: '#f44336',
+              fontSize: '0.9rem',
+              marginTop: '0.5rem',
+              textAlign: 'center',
+              fontWeight: 'bold'
+            }}>
+              ⚠️ Please select Wet or Dry for all applicable items
+            </div>
+          )}
         </div>
         <div id="sidebar-footer" className="candal-regular">
           <p>

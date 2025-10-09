@@ -36,6 +36,9 @@ export default function Checkout() {
   const [addressSuggestions, setAddressSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
   const [calculatingDistance, setCalculatingDistance] = useState<boolean>(false);
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [lastSearchQuery, setLastSearchQuery] = useState<string>("");
+  const [searchCache, setSearchCache] = useState<{[key: string]: string[]}>({});
   
   // Last-minute additions state
   const [lastMinuteAdditions, setLastMinuteAdditions] = useState<{[key: string]: number}>({});
@@ -50,11 +53,26 @@ export default function Checkout() {
   // Base location for distance calculation
   const BASE_LOCATION = "410 Carolina Springs Rd, North Augusta, SC 29841";
 
-  // Address autocomplete function using Nominatim (free alternative to Google)
+  // Optimized address autocomplete with debouncing and caching
   const searchAddresses = async (query: string) => {
+    // Don't search for very short queries
     if (query.length < 3) {
       setAddressSuggestions([]);
       setShowSuggestions(false);
+      return;
+    }
+
+    // Don't search if query hasn't changed significantly
+    if (query === lastSearchQuery) {
+      return;
+    }
+
+    // Check cache first
+    const cacheKey = query.toLowerCase().trim();
+    if (searchCache[cacheKey]) {
+      setAddressSuggestions(searchCache[cacheKey]);
+      setShowSuggestions(searchCache[cacheKey].length > 0);
+      setLastSearchQuery(query);
       return;
     }
 
@@ -66,13 +84,36 @@ export default function Checkout() {
       const data = await response.json();
       
       const suggestions = data.map((item: any) => item.display_name);
+      
+      // Cache the results
+      setSearchCache(prev => ({
+        ...prev,
+        [cacheKey]: suggestions
+      }));
+      
       setAddressSuggestions(suggestions);
       setShowSuggestions(suggestions.length > 0);
+      setLastSearchQuery(query);
     } catch (error) {
       console.error("Error fetching address suggestions:", error);
       setAddressSuggestions([]);
       setShowSuggestions(false);
     }
+  };
+
+  // Debounced search function
+  const debouncedSearchAddresses = (query: string) => {
+    // Clear previous timeout
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+
+    // Set new timeout
+    const newTimeout = setTimeout(() => {
+      searchAddresses(query);
+    }, 500); // Wait 500ms after user stops typing
+
+    setSearchTimeout(newTimeout);
   };
 
   // Calculate driving distance using OSRM (free routing service)
@@ -137,6 +178,15 @@ export default function Checkout() {
 
     return () => unsubscribe();
   }, [navigate]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+    };
+  }, [searchTimeout]);
 
   // Load cart and settings from localStorage
   useEffect(() => {
@@ -522,12 +572,16 @@ Signed on: ${new Date().toLocaleDateString()}
             value={deliveryAddress}
             onChange={(e) => {
               setDeliveryAddress(e.target.value);
-              searchAddresses(e.target.value);
+              debouncedSearchAddresses(e.target.value);
             }}
             onFocus={() => {
               if (addressSuggestions.length > 0) {
                 setShowSuggestions(true);
               }
+            }}
+            onBlur={() => {
+              // Delay hiding suggestions to allow clicking on them
+              setTimeout(() => setShowSuggestions(false), 200);
             }}
             style={{ 
               width: '100%', 
