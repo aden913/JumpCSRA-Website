@@ -1,0 +1,37 @@
+/* Temporary 4K Development View - Remove in production */
+.dev-4k-scale {
+  transform: scale(0.5); /* Adjust scale as needed */
+  transform-origin: top left;
+  width: 200%; /* Compensate for scale */
+  height: 200%;
+}
+
+/* Apply only in development mode */
+@media (max-width: 1920px) {
+  .landing-page.dev-mode {
+    transform: scale(0.6);
+    transform-origin: top left;
+    width: 166%;
+    min-height: 166vh;
+  }
+}
+
+/* For laptop screens */
+@media (max-width: 1440px) {
+  .landing-page.dev-mode {
+    transform: scale(0.4);
+    transform-origin: top left;
+    width: 250%;
+    min-height: 250vh;
+  }
+}
+
+/* For tablet/smaller screens */
+@media (max-width: 1024px) {
+  .landing-page.dev-mode {
+    transform: scale(0.3);
+    transform-origin: top left;
+    width: 333%;
+    min-height: 333vh;
+  }
+}

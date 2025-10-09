@@ -185,22 +185,28 @@ export function OptionsCarousel({ options, onPurchase }: OptionsCarouselProps) {
   return (
     <>
       <div className="carousel-container" ref={containerRef}>
-        {/* Left overlay mask with dynamic width */}
-        <div 
-          className="carousel-mask carousel-mask-left"
-          style={{ width: `${leftMaskWidth}%` }}
-        ></div>
+        {/* Custom navigation arrows outside the swiper */}
+        <button 
+          className="custom-nav-button custom-nav-prev"
+          onClick={() => swiperRef.current?.slidePrev()}
+        >
+          &#8249;
+        </button>
         
-        {/* Right overlay mask */}
-        <div className="carousel-mask carousel-mask-right"></div>
+        <button 
+          className="custom-nav-button custom-nav-next"
+          onClick={() => swiperRef.current?.slideNext()}
+        >
+          &#8250;
+        </button>
         
         <Swiper
           modules={[Navigation]}
           slidesPerView={5}
           spaceBetween={10}
           centeredSlides={false}
-          navigation={true}
-          loop={false}
+          navigation={false}
+          loop={true}
           allowTouchMove={true}
           resistance={true}
           resistanceRatio={0.85}

@@ -25,16 +25,20 @@ import type { CartItem } from "../components/CartSidebar";
 import { Link } from "react-router";
 
 import "../styles/index.css";
+import "../styles/dev-4k-scale.css";
 import "react-multi-carousel/lib/styles.css";
 import "../styles/membership.css";
 import "../styles/promo.css";
 import "../styles/specials.css";
 import "swiper/css";
+import "swiper/css/navigation";
 import '@mantine/notifications/styles.css';
 
 import { MantineProvider } from "@mantine/core";
 import { useWelcomeLogic } from './useWelcomeLogic';
 import { getUnavailableInflateables } from '../utils/bookingUtils';
+import { ViewportDebugger } from '../components/ViewportDebugger';
+import { DevModeToggle } from '../components/DevModeToggle';
 
 const promoCards = [
   { title: "Become a member", img: "/assets/cartoon-bouncehouse.png" },
@@ -197,6 +201,8 @@ export function Welcome() {
         defer
       ></script>
       <MantineProvider>
+        <ViewportDebugger />
+        <DevModeToggle />
         <Notifications position="top-right" />
         <div className="landing-page">
         {/* Header */}

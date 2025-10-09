@@ -1,0 +1,61 @@
+/* Temporary Debug Viewport Info - Remove in production */
+.debug-viewport {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.debug-viewport::before {
+  content: "Unknown";
+}
+
+/* Show current breakpoint */
+@media (max-width: 320px) {
+  .debug-viewport::before {
+    content: "Small Mobile: ≤320px";
+  }
+}
+
+@media (min-width: 321px) and (max-width: 480px) {
+  .debug-viewport::before {
+    content: "Mobile: 321-480px";
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .debug-viewport::before {
+    content: "Tablet: 481-768px";
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .debug-viewport::before {
+    content: "Laptop: 769-1024px";
+  }
+}
+
+@media (min-width: 1025px) and (max-width: 1440px) {
+  .debug-viewport::before {
+    content: "Desktop: 1025-1440px";
+  }
+}
+
+@media (min-width: 1441px) and (max-width: 1920px) {
+  .debug-viewport::before {
+    content: "Large Desktop: 1441-1920px";
+  }
+}
+
+@media (min-width: 1921px) {
+  .debug-viewport::before {
+    content: "4K+: ≥1921px";
+  }
+}
