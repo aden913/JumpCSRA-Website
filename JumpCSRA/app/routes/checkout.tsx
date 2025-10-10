@@ -28,6 +28,30 @@ export default function Checkout() {
   
   const [calendarDateRange, setCalendarDateRange] = useState<[Date | null, Date | null]>([null, null]);
 
+  // Helper function to get product image from inflateables data
+  const getProductImage = (productName: string): string => {
+    if (!productName) {
+      console.warn('getProductImage: No product name provided');
+      return '/assets/inflateables/default.png';
+    }
+    
+    const product = inflateables.find(item => 
+      item.name && item.name.toLowerCase() === productName.toLowerCase()
+    );
+    
+    if (!product) {
+      console.warn(`getProductImage: Product "${productName}" not found in inflateables data`);
+      return '/assets/inflateables/default.png';
+    }
+    
+    if (!product.img) {
+      console.warn(`getProductImage: Product "${productName}" has no image path`);
+      return '/assets/inflateables/default.png';
+    }
+    
+    return product.img;
+  };
+
   // Checkout-specific state
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
   const [deliveryCost, setDeliveryCost] = useState<number>(0);
@@ -488,7 +512,7 @@ Signed on: ${new Date().toLocaleDateString()}
               <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
                 {/* Product Image */}
                 <img 
-                  src={item.image || '/assets/inflateables/default.png'} 
+                  src={getProductImage(item.name)} 
                   alt={item.name}
                   style={{
                     width: '50px',
@@ -1100,7 +1124,7 @@ Signed on: ${new Date().toLocaleDateString()}
                     borderRadius: '4px'
                   }}>
                     <img 
-                      src={item.image || '/assets/inflateables/default.png'} 
+                      src={getProductImage(item.name)} 
                       alt={item.name}
                       style={{
                         width: '40px',
