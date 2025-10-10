@@ -51,10 +51,8 @@ function OptionCard({
 
   const handleOrder = () => {
     if (unavailable) {
-      console.log(`Attempted to order unavailable inflateable: ${name}`);
       return;
     }
-    console.log(`Ordering available inflateable: ${name}`);
     if (onOrder) {
       onOrder({
         name,
@@ -113,7 +111,6 @@ export function OptionsCarousel({ options, onPurchase }: OptionsCarouselProps) {
   const handleOrderNow = (product: OptionCardProps) => {
     // Don't open modal for unavailable items
     if (product.unavailable) {
-      console.log(`Cannot order unavailable inflateable: ${product.name}`);
       return;
     }
     // Always pass the full product object

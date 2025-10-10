@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
+import { LocalStorageDebugger } from "../components/LocalStorageDebugger";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, firestore } from "../components/FirebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
 import type { User as FirebaseUser } from "firebase/auth";
 import type { CartItem } from "../components/CartSidebar";
 import { useInflateables } from "../hooks/useInflateables";
+import { useCartSettings } from "../hooks/useCartSettings";
 
 export function meta() {
   return [
@@ -21,11 +23,9 @@ export default function Checkout() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const inflateables = useInflateables();
   
-  // Cart sidebar options
-  const [duration, setDuration] = useState<string>("");
-  const [surface, setSurface] = useState<string>(""); 
-  const [deliveryTime, setDeliveryTime] = useState<string>("");
-  const [location, setLocation] = useState<string>("");
+  // Cart sidebar options - use persistent cart settings
+  const cartSettings = useCartSettings();
+  
   const [calendarDateRange, setCalendarDateRange] = useState<[Date | null, Date | null]>([null, null]);
 
   // Checkout-specific state
@@ -201,12 +201,6 @@ export default function Checkout() {
           setCart([]);
         }
       }
-
-      // Load cart sidebar options from localStorage
-      setDuration(localStorage.getItem("cartDuration") || "");
-      setSurface(localStorage.getItem("cartSurface") || "");
-      setDeliveryTime(localStorage.getItem("cartDeliveryTime") || "");
-      setLocation(localStorage.getItem("cartLocation") || "");
       
       // Load calendar date range from localStorage
       const savedDateRange = localStorage.getItem("calendarDateRange");
@@ -249,7 +243,7 @@ export default function Checkout() {
   };
 
   // Calculate cart total including last-minute additions
-  const durationMultiplier = duration ? durationMultipliers[duration] || 1.0 : 1.0;
+  const durationMultiplier = cartSettings.duration ? durationMultipliers[cartSettings.duration] || 1.0 : 1.0;
   const cartTotal = cart.reduce((sum, item) => {
     if (item.isGiftCard) {
       return sum + (item.giftCardValue || item.price) * item.quantity;
@@ -270,8 +264,8 @@ export default function Checkout() {
     return sum;
   }, 0);
   
-  const surfaceAdj = surface ? surfacePrices[surface] || 0 : 0;
-  const timeAdj = deliveryTime ? timePrices[deliveryTime] || 0 : 0;
+  const surfaceAdj = cartSettings.surface ? surfacePrices[cartSettings.surface] || 0 : 0;
+  const timeAdj = cartSettings.deliveryTime ? timePrices[cartSettings.deliveryTime] || 0 : 0;
   const subtotal = cartTotal + lastMinuteTotal + surfaceAdj + timeAdj;
   const total = subtotal + deliveryCost;
 
@@ -377,10 +371,10 @@ export default function Checkout() {
         orderDetails: {
           cart: cart,
           lastMinuteAdditions: lastMinuteAdditions,
-          duration: duration,
-          surface: surface,
-          deliveryTime: deliveryTime,
-          location: location,
+          duration: cartSettings.duration,
+          surface: cartSettings.surface,
+          deliveryTime: cartSettings.deliveryTime,
+          location: cartSettings.location,
           deliveryAddress: deliveryAddress,
           eventDate: calendarDateRange,
           total: total,
@@ -394,7 +388,7 @@ This rental agreement is between Jump CSRA Party Rental and ${user.displayName |
 
 RENTAL DETAILS:
 - Event Date: ${calendarDateRange[0]?.toLocaleDateString()} - ${calendarDateRange[1]?.toLocaleDateString()}
-- Duration: ${duration}
+- Duration: ${cartSettings.duration}
 - Delivery Address: ${deliveryAddress}
 - Total Amount: $${total.toFixed(2)}
 
@@ -457,13 +451,15 @@ Signed on: ${new Date().toLocaleDateString()}
   }
 
   return (
-    <div style={{ 
-      maxWidth: '1200px', 
-      margin: '0 auto', 
-      padding: '2rem',
-      backgroundColor: '#f5f5f5',
-      minHeight: '100vh'
-    }}>
+    <>
+      <LocalStorageDebugger />
+      <div style={{ 
+        maxWidth: '1200px', 
+        margin: '0 auto', 
+        padding: '2rem',
+        backgroundColor: '#f5f5f5',
+        minHeight: '100vh'
+      }}>
       <h1 style={{ textAlign: 'center', marginBottom: '2rem', color: '#333' }}>
         Complete Your Order
       </h1>
@@ -484,20 +480,49 @@ Signed on: ${new Date().toLocaleDateString()}
           {cart.map((item, idx) => (
             <div key={idx} style={{ 
               display: 'flex', 
+              alignItems: 'center',
               justifyContent: 'space-between', 
-              padding: '0.5rem 0',
+              padding: '0.75rem 0',
               borderBottom: '1px solid #eee'
             }}>
-              <span>
-                {item.name} x{item.quantity} 
-                {item.isGiftCard ? ` ($${item.giftCardValue || item.price})` : ` (${item.wetDry})`}
-              </span>
-              <span>
+              <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                {/* Product Image */}
+                <img 
+                  src={item.image || '/assets/inflateables/default.png'} 
+                  alt={item.name}
+                  style={{
+                    width: '50px',
+                    height: '50px',
+                    objectFit: 'cover',
+                    borderRadius: '8px',
+                    marginRight: '1rem',
+                    border: '1px solid #ddd'
+                  }}
+                  onError={(e) => {
+                    // Fallback if image fails to load
+                    e.currentTarget.src = '/assets/inflateables/default.png';
+                  }}
+                />
+                
+                {/* Product Details */}
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                    {item.name}
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                    Quantity: {item.quantity}
+                    {item.isGiftCard ? ` ($${item.giftCardValue || item.price} each)` : ` (${item.wetDry})`}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Price */}
+              <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
                 ${item.isGiftCard 
                   ? ((item.giftCardValue || item.price) * item.quantity).toFixed(2)
                   : (item.price * item.quantity * durationMultiplier).toFixed(2)
                 }
-              </span>
+              </div>
             </div>
           ))}
         </div>
@@ -506,10 +531,10 @@ Signed on: ${new Date().toLocaleDateString()}
         <div style={{ marginBottom: '1rem' }}>
           <h3>Event Details:</h3>
           <p><strong>Date:</strong> {calendarDateRange[0]?.toLocaleDateString()} - {calendarDateRange[1]?.toLocaleDateString()}</p>
-          <p><strong>Duration:</strong> {duration}</p>
-          <p><strong>Surface:</strong> {surface}</p>
-          <p><strong>Delivery Time:</strong> {deliveryTime}</p>
-          <p><strong>Location Type:</strong> {location}</p>
+          <p><strong>Duration:</strong> {cartSettings.duration}</p>
+          <p><strong>Surface:</strong> {cartSettings.surface}</p>
+          <p><strong>Delivery Time:</strong> {cartSettings.deliveryTime}</p>
+          <p><strong>Location Type:</strong> {cartSettings.location}</p>
         </div>
 
         {/* Pricing Breakdown */}
@@ -1056,19 +1081,43 @@ Signed on: ${new Date().toLocaleDateString()}
               <h4>RENTAL DETAILS:</h4>
               <ul>
                 <li><strong>Event Date:</strong> {calendarDateRange[0]?.toLocaleDateString()} - {calendarDateRange[1]?.toLocaleDateString()}</li>
-                <li><strong>Duration:</strong> {duration}</li>
+                <li><strong>Duration:</strong> {cartSettings.duration}</li>
                 <li><strong>Delivery Address:</strong> {deliveryAddress}</li>
-                <li><strong>Surface Type:</strong> {surface}</li>
-                <li><strong>Delivery Time:</strong> {deliveryTime}</li>
+                <li><strong>Surface Type:</strong> {cartSettings.surface}</li>
+                <li><strong>Delivery Time:</strong> {cartSettings.deliveryTime}</li>
                 <li><strong>Total Amount:</strong> ${total.toFixed(2)}</li>
               </ul>
 
               <h4>RENTAL ITEMS:</h4>
-              <ul>
+              <div style={{ marginLeft: '1rem' }}>
                 {cart.map((item, idx) => (
-                  <li key={idx}>
-                    {item.name} x{item.quantity} - ${(item.isGiftCard ? (item.giftCardValue || item.price) : item.price * durationMultiplier).toFixed(2)} each
-                  </li>
+                  <div key={idx} style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    marginBottom: '0.5rem',
+                    padding: '0.5rem',
+                    backgroundColor: '#f8f9fa',
+                    borderRadius: '4px'
+                  }}>
+                    <img 
+                      src={item.image || '/assets/inflateables/default.png'} 
+                      alt={item.name}
+                      style={{
+                        width: '40px',
+                        height: '40px',
+                        objectFit: 'cover',
+                        borderRadius: '6px',
+                        marginRight: '0.75rem',
+                        border: '1px solid #ddd'
+                      }}
+                      onError={(e) => {
+                        e.currentTarget.src = '/assets/inflateables/default.png';
+                      }}
+                    />
+                    <span>
+                      {item.name} x{item.quantity} - ${(item.isGiftCard ? (item.giftCardValue || item.price) : item.price * durationMultiplier).toFixed(2)} each
+                    </span>
+                  </div>
                 ))}
                 {Object.entries(lastMinuteAdditions)
                   .filter(([_, quantity]) => quantity > 0)
@@ -1078,13 +1127,37 @@ Signed on: ${new Date().toLocaleDateString()}
                     const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
                     const price = isWeekend ? item.weekendPrice : item.weekdayPrice;
                     return (
-                      <li key={itemName}>
-                        {itemName} x{quantity} - ${(price * durationMultiplier).toFixed(2)} each
-                      </li>
+                      <div key={itemName} style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        marginBottom: '0.5rem',
+                        padding: '0.5rem',
+                        backgroundColor: '#f8f9fa',
+                        borderRadius: '4px'
+                      }}>
+                        <img 
+                          src={item.img || '/assets/inflateables/default.png'} 
+                          alt={itemName}
+                          style={{
+                            width: '40px',
+                            height: '40px',
+                            objectFit: 'cover',
+                            borderRadius: '6px',
+                            marginRight: '0.75rem',
+                            border: '1px solid #ddd'
+                          }}
+                          onError={(e) => {
+                            e.currentTarget.src = '/assets/inflateables/default.png';
+                          }}
+                        />
+                        <span>
+                          {itemName} x{quantity} - ${(price * durationMultiplier).toFixed(2)} each
+                        </span>
+                      </div>
                     );
                   })
                 }
-              </ul>
+              </div>
 
               <h4>TERMS AND CONDITIONS:</h4>
               <ol>
@@ -1227,5 +1300,6 @@ Signed on: ${new Date().toLocaleDateString()}
         </button>
       </div>
     </div>
+    </>
   );
 }

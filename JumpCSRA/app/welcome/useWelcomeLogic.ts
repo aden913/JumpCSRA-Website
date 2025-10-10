@@ -4,6 +4,7 @@ import { useCalendarSidebar } from '../hooks/useCalendarSidebar';
 import { useInflateables } from '../hooks/useInflateables';
 import { useCategories } from '../hooks/useCategories';
 import { useProductDetails } from '../hooks/useProductDetails';
+import { useCartSettings } from '../hooks/useCartSettings';
 import { notifications } from '@mantine/notifications';
 import { useState, useRef } from 'react';
 import type { CartItem } from '../components/CartSidebar';
@@ -31,6 +32,9 @@ export function useWelcomeLogic() {
   } = useCartSidebar();
   const [cart, setCart] = useCart();
   const carouselRef = useRef<HTMLDivElement>(null);
+
+  // Cart settings (duration, surface, delivery time, location, wet/dry selections)
+  const cartSettings = useCartSettings();
 
   // Calendar state
   const {
@@ -149,5 +153,6 @@ export function useWelcomeLogic() {
     handleOrderNow,
     addToCart,
     handleCalendarClose,
+    cartSettings,
   };
 }

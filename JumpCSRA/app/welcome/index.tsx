@@ -39,6 +39,7 @@ import { useWelcomeLogic } from './useWelcomeLogic';
 import { getUnavailableInflateables } from '../utils/bookingUtils';
 import { ViewportDebugger } from '../components/ViewportDebugger';
 import { DevModeToggle } from '../components/DevModeToggle';
+import { LocalStorageDebugger } from '../components/LocalStorageDebugger';
 
 const promoCards = [
   { title: "Become a member", img: "/assets/cartoon-bouncehouse.png" },
@@ -203,6 +204,7 @@ export function Welcome() {
       <MantineProvider>
         <ViewportDebugger />
         <DevModeToggle />
+        <LocalStorageDebugger />
         <Notifications position="top-right" />
         <div className="landing-page">
         {/* Header */}
@@ -401,6 +403,7 @@ export function Welcome() {
           setCart={logic.setCart}
           calendarDateRange={logic.calendarDateRange}
           discountLogic={discountLogic}
+          cartSettings={logic.cartSettings}
         />
 
         {/* Membership Modal */}

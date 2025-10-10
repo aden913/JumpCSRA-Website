@@ -28,9 +28,23 @@ export type CartSidebarProps = {
   setCart: (cart: CartItem[]) => void;
   calendarDateRange: [Date | null, Date | null];
   discountLogic: ReturnType<typeof useDiscounts>;
+  cartSettings?: {
+    duration: string;
+    setDuration: (duration: string) => void;
+    surface: string;
+    setSurface: (surface: string) => void;
+    deliveryTime: string;
+    setDeliveryTime: (deliveryTime: string) => void;
+    location: string;
+    setLocation: (location: string) => void;
+    wetDrySelections: {[idx: number]: string};
+    setWetDrySelections: (selections: {[idx: number]: string}) => void;
+    giftCardValues: {[idx: number]: number};
+    setGiftCardValues: (values: {[idx: number]: number}) => void;
+  };
 };
 
-export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, discountLogic }: CartSidebarProps) {
+export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, discountLogic, cartSettings }: CartSidebarProps) {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -64,22 +78,52 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
     return item.name?.toLowerCase().includes('gift card') || item.isGiftCard;
   };
 
-  // Track wet/dry selection for each item
-  const [wetDrySelections, setWetDrySelections] = useState<{[idx: number]: string}>({});
+  // Track wet/dry selection for each item - use cartSettings if provided
+  const [localWetDrySelections, setLocalWetDrySelections] = useState<{[idx: number]: string}>({});
+  const wetDrySelections = cartSettings?.wetDrySelections ?? localWetDrySelections;
+  const updateWetDrySelections = (updater: ((prev: {[idx: number]: string}) => {[idx: number]: string}) | {[idx: number]: string}) => {
+    if (cartSettings?.setWetDrySelections) {
+      if (typeof updater === 'function') {
+        cartSettings.setWetDrySelections(updater(cartSettings.wetDrySelections));
+      } else {
+        cartSettings.setWetDrySelections(updater);
+      }
+    } else {
+      if (typeof updater === 'function') {
+        setLocalWetDrySelections(updater);
+      } else {
+        setLocalWetDrySelections(updater);
+      }
+    }
+  };
   
-  // Track gift card value selection for each gift card item
-  const [giftCardValues, setGiftCardValues] = useState<{[idx: number]: number}>({});
+  // Track gift card value selection for each gift card item - use cartSettings if provided
+  const [localGiftCardValues, setLocalGiftCardValues] = useState<{[idx: number]: number}>({});
+  const giftCardValues = cartSettings?.giftCardValues ?? localGiftCardValues;
+  const updateGiftCardValues = (updater: ((prev: {[idx: number]: number}) => {[idx: number]: number}) | {[idx: number]: number}) => {
+    if (cartSettings?.setGiftCardValues) {
+      if (typeof updater === 'function') {
+        cartSettings.setGiftCardValues(updater(cartSettings.giftCardValues));
+      } else {
+        cartSettings.setGiftCardValues(updater);
+      }
+    } else {
+      if (typeof updater === 'function') {
+        setLocalGiftCardValues(updater);
+      } else {
+        setLocalGiftCardValues(updater);
+      }
+    }
+  };
   
-  // Debug: Track giftCardValues state changes
-  useEffect(() => {
-    console.log('🔍 giftCardValues state changed:', giftCardValues);
-  }, [giftCardValues]);
   // ...existing code...
   const [orderInfo, setOrderInfo] = useState("");
   const [surface, setSurface] = useState<string>("");
   const [deliveryTime, setDeliveryTime] = useState<string>("");
   const [location, setLocation] = useState<string>("");
   const [duration, setDuration] = useState<string>("");
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isHydrated, setIsHydrated] = useState(false);
   const [unavailableItems, setUnavailableItems] = useState<Set<string>>(new Set());
   const [discountCalculation, setDiscountCalculation] = useState<DiscountCalculation>({
     discountAmount: 0,
@@ -92,33 +136,90 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
 
   // Load cart sidebar options from localStorage on component mount
   useEffect(() => {
-    const savedDuration = localStorage.getItem("cartDuration") || "";
-    const savedSurface = localStorage.getItem("cartSurface") || "";
-    const savedDeliveryTime = localStorage.getItem("cartDeliveryTime") || "";
-    const savedLocation = localStorage.getItem("cartLocation") || "";
+    setIsHydrated(true);
+    
+    const savedDuration = localStorage.getItem("cart_duration") || "";
+    const savedSurface = localStorage.getItem("cart_surface") || "";
+    const savedDeliveryTime = localStorage.getItem("cart_deliveryTime") || "";
+    const savedLocation = localStorage.getItem("cart_location") || "";
     
     setDuration(savedDuration);
     setSurface(savedSurface);
     setDeliveryTime(savedDeliveryTime);
     setLocation(savedLocation);
-  }, []);
+    setIsLoaded(true);
+
+    // Load wet/dry selections
+    const savedWetDrySelections = localStorage.getItem("cart_wetDrySelections");
+    if (savedWetDrySelections) {
+      try {
+        const parsedWetDry = JSON.parse(savedWetDrySelections);
+        
+        // Update both local state and cartSettings if available
+        setLocalWetDrySelections(parsedWetDry);
+        if (cartSettings?.setWetDrySelections) {
+          cartSettings.setWetDrySelections(parsedWetDry);
+        }
+      } catch (error) {
+        console.error("Error parsing wet/dry selections from localStorage:", error);
+      }
+    }
+
+    // Load gift card values
+    const savedGiftCardValues = localStorage.getItem("cart_giftCardValues");
+    if (savedGiftCardValues) {
+      try {
+        const parsedGiftCards = JSON.parse(savedGiftCardValues);
+        
+        // Update both local state and cartSettings if available
+        setLocalGiftCardValues(parsedGiftCards);
+        if (cartSettings?.setGiftCardValues) {
+          cartSettings.setGiftCardValues(parsedGiftCards);
+        }
+      } catch (error) {
+        console.error("Error parsing gift card values from localStorage:", error);
+      }
+    }
+  }, []); // Empty dependency array - only run once on mount
 
   // Save cart sidebar options to localStorage when they change
   useEffect(() => {
-    localStorage.setItem("cartDuration", duration);
-  }, [duration]);
+    if (isLoaded) {
+      localStorage.setItem("cart_duration", duration);
+    }
+  }, [duration, isLoaded]);
 
   useEffect(() => {
-    localStorage.setItem("cartSurface", surface);
-  }, [surface]);
+    if (isLoaded) {
+      localStorage.setItem("cart_surface", surface);
+    }
+  }, [surface, isLoaded]);
 
   useEffect(() => {
-    localStorage.setItem("cartDeliveryTime", deliveryTime);
-  }, [deliveryTime]);
+    if (isLoaded) {
+      localStorage.setItem("cart_deliveryTime", deliveryTime);
+    }
+  }, [deliveryTime, isLoaded]);
 
   useEffect(() => {
-    localStorage.setItem("cartLocation", location);
-  }, [location]);
+    if (isLoaded) {
+      localStorage.setItem("cart_location", location);
+    }
+  }, [location, isLoaded]);
+
+  // Save wet/dry selections to localStorage when they change
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem("cart_wetDrySelections", JSON.stringify(wetDrySelections));
+    }
+  }, [wetDrySelections, isLoaded]);
+
+  // Save gift card values to localStorage when they change
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem("cart_giftCardValues", JSON.stringify(giftCardValues));
+    }
+  }, [giftCardValues, isLoaded]);
 
   // Calculate end date based on duration
   const calculateEndDate = (startDate: Date, durationOption: string): Date => {
@@ -270,20 +371,7 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
     calculateDiscountAsync();
   }, [cart, cartTotal, calendarDateRange, duration, discountLogic.discounts, giftCardValues]);
 
-  // Debug: Track discountCalculation changes
-  useEffect(() => {
-    console.log('🔍 discountCalculation state changed:', {
-      appliedDiscount: discountCalculation.appliedDiscount,
-      hasValidDiscount: discountCalculation.hasValidDiscount,
-      addedGiftCards: discountCalculation.addedGiftCards.length,
-      addedGiftCardDetails: discountCalculation.addedGiftCards.map(card => ({
-        name: card.name,
-        value: card.giftCardValue,
-        category: card.category,
-        id: card.id
-      }))
-    });
-  }, [discountCalculation]);
+
 
   // Update cart items with selected gift card values
   useEffect(() => {
@@ -447,19 +535,8 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                       value={giftCardValues[originalIdx] || 50}
                       onChange={e => {
                         const value = parseInt(e.target.value);
-                        console.log('\n💳 ========== GIFT CARD VALUE DROPDOWN CHANGE ==========');
-                        console.log('🎯 Item:', item.name);
-                        console.log('🎯 Item index (originalIdx):', originalIdx);
-                        console.log('🎯 Old value:', giftCardValues[originalIdx] || 50);
-                        console.log('🎯 New value selected:', value);
-                        console.log('🎯 Current giftCardValues state:', giftCardValues);
-                        
                         const newGiftCardValues = { ...giftCardValues, [originalIdx]: value };
-                        console.log('🎯 New giftCardValues state:', newGiftCardValues);
-                        
-                        setGiftCardValues(newGiftCardValues);
-                        console.log('🎯 setGiftCardValues called with:', newGiftCardValues);
-                        console.log('💳 ========== GIFT CARD DROPDOWN CHANGE END ==========\n');
+                        updateGiftCardValues(newGiftCardValues);
                       }}
                       style={{ marginLeft: '0.5rem' }}
                       required
@@ -474,10 +551,10 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                   {!isGiftCard(item) && supportsWetDry(item) && (
                     <select
                       className="wet-dry-select"
-                      value={wetDrySelections[idx] || ""}
+                      value={wetDrySelections[originalIdx] || ""}
                       onChange={e => {
                         const value = e.target.value;
-                        setWetDrySelections(prev => ({ ...prev, [idx]: value }));
+                        updateWetDrySelections(prev => ({ ...prev, [originalIdx]: value }));
                       }}
                       style={{ marginLeft: '0.5rem' }}
                       required
@@ -559,19 +636,19 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
         <div className="cart-discounts" style={{ 
           margin: '1rem 0', 
           padding: '1rem', 
-          border: discountLogic.hasActiveDiscount() ? '2px solid #4CAF50' : '1px solid #ddd', 
+          border: (isHydrated && discountLogic.hasActiveDiscount()) ? '2px solid #4CAF50' : '1px solid #ddd', 
           borderRadius: '8px',
-          backgroundColor: discountLogic.hasActiveDiscount() ? '#f8fff8' : 'transparent'
+          backgroundColor: (isHydrated && discountLogic.hasActiveDiscount()) ? '#f8fff8' : 'transparent'
         }}>
           <h3 style={{ 
             margin: '0 0 1rem 0', 
             fontSize: '1.1rem',
-            color: discountLogic.hasActiveDiscount() ? '#2e7d32' : 'inherit'
+            color: (isHydrated && discountLogic.hasActiveDiscount()) ? '#2e7d32' : 'inherit'
           }}>
-            Active Discounts {discountLogic.hasActiveDiscount() ? '🎁' : ''}
+            Active Discounts {(isHydrated && discountLogic.hasActiveDiscount()) ? '🎁' : ''}
           </h3>
           
-          {discountLogic.hasActiveDiscount() ? (
+          {(isHydrated && discountLogic.hasActiveDiscount()) ? (
             <div>
               {/* Show active discount */}
               <div style={{ 
@@ -583,7 +660,7 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                   <span style={{ fontWeight: 'bold', color: '#2e7d32', fontSize: '1.1rem' }}>
-                    ✅ {(() => {
+                    ✅ {isHydrated ? (() => {
                       const activeDiscount = discountLogic.getActiveDiscount();
                       switch (activeDiscount) {
                         case 'sunday10': return 'Sunday 10% Off';
@@ -591,10 +668,10 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                         case 'bogoGiftCard': return 'BOGO Gift Card';
                         default: return 'Discount';
                       }
-                    })()} Applied!
+                    })() : 'Discount'} Applied!
                   </span>
                   <button 
-                    onClick={() => discountLogic.clearDiscounts()}
+                    onClick={() => isHydrated && discountLogic.clearDiscounts()}
                     style={{
                       backgroundColor: '#f44336',
                       color: 'white',
@@ -610,7 +687,7 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                   </button>
                 </div>
                 <div style={{ fontSize: '0.9rem', color: '#2e7d32', marginBottom: '0.5rem' }}>
-                  📝 {getDiscountDescription(discountLogic.getActiveDiscount())}
+                  📝 {isHydrated ? getDiscountDescription(discountLogic.getActiveDiscount()) : 'Discount details will appear after loading'}
                 </div>
                 
                 {/* BOGO Gift Card Notification */}
@@ -662,7 +739,7 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                   </div>
                 ) : (
                   <div style={{ fontSize: '0.9rem', color: '#ff9800', fontStyle: 'italic' }}>
-                    ⚠️ {(() => {
+                    ⚠️ {isHydrated ? (() => {
                       const activeDiscount = discountLogic.getActiveDiscount();
                       switch (activeDiscount) {
                         case 'sunday10': return 'Discount only applies if your event includes a Sunday';
@@ -670,14 +747,16 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                         case 'bogoGiftCard': return 'Add a $50 gift card to your cart to activate this discount';
                         default: return 'Discount requirements not met';
                       }
-                    })()}
+                    })() : 'Discount requirements not met'}
                   </div>
                 )}
               </div>
             </div>
           ) : (
             <div style={{ textAlign: 'center', color: '#666', fontSize: '0.9rem', fontStyle: 'italic' }}>
-              {discountLogic.isUserAuthenticated() ? (
+              {!isHydrated ? (
+                <span>🔒 Please log in to use discount codes</span>
+              ) : discountLogic.isUserAuthenticated() ? (
                 <span>💡 Click a promo card above to activate a discount</span>
               ) : (
                 <span>🔒 Please log in to use discount codes</span>

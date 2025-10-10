@@ -240,10 +240,7 @@ export function useDiscounts() {
     cartTotal: number, 
     calendarDateRange: [Date | null, Date | null]
   ): Promise<DiscountCalculation> => {
-    console.log('\n🔄 ========== MAIN DISCOUNT CALCULATION ==========');
-    console.log('📊 Cart items received:', cart.length);
-    console.log('💰 Cart total:', cartTotal);
-    console.log('📅 Calendar range:', calendarDateRange);
+   
     
     cart.forEach((item, index) => {
       console.log(`  ${index + 1}. ${item.name} (${item.category}) - $${item.price}`);
@@ -253,11 +250,8 @@ export function useDiscounts() {
     });
     
     const activeDiscount = getActiveDiscount();
-    console.log('\n🎯 Active discount:', activeDiscount);
     
     if (!activeDiscount) {
-      console.log('⚠️ No active discount found');
-      console.log('🔄 ========== DISCOUNT CALCULATION END ==========\n');
       return {
         discountAmount: 0,
         appliedDiscount: null,
@@ -275,8 +269,7 @@ export function useDiscounts() {
     console.log('👤 User authenticated:', isAuthenticated);
     
     if (!isAuthenticated) {
-      console.log('❌ User not authenticated - discount blocked');
-      console.log('🔄 ========== DISCOUNT CALCULATION END ==========\n');
+
       return {
         discountAmount: 0,
         appliedDiscount: activeDiscount,

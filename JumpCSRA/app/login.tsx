@@ -116,7 +116,6 @@ const handleCompleteProfile = async (e: React.FormEvent) => {
       lastUpdated: new Date().toISOString(),
     }, { merge: true });
 
-    console.log("✅ Profile completed with usedDiscounts array");
     await updatePassword(pendingUser, password);
 
     setNeedsProfile(false);
@@ -177,7 +176,6 @@ const handleGoogleResult = async (user: any) => {
       { merge: true } // don't overwrite existing data
     );
 
-    console.log("✅ Google user saved with usedDiscounts array");
     setRedirect(true);
   } catch (err: any) {
     console.error("Error saving Google user:", err);
@@ -260,9 +258,6 @@ useEffect(() => {
       });
 
       await sendEmailVerification(userCred.user);
-      console.log("Verification email sent to:", userCred.user.email);
-      console.log("✅ User document created with usedDiscounts array");
-
       setPendingUser(userCred.user);
       setShowVerifyMsg(true);
       setError(null);
@@ -420,7 +415,6 @@ useEffect(() => {
             onClick={async () => {
               if (pendingUser) {
                 await sendEmailVerification(pendingUser);
-                console.log("Resent verification email to:", pendingUser.email);
                 setError("Verification email resent!");
               }
             }}
