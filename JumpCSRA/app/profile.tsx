@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from "react";
 import type { User as FirebaseUser } from "firebase/auth";
 import { useNavigate } from "react-router";
+import { RouterNav } from "./components/RouterNav";
 import { auth, firestore } from "./components/FirebaseConfig";
 import { onAuthStateChanged, unlink  } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import "./styles/profile.css";
+import { useInflateables } from "./hooks/useInflateables";
+import { useCategories } from "./hooks/useCategories";
+import type { CartItem } from "./components/CartSidebar";
 
 const TABS = ["Profile Information", "Past Events"];
 
@@ -45,6 +49,14 @@ export default function Profile() {
   const [phoneError, setPhoneError] = useState<string | null>(null);
 
   const navigate = useNavigate();
+  
+  // Add hooks for navbar functionality
+  const inflateables = useInflateables();
+  const categories = useCategories(inflateables);
+  
+  // Cart and calendar data for navbar
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [calendarDateRange, setCalendarDateRange] = useState<[Date | null, Date | null]>([null, null]);
 
   // 🔐 Re-authenticate user
   const handleConfirmPassword = async () => {
@@ -150,6 +162,31 @@ export default function Profile() {
     return () => unsubscribe();
   }, [pendingEmail]);
 
+  // Load cart and calendar data for navbar
+  useEffect(() => {
+    const savedCart = localStorage.getItem('cart');
+    if (savedCart) {
+      try {
+        setCart(JSON.parse(savedCart));
+      } catch (error) {
+        console.error('Error loading cart from localStorage:', error);
+      }
+    }
+
+    const savedDates = localStorage.getItem('calendarDateRange');
+    if (savedDates) {
+      try {
+        const parsed = JSON.parse(savedDates);
+        setCalendarDateRange([
+          parsed[0] ? new Date(parsed[0]) : null,
+          parsed[1] ? new Date(parsed[1]) : null,
+        ]);
+      } catch (error) {
+        console.error('Error loading calendar dates from localStorage:', error);
+      }
+    }
+  }, []);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
   };
@@ -212,10 +249,12 @@ export default function Profile() {
   }
 
   return (
-    <div className="profile-container">
-      
+    <>
+      <RouterNav />
+      <div className="profile-container">
+        
 
-      <div className="profile-left">
+        <div className="profile-left">
         <div className="profile-tabs">
           {TABS.map((tab, idx) => (
             <button
@@ -630,5 +669,6 @@ export default function Profile() {
       </div>
       </div>
     </div>
+    </>
   );
 }

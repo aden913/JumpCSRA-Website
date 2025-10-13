@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import { LocalStorageDebugger } from "../components/LocalStorageDebugger";
+import { RouterNav } from "../components/RouterNav";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, firestore } from "../components/FirebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
@@ -8,6 +9,7 @@ import type { User as FirebaseUser } from "firebase/auth";
 import type { CartItem } from "../components/CartSidebar";
 import { useInflateables } from "../hooks/useInflateables";
 import { useCartSettings } from "../hooks/useCartSettings";
+import { useCategories } from "../hooks/useCategories";
 
 export function meta() {
   return [
@@ -22,6 +24,7 @@ export default function Checkout() {
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
   const inflateables = useInflateables();
+  const categories = useCategories(inflateables);
   
   // Cart sidebar options - use persistent cart settings
   const cartSettings = useCartSettings();
@@ -477,6 +480,10 @@ Signed on: ${new Date().toLocaleDateString()}
   return (
     <>
       <LocalStorageDebugger />
+      <RouterNav
+        categories={categories}
+        onCategoryChange={() => {}} // No-op on checkout page since we don't filter products here
+      />
       <div style={{ 
         maxWidth: '1200px', 
         margin: '0 auto', 
