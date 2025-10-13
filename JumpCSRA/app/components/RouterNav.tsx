@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link, useNavigate, useLocation } from "react-router";
 import "../styles/navbar.css";
 import "../styles/cart.css";
 
@@ -6,16 +6,70 @@ type RouterNavProps = {
   onNavClick?: (type: string) => void;
   cartCount?: number;
   selectedDates?: [Date | null, Date | null];
+  categories?: string[];
+  onCategoryChange?: (category: string) => void;
 };
 
-export function RouterNav({ onNavClick, cartCount, selectedDates }: RouterNavProps) {
+export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [], onCategoryChange }: RouterNavProps) {
   const formatDate = (date: Date | null) => date ? date.toLocaleDateString() : "--";
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleCategoryChange = (category: string) => {
+    // If not on home page, navigate to home first
+    if (location.pathname !== '/home') {
+      navigate('/home');
+      // Use a timeout to allow navigation to complete before filtering
+      setTimeout(() => {
+        onCategoryChange?.(category);
+        scrollToOptionsCarousel();
+      }, 100);
+    } else {
+      // Already on home page, just filter and scroll
+      onCategoryChange?.(category);
+      scrollToOptionsCarousel();
+    }
+  };
+
+  const scrollToOptionsCarousel = () => {
+    // Scroll to options carousel
+    setTimeout(() => {
+      const optionsSection = document.querySelector('.options-section');
+      if (optionsSection) {
+        optionsSection.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }
+    }, 200);
+  };
+
   return (
     <nav className="nav-bar">
       <ul>
-        <Link to="/" style={{ display: "inline-block" }}>
+        <Link to="/home" style={{ display: "inline-block" }}>
           <img src="/logov2.png" alt="JumpCSRA Logo" className="nav-logo" />
         </Link>
+        
+        {/* Category Dropdown */}
+        {categories.length > 0 && (
+          <div className="navbar-category-dropdown-container">
+            <select
+              className="navbar-category-dropdown"
+              onChange={(e) => handleCategoryChange(e.target.value)}
+              defaultValue=""
+            >
+              <option value="" disabled>
+                Browse Categories
+              </option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="icon-container">
           <li style={{ position: "relative" }}>
             <button type="button" className="nav-btn calendar-btn" onClick={() => {

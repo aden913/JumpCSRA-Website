@@ -217,6 +217,8 @@ export function Welcome() {
           onNavClick={logic.handleNavClick}
           cartCount={logic.cart.reduce((sum: number, item: CartItem) => sum + item.quantity, 0)}
           selectedDates={logic.calendarDateRange}
+          categories={logic.categories}
+          onCategoryChange={logic.setSelectedCategory}
         />
         <CalendarSidebar
           open={logic.calendarOpen || !logic.hasValidDates}
