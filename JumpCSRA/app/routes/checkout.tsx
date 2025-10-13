@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import { LocalStorageDebugger } from "../components/LocalStorageDebugger";
 import { RouterNav } from "../components/RouterNav";
+import { GooglePlacesAutocomplete } from "../components/GooglePlacesAutocomplete";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, firestore } from "../components/FirebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
@@ -654,24 +655,18 @@ Signed on: ${new Date().toLocaleDateString()}
           Delivery cost is $6 per mile from our location in North Augusta, SC.
         </p>
         
-        <div style={{ position: 'relative', marginBottom: '1rem' }}>
-          <input
-            type="text"
-            placeholder="Enter delivery address..."
+        <div style={{ marginBottom: '1rem' }}>
+          <GooglePlacesAutocomplete
             value={deliveryAddress}
-            onChange={(e) => {
-              setDeliveryAddress(e.target.value);
-              debouncedSearchAddresses(e.target.value);
-            }}
-            onFocus={() => {
-              if (addressSuggestions.length > 0) {
-                setShowSuggestions(true);
+            onChange={setDeliveryAddress}
+            onPlaceSelected={(place) => {
+              if (place.formatted_address) {
+                setDeliveryAddress(place.formatted_address);
+                // Automatically calculate distance when a place is selected
+                calculateDeliveryDistance(place.formatted_address);
               }
             }}
-            onBlur={() => {
-              // Delay hiding suggestions to allow clicking on them
-              setTimeout(() => setShowSuggestions(false), 200);
-            }}
+            placeholder="Enter delivery address..."
             style={{ 
               width: '100%', 
               padding: '0.75rem', 
@@ -680,47 +675,6 @@ Signed on: ${new Date().toLocaleDateString()}
               borderRadius: '4px'
             }}
           />
-          
-          {/* Address Suggestions Dropdown */}
-          {showSuggestions && addressSuggestions.length > 0 && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: 0,
-              backgroundColor: 'white',
-              border: '1px solid #ddd',
-              borderTop: 'none',
-              borderRadius: '0 0 4px 4px',
-              maxHeight: '200px',
-              overflowY: 'auto',
-              zIndex: 1000,
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-            }}>
-              {addressSuggestions.map((suggestion, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => {
-                    setDeliveryAddress(suggestion);
-                    setShowSuggestions(false);
-                  }}
-                  style={{
-                    padding: '0.75rem',
-                    cursor: 'pointer',
-                    borderBottom: idx < addressSuggestions.length - 1 ? '1px solid #eee' : 'none'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#f8f9fa';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'white';
-                  }}
-                >
-                  {suggestion}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
         
         <button

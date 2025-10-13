@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import type { User as FirebaseUser } from "firebase/auth";
 import { useNavigate } from "react-router";
 import { RouterNav } from "./components/RouterNav";
+import { GooglePlacesAutocomplete } from "./components/GooglePlacesAutocomplete";
 import { auth, firestore } from "./components/FirebaseConfig";
 import { onAuthStateChanged, unlink  } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
@@ -195,6 +196,52 @@ export default function Profile() {
   const handlePhoneChange = (value: string | undefined) => {
     setProfile({ ...profile, phone: value ?? "" });
     setPhoneError(null);
+  };
+
+  // Handle Google Places address selection
+  const handlePlaceSelected = (place: google.maps.places.PlaceResult) => {
+    if (!place.address_components) return;
+
+    const addressComponents = place.address_components;
+    let streetNumber = '';
+    let streetName = '';
+    let city = '';
+    let state = '';
+    let zipCode = '';
+
+    // Extract address components
+    addressComponents.forEach(component => {
+      const types = component.types;
+      
+      if (types.includes('street_number')) {
+        streetNumber = component.long_name;
+      } else if (types.includes('route')) {
+        streetName = component.long_name;
+      } else if (types.includes('locality') || types.includes('administrative_area_level_3')) {
+        city = component.long_name;
+      } else if (types.includes('administrative_area_level_1')) {
+        state = component.short_name;
+      } else if (types.includes('postal_code')) {
+        zipCode = component.long_name;
+      }
+    });
+
+    // Build full address
+    const fullAddress = `${streetNumber} ${streetName}`.trim();
+
+    // Update profile with all address information
+    setProfile(prev => ({
+      ...prev,
+      address: fullAddress,
+      city: city,
+      state: state,
+      zip: zipCode
+    }));
+  };
+
+  // Handle manual address input change
+  const handleAddressChange = (value: string) => {
+    setProfile({ ...profile, address: value });
   };
 
   const handleSave = async () => {
@@ -554,12 +601,14 @@ export default function Profile() {
             </div>
             <div className="profile-row">
               <label>Address:</label>
-              <input
+              <GooglePlacesAutocomplete
                 name="address"
                 value={profile.address}
-                onChange={handleChange}
+                onChange={handleAddressChange}
+                onPlaceSelected={handlePlaceSelected}
                 disabled={!editing}
                 style={!editing ? { backgroundColor: "#f0f0f0", color: "#888" } : {}}
+                placeholder="Enter your address"
               />
             </div>
             <div className="profile-row">

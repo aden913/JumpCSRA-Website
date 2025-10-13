@@ -7,7 +7,7 @@
   ],
   "compilerOptions": {
   "lib": ["DOM", "DOM.Iterable", "ES2022"],
-  "types": ["node", "vite/client", "jest"],
+  "types": ["node", "vite/client", "jest", "@types/google.maps"],
   "target": "ES2022",
   "module": "ESNext",
   "moduleResolution": "bundler",
