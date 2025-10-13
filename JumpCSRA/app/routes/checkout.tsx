@@ -55,6 +55,19 @@ export default function Checkout() {
     return product.img;
   };
 
+  // Function to remove item from cart
+  const removeItemFromCart = (indexToRemove: number) => {
+    const updatedCart = cart.filter((_, index) => index !== indexToRemove);
+    setCart(updatedCart);
+    
+    // Update localStorage
+    if (updatedCart.length === 0) {
+      localStorage.removeItem('cart');
+    } else {
+      localStorage.setItem('cart', JSON.stringify(updatedCart));
+    }
+  };
+
   // Checkout-specific state
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
   const [deliveryCost, setDeliveryCost] = useState<number>(0);
@@ -547,12 +560,32 @@ Signed on: ${new Date().toLocaleDateString()}
                 </div>
               </div>
               
-              {/* Price */}
-              <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
-                ${item.isGiftCard 
-                  ? ((item.giftCardValue || item.price) * item.quantity).toFixed(2)
-                  : (item.price * item.quantity * durationMultiplier).toFixed(2)
-                }
+              {/* Price and Remove Button */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                  ${item.isGiftCard 
+                    ? ((item.giftCardValue || item.price) * item.quantity).toFixed(2)
+                    : (item.price * item.quantity * durationMultiplier).toFixed(2)
+                  }
+                </div>
+                <button
+                  onClick={() => removeItemFromCart(idx)}
+                  style={{
+                    background: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '0.5rem 0.75rem',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: 'bold',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.background = '#c82333'}
+                  onMouseOut={(e) => e.currentTarget.style.background = '#dc3545'}
+                >
+                  Remove
+                </button>
               </div>
             </div>
           ))}
