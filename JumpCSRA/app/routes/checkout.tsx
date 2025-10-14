@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { flushSync } from "react-dom";
 import { useNavigate } from "react-router";
 import { LocalStorageDebugger } from "../components/LocalStorageDebugger";
 import { RouterNav } from "../components/RouterNav";
@@ -74,12 +75,12 @@ export default function Checkout() {
   const [deliveryCost, setDeliveryCost] = useState<number>(0);
   const [contractSigned, setContractSigned] = useState<boolean>(false);
   const [showContract, setShowContract] = useState<boolean>(false);
-  const [addressSuggestions, setAddressSuggestions] = useState<string[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState<boolean>(false);
   const [calculatingDistance, setCalculatingDistance] = useState<boolean>(false);
-  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
-  const [lastSearchQuery, setLastSearchQuery] = useState<string>("");
-  const [searchCache, setSearchCache] = useState<{[key: string]: string[]}>({});
+  
+  // Google Places validation state
+  const [googlePlacesAddresses, setGooglePlacesAddresses] = useState<Set<string>>(new Set());
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const [isSelectingGooglePlace, setIsSelectingGooglePlace] = useState<boolean>(false);
   
   // Last-minute additions state
   const [lastMinuteAdditions, setLastMinuteAdditions] = useState<{[key: string]: number}>({});
@@ -94,74 +95,29 @@ export default function Checkout() {
   // Base location for distance calculation
   const BASE_LOCATION = "410 Carolina Springs Rd, North Augusta, SC 29841";
 
-  // Optimized address autocomplete with debouncing and caching
-  const searchAddresses = async (query: string) => {
-    // Don't search for very short queries
-    if (query.length < 3) {
-      setAddressSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-
-    // Don't search if query hasn't changed significantly
-    if (query === lastSearchQuery) {
-      return;
-    }
-
-    // Check cache first
-    const cacheKey = query.toLowerCase().trim();
-    if (searchCache[cacheKey]) {
-      setAddressSuggestions(searchCache[cacheKey]);
-      setShowSuggestions(searchCache[cacheKey].length > 0);
-      setLastSearchQuery(query);
-      return;
-    }
-
-    try {
-      // Using Nominatim API for free address autocomplete (restricted to US)
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&countrycodes=us&q=${encodeURIComponent(query)}`
-      );
-      const data = await response.json();
-      
-      const suggestions = data.map((item: any) => item.display_name);
-      
-      // Cache the results
-      setSearchCache(prev => ({
-        ...prev,
-        [cacheKey]: suggestions
-      }));
-      
-      setAddressSuggestions(suggestions);
-      setShowSuggestions(suggestions.length > 0);
-      setLastSearchQuery(query);
-    } catch (error) {
-      console.error("Error fetching address suggestions:", error);
-      setAddressSuggestions([]);
-      setShowSuggestions(false);
-    }
-  };
-
-  // Debounced search function
-  const debouncedSearchAddresses = (query: string) => {
-    // Clear previous timeout
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
-    }
-
-    // Set new timeout
-    const newTimeout = setTimeout(() => {
-      searchAddresses(query);
-    }, 500); // Wait 500ms after user stops typing
-
-    setSearchTimeout(newTimeout);
-  };
+  // Track deliveryAddress state changes for debugging
+  useEffect(() => {
+    console.log('🔄 DELIVERY ADDRESS STATE CHANGED:', deliveryAddress);
+  }, [deliveryAddress]);
 
   // Calculate driving distance using OSRM (free routing service)
   const calculateDeliveryDistance = async (destinationAddress: string) => {
+    console.log('🚚 DELIVERY COST CALCULATION STARTED:');
+    console.log('  - Function called with destinationAddress:', destinationAddress);
+    console.log('  - Current deliveryAddress state:', deliveryAddress);
+    console.log('  - Current input field value:', addressInputRef.current?.value);
+    console.log('  - Base location:', BASE_LOCATION);
+    console.log('  - Known Google Places addresses:', Array.from(googlePlacesAddresses));
+    
     setCalculatingDistance(true);
     try {
       // First, geocode both addresses
+      console.log('  📍 GEOCODING STEP:');
+      console.log('    - Base location for geocoding:', BASE_LOCATION);
+      console.log('    - Destination address for geocoding:', destinationAddress);
+      console.log('    - Base geocoding URL:', `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(BASE_LOCATION)}`);
+      console.log('    - Destination geocoding URL:', `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=${encodeURIComponent(destinationAddress)}`);
+      
       const [baseResponse, destResponse] = await Promise.all([
         fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(BASE_LOCATION)}`),
         fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=${encodeURIComponent(destinationAddress)}`)
@@ -171,6 +127,10 @@ export default function Checkout() {
         baseResponse.json(),
         destResponse.json()
       ]);
+      
+      console.log('    - Base geocoding results:', baseData);
+      console.log('    - Destination geocoding results:', destData);
+      console.log('    - Base results count:', baseData.length, '| Destination results count:', destData.length);
 
       if (baseData.length === 0 || destData.length === 0) {
         throw new Error("Could not find one or both addresses");
@@ -181,16 +141,37 @@ export default function Checkout() {
       const destLat = parseFloat(destData[0].lat);
       const destLon = parseFloat(destData[0].lon);
 
+      console.log('  📍 COORDINATE EXTRACTION:');
+      console.log('    - Base coordinates:', { lat: baseLat, lon: baseLon });
+      console.log('    - Destination coordinates:', { lat: destLat, lon: destLon });
+      console.log('    - Base location name:', baseData[0].display_name);
+      console.log('    - Destination location name:', destData[0].display_name);
+
       // Use OSRM API for driving distance calculation
-      const routeResponse = await fetch(
-        `https://router.project-osrm.org/route/v1/driving/${baseLon},${baseLat};${destLon},${destLat}?overview=false`
-      );
+      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${baseLon},${baseLat};${destLon},${destLat}?overview=false`;
+      console.log('  🛣️  OSRM ROUTING REQUEST:');
+      console.log('    - OSRM URL:', osrmUrl);
+      
+      const routeResponse = await fetch(osrmUrl);
       const routeData = await routeResponse.json();
+
+      console.log('    - OSRM response status:', routeResponse.status);
+      console.log('    - OSRM route data:', routeData);
+      console.log('    - Number of routes found:', routeData.routes?.length || 0);
 
       if (routeData.routes && routeData.routes.length > 0) {
         const distanceMeters = routeData.routes[0].distance;
         const distanceMiles = distanceMeters * 0.000621371; // Convert meters to miles
         const cost = Math.round(distanceMiles * 6); // $6 per mile, rounded
+        
+        console.log('  💰 COST CALCULATION:');
+        console.log('    - Distance in meters:', distanceMeters);
+        console.log('    - Distance in miles:', distanceMiles.toFixed(2));
+        console.log('    - Rate per mile: $6');
+        console.log('    - Raw cost calculation:', distanceMiles * 6);
+        console.log('    - Final rounded cost: $' + cost);
+        console.log('    - Address used for calculation:', destinationAddress);
+        console.log('    - Is this a Google Places address?:', googlePlacesAddresses.has(destinationAddress));
         
         setDeliveryCost(cost);
         alert(`Delivery distance: ${distanceMiles.toFixed(1)} miles\nDelivery cost: $${cost}`);
@@ -198,11 +179,85 @@ export default function Checkout() {
         throw new Error("Could not calculate route");
       }
     } catch (error) {
-      console.error("Error calculating delivery distance:", error);
+      console.error('❌ DELIVERY COST CALCULATION ERROR:', error);
+      console.log('  - Failed with address:', destinationAddress);
+      console.log('  - Current deliveryAddress state:', deliveryAddress);
+      console.log('  - Current input field value:', addressInputRef.current?.value);
       alert("Error calculating delivery distance. Please verify the address and try again.");
     } finally {
+      console.log('🏁 DELIVERY COST CALCULATION FINISHED');
       setCalculatingDistance(false);
     }
+  };
+
+  // Handle Google Places address selection
+  const handlePlaceSelected = (place: google.maps.places.PlaceResult) => {
+    // Only accept valid places with formatted address and location
+    if (place.formatted_address && place.geometry?.location && place.place_id) {
+      const googleAddress = place.formatted_address;
+      
+      console.log('🎯 GOOGLE PLACES SELECTION:');
+      console.log('  - Raw place object:', place);
+      console.log('  - Formatted address from Google:', googleAddress);
+      console.log('  - Current input field value:', addressInputRef.current?.value);
+      console.log('  - Current deliveryAddress state:', deliveryAddress);
+      
+      // Set flag to prevent manual input from overriding this selection
+      setIsSelectingGooglePlace(true);
+      
+      // Add this address to our set of valid Google Places addresses
+      setGooglePlacesAddresses(prev => new Set(prev).add(googleAddress));
+      
+      // Update delivery address with the Google address using flushSync for immediate update
+      flushSync(() => {
+        setDeliveryAddress(googleAddress);
+      });
+      
+      // Also update the input field directly to ensure it shows the Google address
+      if (addressInputRef.current) {
+        addressInputRef.current.value = googleAddress;
+      }
+      
+      console.log('  - Called setDeliveryAddress with flushSync:', googleAddress);
+      console.log('  - Updated input field to:', googleAddress);
+      console.log('  - Immediate deliveryAddress state is now:', deliveryAddress);
+      
+      // Double-check that the state was updated properly
+      if (deliveryAddress !== googleAddress) {
+        console.warn('  - WARNING: State did not update immediately!');
+        console.log('  - Expected:', googleAddress);
+        console.log('  - Actual:', deliveryAddress);
+        // Try setting it again as fallback
+        setDeliveryAddress(googleAddress);
+      }
+      
+      // Clear the flag after a short delay
+      setTimeout(() => {
+        setIsSelectingGooglePlace(false);
+      }, 100);
+      
+      // Automatically calculate distance when a place is selected
+      calculateDeliveryDistance(googleAddress);
+    }
+  };
+
+  // Handle manual address input change
+  const handleAddressChange = (value: string) => {
+    console.log('📝 MANUAL ADDRESS CHANGE:');
+    console.log('  - Typed value:', value);
+    console.log('  - Previous deliveryAddress state:', deliveryAddress);
+    console.log('  - Current input field value:', addressInputRef.current?.value);
+    console.log('  - Is currently selecting Google Place?:', isSelectingGooglePlace);
+    
+    // Don't override if we're currently selecting a Google Place
+    if (isSelectingGooglePlace) {
+      console.log('  - BLOCKED: Google Place selection in progress, ignoring manual change');
+      return;
+    }
+    
+    setDeliveryAddress(value);
+    
+    console.log('  - Updated deliveryAddress to:', value);
   };
 
   // Authentication guard
@@ -220,14 +275,7 @@ export default function Checkout() {
     return () => unsubscribe();
   }, [navigate]);
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (searchTimeout) {
-        clearTimeout(searchTimeout);
-      }
-    };
-  }, [searchTimeout]);
+
 
   // Load cart and settings from localStorage
   useEffect(() => {
@@ -400,6 +448,39 @@ export default function Checkout() {
       return;
     }
 
+    // Validate delivery address - must be from Google Places if provided
+    const actualAddressValue = addressInputRef.current?.value || '';
+    if (actualAddressValue && actualAddressValue.trim()) {
+      const isGooglePlacesAddress = googlePlacesAddresses.has(actualAddressValue);
+      
+      // Check if address has Google Places formatting characteristics
+      const hasCommas = actualAddressValue.includes(',');
+      const hasCountry = actualAddressValue.toUpperCase().includes('USA') || 
+                        actualAddressValue.toUpperCase().includes('UNITED STATES');
+      const hasStateZip = /,\s*[A-Z]{2}[\s,]/.test(actualAddressValue); // Pattern like ", SC " or ", SC,"
+      
+      const looksLikeGooglePlaces = hasCommas && (hasCountry || hasStateZip);
+      
+      if (!isGooglePlacesAddress && !looksLikeGooglePlaces) {
+        alert("Please select a valid delivery address from the Google Places suggestions instead of typing manually.");
+        return;
+      }
+      
+      // Update the delivery address with the actual input field value
+      setDeliveryAddress(actualAddressValue);
+      
+      // If it looks like Google Places but wasn't in our set, add it
+      if (looksLikeGooglePlaces && !isGooglePlacesAddress) {
+        setGooglePlacesAddresses(prev => new Set(prev).add(actualAddressValue));
+      }
+    } else {
+      alert("Please enter a delivery address.");
+      return;
+    }
+
+    // Use the validated address for the contract
+    const validatedDeliveryAddress = actualAddressValue || deliveryAddress;
+
     try {
       const contractId = `contract_${user.uid}_${Date.now()}`;
       const contractDoc = {
@@ -416,7 +497,7 @@ export default function Checkout() {
           surface: cartSettings.surface,
           deliveryTime: cartSettings.deliveryTime,
           location: cartSettings.location,
-          deliveryAddress: deliveryAddress,
+          deliveryAddress: validatedDeliveryAddress,
           eventDate: calendarDateRange,
           total: total,
           subtotal: subtotal,
@@ -430,7 +511,7 @@ This rental agreement is between Jump CSRA Party Rental and ${user.displayName |
 RENTAL DETAILS:
 - Event Date: ${calendarDateRange[0]?.toLocaleDateString()} - ${calendarDateRange[1]?.toLocaleDateString()}
 - Duration: ${cartSettings.duration}
-- Delivery Address: ${deliveryAddress}
+- Delivery Address: ${validatedDeliveryAddress}
 - Total Amount: $${total.toFixed(2)}
 
 TERMS AND CONDITIONS:
@@ -658,15 +739,10 @@ Signed on: ${new Date().toLocaleDateString()}
         <div style={{ marginBottom: '1rem' }}>
           <GooglePlacesAutocomplete
             value={deliveryAddress}
-            onChange={setDeliveryAddress}
-            onPlaceSelected={(place) => {
-              if (place.formatted_address) {
-                setDeliveryAddress(place.formatted_address);
-                // Automatically calculate distance when a place is selected
-                calculateDeliveryDistance(place.formatted_address);
-              }
-            }}
-            placeholder="Enter delivery address..."
+            onChange={handleAddressChange}
+            onPlaceSelected={handlePlaceSelected}
+            placeholder="Select delivery address from Google Places suggestions"
+            inputRef={addressInputRef}
             style={{ 
               width: '100%', 
               padding: '0.75rem', 
@@ -679,9 +755,31 @@ Signed on: ${new Date().toLocaleDateString()}
         
         <button
           onClick={() => {
-            if (deliveryAddress.trim()) {
-              setShowSuggestions(false);
-              calculateDeliveryDistance(deliveryAddress);
+            const inputValue = addressInputRef.current?.value?.trim();
+            if (inputValue) {
+              console.log('🔄 CALCULATE BUTTON CLICKED:');
+              console.log('  - Input field value:', inputValue);
+              console.log('  - Current deliveryAddress state:', deliveryAddress);
+              
+              // Update deliveryAddress state to match input field content
+              flushSync(() => {
+                setDeliveryAddress(inputValue);
+              });
+              
+              console.log('  - Updated deliveryAddress to:', inputValue);
+              
+              // If this looks like a Google Places address, add it to the validation set
+              const looksLikeGooglePlaces = inputValue.includes(',') && 
+                (inputValue.toUpperCase().includes('USA') || 
+                 inputValue.toUpperCase().includes('UNITED STATES') || 
+                 /,\s*[A-Z]{2}[\s,]/.test(inputValue));
+              
+              if (looksLikeGooglePlaces) {
+                setGooglePlacesAddresses(prev => new Set(prev).add(inputValue));
+                console.log('  - Added to Google Places addresses:', inputValue);
+              }
+              
+              calculateDeliveryDistance(inputValue);
             } else {
               alert("Please enter a delivery address first.");
             }
@@ -1002,7 +1100,30 @@ Signed on: ${new Date().toLocaleDateString()}
         marginTop: '2rem'
       }}>
         <button
-          onClick={() => setShowContract(true)}
+          onClick={() => {
+            // Validate delivery address before showing contract
+            const actualAddressValue = addressInputRef.current?.value || '';
+            if (!actualAddressValue || !actualAddressValue.trim()) {
+              alert("Please enter a delivery address before proceeding.");
+              return;
+            }
+            
+            const isGooglePlacesAddress = googlePlacesAddresses.has(actualAddressValue);
+            const hasCommas = actualAddressValue.includes(',');
+            const hasCountry = actualAddressValue.toUpperCase().includes('USA') || 
+                              actualAddressValue.toUpperCase().includes('UNITED STATES');
+            const hasStateZip = /,\s*[A-Z]{2}[\s,]/.test(actualAddressValue);
+            const looksLikeGooglePlaces = hasCommas && (hasCountry || hasStateZip);
+            
+            if (!isGooglePlacesAddress && !looksLikeGooglePlaces) {
+              alert("Please select a valid delivery address from the Google Places suggestions instead of typing manually.");
+              return;
+            }
+            
+            // Update delivery address and proceed
+            setDeliveryAddress(actualAddressValue);
+            setShowContract(true);
+          }}
           style={{
             backgroundColor: contractSigned ? '#28a745' : '#ffc107',
             color: contractSigned ? 'white' : 'black',

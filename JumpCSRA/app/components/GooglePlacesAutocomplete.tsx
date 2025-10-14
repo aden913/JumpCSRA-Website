@@ -77,20 +77,24 @@ export function GooglePlacesAutocomplete({
           // Use Google's exact formatted address
           const validatedAddress = place.formatted_address;
           
-          // Update the input field with the validated address
-          if (inputRef.current) {
-            inputRef.current.value = validatedAddress;
-          }
-          
           // Call onPlaceSelected first to mark as valid Google selection
           if (onPlaceSelected) {
             onPlaceSelected(place);
           }
           
-          // Call onChange after onPlaceSelected to update the input value
+          // Call onChange to update the parent state immediately
+          // This ensures the input field gets the correct value from the parent
           if (onChange) {
             onChange(validatedAddress);
           }
+          
+          // Ensure the input field shows the validated address
+          // This is a backup in case the parent state update is delayed
+          setTimeout(() => {
+            if (inputRef.current && inputRef.current.value !== validatedAddress) {
+              inputRef.current.value = validatedAddress;
+            }
+          }, 10);
           
           // Reset flag after a short delay
           setTimeout(() => setIsSelectingPlace(false), 100);

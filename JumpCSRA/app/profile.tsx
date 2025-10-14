@@ -60,6 +60,7 @@ export default function Profile() {
   // Track Google Places selections for validation on save
   const [googlePlacesAddresses, setGooglePlacesAddresses] = useState<Set<string>>(new Set());
   const addressInputRef = useRef<HTMLInputElement>(null);
+  const [isSelectingGooglePlace, setIsSelectingGooglePlace] = useState<boolean>(false);
 
 
 
@@ -177,6 +178,14 @@ export default function Profile() {
     return () => unsubscribe();
   }, [pendingEmail]);
 
+  // Sync input field with profile address when profile loads
+  useEffect(() => {
+    if (addressInputRef.current && profile.address && !isSelectingGooglePlace) {
+      addressInputRef.current.value = profile.address;
+      console.log('🔄 PROFILE - Synced input field with profile address:', profile.address);
+    }
+  }, [profile.address, isSelectingGooglePlace]);
+
   // Load cart and calendar data for navbar
   useEffect(() => {
     const savedCart = localStorage.getItem('cart');
@@ -220,6 +229,14 @@ export default function Profile() {
     if (place.formatted_address && place.geometry?.location && place.place_id) {
       const googleAddress = place.formatted_address;
       
+      console.log('🎯 PROFILE - GOOGLE PLACES SELECTION:');
+      console.log('  - Formatted address from Google:', googleAddress);
+      console.log('  - Current input field value:', addressInputRef.current?.value);
+      console.log('  - Current profile address state:', profile.address);
+      
+      // Set flag to prevent manual input from overriding this selection
+      setIsSelectingGooglePlace(true);
+      
       // Add this address to our set of valid Google Places addresses
       setGooglePlacesAddresses(prev => new Set(prev).add(googleAddress));
       
@@ -228,12 +245,38 @@ export default function Profile() {
         ...prev,
         address: googleAddress,
       }));
+      
+      // Also update the input field directly to ensure it shows the Google address
+      if (addressInputRef.current) {
+        addressInputRef.current.value = googleAddress;
+      }
+      
+      console.log('  - Updated profile address to:', googleAddress);
+      console.log('  - Updated input field to:', googleAddress);
+      
+      // Clear the flag after a short delay
+      setTimeout(() => {
+        setIsSelectingGooglePlace(false);
+      }, 100);
     }
   };
 
   // Handle manual address input change
   const handleAddressChange = (value: string) => {
+    console.log('📝 PROFILE - MANUAL ADDRESS CHANGE:');
+    console.log('  - Typed value:', value);
+    console.log('  - Previous profile address:', profile.address);
+    console.log('  - Current input field value:', addressInputRef.current?.value);
+    console.log('  - Is currently selecting Google Place?:', isSelectingGooglePlace);
+    
+    // Don't override if we're currently selecting a Google Place
+    if (isSelectingGooglePlace) {
+      console.log('  - BLOCKED: Google Place selection in progress, ignoring manual change');
+      return;
+    }
+    
     setProfile(prev => ({ ...prev, address: value }));
+    console.log('  - Updated profile address to:', value);
     // No validation here - we'll only validate on save
   };
 
