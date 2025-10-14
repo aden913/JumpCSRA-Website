@@ -124,6 +124,7 @@ export default function Profile() {
 
       if (docSnap.exists()) {
         const data = docSnap.data();
+        
         // Convert phone to E.164 format if it exists and doesn't start with +
         let phone = data.phone || "";
         if (phone && !phone.startsWith("+")) {
@@ -135,6 +136,18 @@ export default function Profile() {
           ...data,
           phone,
         }));
+        
+        // If we have a valid address, add it to known Google addresses
+        if (data.address && typeof data.address === 'string') {
+          const hasCommas = data.address.includes(',');
+          const hasCountry = data.address.toUpperCase().includes('USA') || 
+                            data.address.toUpperCase().includes('UNITED STATES');
+          const hasStateZip = /,\s*[A-Z]{2}[\s,]/.test(data.address);
+          
+          if (hasCommas && (hasCountry || hasStateZip)) {
+            setGooglePlacesAddresses(prev => new Set(prev).add(data.address));
+          }
+        }
       } else {
         // Convert phone to E.164 format if it exists and doesn't start with +
         let phone = u.phoneNumber || "";
@@ -203,29 +216,23 @@ export default function Profile() {
 
   // Handle Google Places address selection
   const handlePlaceSelected = (place: google.maps.places.PlaceResult) => {
-    console.log('🎯 Place selected from Google Places:', place);
-    
     // Only accept valid places with formatted address and location
     if (place.formatted_address && place.geometry?.location && place.place_id) {
-      console.log('✅ Valid Google Places address selected:', place.formatted_address);
       const googleAddress = place.formatted_address;
       
       // Add this address to our set of valid Google Places addresses
       setGooglePlacesAddresses(prev => new Set(prev).add(googleAddress));
       
-      // Update profile with the Google address
+      // Update profile with the Google address immediately
       setProfile(prev => ({
         ...prev,
         address: googleAddress,
       }));
-    } else {
-      console.warn('❌ Invalid place selected, not updating address');
     }
   };
 
   // Handle manual address input change
   const handleAddressChange = (value: string) => {
-    console.log('📝 Address changed to:', value);
     setProfile(prev => ({ ...prev, address: value }));
     // No validation here - we'll only validate on save
   };
@@ -233,13 +240,8 @@ export default function Profile() {
   const handleSave = async () => {
     if (!user) return;
 
-    console.log('💾 Attempting to save profile...');
-    
     // Get the actual value from the input field (this will be the Google Places formatted address)
     const actualAddressValue = addressInputRef.current?.value || '';
-    console.log('Address from input field:', actualAddressValue);
-    console.log('Address from profile state:', profile.address);
-    console.log('Known Google Places addresses:', Array.from(googlePlacesAddresses));
 
     // Validate address - must be from Google Places if provided
     if (actualAddressValue && actualAddressValue.trim()) {
@@ -254,7 +256,6 @@ export default function Profile() {
       const looksLikeGooglePlaces = hasCommas && (hasCountry || hasStateZip);
       
       if (!isGooglePlacesAddress && !looksLikeGooglePlaces) {
-        console.log('❌ Address validation failed - not a Google Places address');
         alert("Please select a valid address from the Google Places suggestions instead of typing manually.");
         setEditing(true);
         return;
@@ -265,12 +266,9 @@ export default function Profile() {
       
       // If it looks like Google Places but wasn't in our set, add it
       if (looksLikeGooglePlaces && !isGooglePlacesAddress) {
-        console.log('✅ Address appears to be Google Places formatted, accepting');
         setGooglePlacesAddresses(prev => new Set(prev).add(actualAddressValue));
       }
     }
-
-    console.log('✅ Address validation passed, proceeding with save');
 
     setEditing(false);
 
@@ -290,15 +288,22 @@ export default function Profile() {
 
     const db = firestore;
     const docRef = doc(db, "users", user.uid);
+    
+    // Use the actual address value from the input field for saving
+    const addressToSave = actualAddressValue || profile.address;
 
     await updateDoc(docRef, {
       phone: formattedPhone,
       company: profile.company,
-      address: profile.address,
+      address: addressToSave,
     });
 
-    // Update local state with formatted phone
-    setProfile(prev => ({ ...prev, phone: formattedPhone }));
+    // Update local state with formatted phone and correct address
+    setProfile(prev => ({ 
+      ...prev, 
+      phone: formattedPhone,
+      address: addressToSave 
+    }));
   };
 
   if (loading) return <div className="profile-loading">Loading...</div>;
