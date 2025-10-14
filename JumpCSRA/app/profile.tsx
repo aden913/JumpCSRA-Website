@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type { User as FirebaseUser } from "firebase/auth";
 import { useNavigate } from "react-router";
 import { RouterNav } from "./components/RouterNav";
@@ -33,10 +33,7 @@ export default function Profile() {
     email: "",
     phone: "",
     company: "",
-    address: "",
-    city: "",
-    state: "",
-    zip: "",
+    address: "", // Full address including street, city, state, zip
   });
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -58,6 +55,13 @@ export default function Profile() {
   // Cart and calendar data for navbar
   const [cart, setCart] = useState<CartItem[]>([]);
   const [calendarDateRange, setCalendarDateRange] = useState<[Date | null, Date | null]>([null, null]);
+  
+  // Track if address is from Google Places
+  // Track Google Places selections for validation on save
+  const [googlePlacesAddresses, setGooglePlacesAddresses] = useState<Set<string>>(new Set());
+  const addressInputRef = useRef<HTMLInputElement>(null);
+
+
 
   // 🔐 Re-authenticate user
   const handleConfirmPassword = async () => {
@@ -145,9 +149,6 @@ export default function Profile() {
           phone,
           company: "",
           address: "",
-          city: "",
-          state: "",
-          zip: "",
         });
       }
 
@@ -188,6 +189,8 @@ export default function Profile() {
     }
   }, []);
 
+
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setProfile({ ...profile, [e.target.name]: e.target.value });
   };
@@ -200,52 +203,75 @@ export default function Profile() {
 
   // Handle Google Places address selection
   const handlePlaceSelected = (place: google.maps.places.PlaceResult) => {
-    if (!place.address_components) return;
-
-    const addressComponents = place.address_components;
-    let streetNumber = '';
-    let streetName = '';
-    let city = '';
-    let state = '';
-    let zipCode = '';
-
-    // Extract address components
-    addressComponents.forEach(component => {
-      const types = component.types;
+    console.log('🎯 Place selected from Google Places:', place);
+    
+    // Only accept valid places with formatted address and location
+    if (place.formatted_address && place.geometry?.location && place.place_id) {
+      console.log('✅ Valid Google Places address selected:', place.formatted_address);
+      const googleAddress = place.formatted_address;
       
-      if (types.includes('street_number')) {
-        streetNumber = component.long_name;
-      } else if (types.includes('route')) {
-        streetName = component.long_name;
-      } else if (types.includes('locality') || types.includes('administrative_area_level_3')) {
-        city = component.long_name;
-      } else if (types.includes('administrative_area_level_1')) {
-        state = component.short_name;
-      } else if (types.includes('postal_code')) {
-        zipCode = component.long_name;
-      }
-    });
-
-    // Build full address
-    const fullAddress = `${streetNumber} ${streetName}`.trim();
-
-    // Update profile with all address information
-    setProfile(prev => ({
-      ...prev,
-      address: fullAddress,
-      city: city,
-      state: state,
-      zip: zipCode
-    }));
+      // Add this address to our set of valid Google Places addresses
+      setGooglePlacesAddresses(prev => new Set(prev).add(googleAddress));
+      
+      // Update profile with the Google address
+      setProfile(prev => ({
+        ...prev,
+        address: googleAddress,
+      }));
+    } else {
+      console.warn('❌ Invalid place selected, not updating address');
+    }
   };
 
   // Handle manual address input change
   const handleAddressChange = (value: string) => {
-    setProfile({ ...profile, address: value });
+    console.log('📝 Address changed to:', value);
+    setProfile(prev => ({ ...prev, address: value }));
+    // No validation here - we'll only validate on save
   };
 
   const handleSave = async () => {
     if (!user) return;
+
+    console.log('💾 Attempting to save profile...');
+    
+    // Get the actual value from the input field (this will be the Google Places formatted address)
+    const actualAddressValue = addressInputRef.current?.value || '';
+    console.log('Address from input field:', actualAddressValue);
+    console.log('Address from profile state:', profile.address);
+    console.log('Known Google Places addresses:', Array.from(googlePlacesAddresses));
+
+    // Validate address - must be from Google Places if provided
+    if (actualAddressValue && actualAddressValue.trim()) {
+      const isGooglePlacesAddress = googlePlacesAddresses.has(actualAddressValue);
+      
+      // Check if address has Google Places formatting characteristics
+      const hasCommas = actualAddressValue.includes(',');
+      const hasCountry = actualAddressValue.toUpperCase().includes('USA') || 
+                        actualAddressValue.toUpperCase().includes('UNITED STATES');
+      const hasStateZip = /,\s*[A-Z]{2}[\s,]/.test(actualAddressValue); // Pattern like ", SC " or ", SC,"
+      
+      const looksLikeGooglePlaces = hasCommas && (hasCountry || hasStateZip);
+      
+      if (!isGooglePlacesAddress && !looksLikeGooglePlaces) {
+        console.log('❌ Address validation failed - not a Google Places address');
+        alert("Please select a valid address from the Google Places suggestions instead of typing manually.");
+        setEditing(true);
+        return;
+      }
+      
+      // Update the profile state with the actual input field value
+      setProfile(prev => ({ ...prev, address: actualAddressValue }));
+      
+      // If it looks like Google Places but wasn't in our set, add it
+      if (looksLikeGooglePlaces && !isGooglePlacesAddress) {
+        console.log('✅ Address appears to be Google Places formatted, accepting');
+        setGooglePlacesAddresses(prev => new Set(prev).add(actualAddressValue));
+      }
+    }
+
+    console.log('✅ Address validation passed, proceeding with save');
+
     setEditing(false);
 
     // Ensure phone number is in E.164 format
@@ -269,9 +295,6 @@ export default function Profile() {
       phone: formattedPhone,
       company: profile.company,
       address: profile.address,
-      city: profile.city,
-      state: profile.state,
-      zip: profile.zip,
     });
 
     // Update local state with formatted phone
@@ -601,45 +624,18 @@ export default function Profile() {
             </div>
             <div className="profile-row">
               <label>Address:</label>
-              <GooglePlacesAutocomplete
-                name="address"
-                value={profile.address}
-                onChange={handleAddressChange}
-                onPlaceSelected={handlePlaceSelected}
-                disabled={!editing}
-                style={!editing ? { backgroundColor: "#f0f0f0", color: "#888" } : {}}
-                placeholder="Enter your address"
-              />
-            </div>
-            <div className="profile-row">
-              <label>City:</label>
-              <input
-                name="city"
-                value={profile.city}
-                onChange={handleChange}
-                disabled={!editing}
-                style={!editing ? { backgroundColor: "#f0f0f0", color: "#888" } : {}}
-              />
-            </div>
-            <div className="profile-row">
-              <label>State:</label>
-              <input
-                name="state"
-                value={profile.state}
-                onChange={handleChange}
-                disabled={!editing}
-                style={!editing ? { backgroundColor: "#f0f0f0", color: "#888" } : {}}
-              />
-            </div>
-            <div className="profile-row">
-              <label>Zip:</label>
-              <input
-                name="zip"
-                value={profile.zip}
-                onChange={handleChange}
-                disabled={!editing}
-                style={!editing ? { backgroundColor: "#f0f0f0", color: "#888" } : {}}
-              />
+              <div style={{ position: 'relative' }}>
+                <GooglePlacesAutocomplete
+                  name="address"
+                  value={profile.address}
+                  onChange={handleAddressChange}
+                  onPlaceSelected={handlePlaceSelected}
+                  disabled={!editing}
+                  style={!editing ? { backgroundColor: "#f0f0f0", color: "#888" } : {}}
+                  placeholder="Select an address from Google Places suggestions"
+                  inputRef={addressInputRef}
+                />
+              </div>
             </div>
 
             <div className="profile-actions">
