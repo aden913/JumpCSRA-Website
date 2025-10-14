@@ -12,6 +12,10 @@ import type { CartItem } from "../components/CartSidebar";
 import { useInflateables } from "../hooks/useInflateables";
 import { useCartSettings } from "../hooks/useCartSettings";
 import { useCategories } from "../hooks/useCategories";
+import { notifications } from '@mantine/notifications';
+import { Notifications } from '@mantine/notifications';
+import { MantineProvider } from '@mantine/core';
+import '@mantine/notifications/styles.css';
 
 export function meta() {
   return [
@@ -174,7 +178,12 @@ export default function Checkout() {
         console.log('    - Is this a Google Places address?:', googlePlacesAddresses.has(destinationAddress));
         
         setDeliveryCost(cost);
-        alert(`Delivery distance: ${distanceMiles.toFixed(1)} miles\nDelivery cost: $${cost}`);
+        notifications.show({
+          title: '🚚 Delivery Cost Calculated',
+          message: `Distance: ${distanceMiles.toFixed(1)} miles • Cost: $${cost}`,
+          color: 'blue',
+          autoClose: 5000,
+        });
       } else {
         throw new Error("Could not calculate route");
       }
@@ -183,7 +192,12 @@ export default function Checkout() {
       console.log('  - Failed with address:', destinationAddress);
       console.log('  - Current deliveryAddress state:', deliveryAddress);
       console.log('  - Current input field value:', addressInputRef.current?.value);
-      alert("Error calculating delivery distance. Please verify the address and try again.");
+      notifications.show({
+        title: '❌ Delivery Calculation Error',
+        message: 'Could not calculate delivery distance. Please verify the address and try again.',
+        color: 'red',
+        autoClose: 7000,
+      });
     } finally {
       console.log('🏁 DELIVERY COST CALCULATION FINISHED');
       setCalculatingDistance(false);
@@ -574,8 +588,10 @@ Signed on: ${new Date().toLocaleDateString()}
 
   return (
     <>
-      <LocalStorageDebugger />
-      <RouterNav
+      <MantineProvider>
+        <Notifications position="top-right" />
+        <LocalStorageDebugger />
+        <RouterNav
         categories={categories}
         onCategoryChange={() => {}} // No-op on checkout page since we don't filter products here
       />
@@ -781,7 +797,12 @@ Signed on: ${new Date().toLocaleDateString()}
               
               calculateDeliveryDistance(inputValue);
             } else {
-              alert("Please enter a delivery address first.");
+              notifications.show({
+                title: '📍 Address Required',
+                message: 'Please enter a delivery address first.',
+                color: 'yellow',
+                autoClose: 4000,
+              });
             }
           }}
           disabled={calculatingDistance || !deliveryAddress.trim()}
@@ -1439,6 +1460,7 @@ Signed on: ${new Date().toLocaleDateString()}
         </button>
       </div>
     </div>
+      </MantineProvider>
     </>
   );
 }

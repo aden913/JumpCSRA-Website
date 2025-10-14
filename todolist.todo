@@ -52,6 +52,28 @@
               "done": false,
               "start": 1759436630874
             }
+          },
+          {
+            "key": 1760413897335,
+            "children": [],
+            "todo": {
+              "content": "notifications",
+              "id": 1760413897335,
+              "level": "default",
+              "done": false,
+              "start": 1760413897336
+            }
+          },
+          {
+            "key": 1760413912904,
+            "children": [],
+            "todo": {
+              "content": "guide user with collapsed sections",
+              "id": 1760413912904,
+              "level": "default",
+              "done": false,
+              "start": 1760413912904
+            }
           }
         ],
         "todo": {
@@ -83,7 +105,9 @@
           "id": 1759372077880,
           "level": "default",
           "done": false,
-          "start": 1759372077880
+          "start": 1759372077880,
+          "focus": false,
+          "end": 1760413823662
         }
       },
       {
@@ -104,8 +128,10 @@
           "content": "fix profile error: hook.js:608 [react-phone-number-input] Expected the initial `value` to be a E.164 phone number. Got 18039913236",
           "id": 1759372943052,
           "level": "default",
-          "done": false,
-          "start": 1759372943053
+          "done": true,
+          "start": 1759372943053,
+          "focus": false,
+          "end": 1760413873465
         }
       },
       {
@@ -138,8 +164,10 @@
           "content": "Add delivery pricing",
           "id": 1759373285106,
           "level": "default",
-          "done": false,
-          "start": 1759373285106
+          "done": true,
+          "start": 1759373285106,
+          "focus": false,
+          "end": 1760413863604
         }
       },
       {
@@ -277,8 +305,10 @@
           "content": "finish developing the promo cards",
           "id": 1759373391378,
           "level": "default",
-          "done": false,
-          "start": 1759373391378
+          "done": true,
+          "start": 1759373391378,
+          "focus": false,
+          "end": 1760413856510
         }
       },
       {
@@ -306,12 +336,9 @@
       }
     ],
     "expandKeys": [
-      1759373285106,
-      1759373391378,
       1759373412350,
       1759373442853,
       1759373453326,
-      1759373503186,
       1759373517311,
       1759373590708,
       1759370779329,
@@ -329,6 +356,6 @@
     "showEndTime": false,
     "simpleMode": false,
     "lang": "en",
-    "version": "1759896704103"
+    "version": "1760413924037"
   }
 }
