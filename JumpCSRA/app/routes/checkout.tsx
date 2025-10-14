@@ -81,6 +81,10 @@ export default function Checkout() {
   const [showContract, setShowContract] = useState<boolean>(false);
   const [calculatingDistance, setCalculatingDistance] = useState<boolean>(false);
   
+  // Checkout step management
+  type CheckoutStep = 'order-summary' | 'delivery' | 'quick-add-totals' | 'contract' | 'payment';
+  const [currentStep, setCurrentStep] = useState<CheckoutStep>('order-summary');
+  
   // Google Places validation state
   const [googlePlacesAddresses, setGooglePlacesAddresses] = useState<Set<string>>(new Set());
   const addressInputRef = useRef<HTMLInputElement>(null);
@@ -98,6 +102,30 @@ export default function Checkout() {
 
   // Base location for distance calculation
   const BASE_LOCATION = "410 Carolina Springs Rd, North Augusta, SC 29841";
+
+  // Checkout step management functions
+  const stepOrder: CheckoutStep[] = ['order-summary', 'delivery', 'quick-add-totals', 'contract', 'payment'];
+  const stepTitles = {
+    'order-summary': 'Order Summary',
+    'delivery': 'Delivery Information',
+    'quick-add-totals': 'Quick Add & Order Total',
+    'contract': 'Sign Contract',
+    'payment': 'Payment'
+  };
+
+  const goToNextStep = () => {
+    const currentIndex = stepOrder.indexOf(currentStep);
+    if (currentIndex < stepOrder.length - 1) {
+      setCurrentStep(stepOrder[currentIndex + 1]);
+    }
+  };
+
+  const goToPreviousStep = () => {
+    const currentIndex = stepOrder.indexOf(currentStep);
+    if (currentIndex > 0) {
+      setCurrentStep(stepOrder[currentIndex - 1]);
+    }
+  };
 
   // Track deliveryAddress state changes for debugging
   useEffect(() => {
@@ -606,7 +634,54 @@ Signed on: ${new Date().toLocaleDateString()}
         Complete Your Order
       </h1>
 
-      {/* Order Summary Section */}
+      {/* Progress Indicator */}
+      <div style={{
+        backgroundColor: 'white',
+        padding: '1rem',
+        borderRadius: '8px',
+        marginBottom: '2rem',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {stepOrder.map((step, index) => (
+            <div key={step} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+              <div style={{
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                backgroundColor: stepOrder.indexOf(currentStep) >= index ? '#007bff' : '#e9ecef',
+                color: stepOrder.indexOf(currentStep) >= index ? 'white' : '#6c757d',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontWeight: 'bold',
+                fontSize: '14px'
+              }}>
+                {index + 1}
+              </div>
+              <span style={{ 
+                marginLeft: '0.5rem', 
+                fontSize: '14px',
+                color: stepOrder.indexOf(currentStep) >= index ? '#007bff' : '#6c757d',
+                fontWeight: currentStep === step ? 'bold' : 'normal'
+              }}>
+                {stepTitles[step]}
+              </span>
+              {index < stepOrder.length - 1 && (
+                <div style={{
+                  flex: 1,
+                  height: '2px',
+                  backgroundColor: stepOrder.indexOf(currentStep) > index ? '#007bff' : '#e9ecef',
+                  margin: '0 1rem'
+                }} />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Step Content */}
+      {currentStep === 'order-summary' && (
       <div style={{ 
         backgroundColor: 'white', 
         padding: '2rem', 
@@ -736,9 +811,28 @@ Signed on: ${new Date().toLocaleDateString()}
             <span>${total.toFixed(2)}</span>
           </div>
         </div>
+        
+        {/* Continue to Delivery Button */}
+        <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+          <button
+            onClick={goToNextStep}
+            style={{
+              backgroundColor: '#007bff',
+              color: 'white',
+              padding: '1rem 2rem',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '1.1rem',
+              cursor: 'pointer'
+            }}
+          >
+            Continue to Delivery
+          </button>
+        </div>
       </div>
+      )}
 
-      {/* Delivery Address Section */}
+      {currentStep === 'delivery' && (
       <div style={{ 
         backgroundColor: 'white', 
         padding: '2rem', 
@@ -833,10 +927,43 @@ Signed on: ${new Date().toLocaleDateString()}
             </small>
           </div>
         )}
+        
+        {/* Navigation Buttons */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem' }}>
+          <button
+            onClick={goToPreviousStep}
+            style={{
+              backgroundColor: '#6c757d',
+              color: 'white',
+              padding: '1rem 2rem',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '1.1rem',
+              cursor: 'pointer'
+            }}
+          >
+            Back to Order Summary
+          </button>
+          <button
+            onClick={goToNextStep}
+            disabled={!deliveryAddress.trim() || deliveryCost === 0}
+            style={{
+              backgroundColor: (!deliveryAddress.trim() || deliveryCost === 0) ? '#ccc' : '#007bff',
+              color: 'white',
+              padding: '1rem 2rem',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '1.1rem',
+              cursor: (!deliveryAddress.trim() || deliveryCost === 0) ? 'not-allowed' : 'pointer'
+            }}
+          >
+            Continue to Purchase
+          </button>
+        </div>
       </div>
+      )}
 
-      {/* Last-Minute Party Essentials */}
-      {deliveryCost >= 0 && (
+      {currentStep === 'quick-add-totals' && (
         <div style={{ 
           backgroundColor: 'white', 
           padding: '2rem', 
@@ -991,18 +1118,18 @@ Signed on: ${new Date().toLocaleDateString()}
             </div>
           )}
         </div>
-      )}
-
-      {/* Updated Order Summary with Last-Minute Additions */}
-      {(deliveryCost > 0 || Object.values(lastMinuteAdditions).some(qty => qty > 0)) && (
-        <div style={{ 
-          backgroundColor: 'white', 
-          padding: '2rem', 
-          borderRadius: '8px', 
-          marginBottom: '2rem',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-        }}>
-          <h2 style={{ marginBottom: '1rem', color: '#333' }}>Updated Order Total</h2>
+        )}
+        
+        {/* Navigation Buttons */}
+        {(deliveryCost > 0 || Object.values(lastMinuteAdditions).some(qty => qty > 0)) && (
+          <div style={{ 
+            backgroundColor: 'white', 
+            padding: '2rem', 
+            borderRadius: '8px', 
+            marginBottom: '2rem',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+          }}>
+            <h2 style={{ marginBottom: '1rem', color: '#333' }}>Updated Order Total</h2>
           
           {/* Pricing Breakdown */}
           <div style={{ marginTop: '1rem' }}>
@@ -1046,6 +1173,126 @@ Signed on: ${new Date().toLocaleDateString()}
               <span>Final Total:</span>
               <span>${total.toFixed(2)}</span>
             </div>
+          </div>
+        </div>
+        )}
+        
+        {/* Navigation Buttons */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem' }}>
+          <button
+            onClick={goToPreviousStep}
+            style={{
+              backgroundColor: '#6c757d',
+              color: 'white',
+              padding: '1rem 2rem',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '1.1rem',
+              cursor: 'pointer'
+            }}
+          >
+            Back to Delivery
+          </button>
+          <button
+            onClick={goToNextStep}
+            style={{
+              backgroundColor: '#28a745',
+              color: 'white',
+              padding: '1rem 2rem',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '1.1rem',
+              cursor: 'pointer'
+            }}
+          >
+            Sign Contract
+          </button>
+        </div>
+        </div>
+
+      {currentStep === 'contract' && (
+        <div style={{ 
+          backgroundColor: 'white', 
+          padding: '2rem', 
+          borderRadius: '8px', 
+          marginBottom: '2rem',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        }}>
+          <h2 style={{ marginBottom: '1rem', color: '#333' }}>Sign Contract</h2>
+          <p>Contract content and signature area will be here.</p>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem' }}>
+            <button
+              onClick={goToPreviousStep}
+              style={{
+                backgroundColor: '#6c757d',
+                color: 'white',
+                padding: '1rem 2rem',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '1.1rem',
+                cursor: 'pointer'
+              }}
+            >
+              Back to Order Review
+            </button>
+            <button
+              onClick={goToNextStep}
+              style={{
+                backgroundColor: '#dc3545',
+                color: 'white',
+                padding: '1rem 2rem',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '1.1rem',
+                cursor: 'pointer'
+              }}
+            >
+              Proceed to Payment
+            </button>
+          </div>
+        </div>
+      )}
+
+      {currentStep === 'payment' && (
+        <div style={{ 
+          backgroundColor: 'white', 
+          padding: '2rem', 
+          borderRadius: '8px', 
+          marginBottom: '2rem',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+        }}>
+          <h2 style={{ marginBottom: '1rem', color: '#333' }}>Payment</h2>
+          <p>Payment processing will be here.</p>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem' }}>
+            <button
+              onClick={goToPreviousStep}
+              style={{
+                backgroundColor: '#6c757d',
+                color: 'white',
+                padding: '1rem 2rem',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '1.1rem',
+                cursor: 'pointer'
+              }}
+            >
+              Back to Contract
+            </button>
+            <button
+              style={{
+                backgroundColor: '#28a745',
+                color: 'white',
+                padding: '1rem 2rem',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '1.1rem',
+                cursor: 'pointer'
+              }}
+            >
+              Complete Payment
+            </button>
           </div>
         </div>
       )}
@@ -1459,7 +1706,6 @@ Signed on: ${new Date().toLocaleDateString()}
           ← Back to Shopping
         </button>
       </div>
-    </div>
       </MantineProvider>
     </>
   );
