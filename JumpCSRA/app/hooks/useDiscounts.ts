@@ -69,11 +69,19 @@ export function useDiscounts() {
       const userDoc = await getDoc(userDocRef);
       
       if (!userDoc.exists()) {
+        // Extract firstName and lastName from displayName
+        const displayName = user.displayName || "";
+        const nameParts = displayName.split(' ');
+        const firstName = nameParts[0] || "";
+        const lastName = nameParts.slice(1).join(' ') || "";
+        
         // Create user document with initial structure
         await setDoc(userDocRef, {
           uid: user.uid,
           email: user.email || '',
-          displayName: user.displayName || '',
+          firstName,
+          lastName,
+          name: displayName,
           usedDiscounts: [], // Initialize empty array
           createdAt: new Date().toISOString(),
           lastUpdated: new Date().toISOString(),

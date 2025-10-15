@@ -38,7 +38,8 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [redirect, setRedirect] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<"email" | "details">("email");
@@ -108,7 +109,9 @@ const handleCompleteProfile = async (e: React.FormEvent) => {
   try {
     const db = getFirestore();
     await setDoc(doc(db, "users", pendingUser.uid), {
-      name,
+      firstName,
+      lastName,
+      name: `${firstName} ${lastName}`, // Combined name for compatibility
       phone: rawPhone,
       email: pendingUser.email,
       hasPassword: true,
@@ -255,11 +258,19 @@ const handleGoogleResult = async (user: any) => {
 
       // Try to write/update user document
       try {
+        // Extract firstName and lastName from displayName
+        const displayName = user.displayName || "";
+        const nameParts = displayName.split(' ');
+        const firstName = nameParts[0] || "";
+        const lastName = nameParts.slice(1).join(' ') || "";
+
         console.log("Attempting to write user document...");
         await setDoc(
           userRef,
           {
-            name: user.displayName || "",
+            firstName,
+            lastName,
+            name: displayName, // Keep combined name for compatibility
             phone: user.phoneNumber || "",
             email: user.email || "",
             uid: user.uid,
@@ -406,8 +417,12 @@ useEffect(() => {
       setError("Invalid phone number.");
       return;
     }
-    if (!name.trim()) {
-      setError("Please enter your name.");
+    if (!firstName.trim()) {
+      setError("Please enter your first name.");
+      return;
+    }
+    if (!lastName.trim()) {
+      setError("Please enter your last name.");
       return;
     }
 
@@ -417,7 +432,9 @@ useEffect(() => {
       
       // Create user document with all required fields including usedDiscounts array
       await setDoc(doc(db, "users", userCred.user.uid), { 
-        name, 
+        firstName,
+        lastName,
+        name: `${firstName} ${lastName}`, // Keep combined name for compatibility
         phone,
         email: userCred.user.email || email,
         uid: userCred.user.uid,
@@ -502,10 +519,18 @@ useEffect(() => {
           <input
             className="identifier-input"
             type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
             required
-            placeholder="Enter your name"
+            placeholder="Enter your first name"
+          />
+          <input
+            className="identifier-input"
+            type="text"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            required
+            placeholder="Enter your last name"
           />
           <input
             className="identifier-input"
@@ -600,7 +625,8 @@ useEffect(() => {
               setEmail("");
               setPassword("");
               setPhone("");
-              setName("");
+              setFirstName("");
+              setLastName("");
               setPendingUser(null);
             }}
             style={{ marginTop: "1rem" }}
@@ -722,10 +748,18 @@ useEffect(() => {
               <input
                 className="identifier-input"
                 type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
                 required
-                placeholder="Enter your name"
+                placeholder="Enter your first name"
+              />
+              <input
+                className="identifier-input"
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                required
+                placeholder="Enter your last name"
               />
               <button className="sign-up-btn" type="submit">
                 Create Account

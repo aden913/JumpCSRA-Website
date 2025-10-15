@@ -27,11 +27,19 @@ export const checkPendingUserSync = async () => {
     const db = getFirestore();
     const userRef = doc(db, "users", user.uid);
     
+    // Extract firstName and lastName from displayName
+    const displayName = userData.displayName || "";
+    const nameParts = displayName.split(' ');
+    const firstName = nameParts[0] || "";
+    const lastName = nameParts.slice(1).join(' ') || "";
+
     // Try to sync the data
     await setDoc(
       userRef,
       {
-        name: userData.displayName || "",
+        firstName,
+        lastName,
+        name: displayName,
         email: userData.email || "",
         uid: userData.uid,
         emailVerified: userData.emailVerified || false,
@@ -125,8 +133,17 @@ export const getUserData = async () => {
       const userData = JSON.parse(pendingData);
       if (userData.uid === user.uid) {
         console.log('Retrieved user data from localStorage fallback');
+        
+        // Extract firstName and lastName from displayName
+        const displayName = userData.displayName || "";
+        const nameParts = displayName.split(' ');
+        const firstName = nameParts[0] || "";
+        const lastName = nameParts.slice(1).join(' ') || "";
+        
         return {
-          name: userData.displayName || "",
+          firstName,
+          lastName,
+          name: displayName,
           email: userData.email || "",
           uid: userData.uid,
           emailVerified: userData.emailVerified || false,

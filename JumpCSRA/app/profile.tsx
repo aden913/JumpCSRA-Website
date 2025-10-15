@@ -29,7 +29,9 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState(0);
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState({
-    name: "",
+    firstName: "",
+    lastName: "",
+    name: "", // Keep for compatibility
     email: "",
     phone: "",
     company: "",
@@ -132,9 +134,29 @@ export default function Profile() {
           // Assume US number if no country code
           phone = phone.startsWith("1") ? `+${phone}` : `+1${phone}`;
         }
+        
+        // Handle migration from single name to firstName/lastName
+        let firstName = data.firstName || "";
+        let lastName = data.lastName || "";
+        let name = data.name || "";
+        
+        // If we have old data (name but no firstName/lastName), split the name
+        if (name && !firstName && !lastName) {
+          const nameParts = name.trim().split(' ');
+          firstName = nameParts[0] || "";
+          lastName = nameParts.slice(1).join(' ') || "";
+        }
+        // If we have firstName/lastName but no name, combine them
+        else if ((firstName || lastName) && !name) {
+          name = `${firstName} ${lastName}`.trim();
+        }
+        
         setProfile((prev) => ({
           ...prev,
           ...data,
+          firstName,
+          lastName,
+          name,
           phone,
         }));
         
@@ -159,6 +181,8 @@ export default function Profile() {
         setProfile({
           ...profile,
           name: u.displayName || "",
+          firstName: u.displayName ? u.displayName.split(' ')[0] || "" : "",
+          lastName: u.displayName ? u.displayName.split(' ').slice(1).join(' ') || "" : "",
           email: u.email || "",
           phone,
           company: "",
@@ -214,7 +238,20 @@ export default function Profile() {
 
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setProfile({ ...profile, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    
+    if (name === 'firstName' || name === 'lastName') {
+      // Update firstName/lastName and automatically update combined name
+      const updatedProfile = { ...profile, [name]: value };
+      if (name === 'firstName') {
+        updatedProfile.name = `${value} ${profile.lastName}`.trim();
+      } else {
+        updatedProfile.name = `${profile.firstName} ${value}`.trim();
+      }
+      setProfile(updatedProfile);
+    } else {
+      setProfile({ ...profile, [name]: value });
+    }
   };
 
   // PhoneInput change handler
@@ -339,6 +376,9 @@ export default function Profile() {
       phone: formattedPhone,
       company: profile.company,
       address: addressToSave,
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      name: profile.name, // Combined name for backward compatibility
     });
 
     // Update local state with formatted phone and correct address
@@ -389,12 +429,24 @@ export default function Profile() {
       <div className="profile-right">
         {activeTab === 0 ? (
           <div className="profile-info">
-            {/* Name */}
+            {/* First Name */}
             <div className="profile-row">
-              <label>Name:</label>
+              <label>First Name:</label>
               <input
-                name="name"
-                value={profile.name}
+                name="firstName"
+                value={profile.firstName}
+                onChange={handleChange}
+                disabled={!editing}
+                style={!editing ? { backgroundColor: "#f0f0f0", color: "#888" } : {}}
+              />
+            </div>
+
+            {/* Last Name */}
+            <div className="profile-row">
+              <label>Last Name:</label>
+              <input
+                name="lastName"
+                value={profile.lastName}
                 onChange={handleChange}
                 disabled={!editing}
                 style={!editing ? { backgroundColor: "#f0f0f0", color: "#888" } : {}}

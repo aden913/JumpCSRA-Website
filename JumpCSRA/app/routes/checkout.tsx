@@ -6,7 +6,7 @@ import { RouterNav } from "../components/RouterNav";
 import { GooglePlacesAutocomplete } from "../components/GooglePlacesAutocomplete";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, firestore } from "../components/FirebaseConfig";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import { getDatabase, ref, push, set } from "firebase/database";
 import type { User as FirebaseUser } from "firebase/auth";
 import type { CartItem } from "../components/CartSidebar";
@@ -32,7 +32,9 @@ interface ContractMetadata {
   contractId: string;
   userId: string;
   customerInfo: {
-    name: string;
+    firstName: string;
+    lastName: string;
+    name: string; // Combined name for compatibility
     email: string;
   };
   orderDetails: {
@@ -67,6 +69,7 @@ export function meta() {
 export default function Checkout() {
   const navigate = useNavigate();
   const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
   const inflateables = useInflateables();
@@ -590,6 +593,24 @@ export default function Checkout() {
     return () => unsubscribe();
   }, [navigate]);
 
+  // Load user profile data
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const userDocRef = doc(firestore, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+          setUserProfile(userDoc.data());
+        }
+      } catch (error) {
+        console.error("Error loading user profile:", error);
+      }
+    };
+
+    loadUserProfile();
+  }, [user]);
 
 
   // Load cart and settings from localStorage
@@ -773,6 +794,28 @@ export default function Checkout() {
     }
 
     try {
+      // Fetch user profile data to get firstName and lastName
+      const userDocRef = doc(firestore, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+      const userData = userDoc.data();
+      
+      // Extract firstName and lastName, with fallbacks
+      let firstName = userData?.firstName || "";
+      let lastName = userData?.lastName || "";
+      let fullName = userData?.name || user.displayName || "";
+      
+      // If we don't have firstName/lastName but have a full name, split it
+      if (!firstName && !lastName && fullName) {
+        const nameParts = fullName.split(' ');
+        firstName = nameParts[0] || "";
+        lastName = nameParts.slice(1).join(' ') || "";
+      }
+      
+      // If we have firstName/lastName but no full name, combine them
+      if ((firstName || lastName) && !fullName) {
+        fullName = `${firstName} ${lastName}`.trim();
+      }
+
       const database = getDatabase();
       const contractsRef = ref(database, 'contracts');
       const newContractRef = push(contractsRef);
@@ -781,7 +824,9 @@ export default function Checkout() {
         contractId: newContractRef.key || `contract_${user.uid}_${Date.now()}`,
         userId: user.uid,
         customerInfo: {
-          name: user.displayName || "",
+          firstName,
+          lastName,
+          name: fullName,
           email: user.email || ""
         },
         orderDetails: {
@@ -1393,7 +1438,11 @@ export default function Checkout() {
           <div style={{ marginBottom: '2rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
             <h3 style={{ margin: '0 0 1rem 0' }}>JUMP CSRA PARTY RENTAL AGREEMENT</h3>
             <p style={{ margin: '0.5rem 0' }}><strong>Agreement Date:</strong> {new Date().toLocaleDateString()}</p>
-            <p style={{ margin: '0.5rem 0' }}><strong>Customer:</strong> {user?.displayName || user?.email}</p>
+            <p style={{ margin: '0.5rem 0' }}><strong>Customer:</strong> {
+              userProfile?.firstName && userProfile?.lastName 
+                ? `${userProfile.firstName} ${userProfile.lastName}`
+                : userProfile?.name || user?.displayName || user?.email
+            }</p>
             <p style={{ margin: '0.5rem 0' }}><strong>Email:</strong> {user?.email}</p>
             <p style={{ margin: '0.5rem 0' }}><strong>Event Date:</strong> {calendarDateRange[0]?.toLocaleDateString()} - {calendarDateRange[1]?.toLocaleDateString()}</p>
             <p style={{ margin: '0.5rem 0' }}><strong>Delivery Address:</strong> {deliveryAddress}</p>
