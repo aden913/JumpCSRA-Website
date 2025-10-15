@@ -49,8 +49,10 @@
               "content": "Waiver signing implementation",
               "id": 1759436630874,
               "level": "default",
-              "done": false,
-              "start": 1759436630874
+              "done": true,
+              "start": 1759436630874,
+              "focus": false,
+              "end": 1760559104223
             }
           },
           {
@@ -71,8 +73,32 @@
               "content": "guide user with collapsed sections",
               "id": 1760413912904,
               "level": "default",
+              "done": true,
+              "start": 1760413912904,
+              "focus": false,
+              "end": 1760559111583
+            }
+          },
+          {
+            "key": 1760559242406,
+            "children": [],
+            "todo": {
+              "content": "Add a 50% deposit option for purchases",
+              "id": 1760559242406,
+              "level": "default",
               "done": false,
-              "start": 1760413912904
+              "start": 1760559242406
+            }
+          },
+          {
+            "key": 1760559853848,
+            "children": [],
+            "todo": {
+              "content": "styles",
+              "id": 1760559853848,
+              "level": "default",
+              "done": false,
+              "start": 1760559853848
             }
           }
         ],
@@ -104,10 +130,10 @@
           "content": "set default country in profile phone",
           "id": 1759372077880,
           "level": "default",
-          "done": false,
+          "done": true,
           "start": 1759372077880,
           "focus": false,
-          "end": 1760413823662
+          "end": 1760559121403
         }
       },
       {
@@ -333,6 +359,87 @@
           "done": false,
           "start": 1759373590708
         }
+      },
+      {
+        "key": 1760559142330,
+        "children": [
+          {
+            "key": 1760559160338,
+            "children": [
+              {
+                "key": 1760559312235,
+                "children": [],
+                "todo": {
+                  "content": "prompt the user to call 8032210466",
+                  "id": 1760559312235,
+                  "level": "default",
+                  "done": false,
+                  "start": 1760559312235
+                }
+              },
+              {
+                "key": 1760559339476,
+                "children": [
+                  {
+                    "key": 1760559446235,
+                    "children": [],
+                    "todo": {
+                      "content": "email will allow user to pay for order",
+                      "id": 1760559446235,
+                      "level": "default",
+                      "done": false,
+                      "start": 1760559446235
+                    }
+                  }
+                ],
+                "todo": {
+                  "content": "implement an email functionality to email the user of a pending order",
+                  "id": 1760559339476,
+                  "level": "default",
+                  "done": false,
+                  "start": 1760559339476
+                }
+              }
+            ],
+            "todo": {
+              "content": "after signing a contract save the booking as pending",
+              "id": 1760559160338,
+              "level": "default",
+              "done": false,
+              "start": 1760559160338
+            }
+          },
+          {
+            "key": 1760559479784,
+            "children": [
+              {
+                "key": 1760559835537,
+                "children": [],
+                "todo": {
+                  "content": "limit delivery times for day of orders",
+                  "id": 1760559835537,
+                  "level": "default",
+                  "done": false,
+                  "start": 1760559835537
+                }
+              }
+            ],
+            "todo": {
+              "content": "make users have to schedule out an event at least 2 hours out",
+              "id": 1760559479784,
+              "level": "default",
+              "done": false,
+              "start": 1760559479784
+            }
+          }
+        ],
+        "todo": {
+          "content": "handle 2 day events",
+          "id": 1760559142330,
+          "level": "default",
+          "done": false,
+          "start": 1760559142330
+        }
       }
     ],
     "expandKeys": [
@@ -343,7 +450,11 @@
       1759373590708,
       1759370779329,
       1759436630874,
-      1759635309085
+      1759635309085,
+      1760559142330,
+      1760559160338,
+      1760559339476,
+      1760559479784
     ],
     "schema": "https://github.com/Saber2pr/vsc-ext-todolist/blob/master/src/api/type.ts#L3",
     "add_mode": "bottom",
@@ -356,6 +467,6 @@
     "showEndTime": false,
     "simpleMode": false,
     "lang": "en",
-    "version": "1760413924037"
+    "version": "1760559856683"
   }
 }

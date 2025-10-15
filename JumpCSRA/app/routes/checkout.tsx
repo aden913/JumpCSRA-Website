@@ -16,6 +16,7 @@ import { useCategories } from "../hooks/useCategories";
 import { notifications } from '@mantine/notifications';
 import { Notifications } from '@mantine/notifications';
 import { MantineProvider } from '@mantine/core';
+import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import '@mantine/notifications/styles.css';
 import '../styles/checkout-buttons.css';
 
@@ -32,6 +33,7 @@ interface ContractSection {
 interface ContractMetadata {
   contractId: string;
   userId: string;
+  status: 'pending' | 'confirmed';
   customerInfo: {
     firstName: string;
     lastName: string;
@@ -126,6 +128,13 @@ export default function Checkout() {
   const [showContract, setShowContract] = useState<boolean>(false);
   const [calculatingDistance, setCalculatingDistance] = useState<boolean>(false);
   
+  // Payment state
+  const [paymentCompleted, setPaymentCompleted] = useState<boolean>(false);
+  const [paymentId, setPaymentId] = useState<string>("");
+  const [processingPayment, setProcessingPayment] = useState<boolean>(false);
+  const [pendingBookingId, setPendingBookingId] = useState<string>("");
+  const [requiresPhoneCall, setRequiresPhoneCall] = useState<boolean>(false);
+  
   // Checkout step management
   type CheckoutStep = 'order-summary' | 'delivery' | 'quick-add-totals' | 'contract' | 'payment';
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('order-summary');
@@ -196,7 +205,7 @@ export default function Checkout() {
         if (deliverySkipped) return cart.length > 0;
         return cart.length > 0 && deliveryAddress.trim() !== '' && deliveryCost > 0;
       case 'contract':
-        return false; // Contract step should use its own signing logic, not goToNextStep
+        return contractSigned; // Allow progression when contract is signed
       default:
         return true;
     }
@@ -404,23 +413,42 @@ export default function Checkout() {
 
   // Handle contract completion
   const handleContractCompletion = async () => {
+    console.log('🔥 Contract completion button clicked');
+    console.log('All sections initialed:', allSectionsInitialed());
+    console.log('Typed signature:', typedSignature.trim());
+    console.log('Current step:', currentStep);
+    
     if (!allSectionsInitialed() || !typedSignature.trim()) {
       alert("Please initial all sections and provide your signature before proceeding.");
       return;
     }
     
+    console.log('✅ Validation passed, saving pending booking');
+    
     try {
-      const contractId = await saveContractMetadata();
+      // Save contract as pending booking
+      const contractId = await saveContractMetadata('pending');
       if (contractId) {
+        setPendingBookingId(contractId);
         setContractSigned(true);
-        alert("Contract signed and saved successfully!");
+        
+        // Check if booking requires phone call (within 2 days)
+        const needsCall = isBookingWithinTwoDays();
+        setRequiresPhoneCall(needsCall);
+        
+        if (needsCall) {
+          console.log('📞 Booking within 2 days - phone call required');
+        } else {
+          console.log('✅ Booking not urgent - proceeding to payment');
+        }
+        
         goToNextStep();
       } else {
-        alert("Error saving contract. Please try again.");
+        alert("Error saving booking. Please try again.");
       }
     } catch (error) {
       console.error("Error completing contract:", error);
-      alert("Error saving contract. Please try again.");
+      alert("Error saving booking. Please try again.");
     }
   };
 
@@ -738,9 +766,138 @@ export default function Checkout() {
     setTypedSignature("");
   };
 
+  // Calculate total payment amount
+  const calculateTotalAmount = () => {
+    const subtotal = cart.reduce((sum, item) => sum + item.price, 0);
+    const total = subtotal + deliveryCost;
+    return total.toFixed(2);
+  };
+
+  // Check if booking is within the next 2 days
+  const isBookingWithinTwoDays = () => {
+    if (!calendarDateRange || !calendarDateRange[0]) {
+      return false;
+    }
+    
+    const today = new Date();
+    const bookingDate = new Date(calendarDateRange[0]);
+    const twoDaysFromNow = new Date(today);
+    twoDaysFromNow.setDate(today.getDate() + 2);
+    
+    // Reset time to start of day for accurate comparison
+    today.setHours(0, 0, 0, 0);
+    bookingDate.setHours(0, 0, 0, 0);
+    twoDaysFromNow.setHours(23, 59, 59, 999);
+    
+    return bookingDate >= today && bookingDate <= twoDaysFromNow;
+  };
+
+  // PayPal payment handlers
+  const createPayPalOrder = (data: any, actions: any) => {
+    const totalAmount = calculateTotalAmount();
+    
+    return actions.order.create({
+      purchase_units: [
+        {
+          amount: {
+            value: totalAmount,
+            currency_code: "USD"
+          },
+          description: `Jump CSRA Party Rental - ${cart.length} item(s)`
+        }
+      ],
+      intent: "CAPTURE"
+    });
+  };
+
+  const onPayPalApprove = async (data: any, actions: any) => {
+    setProcessingPayment(true);
+    
+    try {
+      const details = await actions.order.capture();
+      const paymentId = details.id;
+      
+      let contractId;
+      
+      if (pendingBookingId) {
+        // Update existing pending booking to confirmed
+        contractId = await updateBookingStatus(pendingBookingId, 'confirmed', paymentId);
+      } else {
+        // Create new confirmed booking (fallback case)
+        contractId = await saveContractMetadata('confirmed');
+      }
+      
+      if (contractId) {
+        setPaymentId(paymentId);
+        setPaymentCompleted(true);
+        
+        notifications.show({
+          title: '✅ Payment Successful!',
+          message: `Payment ${paymentId} completed. Booking confirmed successfully.`,
+          color: 'green',
+          autoClose: 5000,
+        });
+        
+        console.log("Payment completed:", details);
+        console.log("Booking confirmed with ID:", contractId);
+      } else {
+        throw new Error("Failed to confirm booking after payment");
+      }
+    } catch (error) {
+      console.error("Payment processing error:", error);
+      notifications.show({
+        title: '❌ Payment Error',
+        message: 'There was an error processing your payment. Please try again.',
+        color: 'red',
+        autoClose: 8000,
+      });
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const onPayPalError = (err: any) => {
+    console.error("PayPal error:", err);
+    notifications.show({
+      title: '❌ Payment Error',
+      message: 'There was an error with PayPal. Please try again.',
+      color: 'red',
+      autoClose: 8000,
+    });
+  };
+
+  // Update booking status in database
+  const updateBookingStatus = async (contractId: string, status: 'pending' | 'confirmed', paymentId?: string): Promise<string | null> => {
+    try {
+      const database = getDatabase();
+      const contractRef = ref(database, `contracts/${contractId}`);
+      
+      const updateData: any = {
+        status: status,
+        updatedAt: new Date().toISOString()
+      };
+      
+      if (paymentId) {
+        updateData.paymentId = paymentId;
+        updateData.paidAt = new Date().toISOString();
+      }
+      
+      await set(contractRef, {
+        ...contractMetadata,
+        ...updateData
+      });
+      
+      console.log(`Booking ${contractId} updated to ${status}`);
+      return contractId;
+    } catch (error) {
+      console.error("Error updating booking status:", error);
+      return null;
+    }
+  };
+
   // Save signed contract to database
   // Save contract metadata to Firebase Realtime Database
-  const saveContractMetadata = async (): Promise<string | null> => {
+  const saveContractMetadata = async (status: 'pending' | 'confirmed' = 'confirmed'): Promise<string | null> => {
     if (!user || !allSectionsInitialed() || !typedSignature.trim() || !customerInitials.trim()) {
       console.error("Missing required contract data");
       return null;
@@ -776,6 +933,7 @@ export default function Checkout() {
       const contractMetadata: ContractMetadata = {
         contractId: newContractRef.key || `contract_${user.uid}_${Date.now()}`,
         userId: user.uid,
+        status: status, // Add booking status
         customerInfo: {
           firstName,
           lastName,
@@ -1869,7 +2027,7 @@ export default function Checkout() {
         </div>
       )}
 
-      {currentStep === 'payment' && (
+      {currentStep === 'payment' && !paymentCompleted && (
         <div style={{ 
           backgroundColor: 'white', 
           padding: '2rem', 
@@ -1878,21 +2036,201 @@ export default function Checkout() {
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
           <h2 style={{ marginBottom: '1rem', color: '#333' }}>Payment</h2>
-          <p>Payment processing will be here.</p>
+          
+          {/* Call Requirement Notice */}
+          {requiresPhoneCall && (
+            <div style={{ 
+              backgroundColor: '#fff3cd', 
+              border: '1px solid #ffeaa7',
+              borderRadius: '8px',
+              padding: '1.5rem',
+              marginBottom: '2rem',
+              textAlign: 'center'
+            }}>
+              <h3 style={{ 
+                color: '#856404', 
+                marginBottom: '1rem',
+                fontSize: '1.2rem',
+                fontWeight: 'bold'
+              }}>
+                📞 Phone Verification Required
+              </h3>
+              <p style={{ 
+                color: '#856404', 
+                marginBottom: '1rem',
+                fontSize: '1rem',
+                lineHeight: '1.5'
+              }}>
+                Your booking is scheduled within the next 2 days. To ensure availability and proper setup, 
+                please call us to verify your order before completing payment.
+              </p>
+              <div style={{ 
+                fontSize: '1.3rem', 
+                fontWeight: 'bold',
+                color: '#dc3545',
+                marginBottom: '1rem'
+              }}>
+                📞 (803) 221-0466
+              </div>
+              <p style={{ 
+                color: '#856404', 
+                fontSize: '0.9rem',
+                fontStyle: 'italic',
+                marginBottom: '1.5rem'
+              }}>
+                Once you've called and confirmed your order, you can return here to complete payment.
+                Your booking has been saved as pending.
+              </p>
+              
+              <button
+                onClick={() => setRequiresPhoneCall(false)}
+                style={{
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                ✓ I've Called and Confirmed My Order
+              </button>
+            </div>
+          )}
+          
+          {/* Order Summary */}
+          <div style={{ 
+            marginBottom: '2rem', 
+            padding: '1rem', 
+            backgroundColor: '#f8f9fa', 
+            borderRadius: '4px' 
+          }}>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#333' }}>Order Summary</h3>
+            <div style={{ marginBottom: '0.5rem' }}>
+              <strong>Items:</strong>
+              {cart.map((item, index) => (
+                <div key={index} style={{ marginLeft: '1rem', color: '#666' }}>
+                  • {item.name} - ${item.price.toFixed(2)}
+                  {item.wetDry && ` (${item.wetDry})`}
+                </div>
+              ))}
+            </div>
+            <div style={{ marginBottom: '0.5rem', color: '#666' }}>
+              <strong>Subtotal:</strong> ${cart.reduce((sum, item) => sum + item.price, 0).toFixed(2)}
+            </div>
+            <div style={{ marginBottom: '0.5rem', color: '#666' }}>
+              <strong>Delivery:</strong> ${deliveryCost.toFixed(2)}
+            </div>
+            <div style={{ 
+              fontSize: '1.2rem', 
+              fontWeight: 'bold', 
+              borderTop: '1px solid #ddd', 
+              paddingTop: '0.5rem',
+              color: '#333'
+            }}>
+              <strong>Total: ${calculateTotalAmount()}</strong>
+            </div>
+          </div>
+
+          {/* PayPal Payment */}
+          <div style={{ marginBottom: '2rem' }}>
+            <h3 style={{ marginBottom: '1rem', color: '#333' }}>Complete Payment</h3>
+            
+            {requiresPhoneCall && (
+              <div style={{ 
+                padding: '1rem', 
+                backgroundColor: '#f8d7da', 
+                borderRadius: '4px', 
+                marginBottom: '1rem',
+                textAlign: 'center',
+                border: '1px solid #f5c6cb'
+              }}>
+                <p style={{ margin: 0, color: '#721c24', fontWeight: 'bold' }}>
+                  Payment is disabled until you call (803) 221-0466 to verify your booking.
+                </p>
+              </div>
+            )}
+            
+            {processingPayment && (
+              <div style={{ 
+                padding: '1rem', 
+                backgroundColor: '#e3f2fd', 
+                borderRadius: '4px', 
+                marginBottom: '1rem',
+                textAlign: 'center'
+              }}>
+                <p style={{ margin: 0, color: '#1976d2' }}>Processing payment...</p>
+              </div>
+            )}
+            
+            <div style={{ 
+              opacity: requiresPhoneCall ? 0.5 : 1,
+              pointerEvents: requiresPhoneCall ? 'none' : 'auto'
+            }}>
+              <PayPalScriptProvider options={{ 
+                clientId: "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0", // Your PayPal sandbox client ID
+                currency: "USD",
+                intent: "capture"
+              }}>
+                <PayPalButtons
+                  style={{ 
+                    layout: "vertical",
+                    color: "blue",
+                    shape: "rect",
+                    label: "paypal"
+                  }}
+                  createOrder={createPayPalOrder}
+                  onApprove={onPayPalApprove}
+                  onError={onPayPalError}
+                  disabled={processingPayment || requiresPhoneCall}
+                />
+              </PayPalScriptProvider>
+            </div>
+          </div>
           
           <div className="checkout-navigation-buttons">
             <button
               id="btn-back-contract"
               onClick={goToPreviousStep}
+              disabled={processingPayment}
             >
               Back to Contract
             </button>
-            <button
-              id="btn-complete-payment"
-            >
-              Complete Payment
-            </button>
           </div>
+        </div>
+      )}
+
+      {currentStep === 'payment' && paymentCompleted && (
+        <div style={{ 
+          backgroundColor: 'white', 
+          padding: '2rem', 
+          borderRadius: '8px', 
+          marginBottom: '2rem',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          textAlign: 'center'
+        }}>
+          <h2 style={{ marginBottom: '1rem', color: '#28a745' }}>✅ Payment Successful!</h2>
+          <p style={{ fontSize: '1.1rem', marginBottom: '1rem', color: '#333' }}>
+            Thank you for your order! Your payment has been processed and your rental contract has been saved.
+          </p>
+          <div style={{ 
+            padding: '1rem', 
+            backgroundColor: '#f8f9fa', 
+            borderRadius: '4px',
+            marginBottom: '1rem'
+          }}>
+            <p style={{ margin: '0.5rem 0', color: '#666' }}>
+              <strong>Payment ID:</strong> {paymentId}
+            </p>
+            <p style={{ margin: '0.5rem 0', color: '#666' }}>
+              <strong>Total Paid:</strong> ${calculateTotalAmount()}
+            </p>
+          </div>
+          <p style={{ color: '#666' }}>
+            You will receive a confirmation email shortly. We'll contact you to confirm delivery details.
+          </p>
         </div>
       )}
 
