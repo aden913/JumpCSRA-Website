@@ -139,9 +139,7 @@ export default function Checkout() {
   const [showQuantityModal, setShowQuantityModal] = useState<string | null>(null);
   
   // Contract and signature state
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [signatureData, setSignatureData] = useState<string>("");
+  const [typedSignature, setTypedSignature] = useState<string>("");
   
   // New contract system state
   const [customerInitials, setCustomerInitials] = useState<string>("");
@@ -358,18 +356,30 @@ export default function Checkout() {
       const sections = generateContractSections();
       setContractSections(sections);
       
-      // Show initials prompt if not already provided
-      if (!customerInitials.trim()) {
-        setShowInitialsPrompt(true);
+      // Automatically set initials from user's firstName and lastName
+      if (!customerInitials.trim() && userProfile?.firstName && userProfile?.lastName) {
+        const autoInitials = `${userProfile.firstName.charAt(0).toUpperCase()}${userProfile.lastName.charAt(0).toUpperCase()}`;
+        setCustomerInitials(autoInitials);
+      }
+      
+      // Automatically set signature from user's full name
+      if (!typedSignature.trim() && userProfile?.firstName && userProfile?.lastName) {
+        const fullName = `${userProfile.firstName} ${userProfile.lastName}`;
+        setTypedSignature(fullName);
       }
     }
-  }, [currentStep, contractSections.length, customerInitials]);
+  }, [currentStep, contractSections.length, customerInitials, typedSignature, userProfile]);
 
   // Handle section initialing
   const handleSectionInitial = (sectionId: string) => {
+    // Automatically generate initials from user's firstName and lastName
+    const autoInitials = userProfile?.firstName && userProfile?.lastName 
+      ? `${userProfile.firstName.charAt(0).toUpperCase()}${userProfile.lastName.charAt(0).toUpperCase()}`
+      : customerInitials.trim() || 'XX'; // Fallback to existing initials or XX
+    
+    // Set the initials if not already set
     if (!customerInitials.trim()) {
-      setShowInitialsPrompt(true);
-      return;
+      setCustomerInitials(autoInitials);
     }
     
     setContractSections(prev => 
@@ -388,7 +398,7 @@ export default function Checkout() {
 
   // Handle contract completion
   const handleContractCompletion = async () => {
-    if (!allSectionsInitialed() || !signatureData) {
+    if (!allSectionsInitialed() || !typedSignature.trim()) {
       alert("Please initial all sections and provide your signature before proceeding.");
       return;
     }
@@ -709,86 +719,23 @@ export default function Checkout() {
     setShowQuantityModal(null);
   };
 
-  // Canvas drawing functions for signature
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    setIsDrawing(true);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    // Scale coordinates to match canvas internal dimensions
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    
-    let x, y;
-    if ('touches' in e) {
-      x = (e.touches[0].clientX - rect.left) * scaleX;
-      y = (e.touches[0].clientY - rect.top) * scaleY;
-    } else {
-      x = (e.clientX - rect.left) * scaleX;
-      y = (e.clientY - rect.top) * scaleY;
-    }
-    
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-  };
-
-  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
-    
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const rect = canvas.getBoundingClientRect();
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    // Scale coordinates to match canvas internal dimensions
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    
-    let x, y;
-    if ('touches' in e) {
-      x = (e.touches[0].clientX - rect.left) * scaleX;
-      y = (e.touches[0].clientY - rect.top) * scaleY;
-    } else {
-      x = (e.clientX - rect.left) * scaleX;
-      y = (e.clientY - rect.top) * scaleY;
-    }
-    
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.strokeStyle = '#000';
-    ctx.lineTo(x, y);
-    ctx.stroke();
-  };
-
-  const stopDrawing = () => {
-    setIsDrawing(false);
-    const canvas = canvasRef.current;
-    if (canvas) {
-      setSignatureData(canvas.toDataURL());
+  // Signature handling functions
+  const handleSignatureClick = () => {
+    // Auto-populate with user's full name if available
+    if (!typedSignature.trim() && userProfile?.firstName && userProfile?.lastName) {
+      const fullName = `${userProfile.firstName} ${userProfile.lastName}`;
+      setTypedSignature(fullName);
     }
   };
 
   const clearSignature = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    setSignatureData("");
+    setTypedSignature("");
   };
 
   // Save signed contract to database
   // Save contract metadata to Firebase Realtime Database
   const saveContractMetadata = async (): Promise<string | null> => {
-    if (!user || !allSectionsInitialed() || !signatureData || !customerInitials.trim()) {
+    if (!user || !allSectionsInitialed() || !typedSignature.trim() || !customerInitials.trim()) {
       console.error("Missing required contract data");
       return null;
     }
@@ -854,7 +801,7 @@ export default function Checkout() {
         },
         agreementSections: contractSections,
         signature: {
-          signatureData: signatureData,
+          signatureData: typedSignature,
           signedAt: new Date().toISOString()
         },
         contractDate: new Date().toLocaleDateString(),
@@ -1519,49 +1466,26 @@ export default function Checkout() {
           <div style={{ marginBottom: '2rem', padding: '1rem', border: '2px solid #ddd', borderRadius: '4px' }}>
             <h4 style={{ marginBottom: '1rem' }}>Digital Signature</h4>
             <p style={{ marginBottom: '1rem', color: '#666' }}>
-              Please sign below to agree to all terms and conditions:
+              Please type your full name below to sign the agreement:
             </p>
             
-            <div style={{
-              border: '2px solid #ddd',
-              borderRadius: '4px',
-              backgroundColor: 'white',
-              marginBottom: '1rem',
-              position: 'relative'
-            }}>
-              <canvas
-                ref={canvasRef}
-                width={600}
-                height={150}
+            <div style={{ marginBottom: '1rem' }}>
+              <input
+                type="text"
+                value={typedSignature}
+                onChange={(e) => setTypedSignature(e.target.value)}
+                onClick={handleSignatureClick}
+                placeholder="Type your full name here"
                 style={{
-                  display: 'block',
-                  cursor: 'crosshair',
                   width: '100%',
-                  height: '150px',
-                  touchAction: 'none'
-                }}
-                onMouseDown={startDrawing}
-                onMouseMove={draw}
-                onMouseUp={stopDrawing}
-                onMouseLeave={stopDrawing}
-                onTouchStart={startDrawing}
-                onTouchMove={draw}
-                onTouchEnd={stopDrawing}
-              />
-              {!signatureData && (
-                <div style={{
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  pointerEvents: 'none',
-                  color: '#ccc',
+                  padding: '1rem',
+                  border: '2px solid #ddd',
+                  borderRadius: '4px',
                   fontSize: '1.1rem',
-                  fontStyle: 'italic'
-                }}>
-                  Sign here
-                </div>
-              )}
+                  fontFamily: 'cursive',
+                  backgroundColor: 'white'
+                }}
+              />
             </div>
             
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
@@ -1579,9 +1503,9 @@ export default function Checkout() {
                 Clear Signature
               </button>
               
-              {signatureData && (
+              {typedSignature.trim() && (
                 <span style={{ color: '#28a745', fontSize: '0.9rem' }}>
-                  ✓ Signature captured
+                  ✓ Signature entered
                 </span>
               )}
             </div>
@@ -1592,8 +1516,8 @@ export default function Checkout() {
               <p style={{ margin: '0 0 0.5rem 0', color: allSectionsInitialed() ? '#28a745' : '#dc3545' }}>
                 ✓ Sections Initialed: {contractSections.filter(s => s.isInitialed).length} / {contractSections.length}
               </p>
-              <p style={{ margin: 0, color: signatureData ? '#28a745' : '#dc3545' }}>
-                ✓ Signature: {signatureData ? 'Complete' : 'Required'}
+              <p style={{ margin: 0, color: typedSignature.trim() ? '#28a745' : '#dc3545' }}>
+                ✓ Signature: {typedSignature.trim() ? 'Complete' : 'Required'}
               </p>
             </div>
           </div>
@@ -1608,15 +1532,15 @@ export default function Checkout() {
             <button
               id="btn-proceed-payment"
               onClick={handleContractCompletion}
-              disabled={!allSectionsInitialed() || !signatureData}
+              disabled={!allSectionsInitialed() || !typedSignature.trim()}
               style={{
-                backgroundColor: (allSectionsInitialed() && signatureData) ? '#28a745' : '#ccc',
+                backgroundColor: (allSectionsInitialed() && typedSignature.trim()) ? '#28a745' : '#ccc',
                 color: 'white',
                 padding: '1rem 2rem',
                 border: 'none',
                 borderRadius: '4px',
                 fontSize: '1.1rem',
-                cursor: (allSectionsInitialed() && signatureData) ? 'pointer' : 'not-allowed'
+                cursor: (allSectionsInitialed() && typedSignature.trim()) ? 'pointer' : 'not-allowed'
               }}
             >
               Complete Contract & Proceed to Payment
