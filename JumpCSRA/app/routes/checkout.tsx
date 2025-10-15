@@ -16,6 +16,7 @@ import { notifications } from '@mantine/notifications';
 import { Notifications } from '@mantine/notifications';
 import { MantineProvider } from '@mantine/core';
 import '@mantine/notifications/styles.css';
+import '../styles/checkout-buttons.css';
 
 export function meta() {
   return [
@@ -84,6 +85,7 @@ export default function Checkout() {
   // Checkout step management
   type CheckoutStep = 'order-summary' | 'delivery' | 'quick-add-totals' | 'contract' | 'payment';
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('order-summary');
+  const [visitedSteps, setVisitedSteps] = useState<Set<CheckoutStep>>(new Set(['order-summary']));
   
   // Google Places validation state
   const [googlePlacesAddresses, setGooglePlacesAddresses] = useState<Set<string>>(new Set());
@@ -116,7 +118,13 @@ export default function Checkout() {
   const goToNextStep = () => {
     const currentIndex = stepOrder.indexOf(currentStep);
     if (currentIndex < stepOrder.length - 1) {
-      setCurrentStep(stepOrder[currentIndex + 1]);
+      // Validate current step before allowing progression
+      if (canProceedFromCurrentStep()) {
+        const nextStep = stepOrder[currentIndex + 1];
+        setCurrentStep(nextStep);
+        // Track that this step has been visited
+        setVisitedSteps(prev => new Set([...prev, nextStep]));
+      }
     }
   };
 
@@ -124,6 +132,48 @@ export default function Checkout() {
     const currentIndex = stepOrder.indexOf(currentStep);
     if (currentIndex > 0) {
       setCurrentStep(stepOrder[currentIndex - 1]);
+    }
+  };
+
+  // Validation functions for step progression
+  const canProceedFromCurrentStep = () => {
+    switch (currentStep) {
+      case 'order-summary':
+        return cart.length > 0; // Must have items in cart
+      case 'delivery':
+        return deliveryAddress.trim() !== '' && deliveryCost > 0; // Must have delivery address and calculated cost
+      case 'quick-add-totals':
+        return cart.length > 0 && deliveryAddress.trim() !== '' && deliveryCost > 0; // Must have cart, address, and delivery cost
+      case 'contract':
+        return false; // Contract step should use its own signing logic, not goToNextStep
+      default:
+        return true;
+    }
+  };
+
+  const getNextStepButtonText = () => {
+    switch (currentStep) {
+      case 'order-summary':
+        return 'Continue to Delivery';
+      case 'delivery':
+        return 'Continue to Order Review';
+      case 'quick-add-totals':
+        return 'Proceed to Contract';
+      default:
+        return 'Next';
+    }
+  };
+
+  const canShowNextButton = () => {
+    switch (currentStep) {
+      case 'order-summary':
+        return cart.length > 0;
+      case 'delivery':
+        return deliveryAddress.trim() !== '' && deliveryCost > 0;
+      case 'quick-add-totals':
+        return cart.length > 0 && deliveryAddress.trim() !== '' && deliveryCost > 0;
+      default:
+        return false;
     }
   };
 
@@ -607,7 +657,7 @@ Signed on: ${new Date().toLocaleDateString()}
         gap: '1rem'
       }}>
         <h2>Your cart is empty</h2>
-        <button onClick={() => navigate("/home")} style={{ padding: '1rem 2rem', fontSize: '1.1rem' }}>
+        <button id="btn-continue-shopping" onClick={() => navigate("/home")}>
           Continue Shopping
         </button>
       </div>
@@ -742,20 +792,9 @@ Signed on: ${new Date().toLocaleDateString()}
                   }
                 </div>
                 <button
+                  id={`btn-remove-item-${idx}`}
+                  className="btn-remove-item"
                   onClick={() => removeItemFromCart(idx)}
-                  style={{
-                    background: '#dc3545',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    padding: '0.5rem 0.75rem',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    fontWeight: 'bold',
-                    transition: 'background-color 0.2s'
-                  }}
-                  onMouseOver={(e) => e.currentTarget.style.background = '#c82333'}
-                  onMouseOut={(e) => e.currentTarget.style.background = '#dc3545'}
                 >
                   Remove
                 </button>
@@ -813,20 +852,13 @@ Signed on: ${new Date().toLocaleDateString()}
         </div>
         
         {/* Continue to Delivery Button */}
-        <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+        <div className="checkout-main-button-container">
           <button
+            id="btn-main-flow"
             onClick={goToNextStep}
-            style={{
-              backgroundColor: '#007bff',
-              color: 'white',
-              padding: '1rem 2rem',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '1.1rem',
-              cursor: 'pointer'
-            }}
+            disabled={!canShowNextButton()}
           >
-            Continue to Delivery
+            {getNextStepButtonText()}
           </button>
         </div>
       </div>
@@ -864,6 +896,7 @@ Signed on: ${new Date().toLocaleDateString()}
         </div>
         
         <button
+          id="btn-calculate-distance"
           onClick={() => {
             const inputValue = addressInputRef.current?.value?.trim();
             if (inputValue) {
@@ -900,14 +933,6 @@ Signed on: ${new Date().toLocaleDateString()}
             }
           }}
           disabled={calculatingDistance || !deliveryAddress.trim()}
-          style={{
-            backgroundColor: calculatingDistance ? '#ccc' : '#007bff',
-            color: 'white',
-            padding: '0.75rem 1.5rem',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: calculatingDistance ? 'not-allowed' : 'pointer'
-          }}
         >
           {calculatingDistance ? 'Calculating...' : 'Calculate Delivery Cost'}
         </button>
@@ -929,35 +954,19 @@ Signed on: ${new Date().toLocaleDateString()}
         )}
         
         {/* Navigation Buttons */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem' }}>
+        <div className="checkout-navigation-buttons">
           <button
+            id="btn-back-order-summary"
             onClick={goToPreviousStep}
-            style={{
-              backgroundColor: '#6c757d',
-              color: 'white',
-              padding: '1rem 2rem',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '1.1rem',
-              cursor: 'pointer'
-            }}
           >
             Back to Order Summary
           </button>
           <button
+            id="btn-forward-delivery"
             onClick={goToNextStep}
-            disabled={!deliveryAddress.trim() || deliveryCost === 0}
-            style={{
-              backgroundColor: (!deliveryAddress.trim() || deliveryCost === 0) ? '#ccc' : '#007bff',
-              color: 'white',
-              padding: '1rem 2rem',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '1.1rem',
-              cursor: (!deliveryAddress.trim() || deliveryCost === 0) ? 'not-allowed' : 'pointer'
-            }}
+            disabled={!canShowNextButton()}
           >
-            Continue to Purchase
+            {getNextStepButtonText()}
           </button>
         </div>
       </div>
@@ -1028,48 +1037,25 @@ Signed on: ${new Date().toLocaleDateString()}
                         Added: {currentQuantity} x ${price} = ${(currentQuantity * price * durationMultiplier).toFixed(2)}
                       </p>
                       <button
+                        id={`btn-change-qty-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
+                        className="btn-change-qty"
                         onClick={() => setShowQuantityModal(item.name)}
-                        style={{
-                          backgroundColor: '#ffc107',
-                          color: 'black',
-                          border: 'none',
-                          padding: '0.5rem 1rem',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '0.9rem',
-                          marginRight: '0.5rem'
-                        }}
                       >
                         Change Qty
                       </button>
                       <button
+                        id={`btn-remove-last-minute-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
+                        className="btn-remove-last-minute"
                         onClick={() => handleAddLastMinuteItem(item.name, 0)}
-                        style={{
-                          backgroundColor: '#dc3545',
-                          color: 'white',
-                          border: 'none',
-                          padding: '0.5rem 1rem',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '0.9rem'
-                        }}
                       >
                         Remove
                       </button>
                     </div>
                   ) : (
                     <button
+                      id={`btn-add-to-order-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
+                      className="btn-add-to-order"
                       onClick={() => setShowQuantityModal(item.name)}
-                      style={{
-                        backgroundColor: '#007bff',
-                        color: 'white',
-                        border: 'none',
-                        padding: '0.5rem 1rem',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        marginTop: '0.5rem',
-                        width: '100%'
-                      }}
                     >
                       Add to Order
                     </button>
@@ -1177,37 +1163,24 @@ Signed on: ${new Date().toLocaleDateString()}
         </div>
         )}
         
-        {/* Navigation Buttons */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem' }}>
-          <button
-            onClick={goToPreviousStep}
-            style={{
-              backgroundColor: '#6c757d',
-              color: 'white',
-              padding: '1rem 2rem',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '1.1rem',
-              cursor: 'pointer'
-            }}
-          >
-            Back to Delivery
-          </button>
-          <button
-            onClick={goToNextStep}
-            style={{
-              backgroundColor: '#28a745',
-              color: 'white',
-              padding: '1rem 2rem',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '1.1rem',
-              cursor: 'pointer'
-            }}
-          >
-            Sign Contract
-          </button>
-        </div>
+        {/* Navigation Buttons - Only show after visiting this step */}
+        {visitedSteps.has('quick-add-totals') && (
+          <div className="checkout-navigation-buttons">
+            <button
+              id="btn-back-delivery"
+              onClick={goToPreviousStep}
+            >
+              Back to Delivery
+            </button>
+            <button
+              id="btn-forward-quick-add"
+              onClick={goToNextStep}
+              disabled={!canShowNextButton()}
+            >
+              {getNextStepButtonText()}
+            </button>
+          </div>
+        )}
         </div>
 
       {currentStep === 'contract' && (
@@ -1221,32 +1194,16 @@ Signed on: ${new Date().toLocaleDateString()}
           <h2 style={{ marginBottom: '1rem', color: '#333' }}>Sign Contract</h2>
           <p>Contract content and signature area will be here.</p>
           
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem' }}>
+          <div className="checkout-navigation-buttons">
             <button
+              id="btn-back-order-review"
               onClick={goToPreviousStep}
-              style={{
-                backgroundColor: '#6c757d',
-                color: 'white',
-                padding: '1rem 2rem',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '1.1rem',
-                cursor: 'pointer'
-              }}
             >
               Back to Order Review
             </button>
             <button
+              id="btn-proceed-payment"
               onClick={goToNextStep}
-              style={{
-                backgroundColor: '#dc3545',
-                color: 'white',
-                padding: '1rem 2rem',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '1.1rem',
-                cursor: 'pointer'
-              }}
             >
               Proceed to Payment
             </button>
@@ -1265,31 +1222,15 @@ Signed on: ${new Date().toLocaleDateString()}
           <h2 style={{ marginBottom: '1rem', color: '#333' }}>Payment</h2>
           <p>Payment processing will be here.</p>
           
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem' }}>
+          <div className="checkout-navigation-buttons">
             <button
+              id="btn-back-contract"
               onClick={goToPreviousStep}
-              style={{
-                backgroundColor: '#6c757d',
-                color: 'white',
-                padding: '1rem 2rem',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '1.1rem',
-                cursor: 'pointer'
-              }}
             >
               Back to Contract
             </button>
             <button
-              style={{
-                backgroundColor: '#28a745',
-                color: 'white',
-                padding: '1rem 2rem',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '1.1rem',
-                cursor: 'pointer'
-              }}
+              id="btn-complete-payment"
             >
               Complete Payment
             </button>
@@ -1323,20 +1264,13 @@ Signed on: ${new Date().toLocaleDateString()}
               How many {showQuantityModal} would you like to add?
             </p>
             
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
+            <div className="checkout-quantity-buttons">
               {[1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20].map(qty => (
                 <button
                   key={qty}
+                  id={`btn-quantity-${qty}`}
+                  className="btn-quantity-option"
                   onClick={() => handleAddLastMinuteItem(showQuantityModal, qty)}
-                  style={{
-                    backgroundColor: '#007bff',
-                    color: 'white',
-                    border: 'none',
-                    padding: '0.5rem 1rem',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    minWidth: '50px'
-                  }}
                 >
                   {qty}
                 </button>
@@ -1344,15 +1278,8 @@ Signed on: ${new Date().toLocaleDateString()}
             </div>
             
             <button
+              id="btn-quantity-cancel"
               onClick={() => setShowQuantityModal(null)}
-              style={{
-                backgroundColor: '#6c757d',
-                color: 'white',
-                border: 'none',
-                padding: '0.5rem 1rem',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
             >
               Cancel
             </button>
@@ -1360,348 +1287,11 @@ Signed on: ${new Date().toLocaleDateString()}
         </div>
       )}
 
-      {/* Action Buttons */}
-      <div style={{ 
-        display: 'flex', 
-        gap: '1rem', 
-        justifyContent: 'center',
-        marginTop: '2rem'
-      }}>
-        <button
-          onClick={() => {
-            // Validate delivery address before showing contract
-            const actualAddressValue = addressInputRef.current?.value || '';
-            if (!actualAddressValue || !actualAddressValue.trim()) {
-              alert("Please enter a delivery address before proceeding.");
-              return;
-            }
-            
-            const isGooglePlacesAddress = googlePlacesAddresses.has(actualAddressValue);
-            const hasCommas = actualAddressValue.includes(',');
-            const hasCountry = actualAddressValue.toUpperCase().includes('USA') || 
-                              actualAddressValue.toUpperCase().includes('UNITED STATES');
-            const hasStateZip = /,\s*[A-Z]{2}[\s,]/.test(actualAddressValue);
-            const looksLikeGooglePlaces = hasCommas && (hasCountry || hasStateZip);
-            
-            if (!isGooglePlacesAddress && !looksLikeGooglePlaces) {
-              alert("Please select a valid delivery address from the Google Places suggestions instead of typing manually.");
-              return;
-            }
-            
-            // Update delivery address and proceed
-            setDeliveryAddress(actualAddressValue);
-            setShowContract(true);
-          }}
-          style={{
-            backgroundColor: contractSigned ? '#28a745' : '#ffc107',
-            color: contractSigned ? 'white' : 'black',
-            padding: '1rem 2rem',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '1.1rem'
-          }}
-        >
-          {contractSigned ? '✓ Contract Signed' : 'Sign Contract'}
-        </button>
-        
-        <button
-          disabled={!contractSigned}
-          onClick={() => {
-            // TODO: Implement PayPal checkout
-            alert("PayPal checkout will be implemented next");
-          }}
-          style={{
-            backgroundColor: contractSigned ? '#007bff' : '#ccc',
-            color: 'white',
-            padding: '1rem 2rem',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: contractSigned ? 'pointer' : 'not-allowed',
-            fontSize: '1.1rem'
-          }}
-        >
-          Proceed to Payment
-        </button>
-      </div>
-
-      {/* Contract Modal */}
-      {showContract && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.9)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'flex-start',
-          zIndex: 1000,
-          overflow: 'auto',
-          padding: '2rem'
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            width: '100%',
-            maxWidth: '800px',
-            maxHeight: '90vh',
-            overflow: 'auto'
-          }}>
-            {/* Contract Header */}
-            <div style={{
-              padding: '2rem 2rem 1rem 2rem',
-              borderBottom: '1px solid #ddd',
-              position: 'sticky',
-              top: 0,
-              backgroundColor: 'white',
-              zIndex: 1001
-            }}>
-              <h2 style={{ margin: 0, textAlign: 'center' }}>Rental Agreement</h2>
-              <button
-                onClick={() => setShowContract(false)}
-                style={{
-                  position: 'absolute',
-                  top: '1rem',
-                  right: '1rem',
-                  background: 'transparent',
-                  border: 'none',
-                  fontSize: '1.5rem',
-                  cursor: 'pointer'
-                }}
-              >
-                ×
-              </button>
-            </div>
-
-            {/* Contract Content */}
-            <div style={{ padding: '2rem', lineHeight: '1.6' }}>
-              <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                <h3>JUMP CSRA PARTY RENTAL AGREEMENT</h3>
-              </div>
-
-              <p><strong>Agreement Date:</strong> {new Date().toLocaleDateString()}</p>
-              <p><strong>Customer:</strong> {user?.displayName || user?.email}</p>
-              <p><strong>Email:</strong> {user?.email}</p>
-
-              <h4>RENTAL DETAILS:</h4>
-              <ul>
-                <li><strong>Event Date:</strong> {calendarDateRange[0]?.toLocaleDateString()} - {calendarDateRange[1]?.toLocaleDateString()}</li>
-                <li><strong>Duration:</strong> {cartSettings.duration}</li>
-                <li><strong>Delivery Address:</strong> {deliveryAddress}</li>
-                <li><strong>Surface Type:</strong> {cartSettings.surface}</li>
-                <li><strong>Delivery Time:</strong> {cartSettings.deliveryTime}</li>
-                <li><strong>Total Amount:</strong> ${total.toFixed(2)}</li>
-              </ul>
-
-              <h4>RENTAL ITEMS:</h4>
-              <div style={{ marginLeft: '1rem' }}>
-                {cart.map((item, idx) => (
-                  <div key={idx} style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    marginBottom: '0.5rem',
-                    padding: '0.5rem',
-                    backgroundColor: '#f8f9fa',
-                    borderRadius: '4px'
-                  }}>
-                    <img 
-                      src={getProductImage(item.name)} 
-                      alt={item.name}
-                      style={{
-                        width: '40px',
-                        height: '40px',
-                        objectFit: 'cover',
-                        borderRadius: '6px',
-                        marginRight: '0.75rem',
-                        border: '1px solid #ddd'
-                      }}
-                      onError={(e) => {
-                        e.currentTarget.src = '/assets/inflateables/default.png';
-                      }}
-                    />
-                    <span>
-                      {item.name} x{item.quantity} - ${(item.isGiftCard ? (item.giftCardValue || item.price) : item.price * durationMultiplier).toFixed(2)} each
-                    </span>
-                  </div>
-                ))}
-                {Object.entries(lastMinuteAdditions)
-                  .filter(([_, quantity]) => quantity > 0)
-                  .map(([itemName, quantity]) => {
-                    const item = partyEssentials.find(p => p.name === itemName);
-                    if (!item) return null;
-                    const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
-                    const price = isWeekend ? item.weekendPrice : item.weekdayPrice;
-                    return (
-                      <div key={itemName} style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        marginBottom: '0.5rem',
-                        padding: '0.5rem',
-                        backgroundColor: '#f8f9fa',
-                        borderRadius: '4px'
-                      }}>
-                        <img 
-                          src={item.img || '/assets/inflateables/default.png'} 
-                          alt={itemName}
-                          style={{
-                            width: '40px',
-                            height: '40px',
-                            objectFit: 'cover',
-                            borderRadius: '6px',
-                            marginRight: '0.75rem',
-                            border: '1px solid #ddd'
-                          }}
-                          onError={(e) => {
-                            e.currentTarget.src = '/assets/inflateables/default.png';
-                          }}
-                        />
-                        <span>
-                          {itemName} x{quantity} - ${(price * durationMultiplier).toFixed(2)} each
-                        </span>
-                      </div>
-                    );
-                  })
-                }
-              </div>
-
-              <h4>TERMS AND CONDITIONS:</h4>
-              <ol>
-                <li>The renter agrees to use all equipment safely and responsibly according to manufacturer guidelines.</li>
-                <li>The renter is liable for any damage, loss, or theft of equipment during the rental period.</li>
-                <li>All equipment must be returned in the same condition as received, normal wear excepted.</li>
-                <li>Payment is due in full before delivery of equipment.</li>
-                <li>Cancellations must be made at least 24 hours in advance for a full refund.</li>
-                <li>Jump CSRA reserves the right to inspect equipment before and after rental.</li>
-                <li>The renter must ensure adequate space and safe conditions for equipment setup.</li>
-                <li>Weather-related cancellations will be handled on a case-by-case basis.</li>
-                <li>The renter agrees to supervise children using the equipment at all times.</li>
-                <li>Jump CSRA is not liable for injuries resulting from misuse of equipment.</li>
-              </ol>
-
-              <div style={{ marginTop: '2rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-                <p><strong>LIABILITY WAIVER:</strong> By signing this agreement, the renter acknowledges understanding of all terms and assumes all risks associated with the rental equipment. The renter releases Jump CSRA Party Rental from any liability for injuries or damages.</p>
-              </div>
-            </div>
-
-            {/* Signature Section */}
-            <div style={{
-              padding: '2rem',
-              borderTop: '1px solid #ddd',
-              backgroundColor: '#f8f9fa'
-            }}>
-              <h4 style={{ marginBottom: '1rem' }}>Digital Signature</h4>
-              <p style={{ marginBottom: '1rem', color: '#666' }}>
-                Please sign below to agree to the terms and conditions:
-              </p>
-              
-              <div style={{
-                border: '2px solid #ddd',
-                borderRadius: '4px',
-                backgroundColor: 'white',
-                marginBottom: '1rem'
-              }}>
-                <canvas
-                  ref={canvasRef}
-                  width={700}
-                  height={200}
-                  style={{
-                    display: 'block',
-                    cursor: 'crosshair',
-                    width: '100%',
-                    height: 'auto'
-                  }}
-                  onMouseDown={startDrawing}
-                  onMouseMove={draw}
-                  onMouseUp={stopDrawing}
-                  onMouseLeave={stopDrawing}
-                  onTouchStart={startDrawing}
-                  onTouchMove={draw}
-                  onTouchEnd={stopDrawing}
-                />
-              </div>
-              
-              <div style={{ 
-                display: 'flex', 
-                gap: '1rem', 
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap'
-              }}>
-                <button
-                  onClick={clearSignature}
-                  style={{
-                    backgroundColor: '#6c757d',
-                    color: 'white',
-                    border: 'none',
-                    padding: '0.75rem 1.5rem',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Clear Signature
-                </button>
-                
-                <div style={{ display: 'flex', gap: '1rem' }}>
-                  <button
-                    onClick={() => setShowContract(false)}
-                    style={{
-                      backgroundColor: 'transparent',
-                      border: '1px solid #6c757d',
-                      color: '#6c757d',
-                      padding: '0.75rem 1.5rem',
-                      borderRadius: '4px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  
-                  <button
-                    onClick={saveSignedContract}
-                    disabled={!signatureData}
-                    style={{
-                      backgroundColor: signatureData ? '#28a745' : '#ccc',
-                      color: 'white',
-                      border: 'none',
-                      padding: '0.75rem 1.5rem',
-                      borderRadius: '4px',
-                      cursor: signatureData ? 'pointer' : 'not-allowed',
-                      fontWeight: 'bold'
-                    }}
-                  >
-                    Sign & Accept Contract
-                  </button>
-                </div>
-              </div>
-              
-              {signatureData && (
-                <p style={{ 
-                  marginTop: '1rem', 
-                  color: '#28a745', 
-                  fontSize: '0.9rem',
-                  textAlign: 'center'
-                }}>
-                  ✓ Signature captured. Click "Sign & Accept Contract" to proceed.
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Back to Cart */}
-      <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+      <div className="checkout-back-shopping-container">
         <button
+          id="btn-back-to-shopping"
           onClick={() => navigate("/home")}
-          style={{
-            backgroundColor: 'transparent',
-            border: '1px solid #ccc',
-            padding: '0.75rem 1.5rem',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
         >
           ← Back to Shopping
         </button>

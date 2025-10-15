@@ -1,0 +1,204 @@
+/* Checkout Button Styles */
+
+/* Primary Flow Buttons */
+#btn-continue-shopping {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#btn-main-flow {
+  background-color: #007bff;
+  color: white;
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+#btn-main-flow:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+#btn-main-flow.success {
+  background-color: #28a745;
+}
+
+#btn-main-flow.danger {
+  background-color: #dc3545;
+}
+
+/* Navigation Buttons */
+#btn-back-order-summary,
+#btn-back-delivery,
+#btn-back-order-review,
+#btn-back-contract {
+  background-color: #6c757d;
+  color: white;
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+#btn-forward-delivery,
+#btn-forward-quick-add,
+#btn-forward-contract,
+#btn-proceed-payment,
+#btn-complete-payment {
+  background-color: #007bff;
+  color: white;
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+#btn-forward-delivery:disabled,
+#btn-forward-quick-add:disabled,
+#btn-forward-contract:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+#btn-forward-contract {
+  background-color: #28a745;
+}
+
+#btn-proceed-payment {
+  background-color: #dc3545;
+}
+
+#btn-complete-payment {
+  background-color: #28a745;
+}
+
+/* Item Management Buttons */
+.btn-remove-item {
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.btn-remove-item:hover {
+  background: #c82333;
+}
+
+/* Calculate Distance Button */
+#btn-calculate-distance {
+  background-color: #ffc107;
+  color: black;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+/* Last Minute Items Buttons */
+.btn-change-qty {
+  background-color: #ffc107;
+  color: black;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-right: 0.5rem;
+}
+
+.btn-remove-last-minute {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.btn-add-to-order {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  width: 100%;
+}
+
+/* Quantity Modal Buttons */
+.btn-quantity-option {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  min-width: 50px;
+}
+
+#btn-quantity-cancel {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Back to Shopping Button */
+#btn-back-to-shopping {
+  background-color: transparent;
+  border: 1px solid #ccc;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #333;
+}
+
+#btn-back-to-shopping:hover {
+  background-color: #f8f9fa;
+}
+
+/* Navigation Button Containers */
+.checkout-navigation-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2rem;
+}
+
+.checkout-main-button-container {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.checkout-quantity-buttons {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.checkout-back-shopping-container {
+  text-align: center;
+  margin-top: 2rem;
+}
