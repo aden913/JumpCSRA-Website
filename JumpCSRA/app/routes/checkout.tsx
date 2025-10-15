@@ -7,6 +7,7 @@ import { GooglePlacesAutocomplete } from "../components/GooglePlacesAutocomplete
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, firestore } from "../components/FirebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
+import { getDatabase, ref, push, set } from "firebase/database";
 import type { User as FirebaseUser } from "firebase/auth";
 import type { CartItem } from "../components/CartSidebar";
 import { useInflateables } from "../hooks/useInflateables";
@@ -17,6 +18,44 @@ import { Notifications } from '@mantine/notifications';
 import { MantineProvider } from '@mantine/core';
 import '@mantine/notifications/styles.css';
 import '../styles/checkout-buttons.css';
+
+// Contract interfaces
+interface ContractSection {
+  id: string;
+  title: string;
+  content: string;
+  isInitialed: boolean;
+  initialedAt?: string;
+}
+
+interface ContractMetadata {
+  contractId: string;
+  userId: string;
+  customerInfo: {
+    name: string;
+    email: string;
+  };
+  orderDetails: {
+    eventDate: string;
+    duration: string;
+    deliveryAddress: string;
+    surface: string;
+    deliveryTime: string;
+    items: Array<{
+      name: string;
+      quantity: number;
+      price: number;
+    }>;
+    totalAmount: number;
+  };
+  agreementSections: ContractSection[];
+  signature: {
+    signatureData: string;
+    signedAt: string;
+  } | null;
+  contractDate: string;
+  initials: string;
+}
 
 export function meta() {
   return [
@@ -100,7 +139,12 @@ export default function Checkout() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [signatureData, setSignatureData] = useState<string>("");
-  const [contractData, setContractData] = useState<any>(null);
+  
+  // New contract system state
+  const [customerInitials, setCustomerInitials] = useState<string>("");
+  const [contractSections, setContractSections] = useState<ContractSection[]>([]);
+  const [contractMetadata, setContractMetadata] = useState<ContractMetadata | null>(null);
+  const [showInitialsPrompt, setShowInitialsPrompt] = useState<boolean>(false);
 
   // Base location for distance calculation
   const BASE_LOCATION = "410 Carolina Springs Rd, North Augusta, SC 29841";
@@ -177,10 +221,189 @@ export default function Checkout() {
     }
   };
 
+  // Generate contract sections based on cart items
+  const generateContractSections = (): ContractSection[] => {
+    const sections: ContractSection[] = [];
+    
+    // Standard agreement sections (always included)
+    sections.push({
+      id: 'security-deposit',
+      title: 'Security Deposit',
+      content: 'I understand a $50 deposit will be placed on my card and may be charged after pickup if: Food, candy, drinks, pets, water balloons, silly string, soap, paint, or other messes are found. The unit is muddy, full of water, unclean, or not inflated at pickup. The unit is not in the same condition it was at delivery. There is excess amounts of water left in the unit. The unit is not inflated by 8:00am on pick up day to dry out. The unit is not inflated when we arrive for pick up.',
+      isInitialed: false
+    });
+    
+    sections.push({
+      id: 'safety-usage',
+      title: 'Safety & Usage',
+      content: 'I agree that: The inflatable will not be moved or repositioned after setup. All users will remove shoes, glasses, and sharp objects before entering. The inflatable will stay inflated during rain, but deflated when high winds are present.',
+      isInitialed: false
+    });
+    
+    sections.push({
+      id: 'cancellation-policy',
+      title: 'Cancellation Policy',
+      content: 'I agree to the cancellation policy as follows. Cancel 14+ days before your event: Receive a full refund. Cancel within 6–13 days of your event: Receive a gift card for 100%, which can be used for any future rental—no expiration date. Cancel with less than 5 days\' notice: Receive a gift card for 50%. The remaining 50% is non-refundable. If Jump CSRA cancels due to weather (e.g., storms, high winds, heavy rain): You will receive a full refund.',
+      isInitialed: false
+    });
+    
+    sections.push({
+      id: 'hold-harmless',
+      title: 'Hold Harmless Provision',
+      content: 'Lessee recognizes and understands that the use of Lessor equipment may involve inherently dangerous activities. Consequently, lessee agrees to indemnify and hold lessor harmless from any and all claims, actions, suits, proceeding costs, expenses, damages, and liabilities, including reasonable attorney\'s fees arising by reason of injury, damage, or death to persons or property, in connection with or resulting from the use of said equipment including, but not limited to the delivery, possession, use, operation, or return of the equipment. Lessee hereby releases and holds harmless lessor from injuries or damages incurred as a result of the use of said equipment unless the lessor is operating the equipment and is deemed by a court of law to be negligent in its actions. Lessor cannot under any circumstances be held liable for injuries as a result of acts of God, nature, or other conditions beyond its control or knowledge. Lessee also agrees to indemnify and hold harmless lessor from any loss, damage, theft, or destruction of the equipment during the term of this contract and any extension thereof.',
+      isInitialed: false
+    });
+    
+    sections.push({
+      id: 'merger-clause',
+      title: 'Merger Clause',
+      content: 'This signed Agreement in conjunction with the signed Instruction Manual and Reservation Form contains the entire agreement between the Lessor and the Lessee. No amendment, whether from previous or subsequent negotiations between the Lessee and the Lessor, shall be valid or enforceable unless in writing and signed by all parties to this contract. The invalidity or unenforceability of any particular provision of this Agreement shall not affect the other provisions hereof.',
+      isInitialed: false
+    });
+    
+    // Product-specific agreements based on cart items
+    const hasInflatables = cart.some(item => 
+      inflateables.find(inf => inf.name === item.name && 
+        (inf.category === 'Bounce Houses' || inf.category === 'Water Slides' || inf.category === 'Combo Units'))
+    );
+    
+    if (hasInflatables) {
+      sections.push({
+        id: 'power-requirements',
+        title: 'Power Requirements',
+        content: 'I will provide 110volt/20amp electric circuits within 75ft, or provide/rent a generator.',
+        isInitialed: false
+      });
+      
+      sections.push({
+        id: 'access-passes',
+        title: 'Access and Parking',
+        content: 'I will provide any required entrance and parking passes for access to rental delivery.',
+        isInitialed: false
+      });
+      
+      sections.push({
+        id: 'adult-supervision',
+        title: 'Adult Supervision',
+        content: 'I will provide at least 1 adult volunteer for each inflatable to ensure safety for the participants.',
+        isInitialed: false
+      });
+      
+      sections.push({
+        id: 'safety-requirements',
+        title: 'Safety Requirements',
+        content: 'I will ensure jumpers remove shoes, eyeglasses, and any sharp objects before jumping.',
+        isInitialed: false
+      });
+      
+      sections.push({
+        id: 'financial-responsibility',
+        title: 'Financial Responsibility',
+        content: 'I will be held financially responsible for damage done to the rental.',
+        isInitialed: false
+      });
+      
+      sections.push({
+        id: 'slide-safety',
+        title: 'Slide Safety',
+        content: 'I will ensure jumpers go down the slide feet first, one rider at a time per lane.',
+        isInitialed: false
+      });
+      
+      sections.push({
+        id: 'weather-safety',
+        title: 'Weather Safety',
+        content: 'In the event of high wind, rain, or storm, I will ensure all participants get off of the unit and move the blower out of the rain.',
+        isInitialed: false
+      });
+      
+      sections.push({
+        id: 'climbing-restrictions',
+        title: 'Climbing Restrictions',
+        content: 'I will ensure there is no jumping or climbing on the outside of the inflatable or security netting.',
+        isInitialed: false
+      });
+    }
+    
+    // Water rental specific requirements
+    const hasWaterRentals = cart.some(item => 
+      item.name.toLowerCase().includes('water') || 
+      item.name.toLowerCase().includes('slip') ||
+      item.name.toLowerCase().includes('slide')
+    );
+    
+    if (hasWaterRentals) {
+      sections.push({
+        id: 'water-hose',
+        title: 'Water Hose Requirement',
+        content: 'I will provide a water hose that reaches to the water rental or add one to my order.',
+        isInitialed: false
+      });
+    }
+    
+    return sections;
+  };
+
   // Track deliveryAddress state changes for debugging
   useEffect(() => {
     console.log('🔄 DELIVERY ADDRESS STATE CHANGED:', deliveryAddress);
   }, [deliveryAddress]);
+
+  // Initialize contract sections when entering contract step
+  useEffect(() => {
+    if (currentStep === 'contract' && contractSections.length === 0) {
+      const sections = generateContractSections();
+      setContractSections(sections);
+      
+      // Show initials prompt if not already provided
+      if (!customerInitials.trim()) {
+        setShowInitialsPrompt(true);
+      }
+    }
+  }, [currentStep, contractSections.length, customerInitials]);
+
+  // Handle section initialing
+  const handleSectionInitial = (sectionId: string) => {
+    if (!customerInitials.trim()) {
+      setShowInitialsPrompt(true);
+      return;
+    }
+    
+    setContractSections(prev => 
+      prev.map(section => 
+        section.id === sectionId 
+          ? { ...section, isInitialed: !section.isInitialed, initialedAt: new Date().toISOString() }
+          : section
+      )
+    );
+  };
+
+  // Check if all sections are initialed
+  const allSectionsInitialed = () => {
+    return contractSections.length > 0 && contractSections.every(section => section.isInitialed);
+  };
+
+  // Handle contract completion
+  const handleContractCompletion = async () => {
+    if (!allSectionsInitialed() || !signatureData) {
+      alert("Please initial all sections and provide your signature before proceeding.");
+      return;
+    }
+    
+    try {
+      const contractId = await saveContractMetadata();
+      if (contractId) {
+        setContractSigned(true);
+        alert("Contract signed and saved successfully!");
+        goToNextStep();
+      } else {
+        alert("Error saving contract. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error completing contract:", error);
+      alert("Error saving contract. Please try again.");
+    }
+  };
 
   // Calculate driving distance using OSRM (free routing service)
   const calculateDeliveryDistance = async (destinationAddress: string) => {
@@ -475,13 +698,17 @@ export default function Checkout() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
+    // Scale coordinates to match canvas internal dimensions
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
     let x, y;
     if ('touches' in e) {
-      x = e.touches[0].clientX - rect.left;
-      y = e.touches[0].clientY - rect.top;
+      x = (e.touches[0].clientX - rect.left) * scaleX;
+      y = (e.touches[0].clientY - rect.top) * scaleY;
     } else {
-      x = e.clientX - rect.left;
-      y = e.clientY - rect.top;
+      x = (e.clientX - rect.left) * scaleX;
+      y = (e.clientY - rect.top) * scaleY;
     }
     
     ctx.beginPath();
@@ -498,13 +725,17 @@ export default function Checkout() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
+    // Scale coordinates to match canvas internal dimensions
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
     let x, y;
     if ('touches' in e) {
-      x = e.touches[0].clientX - rect.left;
-      y = e.touches[0].clientY - rect.top;
+      x = (e.touches[0].clientX - rect.left) * scaleX;
+      y = (e.touches[0].clientY - rect.top) * scaleY;
     } else {
-      x = e.clientX - rect.left;
-      y = e.clientY - rect.top;
+      x = (e.clientX - rect.left) * scaleX;
+      y = (e.clientY - rect.top) * scaleY;
     }
     
     ctx.lineWidth = 2;
@@ -534,100 +765,65 @@ export default function Checkout() {
   };
 
   // Save signed contract to database
-  const saveSignedContract = async () => {
-    if (!user || !signatureData) {
-      alert("Please sign the contract before proceeding.");
-      return;
+  // Save contract metadata to Firebase Realtime Database
+  const saveContractMetadata = async (): Promise<string | null> => {
+    if (!user || !allSectionsInitialed() || !signatureData || !customerInitials.trim()) {
+      console.error("Missing required contract data");
+      return null;
     }
-
-    // Validate delivery address - must be from Google Places if provided
-    const actualAddressValue = addressInputRef.current?.value || '';
-    if (actualAddressValue && actualAddressValue.trim()) {
-      const isGooglePlacesAddress = googlePlacesAddresses.has(actualAddressValue);
-      
-      // Check if address has Google Places formatting characteristics
-      const hasCommas = actualAddressValue.includes(',');
-      const hasCountry = actualAddressValue.toUpperCase().includes('USA') || 
-                        actualAddressValue.toUpperCase().includes('UNITED STATES');
-      const hasStateZip = /,\s*[A-Z]{2}[\s,]/.test(actualAddressValue); // Pattern like ", SC " or ", SC,"
-      
-      const looksLikeGooglePlaces = hasCommas && (hasCountry || hasStateZip);
-      
-      if (!isGooglePlacesAddress && !looksLikeGooglePlaces) {
-        alert("Please select a valid delivery address from the Google Places suggestions instead of typing manually.");
-        return;
-      }
-      
-      // Update the delivery address with the actual input field value
-      setDeliveryAddress(actualAddressValue);
-      
-      // If it looks like Google Places but wasn't in our set, add it
-      if (looksLikeGooglePlaces && !isGooglePlacesAddress) {
-        setGooglePlacesAddresses(prev => new Set(prev).add(actualAddressValue));
-      }
-    } else {
-      alert("Please enter a delivery address.");
-      return;
-    }
-
-    // Use the validated address for the contract
-    const validatedDeliveryAddress = actualAddressValue || deliveryAddress;
 
     try {
-      const contractId = `contract_${user.uid}_${Date.now()}`;
-      const contractDoc = {
-        id: contractId,
+      const database = getDatabase();
+      const contractsRef = ref(database, 'contracts');
+      const newContractRef = push(contractsRef);
+      
+      const contractMetadata: ContractMetadata = {
+        contractId: newContractRef.key || `contract_${user.uid}_${Date.now()}`,
         userId: user.uid,
-        userEmail: user.email,
-        userName: user.displayName || "",
-        signatureData: signatureData,
-        signedAt: new Date().toISOString(),
+        customerInfo: {
+          name: user.displayName || "",
+          email: user.email || ""
+        },
         orderDetails: {
-          cart: cart,
-          lastMinuteAdditions: lastMinuteAdditions,
+          eventDate: `${calendarDateRange[0]?.toLocaleDateString()} - ${calendarDateRange[1]?.toLocaleDateString()}`,
           duration: cartSettings.duration,
+          deliveryAddress: deliveryAddress,
           surface: cartSettings.surface,
           deliveryTime: cartSettings.deliveryTime,
-          location: cartSettings.location,
-          deliveryAddress: validatedDeliveryAddress,
-          eventDate: calendarDateRange,
-          total: total,
-          subtotal: subtotal,
-          deliveryCost: deliveryCost
+          items: [
+            ...cart.map(item => ({
+              name: item.name,
+              quantity: item.quantity,
+              price: item.isGiftCard ? (item.giftCardValue || item.price) : item.price
+            })),
+            ...Object.entries(lastMinuteAdditions)
+              .filter(([_, quantity]) => quantity > 0)
+              .map(([itemName, quantity]) => {
+                const item = partyEssentials.find(p => p.name === itemName);
+                const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
+                const price = item ? (isWeekend ? item.weekendPrice : item.weekdayPrice) : 0;
+                return { name: itemName, quantity, price };
+              })
+          ],
+          totalAmount: total
         },
-        contractText: `
-JUMP CSRA PARTY RENTAL AGREEMENT
-
-This rental agreement is between Jump CSRA Party Rental and ${user.displayName || user.email}.
-
-RENTAL DETAILS:
-- Event Date: ${calendarDateRange[0]?.toLocaleDateString()} - ${calendarDateRange[1]?.toLocaleDateString()}
-- Duration: ${cartSettings.duration}
-- Delivery Address: ${validatedDeliveryAddress}
-- Total Amount: $${total.toFixed(2)}
-
-TERMS AND CONDITIONS:
-1. The renter agrees to use the equipment safely and responsibly.
-2. The renter is responsible for any damage to the equipment during the rental period.
-3. All equipment must be returned in the same condition as received.
-4. Payment is due in full before delivery.
-5. Cancellations must be made at least 24 hours in advance.
-
-By signing below, the renter agrees to all terms and conditions of this rental agreement.
-
-Signed on: ${new Date().toLocaleDateString()}
-        `.trim()
+        agreementSections: contractSections,
+        signature: {
+          signatureData: signatureData,
+          signedAt: new Date().toISOString()
+        },
+        contractDate: new Date().toLocaleDateString(),
+        initials: customerInitials
       };
 
-      await setDoc(doc(firestore, "contracts", contractId), contractDoc);
-      setContractData(contractDoc);
-      setContractSigned(true);
-      setShowContract(false);
+      await set(newContractRef, contractMetadata);
+      setContractMetadata(contractMetadata);
       
-      alert("Contract signed and saved successfully!");
+      console.log("Contract metadata saved successfully:", contractMetadata.contractId);
+      return contractMetadata.contractId;
     } catch (error) {
-      console.error("Error saving contract:", error);
-      alert("Error saving contract. Please try again.");
+      console.error("Error saving contract metadata:", error);
+      throw error;
     }
   };
 
@@ -1191,8 +1387,167 @@ Signed on: ${new Date().toLocaleDateString()}
           marginBottom: '2rem',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
-          <h2 style={{ marginBottom: '1rem', color: '#333' }}>Sign Contract</h2>
-          <p>Contract content and signature area will be here.</p>
+          <h2 style={{ marginBottom: '1rem', color: '#333' }}>Rental Agreement</h2>
+          
+          {/* Contract Header */}
+          <div style={{ marginBottom: '2rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
+            <h3 style={{ margin: '0 0 1rem 0' }}>JUMP CSRA PARTY RENTAL AGREEMENT</h3>
+            <p style={{ margin: '0.5rem 0' }}><strong>Agreement Date:</strong> {new Date().toLocaleDateString()}</p>
+            <p style={{ margin: '0.5rem 0' }}><strong>Customer:</strong> {user?.displayName || user?.email}</p>
+            <p style={{ margin: '0.5rem 0' }}><strong>Email:</strong> {user?.email}</p>
+            <p style={{ margin: '0.5rem 0' }}><strong>Event Date:</strong> {calendarDateRange[0]?.toLocaleDateString()} - {calendarDateRange[1]?.toLocaleDateString()}</p>
+            <p style={{ margin: '0.5rem 0' }}><strong>Delivery Address:</strong> {deliveryAddress}</p>
+            <p style={{ margin: '0.5rem 0' }}><strong>Total Amount:</strong> ${total.toFixed(2)}</p>
+          </div>
+
+          {/* Agreement Sections */}
+          <div style={{ marginBottom: '2rem' }}>
+            <h4 style={{ marginBottom: '1rem' }}>Agreement Sections - Please initial each section:</h4>
+            {contractSections.map((section, index) => {
+              const isFinePrint = section.id === 'hold-harmless' || section.id === 'merger-clause';
+              return (
+                <div key={section.id} style={{ 
+                  marginBottom: '1rem', 
+                  padding: '1rem', 
+                  border: isFinePrint ? '2px solid #dc3545' : '1px solid #ddd', 
+                  borderRadius: '4px',
+                  backgroundColor: section.isInitialed ? '#e8f5e8' : (isFinePrint ? '#fff5f5' : '#fff')
+                }}>
+                  {isFinePrint && (
+                    <div style={{ 
+                      backgroundColor: '#dc3545', 
+                      color: 'white', 
+                      padding: '0.25rem 0.5rem', 
+                      borderRadius: '2px', 
+                      fontSize: '0.8rem', 
+                      fontWeight: 'bold',
+                      marginBottom: '0.5rem',
+                      display: 'inline-block'
+                    }}>
+                      FINE PRINT - IMPORTANT LEGAL TERMS
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+                    <div style={{ minWidth: '100px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={section.isInitialed}
+                          onChange={() => handleSectionInitial(section.id)}
+                          style={{ marginRight: '0.5rem' }}
+                        />
+                        <span style={{ 
+                          display: 'inline-block',
+                          minWidth: '60px',
+                          padding: '0.25rem 0.5rem',
+                          border: '1px solid #ccc',
+                          borderRadius: '2px',
+                          fontSize: '0.9rem',
+                          backgroundColor: section.isInitialed ? '#d4edda' : '#fff'
+                        }}>
+                          {section.isInitialed ? customerInitials : 'Initial'}
+                        </span>
+                      </label>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <h5 style={{ margin: '0 0 0.5rem 0', color: '#333' }}>{section.title}</h5>
+                      <p style={{ 
+                        margin: 0, 
+                        color: '#666', 
+                        lineHeight: '1.4',
+                        fontSize: isFinePrint ? '0.9rem' : '1rem'
+                      }}>
+                        {section.content}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Signature Section */}
+          <div style={{ marginBottom: '2rem', padding: '1rem', border: '2px solid #ddd', borderRadius: '4px' }}>
+            <h4 style={{ marginBottom: '1rem' }}>Digital Signature</h4>
+            <p style={{ marginBottom: '1rem', color: '#666' }}>
+              Please sign below to agree to all terms and conditions:
+            </p>
+            
+            <div style={{
+              border: '2px solid #ddd',
+              borderRadius: '4px',
+              backgroundColor: 'white',
+              marginBottom: '1rem',
+              position: 'relative'
+            }}>
+              <canvas
+                ref={canvasRef}
+                width={600}
+                height={150}
+                style={{
+                  display: 'block',
+                  cursor: 'crosshair',
+                  width: '100%',
+                  height: '150px',
+                  touchAction: 'none'
+                }}
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseLeave={stopDrawing}
+                onTouchStart={startDrawing}
+                onTouchMove={draw}
+                onTouchEnd={stopDrawing}
+              />
+              {!signatureData && (
+                <div style={{
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  pointerEvents: 'none',
+                  color: '#ccc',
+                  fontSize: '1.1rem',
+                  fontStyle: 'italic'
+                }}>
+                  Sign here
+                </div>
+              )}
+            </div>
+            
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <button
+                onClick={clearSignature}
+                style={{
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Clear Signature
+              </button>
+              
+              {signatureData && (
+                <span style={{ color: '#28a745', fontSize: '0.9rem' }}>
+                  ✓ Signature captured
+                </span>
+              )}
+            </div>
+
+            {/* Contract Completion Status */}
+            <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
+              <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold' }}>Contract Completion Status:</p>
+              <p style={{ margin: '0 0 0.5rem 0', color: allSectionsInitialed() ? '#28a745' : '#dc3545' }}>
+                ✓ Sections Initialed: {contractSections.filter(s => s.isInitialed).length} / {contractSections.length}
+              </p>
+              <p style={{ margin: 0, color: signatureData ? '#28a745' : '#dc3545' }}>
+                ✓ Signature: {signatureData ? 'Complete' : 'Required'}
+              </p>
+            </div>
+          </div>
           
           <div className="checkout-navigation-buttons">
             <button
@@ -1203,10 +1558,103 @@ Signed on: ${new Date().toLocaleDateString()}
             </button>
             <button
               id="btn-proceed-payment"
-              onClick={goToNextStep}
+              onClick={handleContractCompletion}
+              disabled={!allSectionsInitialed() || !signatureData}
+              style={{
+                backgroundColor: (allSectionsInitialed() && signatureData) ? '#28a745' : '#ccc',
+                color: 'white',
+                padding: '1rem 2rem',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '1.1rem',
+                cursor: (allSectionsInitialed() && signatureData) ? 'pointer' : 'not-allowed'
+              }}
             >
-              Proceed to Payment
+              Complete Contract & Proceed to Payment
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Initials Prompt Modal */}
+      {showInitialsPrompt && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '2rem',
+            borderRadius: '8px',
+            minWidth: '400px',
+            textAlign: 'center'
+          }}>
+            <h3 style={{ marginBottom: '1rem' }}>Enter Your Initials</h3>
+            <p style={{ marginBottom: '1rem', color: '#666' }}>
+              Please enter your initials to initial each section of the contract:
+            </p>
+            
+            <input
+              type="text"
+              value={customerInitials}
+              onChange={(e) => setCustomerInitials(e.target.value.toUpperCase())}
+              placeholder="Enter initials (e.g., JD)"
+              style={{
+                padding: '0.75rem',
+                fontSize: '1rem',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                width: '200px',
+                textAlign: 'center',
+                marginBottom: '1rem'
+              }}
+              maxLength={5}
+            />
+            
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+              <button
+                onClick={() => setShowInitialsPrompt(false)}
+                style={{
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              
+              <button
+                onClick={() => {
+                  if (customerInitials.trim()) {
+                    setShowInitialsPrompt(false);
+                  } else {
+                    alert("Please enter your initials");
+                  }
+                }}
+                disabled={!customerInitials.trim()}
+                style={{
+                  backgroundColor: customerInitials.trim() ? '#28a745' : '#ccc',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '4px',
+                  cursor: customerInitials.trim() ? 'pointer' : 'not-allowed'
+                }}
+              >
+                Save Initials
+              </button>
+            </div>
           </div>
         </div>
       )}
