@@ -49,6 +49,45 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
   const [user, setUser] = useState<any>(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   
+  // Check if booking is for today and filter delivery times accordingly
+  const getAvailableDeliveryTimes = () => {
+    const allTimeOptions = [
+      { value: "8am", label: "8am", hour: 8 },
+      { value: "9am", label: "9am", hour: 9 },
+      { value: "10am", label: "10am", hour: 10 },
+      { value: "11am", label: "11am", hour: 11 },
+      { value: "12pm", label: "12pm", hour: 12 }
+    ];
+    
+    // If no date selected or not booking for today, show all options
+    if (!calendarDateRange[0]) {
+      return allTimeOptions;
+    }
+    
+    const bookingDate = new Date(calendarDateRange[0]);
+    const today = new Date();
+    
+    // Reset time for accurate date comparison
+    const bookingDateOnly = new Date(bookingDate.getFullYear(), bookingDate.getMonth(), bookingDate.getDate());
+    const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    
+    // If booking is not for today, show all options
+    if (bookingDateOnly.getTime() !== todayOnly.getTime()) {
+      return allTimeOptions;
+    }
+    
+    // Booking is for today - filter times that are at least 2 hours from now
+    const currentHour = today.getHours();
+    const currentMinutes = today.getMinutes();
+    const currentTimeInMinutes = currentHour * 60 + currentMinutes;
+    const twoHoursFromNow = currentTimeInMinutes + 120; // 2 hours = 120 minutes
+    
+    return allTimeOptions.filter(timeOption => {
+      const deliveryTimeInMinutes = timeOption.hour * 60;
+      return deliveryTimeInMinutes >= twoHoursFromNow;
+    });
+  };
+  
   // Check authentication state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -200,6 +239,21 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
       localStorage.setItem("cart_deliveryTime", deliveryTime);
     }
   }, [deliveryTime, isLoaded]);
+
+  // Validate delivery time when calendar dates change (clear if no longer valid)
+  useEffect(() => {
+    if (deliveryTime && calendarDateRange[0]) {
+      const availableTimes = getAvailableDeliveryTimes();
+      const isCurrentTimeValid = availableTimes.some(time => time.value === deliveryTime);
+      
+      if (!isCurrentTimeValid) {
+        setDeliveryTime("");
+        if (cartSettings?.setDeliveryTime) {
+          cartSettings.setDeliveryTime("");
+        }
+      }
+    }
+  }, [calendarDateRange, deliveryTime, cartSettings]);
 
   useEffect(() => {
     if (isLoaded) {
@@ -615,12 +669,27 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
             Delivery Time:
             <select value={deliveryTime} onChange={e => setDeliveryTime(e.target.value)} required style={{ marginLeft: '0.5rem' }}>
               <option value="">Select time</option>
-              <option value="8am">8am</option>
-              <option value="9am">9am</option>
-              <option value="10am">10am</option>
-              <option value="11am">11am</option>
-              <option value="12pm">12pm</option>
+              {getAvailableDeliveryTimes().map(timeOption => (
+                <option key={timeOption.value} value={timeOption.value}>
+                  {timeOption.label}
+                </option>
+              ))}
+              {getAvailableDeliveryTimes().length === 0 && (
+                <option value="" disabled>
+                  No times available (booking too soon)
+                </option>
+              )}
             </select>
+            {getAvailableDeliveryTimes().length === 0 && calendarDateRange[0] && (
+              <div style={{ 
+                color: '#dc3545', 
+                fontSize: '0.8rem', 
+                marginTop: '0.25rem',
+                fontStyle: 'italic'
+              }}>
+                Same-day bookings require at least 2 hours notice. Please select a different date or call (803) 221-0466 for urgent requests.
+              </div>
+            )}
           </label>
           <label style={{ display: 'block', marginBottom: '0.5rem' }}>
             Location:
