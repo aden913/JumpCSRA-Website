@@ -1507,23 +1507,15 @@ export default function Checkout() {
                     alignItems: 'center',
                     paddingTop: '0.5rem'
                   }}>
-                    <label style={{ 
+                    <div style={{ 
                       display: 'flex', 
                       flexDirection: 'column',
                       alignItems: 'center', 
                       cursor: 'pointer',
                       gap: '0.5rem'
-                    }}>
-                      <input
-                        type="checkbox"
-                        checked={section.isInitialed}
-                        onChange={() => handleSectionInitial(section.id)}
-                        style={{ 
-                          width: '18px',
-                          height: '18px',
-                          cursor: 'pointer'
-                        }}
-                      />
+                    }}
+                    onClick={() => handleSectionInitial(section.id)}
+                    >
                       <div style={{ 
                         display: 'inline-block',
                         minWidth: '50px',
@@ -1538,7 +1530,7 @@ export default function Checkout() {
                       }}>
                         {section.isInitialed ? customerInitials : '____'}
                       </div>
-                    </label>
+                    </div>
                     <small style={{ fontSize: '0.7rem', color: '#666', textAlign: 'center' }}>Initial</small>
                   </div>
                   <div style={{ flex: 1 }}>
