@@ -13,8 +13,8 @@ import "./styles/profile.css";
 import { useInflateables } from "./hooks/useInflateables";
 import { useCategories } from "./hooks/useCategories";
 import type { CartItem } from "./components/CartSidebar";
-import { loadBookingData } from "./utils/databaseUtils";
-import type { BookingData } from "./utils/databaseUtils";
+import { loadBookingData, loadContractData, loadContractByOrderID } from "./utils/databaseUtils";
+import type { BookingData, ContractData } from "./utils/databaseUtils";
 
 const TABS = ["Profile Information", "Past Events"];
 
@@ -119,6 +119,43 @@ export default function Profile() {
       setLoadingBookings(false);
     }
   };
+
+  // Load contract for viewing
+  const loadContract = async (booking: BookingData | any) => {
+    setLoadingContract(true);
+    try {
+      let contract = null;
+      
+      if (booking.orderID) {
+        // New structure: load contract by orderID
+        contract = await loadContractByOrderID(booking.orderID);
+      } else if (booking.contractId) {
+        // Legacy structure: booking already contains contract data
+        contract = {
+          contractID: booking.contractId,
+          orderID: booking.contractId, // Use contractId as fallback
+          customerID: booking.userId,
+          agreementSections: booking.agreementSections || [],
+          signature: booking.signature,
+          contractDate: booking.contractDate,
+          initials: booking.initials,
+          contractStatus: 'signed'
+        };
+      }
+      
+      if (contract) {
+        setSelectedContract(contract);
+        setShowContract(true);
+      } else {
+        alert('Contract not found for this booking.');
+      }
+    } catch (error) {
+      console.error('Error loading contract:', error);
+      alert('Error loading contract. Please try again.');
+    } finally {
+      setLoadingContract(false);
+    }
+  };
   
   // Track if address is from Google Places
   // Track Google Places selections for validation on save
@@ -132,6 +169,11 @@ export default function Profile() {
   const [loadingBookings, setLoadingBookings] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<BookingData | any | null>(null);
   const [showBookingDetails, setShowBookingDetails] = useState(false);
+  
+  // Contract viewing state
+  const [selectedContract, setSelectedContract] = useState<ContractData | any | null>(null);
+  const [showContract, setShowContract] = useState(false);
+  const [loadingContract, setLoadingContract] = useState(false);
 
 
 
@@ -940,6 +982,14 @@ export default function Profile() {
                             View Details
                           </button>
                           
+                          <button 
+                            className="btn-view-contract"
+                            onClick={() => loadContract(booking)}
+                            disabled={loadingContract}
+                          >
+                            {loadingContract ? 'Loading...' : 'View Contract'}
+                          </button>
+                          
                           {booking.status === 'pending' && booking.paymentDetails?.remainingBalance > 0 && (
                             <button 
                               className="btn-complete-payment"
@@ -1010,6 +1060,14 @@ export default function Profile() {
                             }}
                           >
                             View Details
+                          </button>
+                          
+                          <button 
+                            className="btn-view-contract"
+                            onClick={() => loadContract(booking)}
+                            disabled={loadingContract}
+                          >
+                            {loadingContract ? 'Loading...' : 'View Contract'}
                           </button>
                           
                           {booking.status === 'pending' && (
@@ -1213,6 +1271,98 @@ export default function Profile() {
               </button>
             )}
             <button className="btn-close" onClick={() => setShowBookingDetails(false)}>
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    
+    {/* Contract Viewing Modal */}
+    {showContract && selectedContract && (
+      <div className="modal-overlay fade-in" onClick={() => setShowContract(false)}>
+        <div className="modal-shadow" />
+        <div className="contract-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header">
+            <h2>
+              Signed Contract - {selectedContract.contractID ? 
+                `Contract #${selectedContract.contractID.slice(-8)}` : 
+                'Contract Details'
+              }
+            </h2>
+            <button className="modal-close" onClick={() => setShowContract(false)}>×</button>
+          </div>
+          
+          <div className="contract-content">
+            <div className="contract-header-info">
+              <div className="contract-meta">
+                <p><strong>Contract Date:</strong> {selectedContract.contractDate || 'Not specified'}</p>
+                <p><strong>Customer:</strong> {selectedContract.customerID}</p>
+                {selectedContract.initials && (
+                  <p><strong>Initials:</strong> {selectedContract.initials}</p>
+                )}
+              </div>
+            </div>
+            
+            <div className="contract-sections">
+              <h3>Agreement Terms</h3>
+              {selectedContract.agreementSections && selectedContract.agreementSections.length > 0 ? (
+                selectedContract.agreementSections.map((section: any, index: number) => (
+                  <div key={section.id || index} className="contract-section">
+                    <div className="section-header">
+                      <h4>{section.title || `Section ${index + 1}`}</h4>
+                      <div className="section-status">
+                        {section.isInitialed ? (
+                          <span className="initialed">
+                            ✓ Initialed
+                            {section.initialedAt && (
+                              <small> on {new Date(section.initialedAt).toLocaleDateString()}</small>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="not-initialed">Not Initialed</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="section-content">
+                      {section.content ? (
+                        <div dangerouslySetInnerHTML={{ __html: section.content.replace(/\n/g, '<br>') }} />
+                      ) : (
+                        <p>No content available</p>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p>No contract sections found.</p>
+              )}
+            </div>
+            
+            {selectedContract.signature && (
+              <div className="contract-signature">
+                <h3>Signature</h3>
+                <div className="signature-section">
+                  <div className="signature-display">
+                    <strong>Typed Signature:</strong>
+                    <div className="signature-text">{selectedContract.signature.signatureData}</div>
+                  </div>
+                  <div className="signature-date">
+                    <strong>Signed on:</strong> {new Date(selectedContract.signature.signedAt).toLocaleDateString()} at {new Date(selectedContract.signature.signedAt).toLocaleTimeString()}
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div className="contract-footer">
+              <p><em>This is a digital copy of the signed contract. All terms and agreements are legally binding.</em></p>
+            </div>
+          </div>
+          
+          <div className="modal-actions">
+            <button className="btn-print" onClick={() => window.print()}>
+              Print Contract
+            </button>
+            <button className="btn-close" onClick={() => setShowContract(false)}>
               Close
             </button>
           </div>
