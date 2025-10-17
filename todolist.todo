@@ -40,8 +40,10 @@
                   "content": "store a signed waiver per user",
                   "id": 1759436646464,
                   "level": "default",
-                  "done": false,
-                  "start": 1759436646464
+                  "done": true,
+                  "start": 1759436646464,
+                  "focus": false,
+                  "end": 1760632124734
                 }
               }
             ],
@@ -373,8 +375,10 @@
                   "content": "prompt the user to call 8032210466",
                   "id": 1760559312235,
                   "level": "default",
-                  "done": false,
-                  "start": 1760559312235
+                  "done": true,
+                  "start": 1760559312235,
+                  "focus": false,
+                  "end": 1760562702259
                 }
               },
               {
@@ -452,6 +456,75 @@
           "done": false,
           "start": 1760559142330
         }
+      },
+      {
+        "key": 1760644284761,
+        "children": [],
+        "todo": {
+          "content": "add future/all bookings to profile",
+          "id": 1760644284761,
+          "level": "default",
+          "done": false,
+          "start": 1760644284761
+        }
+      },
+      {
+        "key": 1760652752056,
+        "children": [
+          {
+            "key": 1760652801174,
+            "children": [
+              {
+                "key": 1760652813211,
+                "children": [],
+                "todo": {
+                  "content": "",
+                  "id": 1760652813211,
+                  "level": "default",
+                  "done": false,
+                  "start": 1760652813211
+                }
+              }
+            ],
+            "todo": {
+              "content": "add deposit option when paying",
+              "id": 1760652801174,
+              "level": "default",
+              "done": false,
+              "start": 1760652801174
+            }
+          },
+          {
+            "key": 1760652816659,
+            "children": [
+              {
+                "key": 1760652857115,
+                "children": [],
+                "todo": {
+                  "content": "bookings should be moved to cancelled bookings if they are pending and it is the day of the event IF the event wasnt made this day (dont want to cancel events automatically if made pending so soon)",
+                  "id": 1760652857115,
+                  "level": "default",
+                  "done": false,
+                  "start": 1760652857115
+                }
+              }
+            ],
+            "todo": {
+              "content": "notify user they must pay the day before the event",
+              "id": 1760652816659,
+              "level": "default",
+              "done": false,
+              "start": 1760652816659
+            }
+          }
+        ],
+        "todo": {
+          "content": "add to bookings a category 'deposit' that way when pulling up the booking it has some deducted from it already",
+          "id": 1760652752056,
+          "level": "default",
+          "done": false,
+          "start": 1760652752056
+        }
       }
     ],
     "expandKeys": [
@@ -467,7 +540,10 @@
       1760559160338,
       1760559339476,
       1760559479784,
-      1760559835537
+      1760559835537,
+      1760652752056,
+      1760652801174,
+      1760652816659
     ],
     "schema": "https://github.com/Saber2pr/vsc-ext-todolist/blob/master/src/api/type.ts#L3",
     "add_mode": "bottom",
@@ -480,6 +556,6 @@
     "showEndTime": false,
     "simpleMode": false,
     "lang": "en",
-    "version": "1760561835285"
+    "version": "1760652949620"
   }
 }

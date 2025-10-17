@@ -7,7 +7,7 @@ import { GooglePlacesAutocomplete } from "../components/GooglePlacesAutocomplete
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, firestore } from "../components/FirebaseConfig";
 import { doc, setDoc, getDoc } from "firebase/firestore";
-import { getDatabase, ref, push, set } from "firebase/database";
+import { getDatabase, ref, push, set, get } from "firebase/database";
 import type { User as FirebaseUser } from "firebase/auth";
 import type { CartItem } from "../components/CartSidebar";
 import { useInflateables } from "../hooks/useInflateables";
@@ -33,7 +33,7 @@ interface ContractSection {
 interface ContractMetadata {
   contractId: string;
   userId: string;
-  status: 'pending' | 'confirmed';
+  status: 'pending' | 'confirmed' | 'cancelled';
   customerInfo: {
     firstName: string;
     lastName: string;
@@ -134,6 +134,8 @@ export default function Checkout() {
   const [processingPayment, setProcessingPayment] = useState<boolean>(false);
   const [pendingBookingId, setPendingBookingId] = useState<string>("");
   const [requiresPhoneCall, setRequiresPhoneCall] = useState<boolean>(false);
+  const [loadingBookingFromUrl, setLoadingBookingFromUrl] = useState<boolean>(false);
+  const [bookingLoadedFromUrl, setBookingLoadedFromUrl] = useState<boolean>(false);
   
   // Checkout step management
   type CheckoutStep = 'order-summary' | 'delivery' | 'quick-add-totals' | 'contract' | 'payment';
@@ -358,6 +360,97 @@ export default function Checkout() {
     
     return sections;
   };
+
+  // Load booking from URL parameter for payment completion
+  const loadBookingFromUrl = async (bookingId: string) => {
+    setLoadingBookingFromUrl(true);
+    
+    try {
+      const database = getDatabase();
+      const contractRef = ref(database, `contracts/${bookingId}`);
+      const snapshot = await get(contractRef);
+      
+      if (!snapshot.exists()) {
+        throw new Error("Booking not found");
+      }
+      
+      const bookingData = snapshot.val() as ContractMetadata;
+      
+      // Verify booking is pending and needs payment
+      if (bookingData.status !== 'pending') {
+        throw new Error("Booking is not available for payment");
+      }
+      
+      // Load booking data into checkout state
+      setContractMetadata(bookingData);
+      setPendingBookingId(bookingId);
+      setContractSigned(true);
+      setBookingLoadedFromUrl(true);
+      
+      // Populate customer initials from booking data
+      if (bookingData.initials) {
+        setCustomerInitials(bookingData.initials);
+      }
+      
+      // Populate signature from booking data
+      if (bookingData.signature?.signatureData) {
+        setTypedSignature(bookingData.signature.signatureData);
+      }
+      
+      // Populate contract sections
+      if (bookingData.agreementSections) {
+        setContractSections(bookingData.agreementSections);
+      }
+      
+      // Set cart items from booking
+      if (bookingData.orderDetails.items) {
+        const cartItems: CartItem[] = bookingData.orderDetails.items.map((item, index) => ({
+          id: `${item.name}-${index}`,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          wetDry: '',
+          category: 'loaded'
+        }));
+        setCart(cartItems);
+      }
+      
+      // Set delivery details
+      setDeliveryAddress(bookingData.orderDetails.deliveryAddress);
+      
+      // Navigate directly to payment step
+      setCurrentStep('payment');
+      
+      notifications.show({
+        title: '✅ Booking Loaded',
+        message: 'Your booking has been loaded. You can now complete payment.',
+        color: 'green',
+        autoClose: 5000,
+      });
+      
+    } catch (error) {
+      console.error("Error loading booking:", error);
+      notifications.show({
+        title: '❌ Error Loading Booking',
+        message: 'Could not load booking. Please check the link or contact support.',
+        color: 'red',
+        autoClose: 8000,
+      });
+      navigate('/');
+    } finally {
+      setLoadingBookingFromUrl(false);
+    }
+  };
+
+  // Check for booking ID in URL parameters on component mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const bookingId = urlParams.get('booking');
+    
+    if (bookingId && !bookingLoadedFromUrl) {
+      loadBookingFromUrl(bookingId);
+    }
+  }, [bookingLoadedFromUrl]);
 
   // Track deliveryAddress state changes for debugging
   useEffect(() => {
@@ -867,7 +960,7 @@ export default function Checkout() {
   };
 
   // Update booking status in database
-  const updateBookingStatus = async (contractId: string, status: 'pending' | 'confirmed', paymentId?: string): Promise<string | null> => {
+  const updateBookingStatus = async (contractId: string, status: 'pending' | 'confirmed' | 'cancelled', paymentId?: string): Promise<string | null> => {
     try {
       const database = getDatabase();
       const contractRef = ref(database, `contracts/${contractId}`);
@@ -882,6 +975,10 @@ export default function Checkout() {
         updateData.paidAt = new Date().toISOString();
       }
       
+      if (status === 'cancelled') {
+        updateData.cancelledAt = new Date().toISOString();
+      }
+      
       await set(contractRef, {
         ...contractMetadata,
         ...updateData
@@ -892,6 +989,42 @@ export default function Checkout() {
     } catch (error) {
       console.error("Error updating booking status:", error);
       return null;
+    }
+  };
+
+  // Handle booking cancellation
+  const handleCancelBooking = async () => {
+    if (!pendingBookingId) {
+      alert("No booking found to cancel.");
+      return;
+    }
+
+    const confirmCancel = window.confirm(
+      "Are you sure you want to cancel your booking? This action cannot be undone."
+    );
+
+    if (!confirmCancel) return;
+
+    try {
+      const cancelled = await updateBookingStatus(pendingBookingId, 'cancelled');
+      if (cancelled) {
+        notifications.show({
+          title: '❌ Booking Cancelled',
+          message: 'Your booking has been cancelled successfully.',
+          color: 'red',
+          autoClose: 5000,
+        });
+        
+        // Redirect to home page after cancellation
+        setTimeout(() => {
+          navigate('/');
+        }, 2000);
+      } else {
+        alert("Error cancelling booking. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error cancelling booking:", error);
+      alert("Error cancelling booking. Please try again.");
     }
   };
 
@@ -983,7 +1116,7 @@ export default function Checkout() {
     }
   };
 
-  if (loading) {
+  if (loading || loadingBookingFromUrl) {
     return (
       <div style={{ 
         display: 'flex', 
@@ -992,7 +1125,7 @@ export default function Checkout() {
         height: '100vh',
         fontSize: '1.5rem'
       }}>
-        Loading checkout...
+        {loadingBookingFromUrl ? 'Loading your booking...' : 'Loading checkout...'}
       </div>
     );
   }
@@ -2078,14 +2211,15 @@ export default function Checkout() {
                 fontStyle: 'italic',
                 marginBottom: '1.5rem'
               }}>
-                Once you've called and confirmed your order, you can return here to complete payment.
-                Your booking has been saved as pending.
+                Your booking is scheduled within the next 2 days and requires manual verification. 
+                Your booking has been saved as pending. Please call us to confirm availability.
+                After confirmation, we will send you a payment link via email.
               </p>
               
               <button
-                onClick={() => setRequiresPhoneCall(false)}
+                onClick={handleCancelBooking}
                 style={{
-                  backgroundColor: '#28a745',
+                  backgroundColor: '#dc3545',
                   color: 'white',
                   border: 'none',
                   padding: '0.75rem 1.5rem',
@@ -2095,7 +2229,7 @@ export default function Checkout() {
                   cursor: 'pointer'
                 }}
               >
-                ✓ I've Called and Confirmed My Order
+                Cancel Booking
               </button>
             </div>
           )}
@@ -2135,40 +2269,22 @@ export default function Checkout() {
           </div>
 
           {/* PayPal Payment */}
-          <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{ marginBottom: '1rem', color: '#333' }}>Complete Payment</h3>
-            
-            {requiresPhoneCall && (
-              <div style={{ 
-                padding: '1rem', 
-                backgroundColor: '#f8d7da', 
-                borderRadius: '4px', 
-                marginBottom: '1rem',
-                textAlign: 'center',
-                border: '1px solid #f5c6cb'
-              }}>
-                <p style={{ margin: 0, color: '#721c24', fontWeight: 'bold' }}>
-                  Payment is disabled until you call (803) 221-0466 to verify your booking.
-                </p>
-              </div>
-            )}
-            
-            {processingPayment && (
-              <div style={{ 
-                padding: '1rem', 
-                backgroundColor: '#e3f2fd', 
-                borderRadius: '4px', 
-                marginBottom: '1rem',
-                textAlign: 'center'
-              }}>
-                <p style={{ margin: 0, color: '#1976d2' }}>Processing payment...</p>
-              </div>
-            )}
-            
-            <div style={{ 
-              opacity: requiresPhoneCall ? 0.5 : 1,
-              pointerEvents: requiresPhoneCall ? 'none' : 'auto'
-            }}>
+          {!requiresPhoneCall && (
+            <div style={{ marginBottom: '2rem' }}>
+              <h3 style={{ marginBottom: '1rem', color: '#333' }}>Complete Payment</h3>
+              
+              {processingPayment && (
+                <div style={{ 
+                  padding: '1rem', 
+                  backgroundColor: '#e3f2fd', 
+                  borderRadius: '4px', 
+                  marginBottom: '1rem',
+                  textAlign: 'center'
+                }}>
+                  <p style={{ margin: 0, color: '#1976d2' }}>Processing payment...</p>
+                </div>
+              )}
+              
               <PayPalScriptProvider options={{ 
                 clientId: "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0", // Your PayPal sandbox client ID
                 currency: "USD",
@@ -2184,11 +2300,11 @@ export default function Checkout() {
                   createOrder={createPayPalOrder}
                   onApprove={onPayPalApprove}
                   onError={onPayPalError}
-                  disabled={processingPayment || requiresPhoneCall}
+                  disabled={processingPayment}
                 />
               </PayPalScriptProvider>
             </div>
-          </div>
+          )}
           
           <div className="checkout-navigation-buttons">
             <button
