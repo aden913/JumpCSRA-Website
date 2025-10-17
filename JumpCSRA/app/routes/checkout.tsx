@@ -17,6 +17,18 @@ import { notifications } from '@mantine/notifications';
 import { Notifications } from '@mantine/notifications';
 import { MantineProvider } from '@mantine/core';
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+import { 
+  saveBookingData, 
+  loadBookingData, 
+  saveContractData, 
+  loadContractData,
+  loadContractByOrderID,
+  updateBookingStatus,
+  updateContractStatus,
+  generateOrderID,
+  generateContractID
+} from "../utils/databaseUtils";
+import type { BookingData, ContractData } from "../utils/databaseUtils";
 import '@mantine/notifications/styles.css';
 import '../styles/checkout-buttons.css';
 
@@ -30,15 +42,18 @@ interface ContractSection {
   isFinePrint?: boolean; // New field to identify fine print sections
 }
 
+// Legacy interface for backward compatibility
 interface ContractMetadata {
   contractId: string;
   userId: string;
   status: 'pending' | 'confirmed' | 'cancelled';
+  deposit: number;
   customerInfo: {
     firstName: string;
     lastName: string;
-    name: string; // Combined name for compatibility
+    name: string;
     email: string;
+    phone?: string;
   };
   orderDetails: {
     eventDate: string;
@@ -60,6 +75,21 @@ interface ContractMetadata {
   } | null;
   contractDate: string;
   initials: string;
+  // New optional fields from BookingData
+  orderID?: string;
+  customerID?: string;
+  paymentDetails?: {
+    totalAmount: number;
+    depositAmount: number;
+    remainingBalance: number;
+    paymentType: 'full' | 'deposit';
+    paypalOrderId?: string;
+    paypalTransactionId?: string;
+    paymentStatus: 'pending' | 'completed' | 'failed';
+    paymentDate?: string;
+  };
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export function meta() {
@@ -136,6 +166,7 @@ export default function Checkout() {
   const [requiresPhoneCall, setRequiresPhoneCall] = useState<boolean>(false);
   const [loadingBookingFromUrl, setLoadingBookingFromUrl] = useState<boolean>(false);
   const [bookingLoadedFromUrl, setBookingLoadedFromUrl] = useState<boolean>(false);
+  const [paymentType, setPaymentType] = useState<'full' | 'deposit'>('full');
   
   // Checkout step management
   type CheckoutStep = 'order-summary' | 'delivery' | 'quick-add-totals' | 'contract' | 'payment';
@@ -366,57 +397,84 @@ export default function Checkout() {
     setLoadingBookingFromUrl(true);
     
     try {
-      const database = getDatabase();
-      const contractRef = ref(database, `contracts/${bookingId}`);
-      const snapshot = await get(contractRef);
+      // Try to load as orderID first (new structure)
+      let bookingData = await loadBookingData(bookingId);
+      let contractData: ContractData | null = null;
       
-      if (!snapshot.exists()) {
-        throw new Error("Booking not found");
+      if (bookingData) {
+        // New structure: load contract by orderID
+        contractData = await loadContractByOrderID(bookingId);
+        
+        if (!contractData) {
+          throw new Error("Contract not found for booking");
+        }
+        
+        // Verify booking is pending and needs payment
+        if (bookingData.status !== 'pending') {
+          throw new Error("Booking is not available for payment");
+        }
+        
+        // Set state from new structure
+        setPendingBookingId(bookingId); // This is now orderID
+        setContractSigned(true);
+        setBookingLoadedFromUrl(true);
+        
+        // Populate customer initials and signature from contract data
+        if (contractData.initials) {
+          setCustomerInitials(contractData.initials);
+        }
+        
+        if (contractData.signature?.signatureData) {
+          setTypedSignature(contractData.signature.signatureData);
+        }
+        
+        // Set contract sections from contract data
+        if (contractData.agreementSections) {
+          setContractSections(contractData.agreementSections);
+        }
+        
+        console.log("✅ Booking loaded successfully (new structure):", bookingId);
+        
+      } else {
+        // Fallback: try loading from old structure
+        const database = getDatabase();
+        const contractRef = ref(database, `contracts/${bookingId}`);
+        const snapshot = await get(contractRef);
+        
+        if (!snapshot.exists()) {
+          throw new Error("Booking not found");
+        }
+        
+        const legacyBookingData = snapshot.val() as ContractMetadata;
+        
+        // Verify booking is pending and needs payment
+        if (legacyBookingData.status !== 'pending') {
+          throw new Error("Booking is not available for payment");
+        }
+        
+        // Load legacy booking data into checkout state
+        setContractMetadata(legacyBookingData);
+        setPendingBookingId(bookingId);
+        setContractSigned(true);
+        setBookingLoadedFromUrl(true);
+        
+        // Populate customer initials from legacy booking data
+        if (legacyBookingData.initials) {
+          setCustomerInitials(legacyBookingData.initials);
+        }
+        
+        // Populate signature from legacy booking data
+        if (legacyBookingData.signature?.signatureData) {
+          setTypedSignature(legacyBookingData.signature.signatureData);
+        }
+        
+        // Set contract sections from legacy booking data
+        if (legacyBookingData.agreementSections) {
+          setContractSections(legacyBookingData.agreementSections);
+        }
+        
+        console.log("✅ Booking loaded successfully (legacy structure):", bookingId);
       }
-      
-      const bookingData = snapshot.val() as ContractMetadata;
-      
-      // Verify booking is pending and needs payment
-      if (bookingData.status !== 'pending') {
-        throw new Error("Booking is not available for payment");
-      }
-      
-      // Load booking data into checkout state
-      setContractMetadata(bookingData);
-      setPendingBookingId(bookingId);
-      setContractSigned(true);
-      setBookingLoadedFromUrl(true);
-      
-      // Populate customer initials from booking data
-      if (bookingData.initials) {
-        setCustomerInitials(bookingData.initials);
-      }
-      
-      // Populate signature from booking data
-      if (bookingData.signature?.signatureData) {
-        setTypedSignature(bookingData.signature.signatureData);
-      }
-      
-      // Populate contract sections
-      if (bookingData.agreementSections) {
-        setContractSections(bookingData.agreementSections);
-      }
-      
-      // Set cart items from booking
-      if (bookingData.orderDetails.items) {
-        const cartItems: CartItem[] = bookingData.orderDetails.items.map((item, index) => ({
-          id: `${item.name}-${index}`,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          wetDry: '',
-          category: 'loaded'
-        }));
-        setCart(cartItems);
-      }
-      
-      // Set delivery details
-      setDeliveryAddress(bookingData.orderDetails.deliveryAddress);
       
       // Navigate directly to payment step
       setCurrentStep('payment');
@@ -520,9 +578,10 @@ export default function Checkout() {
     
     try {
       // Save contract as pending booking
-      const contractId = await saveContractMetadata('pending');
-      if (contractId) {
-        setPendingBookingId(contractId);
+      const result = await saveBookingAndContract('pending');
+      if (result) {
+        const { orderID, contractID } = result;
+        setPendingBookingId(orderID); // Store orderID for payment processing
         setContractSigned(true);
         
         // Check if booking requires phone call (within 2 days)
@@ -866,6 +925,19 @@ export default function Checkout() {
     return total.toFixed(2);
   };
 
+  // Calculate 50% deposit amount
+  const calculateDepositAmount = () => {
+    const total = parseFloat(calculateTotalAmount());
+    return (total * 0.5).toFixed(2);
+  };
+
+  // Calculate remaining balance after deposit
+  const calculateRemainingBalance = () => {
+    const total = parseFloat(calculateTotalAmount());
+    const deposit = parseFloat(calculateDepositAmount());
+    return (total - deposit).toFixed(2);
+  };
+
   // Check if booking is within the next 2 days
   const isBookingWithinTwoDays = () => {
     if (!calendarDateRange || !calendarDateRange[0]) {
@@ -887,16 +959,19 @@ export default function Checkout() {
 
   // PayPal payment handlers
   const createPayPalOrder = (data: any, actions: any) => {
-    const totalAmount = calculateTotalAmount();
+    const paymentAmount = paymentType === 'deposit' ? calculateDepositAmount() : calculateTotalAmount();
+    const description = paymentType === 'deposit' 
+      ? `Jump CSRA Rental - 50% Deposit (${cart.length} item(s))`
+      : `Jump CSRA Party Rental - Full Payment (${cart.length} item(s))`;
     
     return actions.order.create({
       purchase_units: [
         {
           amount: {
-            value: totalAmount,
+            value: paymentAmount,
             currency_code: "USD"
           },
-          description: `Jump CSRA Party Rental - ${cart.length} item(s)`
+          description: description
         }
       ],
       intent: "CAPTURE"
@@ -909,32 +984,61 @@ export default function Checkout() {
     try {
       const details = await actions.order.capture();
       const paymentId = details.id;
+      const paidAmount = parseFloat(details.purchase_units[0].amount.value);
       
-      let contractId;
+      let newStatus: 'pending' | 'confirmed';
+      let depositAmount = 0;
       
-      if (pendingBookingId) {
-        // Update existing pending booking to confirmed
-        contractId = await updateBookingStatus(pendingBookingId, 'confirmed', paymentId);
+      if (paymentType === 'deposit') {
+        // Deposit payment - booking stays pending until full payment
+        newStatus = 'pending';
+        depositAmount = paidAmount;
       } else {
-        // Create new confirmed booking (fallback case)
-        contractId = await saveContractMetadata('confirmed');
+        // Full payment - booking becomes confirmed
+        newStatus = 'confirmed';
+        depositAmount = 0; // Full payment means no separate deposit tracking
       }
       
-      if (contractId) {
-        setPaymentId(paymentId);
-        setPaymentCompleted(true);
-        
-        notifications.show({
-          title: '✅ Payment Successful!',
-          message: `Payment ${paymentId} completed. Booking confirmed successfully.`,
-          color: 'green',
-          autoClose: 5000,
-        });
-        
-        console.log("Payment completed:", details);
-        console.log("Booking confirmed with ID:", contractId);
+      if (pendingBookingId) {
+        // Update existing booking with payment details
+        const existingBooking = await loadBookingData(pendingBookingId);
+        if (existingBooking) {
+          // Update the payment details and status
+          existingBooking.status = newStatus;
+          existingBooking.paymentDetails.depositAmount = depositAmount;
+          existingBooking.paymentDetails.remainingBalance = existingBooking.orderDetails.totalAmount - depositAmount;
+          existingBooking.paymentDetails.paypalOrderId = data.orderID;
+          existingBooking.paymentDetails.paypalTransactionId = paymentId;
+          existingBooking.paymentDetails.paymentStatus = 'completed';
+          existingBooking.paymentDetails.paymentDate = new Date().toISOString();
+          existingBooking.updatedAt = new Date().toISOString();
+          
+          const success = await saveBookingData(existingBooking);
+          if (success) {
+            setPaymentId(paymentId);
+            setPaymentCompleted(true);
+            
+            const message = paymentType === 'deposit' 
+              ? `Deposit of $${paidAmount} received. Booking secured as pending. Remaining balance of $${calculateRemainingBalance()} due before event.`
+              : `Full payment of $${paidAmount} completed. Booking confirmed successfully.`;
+            
+            notifications.show({
+              title: '✅ Payment Successful!',
+              message: message,
+              color: 'green',
+              autoClose: 8000,
+            });
+            
+            console.log("Payment completed:", details);
+            console.log(`Booking ${newStatus} with orderID:`, pendingBookingId);
+          } else {
+            throw new Error("Failed to update booking after payment");
+          }
+        } else {
+          throw new Error("Could not find existing booking to update");
+        }
       } else {
-        throw new Error("Failed to confirm booking after payment");
+        throw new Error("No pending booking ID found");
       }
     } catch (error) {
       console.error("Payment processing error:", error);
@@ -992,6 +1096,131 @@ export default function Checkout() {
     }
   };
 
+  // Update booking status with deposit information
+  const updateBookingStatusWithDeposit = async (contractId: string, status: 'pending' | 'confirmed' | 'cancelled', paymentId?: string, depositAmount?: number): Promise<string | null> => {
+    try {
+      const database = getDatabase();
+      const contractRef = ref(database, `contracts/${contractId}`);
+      
+      const updateData: any = {
+        status: status,
+        updatedAt: new Date().toISOString()
+      };
+      
+      if (paymentId) {
+        updateData.paymentId = paymentId;
+        updateData.paidAt = new Date().toISOString();
+      }
+      
+      if (depositAmount !== undefined) {
+        updateData.deposit = depositAmount;
+      }
+      
+      if (status === 'cancelled') {
+        updateData.cancelledAt = new Date().toISOString();
+      }
+      
+      await set(contractRef, {
+        ...contractMetadata,
+        ...updateData
+      });
+      
+      console.log(`Booking ${contractId} updated to ${status} with deposit: $${depositAmount}`);
+      return contractId;
+    } catch (error) {
+      console.error("Error updating booking status:", error);
+      return null;
+    }
+  };
+
+  // Save contract metadata with deposit information
+  const saveContractMetadataWithDeposit = async (status: 'pending' | 'confirmed' = 'confirmed', depositAmount: number = 0): Promise<string | null> => {
+    if (!user || !allSectionsInitialed() || !typedSignature.trim() || !customerInitials.trim()) {
+      console.error("Missing required contract data");
+      return null;
+    }
+
+    try {
+      // Fetch user profile data to get firstName and lastName
+      const userDocRef = doc(firestore, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+      const userData = userDoc.data();
+      
+      // Extract firstName and lastName, with fallbacks
+      let firstName = userData?.firstName || "";
+      let lastName = userData?.lastName || "";
+      let fullName = userData?.name || user.displayName || "";
+      
+      // If we don't have firstName/lastName but have a full name, split it
+      if (!firstName && !lastName && fullName) {
+        const nameParts = fullName.split(' ');
+        firstName = nameParts[0] || "";
+        lastName = nameParts.slice(1).join(' ') || "";
+      }
+      
+      // If we have firstName/lastName but no full name, combine them
+      if ((firstName || lastName) && !fullName) {
+        fullName = `${firstName} ${lastName}`.trim();
+      }
+
+      const database = getDatabase();
+      const contractsRef = ref(database, 'contracts');
+      const newContractRef = push(contractsRef);
+      
+      const contractMetadata: ContractMetadata = {
+        contractId: newContractRef.key || `contract_${user.uid}_${Date.now()}`,
+        userId: user.uid,
+        status: status,
+        deposit: depositAmount, // Set the deposit amount
+        customerInfo: {
+          firstName,
+          lastName,
+          name: fullName,
+          email: user.email || ""
+        },
+        orderDetails: {
+          eventDate: `${calendarDateRange[0]?.toLocaleDateString()} - ${calendarDateRange[1]?.toLocaleDateString()}`,
+          duration: cartSettings.duration,
+          deliveryAddress: deliveryAddress,
+          surface: cartSettings.surface,
+          deliveryTime: cartSettings.deliveryTime,
+          items: [
+            ...cart.map(item => ({
+              name: item.name,
+              quantity: item.quantity,
+              price: item.isGiftCard ? (item.giftCardValue || item.price) : item.price
+            })),
+            ...Object.entries(lastMinuteAdditions)
+              .filter(([_, quantity]) => quantity > 0)
+              .map(([itemName, quantity]) => {
+                const item = partyEssentials.find(p => p.name === itemName);
+                const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
+                const price = item ? (isWeekend ? item.weekendPrice : item.weekdayPrice) : 0;
+                return { name: itemName, quantity, price };
+              })
+          ],
+          totalAmount: total
+        },
+        agreementSections: contractSections,
+        signature: {
+          signatureData: typedSignature,
+          signedAt: new Date().toISOString()
+        },
+        contractDate: new Date().toLocaleDateString(),
+        initials: customerInitials
+      };
+
+      await set(newContractRef, contractMetadata);
+      setContractMetadata(contractMetadata);
+      
+      console.log("Contract metadata saved successfully with deposit:", contractMetadata.contractId);
+      return contractMetadata.contractId;
+    } catch (error) {
+      console.error("Error saving contract metadata:", error);
+      throw error;
+    }
+  };
+
   // Handle booking cancellation
   const handleCancelBooking = async () => {
     if (!pendingBookingId) {
@@ -1030,6 +1259,127 @@ export default function Checkout() {
 
   // Save signed contract to database
   // Save contract metadata to Firebase Realtime Database
+  // New function to save booking and contract data separately
+  const saveBookingAndContract = async (
+    bookingStatus: 'pending' | 'confirmed' = 'confirmed',
+    paymentType: 'full' | 'deposit' = 'full',
+    depositAmount: number = 0,
+    paypalOrderId?: string,
+    paypalTransactionId?: string
+  ): Promise<{orderID: string, contractID: string} | null> => {
+    if (!user || !allSectionsInitialed() || !typedSignature.trim() || !customerInitials.trim()) {
+      console.error("Missing required contract data");
+      return null;
+    }
+
+    try {
+      // Fetch user profile data to get firstName and lastName
+      const userDocRef = doc(firestore, "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+      const userData = userDoc.data();
+      
+      // Extract firstName and lastName, with fallbacks
+      let firstName = userData?.firstName || "";
+      let lastName = userData?.lastName || "";
+      let fullName = userData?.name || user.displayName || "";
+      
+      // If we don't have firstName/lastName but have a full name, split it
+      if (!firstName && !lastName && fullName) {
+        const nameParts = fullName.split(' ');
+        firstName = nameParts[0] || "";
+        lastName = nameParts.slice(1).join(' ') || "";
+      }
+      
+      // If we have firstName/lastName but no full name, combine them
+      if ((firstName || lastName) && !fullName) {
+        fullName = `${firstName} ${lastName}`.trim();
+      }
+
+      // Generate unique IDs
+      const orderID = generateOrderID();
+      const contractID = generateContractID();
+      
+      // Prepare booking data
+      const bookingData: BookingData = {
+        orderID,
+        customerID: user.uid,
+        status: bookingStatus,
+        customerInfo: {
+          firstName,
+          lastName,
+          name: fullName,
+          email: user.email || ""
+        },
+        orderDetails: {
+          eventDate: `${calendarDateRange[0]?.toLocaleDateString()} - ${calendarDateRange[1]?.toLocaleDateString()}`,
+          duration: cartSettings.duration,
+          deliveryAddress: deliveryAddress,
+          surface: cartSettings.surface,
+          deliveryTime: cartSettings.deliveryTime,
+          items: [
+            ...cart.map(item => ({
+              name: item.name,
+              quantity: item.quantity,
+              price: item.isGiftCard ? (item.giftCardValue || item.price) : item.price
+            })),
+            ...Object.entries(lastMinuteAdditions)
+              .filter(([_, quantity]) => quantity > 0)
+              .map(([itemName, quantity]) => {
+                const item = partyEssentials.find(p => p.name === itemName);
+                const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
+                const price = item ? (isWeekend ? item.weekendPrice : item.weekdayPrice) : 0;
+                return { name: itemName, quantity, price };
+              })
+          ],
+          totalAmount: total
+        },
+        paymentDetails: {
+          totalAmount: total,
+          depositAmount: depositAmount,
+          remainingBalance: total - depositAmount,
+          paymentType: paymentType,
+          ...(paypalOrderId && { paypalOrderId }),
+          ...(paypalTransactionId && { paypalTransactionId }),
+          paymentStatus: bookingStatus === 'confirmed' ? 'completed' : 'pending',
+          ...(bookingStatus === 'confirmed' && { paymentDate: new Date().toISOString() })
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      // Prepare contract data
+      const contractData: ContractData = {
+        contractID,
+        orderID,
+        customerID: user.uid,
+        agreementSections: contractSections,
+        signature: {
+          signatureData: typedSignature,
+          signedAt: new Date().toISOString()
+        },
+        contractDate: new Date().toLocaleDateString(),
+        initials: customerInitials,
+        contractStatus: 'signed'
+      };
+
+      // Save both booking and contract data
+      const bookingSaved = await saveBookingData(bookingData);
+      const contractSaved = await saveContractData(contractData);
+
+      if (bookingSaved && contractSaved) {
+        console.log("Booking and contract saved successfully:", orderID, contractID);
+        return { orderID, contractID };
+      } else {
+        console.error("Failed to save booking or contract data");
+        return null;
+      }
+      
+    } catch (error) {
+      console.error("Error saving booking and contract:", error);
+      return null;
+    }
+  };
+
   const saveContractMetadata = async (status: 'pending' | 'confirmed' = 'confirmed'): Promise<string | null> => {
     if (!user || !allSectionsInitialed() || !typedSignature.trim() || !customerInitials.trim()) {
       console.error("Missing required contract data");
@@ -1067,6 +1417,7 @@ export default function Checkout() {
         contractId: newContractRef.key || `contract_${user.uid}_${Date.now()}`,
         userId: user.uid,
         status: status, // Add booking status
+        deposit: 0, // Default deposit amount (will be updated when payment is made)
         customerInfo: {
           firstName,
           lastName,
@@ -2272,6 +2623,87 @@ export default function Checkout() {
           {!requiresPhoneCall && (
             <div style={{ marginBottom: '2rem' }}>
               <h3 style={{ marginBottom: '1rem', color: '#333' }}>Complete Payment</h3>
+              
+              {/* Payment Type Selection */}
+              <div style={{ 
+                marginBottom: '2rem', 
+                padding: '1rem', 
+                backgroundColor: '#f8f9fa', 
+                borderRadius: '4px',
+                border: '1px solid #dee2e6'
+              }}>
+                <h4 style={{ margin: '0 0 1rem 0', color: '#333' }}>Choose Payment Option:</h4>
+                
+                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                  <label style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '0.5rem',
+                    cursor: 'pointer',
+                    padding: '1rem',
+                    border: paymentType === 'full' ? '2px solid #28a745' : '2px solid #ddd',
+                    borderRadius: '4px',
+                    backgroundColor: paymentType === 'full' ? '#f8fff8' : '#fff',
+                    flex: 1
+                  }}>
+                    <input
+                      type="radio"
+                      name="paymentType"
+                      value="full"
+                      checked={paymentType === 'full'}
+                      onChange={() => setPaymentType('full')}
+                      style={{ margin: 0 }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 'bold', color: '#333' }}>Full Payment</div>
+                      <div style={{ color: '#666', fontSize: '0.9rem' }}>
+                        Pay ${calculateTotalAmount()} - Booking confirmed immediately
+                      </div>
+                    </div>
+                  </label>
+                  
+                  <label style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '0.5rem',
+                    cursor: 'pointer',
+                    padding: '1rem',
+                    border: paymentType === 'deposit' ? '2px solid #28a745' : '2px solid #ddd',
+                    borderRadius: '4px',
+                    backgroundColor: paymentType === 'deposit' ? '#f8fff8' : '#fff',
+                    flex: 1
+                  }}>
+                    <input
+                      type="radio"
+                      name="paymentType"
+                      value="deposit"
+                      checked={paymentType === 'deposit'}
+                      onChange={() => setPaymentType('deposit')}
+                      style={{ margin: 0 }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 'bold', color: '#333' }}>50% Deposit</div>
+                      <div style={{ color: '#666', fontSize: '0.9rem' }}>
+                        Pay ${calculateDepositAmount()} now, ${calculateRemainingBalance()} before event
+                      </div>
+                    </div>
+                  </label>
+                </div>
+                
+                {paymentType === 'deposit' && (
+                  <div style={{ 
+                    padding: '0.75rem', 
+                    backgroundColor: '#fff3cd', 
+                    border: '1px solid #ffeaa7',
+                    borderRadius: '4px',
+                    fontSize: '0.9rem',
+                    color: '#856404'
+                  }}>
+                    <strong>Deposit Information:</strong> Your booking will be secured with this deposit. 
+                    The remaining balance of ${calculateRemainingBalance()} must be paid before your event date.
+                  </div>
+                )}
+              </div>
               
               {processingPayment && (
                 <div style={{ 
