@@ -6,12 +6,15 @@ import { GooglePlacesAutocomplete } from "./components/GooglePlacesAutocomplete"
 import { auth, firestore } from "./components/FirebaseConfig";
 import { onAuthStateChanged, unlink  } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { getDatabase, ref, get } from "firebase/database";
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import "./styles/profile.css";
 import { useInflateables } from "./hooks/useInflateables";
 import { useCategories } from "./hooks/useCategories";
 import type { CartItem } from "./components/CartSidebar";
+import { loadBookingData } from "./utils/databaseUtils";
+import type { BookingData } from "./utils/databaseUtils";
 
 const TABS = ["Profile Information", "Past Events"];
 
@@ -53,16 +56,82 @@ export default function Profile() {
   // Add hooks for navbar functionality
   const inflateables = useInflateables();
   const categories = useCategories(inflateables);
+
+  // Helper function to safely format status strings
+  const formatStatus = (status?: string): string => {
+    return status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown';
+  };
   
   // Cart and calendar data for navbar
   const [cart, setCart] = useState<CartItem[]>([]);
   const [calendarDateRange, setCalendarDateRange] = useState<[Date | null, Date | null]>([null, null]);
+
+  // Load all bookings for the current user
+  const loadUserBookings = async (userId: string) => {
+    setLoadingBookings(true);
+    try {
+      const database = getDatabase();
+      
+      // Load new structure bookings
+      const bookingsRef = ref(database, 'bookings');
+      const bookingsSnapshot = await get(bookingsRef);
+      const newBookings: BookingData[] = [];
+      
+      if (bookingsSnapshot.exists()) {
+        const allBookings = bookingsSnapshot.val();
+        Object.entries(allBookings).forEach(([orderID, booking]: [string, any]) => {
+          if (booking.customerID === userId) {
+            newBookings.push(booking as BookingData);
+          }
+        });
+      }
+      
+      // Load legacy structure bookings (contracts table)
+      const contractsRef = ref(database, 'contracts');
+      const contractsSnapshot = await get(contractsRef);
+      const legacyBookings: any[] = [];
+      
+      if (contractsSnapshot.exists()) {
+        const allContracts = contractsSnapshot.val();
+        Object.entries(allContracts).forEach(([contractId, contract]: [string, any]) => {
+          if (contract.userId === userId) {
+            legacyBookings.push({ ...contract, contractId });
+          }
+        });
+      }
+      
+      // Sort bookings by date (newest first)
+      newBookings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      legacyBookings.sort((a, b) => {
+        const dateA = new Date(a.contractDate || a.createdAt || 0);
+        const dateB = new Date(b.contractDate || b.createdAt || 0);
+        return dateB.getTime() - dateA.getTime();
+      });
+      
+      setBookings(newBookings);
+      setLegacyBookings(legacyBookings);
+      
+      console.log(`📋 Loaded ${newBookings.length} new bookings and ${legacyBookings.length} legacy bookings`);
+      
+    } catch (error) {
+      console.error('Error loading bookings:', error);
+    } finally {
+      setLoadingBookings(false);
+    }
+  };
   
   // Track if address is from Google Places
   // Track Google Places selections for validation on save
   const [googlePlacesAddresses, setGooglePlacesAddresses] = useState<Set<string>>(new Set());
   const addressInputRef = useRef<HTMLInputElement>(null);
   const [isSelectingGooglePlace, setIsSelectingGooglePlace] = useState<boolean>(false);
+
+  // Past Events state
+  const [bookings, setBookings] = useState<BookingData[]>([]);
+  const [legacyBookings, setLegacyBookings] = useState<any[]>([]);
+  const [loadingBookings, setLoadingBookings] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<BookingData | any | null>(null);
+  const [showBookingDetails, setShowBookingDetails] = useState(false);
 
 
 
@@ -234,6 +303,13 @@ export default function Profile() {
       }
     }
   }, []);
+
+  // Load user bookings when user changes or Past Events tab is accessed
+  useEffect(() => {
+    if (user && activeTab === 1) {
+      loadUserBookings(user.uid);
+    }
+  }, [user, activeTab]);
 
 
 
@@ -798,8 +874,173 @@ export default function Profile() {
           </div>
         ) : (
           <div className="profile-events">
-            <h3>Past Events</h3>
-            <div className="profile-events-placeholder">Your past events will appear here.</div>
+            <h3>Past Events & Bookings</h3>
+            
+            {loadingBookings ? (
+              <div className="booking-loading">
+                <p>Loading your booking history...</p>
+              </div>
+            ) : (
+              <div className="bookings-container">
+                {/* New Structure Bookings */}
+                {bookings.length > 0 && (
+                  <div className="bookings-section">
+                    <h4>Recent Bookings</h4>
+                    {bookings.map((booking) => (
+                      <div key={booking.orderID} className="booking-card">
+                        <div className="booking-header">
+                          <div className="booking-info">
+                            <h5>Order #{booking.orderID.slice(-8)}</h5>
+                            <span className={`booking-status status-${booking.status || 'unknown'}`}>
+                              {formatStatus(booking.status)}
+                            </span>
+                          </div>
+                          <div className="booking-date">
+                            {booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : 'Date unknown'}
+                          </div>
+                        </div>
+                        
+                        <div className="booking-details">
+                          <p><strong>Event Date:</strong> {booking.orderDetails?.eventDate || 'Not specified'}</p>
+                          <p><strong>Duration:</strong> {booking.orderDetails?.duration || 'Not specified'}</p>
+                          <p><strong>Delivery:</strong> {booking.orderDetails?.deliveryAddress || 'Not specified'}</p>
+                          <p><strong>Total:</strong> ${booking.orderDetails?.totalAmount || 0}</p>
+                          
+                          {booking.paymentDetails?.depositAmount > 0 && (
+                            <p><strong>Deposit Paid:</strong> ${booking.paymentDetails.depositAmount}</p>
+                          )}
+                          
+                          {booking.orderDetails?.items && booking.orderDetails.items.length > 0 && (
+                            <div className="booking-items">
+                              <strong>Items ({booking.orderDetails.items.length}):</strong>
+                              <div className="items-list">
+                                {booking.orderDetails.items.slice(0, 3).map((item, idx) => (
+                                  <span key={idx} className="item-tag">
+                                    {item.quantity}x {item.name}
+                                  </span>
+                                ))}
+                                {booking.orderDetails.items.length > 3 && (
+                                  <span className="item-tag more">
+                                    +{booking.orderDetails.items.length - 3} more
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="booking-actions">
+                          <button 
+                            className="btn-view-details"
+                            onClick={() => {
+                              setSelectedBooking(booking);
+                              setShowBookingDetails(true);
+                            }}
+                          >
+                            View Details
+                          </button>
+                          
+                          {booking.status === 'pending' && booking.paymentDetails?.remainingBalance > 0 && (
+                            <button 
+                              className="btn-complete-payment"
+                              onClick={() => navigate(`/checkout?booking=${booking.orderID}`)}
+                            >
+                              Complete Payment (${booking.paymentDetails.remainingBalance})
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Legacy Structure Bookings */}
+                {legacyBookings.length > 0 && (
+                  <div className="bookings-section">
+                    <h4>Previous Bookings</h4>
+                    {legacyBookings.map((booking) => (
+                      <div key={booking.contractId} className="booking-card legacy">
+                        <div className="booking-header">
+                          <div className="booking-info">
+                            <h5>Contract #{booking.contractId.slice(-8)}</h5>
+                            <span className={`booking-status status-${booking.status || 'unknown'}`}>
+                              {formatStatus(booking.status)}
+                            </span>
+                          </div>
+                          <div className="booking-date">
+                            {booking.contractDate || 'Date not available'}
+                          </div>
+                        </div>
+                        
+                        <div className="booking-details">
+                          <p><strong>Event Date:</strong> {booking.orderDetails?.eventDate || 'Not specified'}</p>
+                          <p><strong>Duration:</strong> {booking.orderDetails?.duration || 'Not specified'}</p>
+                          <p><strong>Delivery:</strong> {booking.orderDetails?.deliveryAddress || 'Not specified'}</p>
+                          <p><strong>Total:</strong> ${booking.orderDetails?.totalAmount || 0}</p>
+                          
+                          {booking.deposit > 0 && (
+                            <p><strong>Deposit:</strong> ${booking.deposit}</p>
+                          )}
+                          
+                          {booking.orderDetails?.items && (
+                            <div className="booking-items">
+                              <strong>Items ({booking.orderDetails.items.length}):</strong>
+                              <div className="items-list">
+                                {booking.orderDetails.items.slice(0, 3).map((item: any, idx: number) => (
+                                  <span key={idx} className="item-tag">
+                                    {item.quantity}x {item.name}
+                                  </span>
+                                ))}
+                                {booking.orderDetails.items.length > 3 && (
+                                  <span className="item-tag more">
+                                    +{booking.orderDetails.items.length - 3} more
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="booking-actions">
+                          <button 
+                            className="btn-view-details"
+                            onClick={() => {
+                              setSelectedBooking(booking);
+                              setShowBookingDetails(true);
+                            }}
+                          >
+                            View Details
+                          </button>
+                          
+                          {booking.status === 'pending' && (
+                            <button 
+                              className="btn-complete-payment"
+                              onClick={() => navigate(`/checkout?booking=${booking.contractId}`)}
+                            >
+                              Complete Payment
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* No Bookings Message */}
+                {bookings.length === 0 && legacyBookings.length === 0 && !loadingBookings && (
+                  <div className="no-bookings">
+                    <h4>No Bookings Yet</h4>
+                    <p>You haven't made any bookings yet. Start planning your next event!</p>
+                    <button 
+                      className="btn-start-booking"
+                      onClick={() => navigate('/home')}
+                    >
+                      Browse Rentals
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -814,6 +1055,170 @@ export default function Profile() {
       </div>
       </div>
     </div>
+    
+    {/* Booking Details Modal */}
+    {showBookingDetails && selectedBooking && (
+      <div className="modal-overlay fade-in" onClick={() => setShowBookingDetails(false)}>
+        <div className="modal-shadow" />
+        <div className="booking-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header">
+            <h2>
+              {selectedBooking.orderID ? 
+                `Booking Details - Order #${selectedBooking.orderID.slice(-8)}` : 
+                `Booking Details - Contract #${selectedBooking.contractId.slice(-8)}`
+              }
+            </h2>
+            <button className="modal-close" onClick={() => setShowBookingDetails(false)}>×</button>
+          </div>
+          
+          <div className="modal-content">
+            <div className="booking-detail-section">
+              <h3>Event Information</h3>
+              <div className="detail-grid">
+                <div className="detail-item">
+                  <strong>Event Date:</strong>
+                  <span>{selectedBooking.orderDetails?.eventDate || 'Not specified'}</span>
+                </div>
+                <div className="detail-item">
+                  <strong>Duration:</strong>
+                  <span>{selectedBooking.orderDetails?.duration || 'Not specified'}</span>
+                </div>
+                <div className="detail-item">
+                  <strong>Delivery Time:</strong>
+                  <span>{selectedBooking.orderDetails?.deliveryTime || 'Not specified'}</span>
+                </div>
+                <div className="detail-item">
+                  <strong>Surface:</strong>
+                  <span>{selectedBooking.orderDetails?.surface || 'Not specified'}</span>
+                </div>
+                <div className="detail-item full-width">
+                  <strong>Delivery Address:</strong>
+                  <span>{selectedBooking.orderDetails?.deliveryAddress || 'Not specified'}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="booking-detail-section">
+              <h3>Booking Status</h3>
+              <div className="detail-grid">
+                <div className="detail-item">
+                  <strong>Status:</strong>
+                  <span className={`booking-status status-${selectedBooking.status || 'unknown'}`}>
+                    {formatStatus(selectedBooking.status)}
+                  </span>
+                </div>
+                <div className="detail-item">
+                  <strong>Booking Date:</strong>
+                  <span>
+                    {selectedBooking.createdAt ? 
+                      new Date(selectedBooking.createdAt).toLocaleDateString() : 
+                      (selectedBooking.contractDate || 'Not available')
+                    }
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="booking-detail-section">
+              <h3>Payment Information</h3>
+              <div className="detail-grid">
+                <div className="detail-item">
+                  <strong>Total Amount:</strong>
+                  <span>${selectedBooking.orderDetails?.totalAmount || 0}</span>
+                </div>
+                {selectedBooking.paymentDetails ? (
+                  <>
+                    <div className="detail-item">
+                      <strong>Payment Type:</strong>
+                      <span>{selectedBooking.paymentDetails.paymentType === 'deposit' ? 'Deposit Payment' : 'Full Payment'}</span>
+                    </div>
+                    <div className="detail-item">
+                      <strong>Amount Paid:</strong>
+                      <span>${selectedBooking.paymentDetails.depositAmount || 0}</span>
+                    </div>
+                    {selectedBooking.paymentDetails.remainingBalance > 0 && (
+                      <div className="detail-item">
+                        <strong>Remaining Balance:</strong>
+                        <span>${selectedBooking.paymentDetails.remainingBalance}</span>
+                      </div>
+                    )}
+                    <div className="detail-item">
+                      <strong>Payment Status:</strong>
+                      <span className={`payment-status status-${selectedBooking.paymentDetails.paymentStatus || 'unknown'}`}>
+                        {formatStatus(selectedBooking.paymentDetails.paymentStatus)}
+                      </span>
+                    </div>
+                  </>
+                ) : selectedBooking.deposit > 0 && (
+                  <div className="detail-item">
+                    <strong>Deposit:</strong>
+                    <span>${selectedBooking.deposit}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            <div className="booking-detail-section">
+              <h3>Rental Items</h3>
+              <div className="items-detail-list">
+                {selectedBooking.orderDetails?.items?.map((item: any, idx: number) => (
+                  <div key={idx} className="item-detail-row">
+                    <span className="item-name">{item.name}</span>
+                    <span className="item-quantity">Qty: {item.quantity}</span>
+                    <span className="item-price">${item.price}</span>
+                  </div>
+                )) || <p>No items found</p>}
+              </div>
+            </div>
+            
+            <div className="booking-detail-section">
+              <h3>Customer Information</h3>
+              <div className="detail-grid">
+                <div className="detail-item">
+                  <strong>Name:</strong>
+                  <span>
+                    {selectedBooking.customerInfo?.firstName && selectedBooking.customerInfo?.lastName ? 
+                      `${selectedBooking.customerInfo.firstName} ${selectedBooking.customerInfo.lastName}` :
+                      (selectedBooking.customerInfo?.name || 'Not specified')
+                    }
+                  </span>
+                </div>
+                <div className="detail-item">
+                  <strong>Email:</strong>
+                  <span>{selectedBooking.customerInfo?.email || 'Not specified'}</span>
+                </div>
+                {selectedBooking.customerInfo?.phone && (
+                  <div className="detail-item">
+                    <strong>Phone:</strong>
+                    <span>{selectedBooking.customerInfo.phone}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="modal-actions">
+            {selectedBooking.status === 'pending' && (
+              <button 
+                className="btn-complete-payment"
+                onClick={() => {
+                  const bookingId = selectedBooking.orderID || selectedBooking.contractId;
+                  navigate(`/checkout?booking=${bookingId}`);
+                }}
+              >
+                Complete Payment
+                {selectedBooking.paymentDetails?.remainingBalance && 
+                  ` ($${selectedBooking.paymentDetails.remainingBalance})`
+                }
+              </button>
+            )}
+            <button className="btn-close" onClick={() => setShowBookingDetails(false)}>
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 }
