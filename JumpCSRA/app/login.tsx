@@ -17,6 +17,7 @@ import {
   browserLocalPersistence,
   sendPasswordResetEmail,
   updatePassword,
+  onAuthStateChanged,
 } from "firebase/auth";
 import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
 import { initializeApp, getApps } from "firebase/app";
@@ -53,6 +54,47 @@ export default function Login() {
   const [showForgotPw, setShowForgotPw] = useState(false);
   const [forgotPwMsg, setForgotPwMsg] = useState<string | null>(null);
   const [needsProfile, setNeedsProfile] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Check if user is already authenticated
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        console.log("User already signed in:", user.uid);
+        
+        // Check if user has a complete profile in Firestore
+        try {
+          const db = getFirestore();
+          const userRef = doc(db, "users", user.uid);
+          const userSnap = await getDoc(userRef);
+
+          if (!userSnap.exists() || !userSnap.data().phone || !userSnap.data().hasPassword) {
+            // Incomplete profile - show profile completion form
+            setPendingUser(user);
+            setNeedsProfile(true);
+            setIsCheckingAuth(false);
+            return;
+          }
+
+          // User is fully authenticated and has complete profile - redirect to home
+          console.log("User has complete profile, redirecting to home");
+          setRedirect(true);
+        } catch (error) {
+          console.error("Error checking user profile:", error);
+          // If there's an error checking profile, still allow user to proceed
+          // They're authenticated, so let them through
+          setRedirect(true);
+        }
+      } else {
+        // No user signed in, show login page
+        console.log("No user signed in, showing login page");
+        setIsCheckingAuth(false);
+      }
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, []);
 
   // SVG icons for password visibility
   const EyeOpen = (
@@ -473,6 +515,18 @@ useEffect(() => {
   };
 
   if (redirect) return <Navigate to="/home" replace />;
+
+  // Show loading while checking authentication
+  if (isCheckingAuth) {
+    return (
+      <div className="login-page">
+        <img src="/jump-logo.png" alt="Jump Logo" className="login-logo" />
+        <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+          <p>Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Show initial landing screen
   if (!showSignInForm && !needsProfile) {
