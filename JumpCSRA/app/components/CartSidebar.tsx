@@ -4,6 +4,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./FirebaseConfig";
 import { getUnavailableInflateables } from '../utils/bookingUtils';
 import { useDiscounts, getDiscountDescription, type DiscountCalculation } from '../hooks/useDiscounts';
+import { checkItemAvailability, type ItemAvailability } from '../utils/availabilityUtils';
 import '../styles/cart.css';
 
 export type CartItem = {
@@ -164,6 +165,8 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
   const [isLoaded, setIsLoaded] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
   const [unavailableItems, setUnavailableItems] = useState<Set<string>>(new Set());
+  const [itemAvailability, setItemAvailability] = useState<Map<string, ItemAvailability>>(new Map());
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [discountCalculation, setDiscountCalculation] = useState<DiscountCalculation>({
     discountAmount: 0,
     appliedDiscount: null,
@@ -294,23 +297,63 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
     return endDate;
   };
 
+  // Load inflateables data function
+  const loadInflateablesData = async (): Promise<any[]> => {
+    try {
+      const response = await fetch('/inflateables-firebase.json');
+      const data = await response.json();
+      return data.inflateables || [];
+    } catch (error) {
+      console.error('Error loading inflateables data:', error);
+      return [];
+    }
+  };
+
   // Check availability when duration or date changes
   useEffect(() => {
     const checkAvailability = async () => {
-      if (calendarDateRange[0] && duration) {
+      if (calendarDateRange[0] && duration && cart.length > 0) {
+        setLoadingAvailability(true);
         const startDate = calendarDateRange[0];
         const endDate = calculateEndDate(startDate, duration);
         
-        const unavailable = await getUnavailableInflateables(startDate, endDate);
-        
-        setUnavailableItems(unavailable);
+        try {
+          // Get old unavailable items for binary check
+          const unavailable = await getUnavailableInflateables(startDate, endDate);
+          setUnavailableItems(unavailable);
+          
+          // Get detailed availability for all items in cart
+          const inflateables = await loadInflateablesData();
+          const availabilityMap = new Map<string, ItemAvailability>();
+          
+          const promises = cart.map(async (item) => {
+            const inflateable = inflateables.find(inf => inf.name === item.name);
+            if (inflateable) {
+              const availability = await checkItemAvailability(
+                item.name,
+                inflateable.quantity || 1,
+                startDate,
+                endDate
+              );
+              availabilityMap.set(item.name, availability);
+            }
+          });
+          
+          await Promise.all(promises);
+          setItemAvailability(availabilityMap);
+        } catch (error) {
+          console.error('Error checking availability:', error);
+        } finally {
+          setLoadingAvailability(false);
+        }
       } else {
         setUnavailableItems(new Set());
+        setItemAvailability(new Map());
       }
     };
     
     checkAvailability();
-  }, [calendarDateRange, duration]);
+  }, [calendarDateRange, duration, cart]);
 
   // Pricing adjustments
   const surfacePrices: Record<string, number> = {
@@ -494,10 +537,38 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
 
   const updateQuantity = (index: number, newQuantity: number) => {
     if (newQuantity < 1) return;
+    
+    // Check if this quantity is available
+    const item = cart[index];
+    const availability = itemAvailability.get(item.name);
+    
+    if (availability && newQuantity > availability.availableQuantity) {
+      alert(`Only ${availability.availableQuantity} of ${item.name} available for your selected dates.`);
+      return;
+    }
+    
     const newCart = [...cart];
     newCart[index].quantity = newQuantity;
     setCart(newCart);
     localStorage.setItem("cart", JSON.stringify(newCart));
+  };
+
+  // Reset quantities to 1 when dates change
+  useEffect(() => {
+    if (calendarDateRange[0] && cart.length > 0) {
+      const resetCart = cart.map(item => ({ ...item, quantity: 1 }));
+      setCart(resetCart);
+      localStorage.setItem("cart", JSON.stringify(resetCart));
+    }
+  }, [calendarDateRange[0], calendarDateRange[1]]);
+
+  // Generate quantity options based on availability
+  const getQuantityOptions = (itemName: string, currentQuantity: number): number[] => {
+    const availability = itemAvailability.get(itemName);
+    if (!availability) return [1]; // Default to 1 if no availability data
+    
+    const maxQuantity = Math.max(1, availability.availableQuantity);
+    return Array.from({ length: maxQuantity }, (_, i) => i + 1);
   };
 
   const removeFromCart = (index: number) => {
@@ -619,15 +690,43 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                       <option value="Wet">Wet (+$50)</option>
                     </select>
                   )}
-                  {isPartyEssential(item) && (
-                    <input
-                      type="number"
+                  
+                  {/* Quantity Selection for all items */}
+                  <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <label htmlFor={`quantity-${idx}`} style={{ fontSize: '0.9rem' }}>
+                      Quantity:
+                    </label>
+                    <select
+                      id={`quantity-${idx}`}
+                      className="quantity-select"
                       value={item.quantity}
-                      min={1}
                       onChange={e => updateQuantity(idx, parseInt(e.target.value))}
-                      disabled={isUnavailable}
-                    />
-                  )}
+                      disabled={isUnavailable || loadingAvailability}
+                      style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                    >
+                      {loadingAvailability ? (
+                        <option value={item.quantity}>Loading...</option>
+                      ) : (
+                        getQuantityOptions(item.name, item.quantity).map(num => (
+                          <option key={num} value={num}>
+                            {num}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                    {(() => {
+                      const availability = itemAvailability.get(item.name);
+                      return availability ? (
+                        <span style={{ 
+                          fontSize: '0.8rem', 
+                          color: availability.availableQuantity > 5 ? '#666' : '#f57c00',
+                          fontStyle: 'italic'
+                        }}>
+                          ({availability.availableQuantity} available)
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
                   <button 
                     onClick={() => removeFromCart(idx)}
                     disabled={false}

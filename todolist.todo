@@ -465,8 +465,10 @@
           "content": "handle 2 day events",
           "id": 1760559142330,
           "level": "default",
-          "done": false,
-          "start": 1760559142330
+          "done": true,
+          "start": 1760559142330,
+          "focus": false,
+          "end": 1760755981696
         }
       },
       {
@@ -476,8 +478,10 @@
           "content": "add future/all bookings to profile",
           "id": 1760644284761,
           "level": "default",
-          "done": false,
-          "start": 1760644284761
+          "done": true,
+          "start": 1760644284761,
+          "focus": false,
+          "end": 1760755899620
         }
       },
       {
@@ -485,25 +489,15 @@
         "children": [
           {
             "key": 1760652801174,
-            "children": [
-              {
-                "key": 1760652813211,
-                "children": [],
-                "todo": {
-                  "content": "",
-                  "id": 1760652813211,
-                  "level": "default",
-                  "done": false,
-                  "start": 1760652813211
-                }
-              }
-            ],
+            "children": [],
             "todo": {
               "content": "add deposit option when paying",
               "id": 1760652801174,
               "level": "default",
-              "done": false,
-              "start": 1760652801174
+              "done": true,
+              "start": 1760652801174,
+              "focus": false,
+              "end": 1760755947354
             }
           },
           {
@@ -534,8 +528,80 @@
           "content": "add to bookings a category 'deposit' that way when pulling up the booking it has some deducted from it already",
           "id": 1760652752056,
           "level": "default",
+          "done": true,
+          "start": 1760652752056,
+          "focus": false,
+          "end": 1760755950135
+        }
+      },
+      {
+        "key": 1760815357061,
+        "children": [
+          {
+            "key": 1760815375482,
+            "children": [
+              {
+                "key": 1760815407815,
+                "children": [],
+                "todo": {
+                  "content": "after contract is signed the booking should be entered into the database as \"deferred\" so that the owner can easily find it and locate the customers info to manually process the order",
+                  "id": 1760815407815,
+                  "level": "default",
+                  "done": false,
+                  "start": 1760815407816
+                }
+              }
+            ],
+            "todo": {
+              "content": "bookings within 2 days",
+              "id": 1760815375482,
+              "level": "default",
+              "done": false,
+              "start": 1760815375482
+            }
+          },
+          {
+            "key": 1760815393277,
+            "children": [
+              {
+                "key": 1760815458955,
+                "children": [
+                  {
+                    "key": 1760815550621,
+                    "children": [],
+                    "todo": {
+                      "content": "once user pays the rest of the booking the booking should then be marked as confirmed",
+                      "id": 1760815550621,
+                      "level": "default",
+                      "done": false,
+                      "start": 1760815550621
+                    }
+                  }
+                ],
+                "todo": {
+                  "content": "The user should be able to go all the way through to purchasing the booking but instead of paying for everything which would mark the booking as confirmed, the booking goes in as pending as it hasn't been paid for.",
+                  "id": 1760815458955,
+                  "level": "default",
+                  "done": false,
+                  "start": 1760815458955
+                }
+              }
+            ],
+            "todo": {
+              "content": "bookings made with a deposit",
+              "id": 1760815393277,
+              "level": "default",
+              "done": false,
+              "start": 1760815393277
+            }
+          }
+        ],
+        "todo": {
+          "content": "expand pending logic",
+          "id": 1760815357061,
+          "level": "default",
           "done": false,
-          "start": 1760652752056
+          "start": 1760815357061
         }
       }
     ],
@@ -555,7 +621,11 @@
       1760652752056,
       1760652801174,
       1760652816659,
-      1760559142330
+      1760559142330,
+      1760815357061,
+      1760815375482,
+      1760815393277,
+      1760815458955
     ],
     "schema": "https://github.com/Saber2pr/vsc-ext-todolist/blob/master/src/api/type.ts#L3",
     "add_mode": "bottom",
@@ -568,6 +638,6 @@
     "showEndTime": false,
     "simpleMode": false,
     "lang": "en",
-    "version": "1760742445593"
+    "version": "1760815609987"
   }
 }
