@@ -8,7 +8,7 @@ import { getDatabase, ref, set, get, child, push } from "firebase/database";
 export interface BookingData {
   orderID: string;
   customerID: string;
-  status: 'pending' | 'confirmed' | 'cancelled';
+  status: 'deferred' | 'pending' | 'confirmed' | 'completed' | 'cancelled';
   customerInfo: {
     firstName: string;
     lastName: string;
@@ -103,7 +103,7 @@ export const loadBookingData = async (orderID: string): Promise<BookingData | nu
   }
 };
 
-export const updateBookingStatus = async (orderID: string, status: 'pending' | 'confirmed' | 'cancelled'): Promise<boolean> => {
+export const updateBookingStatus = async (orderID: string, status: 'deferred' | 'pending' | 'confirmed' | 'completed' | 'cancelled'): Promise<boolean> => {
   try {
     const database = getDatabase();
     const statusRef = ref(database, `bookings/${orderID}/status`);
@@ -301,6 +301,152 @@ export const testDatabaseAccess = async () => {
         ? 'Database rules need to be updated' 
         : `Database error: ${error.message}`
     };
+  }
+};
+
+// Booking Status Logic Functions
+export const isBookingWithinTwoDays = (eventDate: string): boolean => {
+  try {
+    const today = new Date();
+    const bookingDate = new Date(eventDate);
+    const twoDaysFromNow = new Date(today);
+    twoDaysFromNow.setDate(today.getDate() + 2);
+    
+    // Reset time to start of day for accurate comparison
+    today.setHours(0, 0, 0, 0);
+    bookingDate.setHours(0, 0, 0, 0);
+    twoDaysFromNow.setHours(23, 59, 59, 999);
+    
+    return bookingDate >= today && bookingDate <= twoDaysFromNow;
+  } catch (error) {
+    console.error('Error checking if booking is within two days:', error);
+    return false;
+  }
+};
+
+export const isBookingPastEventDate = (eventDate: string): boolean => {
+  try {
+    const today = new Date();
+    const bookingDate = new Date(eventDate);
+    
+    // Set today to end of day and booking date to end of day for comparison
+    today.setHours(23, 59, 59, 999);
+    bookingDate.setHours(23, 59, 59, 999);
+    
+    return today > bookingDate;
+  } catch (error) {
+    console.error('Error checking if booking is past event date:', error);
+    return false;
+  }
+};
+
+export const determineInitialBookingStatus = (eventDate: string, isContractSigned: boolean, depositAmount: number, totalAmount: number): 'deferred' | 'pending' | 'confirmed' => {
+  // Check if booking is within 2 days and contract is signed
+  if (isContractSigned && isBookingWithinTwoDays(eventDate)) {
+    return 'deferred';
+  }
+  
+  // Check payment status if contract is signed and not within 2 days
+  if (isContractSigned && !isBookingWithinTwoDays(eventDate)) {
+    if (depositAmount >= totalAmount) {
+      // Full payment made
+      return 'confirmed';
+    } else if (depositAmount > 0) {
+      // Deposit made (50% payment)
+      return 'pending';
+    }
+  }
+  
+  // Default case - this shouldn't happen in normal flow since bookings 
+  // are only saved after contract signing, but included for safety
+  return 'deferred';
+};
+
+export const updateBookingStatusBasedOnPayment = async (orderID: string, depositAmount: number, totalAmount: number): Promise<boolean> => {
+  try {
+    // Load existing booking to get event date and other details
+    const bookingData = await loadBookingData(orderID);
+    if (!bookingData) {
+      console.error('Booking not found for payment status update:', orderID);
+      return false;
+    }
+    
+    // Parse event date from orderDetails.eventDate (format: "MM/DD/YYYY - MM/DD/YYYY")
+    const eventDateString = bookingData.orderDetails.eventDate.split(' - ')[0];
+    
+    let newStatus: 'deferred' | 'pending' | 'confirmed';
+    
+    // If booking was deferred, it should move to pending or confirmed based on payment
+    if (bookingData.status === 'deferred') {
+      if (depositAmount >= totalAmount) {
+        newStatus = 'confirmed'; // Full payment
+      } else if (depositAmount > 0) {
+        newStatus = 'pending'; // Deposit payment
+      } else {
+        newStatus = 'deferred'; // No payment yet
+      }
+    } else {
+      // For non-deferred bookings, determine status based on payment
+      if (depositAmount >= totalAmount) {
+        newStatus = 'confirmed'; // Full payment
+      } else if (depositAmount > 0) {
+        newStatus = 'pending'; // Deposit payment  
+      } else {
+        // This shouldn't happen - bookings should have payment when this is called
+        newStatus = bookingData.status as 'pending' | 'confirmed';
+      }
+    }
+    
+    // Update booking status and payment details
+    const database = getDatabase();
+    await set(ref(database, `bookings/${orderID}/status`), newStatus);
+    await set(ref(database, `bookings/${orderID}/paymentDetails/depositAmount`), depositAmount);
+    await set(ref(database, `bookings/${orderID}/paymentDetails/remainingBalance`), totalAmount - depositAmount);
+    await set(ref(database, `bookings/${orderID}/updatedAt`), new Date().toISOString());
+    
+    console.log(`Booking ${orderID} status updated to ${newStatus} based on payment: $${depositAmount}/$${totalAmount}`);
+    return true;
+  } catch (error) {
+    console.error('Error updating booking status based on payment:', error);
+    return false;
+  }
+};
+
+// Function to check and update completed bookings (to be run as a scheduled job)
+export const checkAndMarkCompletedBookings = async (): Promise<number> => {
+  try {
+    const database = getDatabase();
+    const bookingsRef = ref(database, 'bookings');
+    const snapshot = await get(bookingsRef);
+    
+    if (!snapshot.exists()) {
+      console.log('No bookings found to check for completion');
+      return 0;
+    }
+    
+    const bookings = snapshot.val();
+    let updatedCount = 0;
+    
+    for (const orderID in bookings) {
+      const booking = bookings[orderID] as BookingData;
+      
+      // Only update confirmed bookings that are past their event date
+      if (booking.status === 'confirmed') {
+        const eventDateString = booking.orderDetails.eventDate.split(' - ')[0]; // Get start date
+        
+        if (isBookingPastEventDate(eventDateString)) {
+          await updateBookingStatus(orderID, 'completed');
+          updatedCount++;
+          console.log(`Marked booking ${orderID} as completed (event date passed)`);
+        }
+      }
+    }
+    
+    console.log(`Checked bookings for completion: ${updatedCount} bookings marked as completed`);
+    return updatedCount;
+  } catch (error) {
+    console.error('Error checking and marking completed bookings:', error);
+    return 0;
   }
 };
 

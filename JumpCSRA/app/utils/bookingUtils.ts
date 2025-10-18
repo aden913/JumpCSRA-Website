@@ -18,13 +18,33 @@ export async function getUnavailableInflateables(startDate: Date, endDate: Date)
   
   if (snapshot.exists()) {
     const bookings = snapshot.val();
+    console.log(`📋 [DEBUG] bookingUtils: Found ${Object.keys(bookings).length} bookings in database`);
     
     Object.entries(bookings).forEach(([bookingId, booking]: [string, any]) => {
+      console.log(`🔍 [DEBUG] bookingUtils: Processing booking ${bookingId}:`, {
+        status: booking.status,
+        startDate: booking.startDate,
+        endDate: booking.endDate,
+        hasInflateableIDs: !!booking.inflateableIDs
+      });
       
-      // Only consider pending or confirmed bookings
-      if (booking.status === "pending" || booking.status === "confirmed") {
+      // Only consider bookings that occupy inventory (deferred, pending, confirmed)
+      // Completed bookings don't occupy inventory since the event is finished
+      if (booking.status === "deferred" || booking.status === "pending" || booking.status === "confirmed") {
+        // Validate dates before processing
+        if (!booking.startDate || !booking.endDate) {
+          console.warn(`⚠️ [DEBUG] bookingUtils: Booking ${bookingId} missing dates, skipping`);
+          return; // Skip this booking
+        }
+        
         const bookingStart = new Date(booking.startDate);
         const bookingEnd = new Date(booking.endDate);
+        
+        // Check if dates are valid
+        if (isNaN(bookingStart.getTime()) || isNaN(bookingEnd.getTime())) {
+          console.warn(`⚠️ [DEBUG] bookingUtils: Booking ${bookingId} has invalid dates (${booking.startDate}, ${booking.endDate}), skipping`);
+          return; // Skip this booking
+        }
         
         // Convert booking dates to date-only strings
         const bookingStartDay = bookingStart.toISOString().split('T')[0];

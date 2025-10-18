@@ -1,5 +1,5 @@
 
-    [
+
   {"name": "Adventure Island","img": "/assets/inflateables/adventure-island.png", "weekdayPrice": 200, "weekendPrice": 250, "weekdayWaterPrice": 250, "weekendWaterPrice": 300, "description": "Our ADVENTURE ISLAND combo features a large bouncing area and climbing wall with a water slide. Kids will love the color and fun their imaginations will have in this bounce-house combo. 20'W x 30'L x 17'H space needed.", "dimensions": "20'W × 30'L × 17'H", "wet": true, "dry": true, "category": "bounce-house", "quantity": 1},
     {"name": "Castle Tower", "img": "/assets/inflateables/castle-tower.png","weekdayPrice": 200, "weekendPrice": 250, "weekdayWaterPrice": 250, "weekendWaterPrice": 300, "description": "", "dimensions": "25'W × 25'L × 20'H", "wet": true, "dry": true, "category": "bounce-house", "quantity": 1},
     {"name": "Color Blast Castle","img": "/assets/inflateables/color-blast-castle.png", "weekdayPrice": 200, "weekendPrice": 250, "weekdayWaterPrice": 250, "weekendWaterPrice": 300, "description": "", "dimensions": "20'W × 30'L × 17'H", "wet": true, "dry": true, "category": "bounce-house", "quantity": 1},
@@ -54,6 +54,7 @@
   {"name": "Turbo Speed", "img": "/assets/inflateables/turbo-speed.png",  "weekdayPrice": 175, "weekendPrice": 200, "weekdayWaterPrice": 225, "weekendWaterPrice": 250, "description": "", "dimensions": "", "wet": true, "dry": true, "category": "slide", "quantity": 1},
   {"name": "Wave Rider", "img": "/assets/inflateables/wave-rider.png", "weekdayPrice": 300, "weekendPrice": 400, "weekdayWaterPrice": 400, "weekendWaterPrice": 500, "description": "", "dimensions": "", "wet": true, "dry": true, "category": "slide", "quantity": 1}
 ]
+
 
 
 

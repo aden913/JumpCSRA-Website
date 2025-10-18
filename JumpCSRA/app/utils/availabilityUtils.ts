@@ -22,6 +22,9 @@ export async function checkItemAvailability(
   startDate: Date,
   endDate: Date
 ): Promise<ItemAvailability> {
+  console.log(`🔍 [DEBUG] Checking availability for "${itemName}" with total quantity: ${totalQuantity}`);
+  console.log(`📅 [DEBUG] Date range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
+  
   const database = getDatabase();
   
   try {
@@ -30,6 +33,8 @@ export async function checkItemAvailability(
       loadNewBookings(),
       loadLegacyBookings()
     ]);
+    
+    console.log(`📋 [DEBUG] Loaded ${newBookings.length} new bookings and ${legacyBookings.length} legacy bookings`);
     
     let bookedQuantity = 0;
     
@@ -48,6 +53,9 @@ export async function checkItemAvailability(
       if (datesOverlap(startDate, endDate, bookingStart, bookingEnd)) {
         // Check if this booking contains our item
         const itemQuantity = getBookedItemQuantity(booking.orderDetails?.items || [], itemName);
+        if (itemQuantity > 0) {
+          console.log(`📦 [DEBUG] New booking conflict found: ${itemQuantity} units of "${itemName}" booked from ${bookingStart.toISOString().split('T')[0]} to ${bookingEnd.toISOString().split('T')[0]}`);
+        }
         bookedQuantity += itemQuantity;
       }
     });
@@ -67,11 +75,16 @@ export async function checkItemAvailability(
       if (datesOverlap(startDate, endDate, bookingStart, bookingEnd)) {
         // Check if this booking contains our item
         const itemQuantity = getBookedItemQuantity(booking.orderDetails?.items || [], itemName);
+        if (itemQuantity > 0) {
+          console.log(`📦 [DEBUG] Legacy booking conflict found: ${itemQuantity} units of "${itemName}" booked from ${bookingStart.toISOString().split('T')[0]} to ${bookingEnd.toISOString().split('T')[0]}`);
+        }
         bookedQuantity += itemQuantity;
       }
     });
     
     const availableQuantity = Math.max(0, totalQuantity - bookedQuantity);
+    
+    console.log(`🔢 [DEBUG] Final calculation for "${itemName}": Total(${totalQuantity}) - Booked(${bookedQuantity}) = Available(${availableQuantity})`);
     
     return {
       itemName,
@@ -81,7 +94,7 @@ export async function checkItemAvailability(
     };
     
   } catch (error) {
-    console.error('Error checking item availability:', error);
+    console.error(`❌ [DEBUG] Error checking item availability for "${itemName}":`, error);
     // Return full availability on error to avoid blocking bookings
     return {
       itemName,
@@ -147,11 +160,40 @@ async function loadLegacyBookings(): Promise<any[]> {
 
 async function loadInflateablesData(): Promise<any[]> {
   try {
-    const response = await fetch('/inflateables-firebase.json');
-    const data = await response.json();
-    return data.inflateables || [];
+    console.log('🔍 [DEBUG] Loading inflateables data from Firebase...');
+    // Load from Firebase Realtime Database instead of JSON file
+    const database = getDatabase();
+    const inflateablesRef = ref(database, 'inflateables');
+    const snapshot = await get(inflateablesRef);
+    
+    if (!snapshot.exists()) {
+      console.warn('⚠️ [DEBUG] No inflateables data found in Firebase database');
+      return [];
+    }
+    
+    const inflateablesData = snapshot.val();
+    console.log('📊 [DEBUG] Raw Firebase inflateables data:', inflateablesData);
+    
+    // Handle both array and object formats
+    let result;
+    if (Array.isArray(inflateablesData)) {
+      result = inflateablesData;
+      console.log('📋 [DEBUG] Data is array format, length:', result.length);
+    } else if (inflateablesData && typeof inflateablesData === 'object') {
+      result = Object.values(inflateablesData);
+      console.log('📋 [DEBUG] Data is object format, converted to array, length:', result.length);
+    } else {
+      result = [];
+      console.log('⚠️ [DEBUG] Data format not recognized, returning empty array');
+    }
+    
+    // Log some sample items with quantities
+    const itemsWithQuantity = result.filter(item => item.quantity && item.quantity > 1);
+    console.log('🔢 [DEBUG] Items with quantity > 1:', itemsWithQuantity.map(item => `${item.name}: ${item.quantity}`));
+    
+    return result;
   } catch (error) {
-    console.error('Error loading inflateables data:', error);
+    console.error('❌ [DEBUG] Error loading inflateables data from Firebase:', error);
     return [];
   }
 }

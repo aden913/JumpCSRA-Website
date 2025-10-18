@@ -26,7 +26,10 @@ import {
   updateBookingStatus,
   updateContractStatus,
   generateOrderID,
-  generateContractID
+  generateContractID,
+  isBookingWithinTwoDays,
+  determineInitialBookingStatus,
+  updateBookingStatusBasedOnPayment
 } from "../utils/databaseUtils";
 import type { BookingData, ContractData } from "../utils/databaseUtils";
 import '@mantine/notifications/styles.css';
@@ -46,7 +49,7 @@ interface ContractSection {
 interface ContractMetadata {
   contractId: string;
   userId: string;
-  status: 'pending' | 'confirmed' | 'cancelled';
+  status: 'deferred' | 'pending' | 'confirmed' | 'completed' | 'cancelled';
   deposit: number;
   customerInfo: {
     firstName: string;
@@ -409,8 +412,8 @@ export default function Checkout() {
           throw new Error("Contract not found for booking");
         }
         
-        // Verify booking is pending and needs payment
-        if (bookingData.status !== 'pending') {
+        // Verify booking is available for payment (deferred or pending)
+        if (bookingData.status !== 'deferred' && bookingData.status !== 'pending') {
           throw new Error("Booking is not available for payment");
         }
         
@@ -447,8 +450,8 @@ export default function Checkout() {
         
         const legacyBookingData = snapshot.val() as ContractMetadata;
         
-        // Verify booking is pending and needs payment
-        if (legacyBookingData.status !== 'pending') {
+        // Verify booking is available for payment (deferred or pending)
+        if (legacyBookingData.status !== 'deferred' && legacyBookingData.status !== 'pending') {
           throw new Error("Booking is not available for payment");
         }
         
@@ -574,22 +577,30 @@ export default function Checkout() {
       return;
     }
     
-    console.log('✅ Validation passed, saving pending booking');
+    console.log('✅ Validation passed, determining booking status');
     
     try {
-      // Save contract as pending booking
-      const result = await saveBookingAndContract('pending');
+      // Determine initial booking status based on event date
+      const eventDateString = calendarDateRange[0]?.toLocaleDateString() || '';
+      const isWithinTwoDays = isCurrentBookingWithinTwoDays();
+      
+      // Determine initial status - deferred if within 2 days, otherwise we'll proceed to payment
+      const initialStatus = isWithinTwoDays ? 'deferred' : 'pending';
+      
+      console.log(`Event date: ${eventDateString}, Within 2 days: ${isWithinTwoDays}, Initial status: ${initialStatus}`);
+      
+      // Save contract and booking with determined status
+      const result = await saveBookingAndContract(initialStatus);
       if (result) {
         const { orderID, contractID } = result;
         setPendingBookingId(orderID); // Store orderID for payment processing
         setContractSigned(true);
         
-        // Check if booking requires phone call (within 2 days)
-        const needsCall = isBookingWithinTwoDays();
-        setRequiresPhoneCall(needsCall);
+        // Set phone call requirement flag
+        setRequiresPhoneCall(isWithinTwoDays);
         
-        if (needsCall) {
-          console.log('📞 Booking within 2 days - phone call required');
+        if (isWithinTwoDays) {
+          console.log('📞 Booking within 2 days - saved as deferred, phone call required');
         } else {
           console.log('✅ Booking not urgent - proceeding to payment');
         }
@@ -938,23 +949,14 @@ export default function Checkout() {
     return (total - deposit).toFixed(2);
   };
 
-  // Check if booking is within the next 2 days
-  const isBookingWithinTwoDays = () => {
+  // Check if current booking is within the next 2 days (using calendar dates)
+  const isCurrentBookingWithinTwoDays = () => {
     if (!calendarDateRange || !calendarDateRange[0]) {
       return false;
     }
     
-    const today = new Date();
-    const bookingDate = new Date(calendarDateRange[0]);
-    const twoDaysFromNow = new Date(today);
-    twoDaysFromNow.setDate(today.getDate() + 2);
-    
-    // Reset time to start of day for accurate comparison
-    today.setHours(0, 0, 0, 0);
-    bookingDate.setHours(0, 0, 0, 0);
-    twoDaysFromNow.setHours(23, 59, 59, 999);
-    
-    return bookingDate >= today && bookingDate <= twoDaysFromNow;
+    const eventDateString = calendarDateRange[0].toLocaleDateString();
+    return isBookingWithinTwoDays(eventDateString);
   };
 
   // PayPal payment handlers
@@ -986,53 +988,63 @@ export default function Checkout() {
       const paymentId = details.id;
       const paidAmount = parseFloat(details.purchase_units[0].amount.value);
       
-      let newStatus: 'pending' | 'confirmed';
-      let depositAmount = 0;
-      
-      if (paymentType === 'deposit') {
-        // Deposit payment - booking stays pending until full payment
-        newStatus = 'pending';
-        depositAmount = paidAmount;
-      } else {
-        // Full payment - booking becomes confirmed
-        newStatus = 'confirmed';
-        depositAmount = 0; // Full payment means no separate deposit tracking
-      }
-      
       if (pendingBookingId) {
-        // Update existing booking with payment details
+        // Load existing booking to get total amount and current status
         const existingBooking = await loadBookingData(pendingBookingId);
         if (existingBooking) {
-          // Update the payment details and status
-          existingBooking.status = newStatus;
-          existingBooking.paymentDetails.depositAmount = depositAmount;
-          existingBooking.paymentDetails.remainingBalance = existingBooking.orderDetails.totalAmount - depositAmount;
-          existingBooking.paymentDetails.paypalOrderId = data.orderID;
-          existingBooking.paymentDetails.paypalTransactionId = paymentId;
-          existingBooking.paymentDetails.paymentStatus = 'completed';
-          existingBooking.paymentDetails.paymentDate = new Date().toISOString();
-          existingBooking.updatedAt = new Date().toISOString();
+          const totalAmount = existingBooking.orderDetails.totalAmount;
           
-          const success = await saveBookingData(existingBooking);
-          if (success) {
-            setPaymentId(paymentId);
-            setPaymentCompleted(true);
-            
-            const message = paymentType === 'deposit' 
-              ? `Deposit of $${paidAmount} received. Booking secured as pending. Remaining balance of $${calculateRemainingBalance()} due before event.`
-              : `Full payment of $${paidAmount} completed. Booking confirmed successfully.`;
-            
-            notifications.show({
-              title: '✅ Payment Successful!',
-              message: message,
-              color: 'green',
-              autoClose: 8000,
-            });
-            
-            console.log("Payment completed:", details);
-            console.log(`Booking ${newStatus} with orderID:`, pendingBookingId);
+          // Determine deposit amount based on payment type
+          let depositAmount: number;
+          if (paymentType === 'deposit') {
+            depositAmount = paidAmount; // The paid amount is the deposit
           } else {
-            throw new Error("Failed to update booking after payment");
+            depositAmount = paidAmount; // Full payment means the full amount is the deposit
+          }
+          
+          // Update booking status based on payment using the new utility function
+          const statusUpdated = await updateBookingStatusBasedOnPayment(pendingBookingId, depositAmount, totalAmount);
+          
+          if (statusUpdated) {
+            // Update payment details in the booking
+            existingBooking.paymentDetails.depositAmount = depositAmount;
+            existingBooking.paymentDetails.remainingBalance = totalAmount - depositAmount;
+            existingBooking.paymentDetails.paypalOrderId = data.orderID;
+            existingBooking.paymentDetails.paypalTransactionId = paymentId;
+            existingBooking.paymentDetails.paymentStatus = 'completed';
+            existingBooking.paymentDetails.paymentDate = new Date().toISOString();
+            existingBooking.updatedAt = new Date().toISOString();
+            
+            const success = await saveBookingData(existingBooking);
+            if (success) {
+              setPaymentId(paymentId);
+              setPaymentCompleted(true);
+              
+              // Get the updated status to show appropriate message
+              const updatedBooking = await loadBookingData(pendingBookingId);
+              const finalStatus = updatedBooking?.status || 'unknown';
+              
+              let message: string;
+              if (paymentType === 'deposit') {
+                message = `Deposit of $${paidAmount} received. Booking status: ${finalStatus}. Remaining balance: $${(totalAmount - depositAmount).toFixed(2)}.`;
+              } else {
+                message = `Full payment of $${paidAmount} completed. Booking confirmed successfully.`;
+              }
+              
+              notifications.show({
+                title: '✅ Payment Successful!',
+                message: message,
+                color: 'green',
+                autoClose: 8000,
+              });
+              
+              console.log("Payment completed:", details);
+              console.log(`Booking status updated to ${finalStatus} with orderID:`, pendingBookingId);
+            } else {
+              throw new Error("Failed to update booking payment details");
+            }
+          } else {
+            throw new Error("Failed to update booking status after payment");
           }
         } else {
           throw new Error("Could not find existing booking to update");
@@ -1063,8 +1075,8 @@ export default function Checkout() {
     });
   };
 
-  // Update booking status in database
-  const updateBookingStatus = async (contractId: string, status: 'pending' | 'confirmed' | 'cancelled', paymentId?: string): Promise<string | null> => {
+  // Update booking status in database (legacy function for old contracts table)
+  const updateLegacyBookingStatus = async (contractId: string, status: 'deferred' | 'pending' | 'confirmed' | 'completed' | 'cancelled', paymentId?: string): Promise<string | null> => {
     try {
       const database = getDatabase();
       const contractRef = ref(database, `contracts/${contractId}`);
@@ -1096,8 +1108,8 @@ export default function Checkout() {
     }
   };
 
-  // Update booking status with deposit information
-  const updateBookingStatusWithDeposit = async (contractId: string, status: 'pending' | 'confirmed' | 'cancelled', paymentId?: string, depositAmount?: number): Promise<string | null> => {
+  // Update booking status with deposit information (legacy function)
+  const updateLegacyBookingStatusWithDeposit = async (contractId: string, status: 'deferred' | 'pending' | 'confirmed' | 'completed' | 'cancelled', paymentId?: string, depositAmount?: number): Promise<string | null> => {
     try {
       const database = getDatabase();
       const contractRef = ref(database, `contracts/${contractId}`);
@@ -1133,8 +1145,8 @@ export default function Checkout() {
     }
   };
 
-  // Save contract metadata with deposit information
-  const saveContractMetadataWithDeposit = async (status: 'pending' | 'confirmed' = 'confirmed', depositAmount: number = 0): Promise<string | null> => {
+  // Save contract metadata with deposit information (legacy function)
+  const saveContractMetadataWithDeposit = async (status: 'deferred' | 'pending' | 'confirmed' = 'confirmed', depositAmount: number = 0): Promise<string | null> => {
     if (!user || !allSectionsInitialed() || !typedSignature.trim() || !customerInitials.trim()) {
       console.error("Missing required contract data");
       return null;
@@ -1261,7 +1273,7 @@ export default function Checkout() {
   // Save contract metadata to Firebase Realtime Database
   // New function to save booking and contract data separately
   const saveBookingAndContract = async (
-    bookingStatus: 'pending' | 'confirmed' = 'confirmed',
+    bookingStatus: 'deferred' | 'pending' | 'confirmed' = 'confirmed',
     paymentType: 'full' | 'deposit' = 'full',
     depositAmount: number = 0,
     paypalOrderId?: string,
@@ -1380,7 +1392,7 @@ export default function Checkout() {
     }
   };
 
-  const saveContractMetadata = async (status: 'pending' | 'confirmed' = 'confirmed'): Promise<string | null> => {
+  const saveContractMetadata = async (status: 'deferred' | 'pending' | 'confirmed' = 'confirmed'): Promise<string | null> => {
     if (!user || !allSectionsInitialed() || !typedSignature.trim() || !customerInitials.trim()) {
       console.error("Missing required contract data");
       return null;

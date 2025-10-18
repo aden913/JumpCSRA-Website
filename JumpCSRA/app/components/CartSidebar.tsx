@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "./FirebaseConfig";
+import { getDatabase, ref, get } from "firebase/database";
+import { initializeApp, getApps } from "firebase/app";
+import { auth, firebaseConfig } from "./FirebaseConfig";
 import { getUnavailableInflateables } from '../utils/bookingUtils';
 import { useDiscounts, getDiscountDescription, type DiscountCalculation } from '../hooks/useDiscounts';
 import { checkItemAvailability, type ItemAvailability } from '../utils/availabilityUtils';
@@ -297,22 +299,61 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
     return endDate;
   };
 
-  // Load inflateables data function
+  // Load inflateables data function - now from Firebase instead of JSON
   const loadInflateablesData = async (): Promise<any[]> => {
     try {
-      const response = await fetch('/inflateables-firebase.json');
-      const data = await response.json();
-      return data.inflateables || [];
+      console.log('🛒 [DEBUG] CartSidebar: Loading inflateables data from Firebase...');
+      // Load from Firebase Realtime Database instead of JSON file
+      if (!getApps().length) {
+        initializeApp(firebaseConfig);
+      }
+      const database = getDatabase();
+      const inflateablesRef = ref(database, 'inflateables');
+      const snapshot = await get(inflateablesRef);
+      
+      if (!snapshot.exists()) {
+        console.warn('⚠️ [DEBUG] CartSidebar: No inflateables data found in Firebase database');
+        return [];
+      }
+      
+      const inflateablesData = snapshot.val();
+      console.log('📊 [DEBUG] CartSidebar: Raw Firebase inflateables data:', inflateablesData);
+      
+      // Handle both array and object formats
+      let result;
+      if (Array.isArray(inflateablesData)) {
+        result = inflateablesData;
+        console.log('📋 [DEBUG] CartSidebar: Data is array format, length:', result.length);
+      } else if (inflateablesData && typeof inflateablesData === 'object') {
+        result = Object.values(inflateablesData);
+        console.log('📋 [DEBUG] CartSidebar: Data is object format, converted to array, length:', result.length);
+      } else {
+        result = [];
+        console.log('⚠️ [DEBUG] CartSidebar: Data format not recognized, returning empty array');
+      }
+      
+      // Log some sample items with quantities
+      const itemsWithQuantity = result.filter(item => item.quantity && item.quantity > 1);
+      console.log('🔢 [DEBUG] CartSidebar: Items with quantity > 1:', itemsWithQuantity.map(item => `${item.name}: ${item.quantity}`));
+      
+      return result;
     } catch (error) {
-      console.error('Error loading inflateables data:', error);
+      console.error('❌ [DEBUG] CartSidebar: Error loading inflateables data from Firebase:', error);
       return [];
     }
   };
 
   // Check availability when duration or date changes
   useEffect(() => {
+    console.log('🚀 [DEBUG] CartSidebar: useEffect triggered');
+    console.log(`📊 [DEBUG] CartSidebar: Dependencies - calendarDateRange[0]: ${calendarDateRange[0]}, duration: ${duration}, cart.length: ${cart.length}`);
+    
     const checkAvailability = async () => {
       if (calendarDateRange[0] && duration && cart.length > 0) {
+        console.log('🔍 [DEBUG] CartSidebar: Starting availability check...');
+        console.log(`📅 [DEBUG] CartSidebar: Date range: ${calendarDateRange[0].toISOString().split('T')[0]} for ${duration}`);
+        console.log(`🛒 [DEBUG] CartSidebar: Cart items to check:`, cart.map(item => `${item.name} (qty: ${item.quantity})`));
+        
         setLoadingAvailability(true);
         const startDate = calendarDateRange[0];
         const endDate = calculateEndDate(startDate, duration);
@@ -321,32 +362,50 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
           // Get old unavailable items for binary check
           const unavailable = await getUnavailableInflateables(startDate, endDate);
           setUnavailableItems(unavailable);
+          console.log('🚫 [DEBUG] CartSidebar: Unavailable items:', Array.from(unavailable));
           
           // Get detailed availability for all items in cart
           const inflateables = await loadInflateablesData();
           const availabilityMap = new Map<string, ItemAvailability>();
           
+          console.log('🔄 [DEBUG] CartSidebar: Starting individual item availability checks...');
+          
           const promises = cart.map(async (item) => {
             const inflateable = inflateables.find(inf => inf.name === item.name);
+            console.log(`🔍 [DEBUG] CartSidebar: Looking for "${item.name}" in inflateables data...`);
+            console.log(`📋 [DEBUG] CartSidebar: Found inflateable:`, inflateable);
+            
             if (inflateable) {
+              const totalQuantity = inflateable.quantity || 1;
+              console.log(`🔢 [DEBUG] CartSidebar: Using total quantity ${totalQuantity} for "${item.name}"`);
+              
               const availability = await checkItemAvailability(
                 item.name,
-                inflateable.quantity || 1,
+                totalQuantity,
                 startDate,
                 endDate
               );
+              
+              console.log(`📊 [DEBUG] CartSidebar: Availability result for "${item.name}":`, availability);
               availabilityMap.set(item.name, availability);
+            } else {
+              console.log(`⚠️ [DEBUG] CartSidebar: No inflateable data found for "${item.name}"`);
             }
           });
           
           await Promise.all(promises);
+          console.log('✅ [DEBUG] CartSidebar: All availability checks completed');
+          console.log('📊 [DEBUG] CartSidebar: Final availability map:', Object.fromEntries(availabilityMap));
+          
           setItemAvailability(availabilityMap);
         } catch (error) {
-          console.error('Error checking availability:', error);
+          console.error('❌ [DEBUG] CartSidebar: Error checking availability:', error);
         } finally {
           setLoadingAvailability(false);
         }
       } else {
+        console.log('⚠️ [DEBUG] CartSidebar: Skipping availability check - conditions not met');
+        console.log(`📊 [DEBUG] CartSidebar: calendarDateRange[0]: ${!!calendarDateRange[0]}, duration: ${!!duration}, cart.length: ${cart.length}`);
         setUnavailableItems(new Set());
         setItemAvailability(new Map());
       }
@@ -542,11 +601,16 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
     const item = cart[index];
     const availability = itemAvailability.get(item.name);
     
+    console.log(`🔄 [DEBUG] CartSidebar: updateQuantity for "${item.name}" to ${newQuantity}`);
+    console.log(`📊 [DEBUG] CartSidebar: Current availability for "${item.name}":`, availability);
+    
     if (availability && newQuantity > availability.availableQuantity) {
+      console.log(`⚠️ [DEBUG] CartSidebar: Quantity ${newQuantity} exceeds available ${availability.availableQuantity} for "${item.name}"`);
       alert(`Only ${availability.availableQuantity} of ${item.name} available for your selected dates.`);
       return;
     }
     
+    console.log(`✅ [DEBUG] CartSidebar: Quantity update allowed for "${item.name}": ${newQuantity}`);
     const newCart = [...cart];
     newCart[index].quantity = newQuantity;
     setCart(newCart);
@@ -565,10 +629,19 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
   // Generate quantity options based on availability
   const getQuantityOptions = (itemName: string, currentQuantity: number): number[] => {
     const availability = itemAvailability.get(itemName);
-    if (!availability) return [1]; // Default to 1 if no availability data
+    console.log(`🔢 [DEBUG] CartSidebar: getQuantityOptions for "${itemName}"`);
+    console.log(`📊 [DEBUG] CartSidebar: Availability data:`, availability);
+    
+    if (!availability) {
+      console.log(`⚠️ [DEBUG] CartSidebar: No availability data for "${itemName}", defaulting to [1]`);
+      return [1]; // Default to 1 if no availability data
+    }
     
     const maxQuantity = Math.max(1, availability.availableQuantity);
-    return Array.from({ length: maxQuantity }, (_, i) => i + 1);
+    const options = Array.from({ length: maxQuantity }, (_, i) => i + 1);
+    console.log(`✅ [DEBUG] CartSidebar: Generated quantity options for "${itemName}": [${options.join(', ')}] (max: ${maxQuantity})`);
+    
+    return options;
   };
 
   const removeFromCart = (index: number) => {

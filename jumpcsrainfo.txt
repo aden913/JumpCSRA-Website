@@ -72,3 +72,24 @@ add Wet Or Dry, Dry Only, Wet Only on corresponding units?
 
 sign in with phone is disabled until billing is added to firebase
 Would like to implement google api for anytime a user is entering an address but will require finalizing account creation for the google developement for the email.
+
+
+
+
+
+// In your admin dashboard project
+import { 
+  updateCompletedBookings,
+  getBookingStatusSummary,
+  checkSpecificBooking,
+  runBookingStatusUpdate 
+} from '../path-to-customer-site/utils/bookingStatusUpdater';
+
+// Get real-time status summary
+const summary = await getBookingStatusSummary();
+
+// Run manual updates
+const result = await updateCompletedBookings();
+
+// Check specific booking
+const status = await checkSpecificBooking('ORDER_ID');

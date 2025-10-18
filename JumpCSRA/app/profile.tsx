@@ -61,6 +61,24 @@ export default function Profile() {
   const formatStatus = (status?: string): string => {
     return status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown';
   };
+
+  // Helper function to get status color
+  const getStatusColor = (status?: string): string => {
+    switch (status?.toLowerCase()) {
+      case 'deferred':
+        return '#ffc107'; // Yellow
+      case 'pending':
+        return '#17a2b8'; // Blue
+      case 'confirmed':
+        return '#28a745'; // Green
+      case 'completed':
+        return '#6c757d'; // Gray
+      case 'cancelled':
+        return '#dc3545'; // Red
+      default:
+        return '#6c757d'; // Default gray
+    }
+  };
   
   // Cart and calendar data for navbar
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -181,7 +199,7 @@ export default function Profile() {
   // Booking filter and sort state
   const [sortBy, setSortBy] = useState<'date' | 'price' | 'status'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'confirmed' | 'cancelled'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'deferred' | 'pending' | 'confirmed' | 'completed' | 'cancelled'>('all');
 
   // Toggle booking card expanded state
   const toggleBookingExpansion = (bookingId: string) => {
@@ -1008,12 +1026,14 @@ export default function Profile() {
                 <select 
                   id="filter-status"
                   value={filterStatus} 
-                  onChange={(e) => setFilterStatus(e.target.value as 'all' | 'pending' | 'confirmed' | 'cancelled')}
+                  onChange={(e) => setFilterStatus(e.target.value as 'all' | 'deferred' | 'pending' | 'confirmed' | 'completed' | 'cancelled')}
                   className="filter-select"
                 >
                   <option value="all">All Statuses</option>
+                  <option value="deferred">Deferred</option>
                   <option value="pending">Pending</option>
                   <option value="confirmed">Confirmed</option>
+                  <option value="completed">Completed</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
               </div>
@@ -1041,7 +1061,17 @@ export default function Profile() {
                           >
                             <div className="booking-info">
                               <h5>Order #{booking.orderID.slice(-8)}</h5>
-                              <span className={`booking-status status-${booking.status || 'unknown'}`}>
+                              <span 
+                                className={`booking-status status-${booking.status || 'unknown'}`}
+                                style={{ 
+                                  backgroundColor: getStatusColor(booking.status),
+                                  color: 'white',
+                                  padding: '0.25rem 0.5rem',
+                                  borderRadius: '4px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 'bold'
+                                }}
+                              >
                                 {formatStatus(booking.status)}
                               </span>
                             </div>
