@@ -185,6 +185,36 @@ html, body{ background-color: white;}
   border-bottom: 1px solid #eee;
 }
 
+.booking-header.clickable {
+  cursor: pointer;
+  margin-bottom: 0;
+  transition: background-color 0.2s ease;
+}
+
+.booking-header.clickable:hover {
+  background-color: #f8f9fa;
+  border-radius: 8px 8px 0 0;
+}
+
+.booking-header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.expand-chevron {
+  font-size: 0.8rem;
+  color: #666;
+  transition: transform 0.3s ease;
+  user-select: none;
+  min-width: 16px;
+  text-align: center;
+}
+
+.expand-chevron.expanded {
+  transform: rotate(180deg);
+}
+
 .booking-info h5 {
   margin: 0 0 0.25rem 0;
   color: #333;
@@ -229,6 +259,25 @@ html, body{ background-color: white;}
   font-size: 0.9rem;
 }
 
+.booking-details {
+  transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
+  overflow: hidden;
+}
+
+.booking-details.collapsed {
+  max-height: 0;
+  opacity: 0;
+  padding: 0;
+  margin-bottom: 0;
+}
+
+.booking-details.expanded {
+  max-height: 1000px; /* Large enough to fit content */
+  opacity: 1;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
 .booking-details p {
   margin: 0.5rem 0;
   color: #555;
@@ -269,6 +318,21 @@ html, body{ background-color: white;}
   margin-top: 1.5rem;
   padding-top: 1rem;
   border-top: 1px solid #eee;
+  transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease, margin 0.3s ease;
+  overflow: hidden;
+}
+
+.booking-actions.collapsed {
+  max-height: 0;
+  opacity: 0;
+  padding: 0;
+  margin: 0;
+  border-top: none;
+}
+
+.booking-actions.expanded {
+  max-height: 200px; /* Large enough to fit buttons */
+  opacity: 1;
 }
 
 .btn-view-details, .btn-view-contract, .btn-complete-payment, .btn-start-booking {

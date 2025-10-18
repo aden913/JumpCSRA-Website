@@ -174,8 +174,22 @@ export default function Profile() {
   const [selectedContract, setSelectedContract] = useState<ContractData | any | null>(null);
   const [showContract, setShowContract] = useState(false);
   const [loadingContract, setLoadingContract] = useState(false);
+  
+  // Booking card collapse/expand state
+  const [expandedBookings, setExpandedBookings] = useState<Set<string>>(new Set());
 
-
+  // Toggle booking card expanded state
+  const toggleBookingExpansion = (bookingId: string) => {
+    setExpandedBookings(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(bookingId)) {
+        newSet.delete(bookingId);
+      } else {
+        newSet.add(bookingId);
+      }
+      return newSet;
+    });
+  };
 
   // 🔐 Re-authenticate user
   const handleConfirmPassword = async () => {
@@ -928,21 +942,31 @@ export default function Profile() {
                 {bookings.length > 0 && (
                   <div className="bookings-section">
                     <h4>Recent Bookings</h4>
-                    {bookings.map((booking) => (
-                      <div key={booking.orderID} className="booking-card">
-                        <div className="booking-header">
-                          <div className="booking-info">
-                            <h5>Order #{booking.orderID.slice(-8)}</h5>
-                            <span className={`booking-status status-${booking.status || 'unknown'}`}>
-                              {formatStatus(booking.status)}
-                            </span>
+                    {bookings.map((booking) => {
+                      const isExpanded = expandedBookings.has(booking.orderID);
+                      return (
+                        <div key={booking.orderID} className="booking-card">
+                          <div 
+                            className="booking-header clickable" 
+                            onClick={() => toggleBookingExpansion(booking.orderID)}
+                          >
+                            <div className="booking-info">
+                              <h5>Order #{booking.orderID.slice(-8)}</h5>
+                              <span className={`booking-status status-${booking.status || 'unknown'}`}>
+                                {formatStatus(booking.status)}
+                              </span>
+                            </div>
+                            <div className="booking-header-right">
+                              <div className="booking-date">
+                                {booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : 'Date unknown'}
+                              </div>
+                              <div className={`expand-chevron ${isExpanded ? 'expanded' : ''}`}>
+                                ▼
+                              </div>
+                            </div>
                           </div>
-                          <div className="booking-date">
-                            {booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : 'Date unknown'}
-                          </div>
-                        </div>
-                        
-                        <div className="booking-details">
+                          
+                          <div className={`booking-details ${isExpanded ? 'expanded' : 'collapsed'}`}>
                           <p><strong>Event Date:</strong> {booking.orderDetails?.eventDate || 'Not specified'}</p>
                           <p><strong>Duration:</strong> {booking.orderDetails?.duration || 'Not specified'}</p>
                           <p><strong>Delivery:</strong> {booking.orderDetails?.deliveryAddress || 'Not specified'}</p>
@@ -971,7 +995,7 @@ export default function Profile() {
                           )}
                         </div>
                         
-                        <div className="booking-actions">
+                        <div className={`booking-actions ${isExpanded ? 'expanded' : 'collapsed'}`}>
                           <button 
                             className="btn-view-details"
                             onClick={() => {
@@ -990,17 +1014,18 @@ export default function Profile() {
                             {loadingContract ? 'Loading...' : 'View Contract'}
                           </button>
                           
-                          {booking.status === 'pending' && booking.paymentDetails?.remainingBalance > 0 && (
-                            <button 
-                              className="btn-complete-payment"
-                              onClick={() => navigate(`/checkout?booking=${booking.orderID}`)}
-                            >
-                              Complete Payment (${booking.paymentDetails.remainingBalance})
-                            </button>
-                          )}
+                            {booking.status === 'pending' && booking.paymentDetails?.remainingBalance > 0 && (
+                              <button 
+                                className="btn-complete-payment"
+                                onClick={() => navigate(`/checkout?booking=${booking.orderID}`)}
+                              >
+                                Complete Payment (${booking.paymentDetails.remainingBalance})
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
                 
@@ -1008,21 +1033,31 @@ export default function Profile() {
                 {legacyBookings.length > 0 && (
                   <div className="bookings-section">
                     <h4>Previous Bookings</h4>
-                    {legacyBookings.map((booking) => (
-                      <div key={booking.contractId} className="booking-card legacy">
-                        <div className="booking-header">
-                          <div className="booking-info">
-                            <h5>Contract #{booking.contractId.slice(-8)}</h5>
-                            <span className={`booking-status status-${booking.status || 'unknown'}`}>
-                              {formatStatus(booking.status)}
-                            </span>
+                    {legacyBookings.map((booking) => {
+                      const isExpanded = expandedBookings.has(booking.contractId);
+                      return (
+                        <div key={booking.contractId} className="booking-card legacy">
+                          <div 
+                            className="booking-header clickable" 
+                            onClick={() => toggleBookingExpansion(booking.contractId)}
+                          >
+                            <div className="booking-info">
+                              <h5>Contract #{booking.contractId.slice(-8)}</h5>
+                              <span className={`booking-status status-${booking.status || 'unknown'}`}>
+                                {formatStatus(booking.status)}
+                              </span>
+                            </div>
+                            <div className="booking-header-right">
+                              <div className="booking-date">
+                                {booking.contractDate || 'Date not available'}
+                              </div>
+                              <div className={`expand-chevron ${isExpanded ? 'expanded' : ''}`}>
+                                ▼
+                              </div>
+                            </div>
                           </div>
-                          <div className="booking-date">
-                            {booking.contractDate || 'Date not available'}
-                          </div>
-                        </div>
-                        
-                        <div className="booking-details">
+                          
+                          <div className={`booking-details ${isExpanded ? 'expanded' : 'collapsed'}`}>
                           <p><strong>Event Date:</strong> {booking.orderDetails?.eventDate || 'Not specified'}</p>
                           <p><strong>Duration:</strong> {booking.orderDetails?.duration || 'Not specified'}</p>
                           <p><strong>Delivery:</strong> {booking.orderDetails?.deliveryAddress || 'Not specified'}</p>
@@ -1051,7 +1086,7 @@ export default function Profile() {
                           )}
                         </div>
                         
-                        <div className="booking-actions">
+                        <div className={`booking-actions ${isExpanded ? 'expanded' : 'collapsed'}`}>
                           <button 
                             className="btn-view-details"
                             onClick={() => {
@@ -1070,17 +1105,18 @@ export default function Profile() {
                             {loadingContract ? 'Loading...' : 'View Contract'}
                           </button>
                           
-                          {booking.status === 'pending' && (
-                            <button 
-                              className="btn-complete-payment"
-                              onClick={() => navigate(`/checkout?booking=${booking.contractId}`)}
-                            >
-                              Complete Payment
-                            </button>
-                          )}
+                            {booking.status === 'pending' && (
+                              <button 
+                                className="btn-complete-payment"
+                                onClick={() => navigate(`/checkout?booking=${booking.contractId}`)}
+                              >
+                                Complete Payment
+                              </button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
                 
