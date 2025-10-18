@@ -86,6 +86,66 @@ html, body{ background-color: white;}
 .profile-events {
   padding: 2rem 0;
 }
+
+/* Booking Filter Controls */
+.booking-filters {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  flex-wrap: wrap;
+  align-items: end;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 120px;
+}
+
+.filter-group label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 0.25rem;
+}
+
+.filter-select {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  font-size: 0.9rem;
+  color: #333;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.filter-select:hover {
+  border-color: #1976d2;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #1976d2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
+}
+
+@media (max-width: 768px) {
+  .booking-filters {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .filter-group {
+    width: 100%;
+  }
+}
+
 .profile-events-placeholder {
   color: #888;
   font-size: 1.1rem;

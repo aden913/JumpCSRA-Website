@@ -177,6 +177,11 @@ export default function Profile() {
   
   // Booking card collapse/expand state
   const [expandedBookings, setExpandedBookings] = useState<Set<string>>(new Set());
+  
+  // Booking filter and sort state
+  const [sortBy, setSortBy] = useState<'date' | 'price' | 'status'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'confirmed' | 'cancelled'>('all');
 
   // Toggle booking card expanded state
   const toggleBookingExpansion = (bookingId: string) => {
@@ -189,6 +194,43 @@ export default function Profile() {
       }
       return newSet;
     });
+  };
+
+  // Filter and sort bookings
+  const filterAndSortBookings = (bookingArray: BookingData[] | any[], isLegacy: boolean = false) => {
+    let filtered = [...bookingArray];
+    
+    // Apply status filter
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(booking => booking.status === filterStatus);
+    }
+    
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let compareValue = 0;
+      
+      switch (sortBy) {
+        case 'date':
+          const dateA = new Date(isLegacy ? (a.contractDate || a.createdAt || 0) : a.createdAt);
+          const dateB = new Date(isLegacy ? (b.contractDate || b.createdAt || 0) : b.createdAt);
+          compareValue = dateA.getTime() - dateB.getTime();
+          break;
+        case 'price':
+          const priceA = isLegacy ? (a.orderDetails?.totalAmount || 0) : (a.orderDetails?.totalAmount || 0);
+          const priceB = isLegacy ? (b.orderDetails?.totalAmount || 0) : (b.orderDetails?.totalAmount || 0);
+          compareValue = priceA - priceB;
+          break;
+        case 'status':
+          const statusA = a.status || 'unknown';
+          const statusB = b.status || 'unknown';
+          compareValue = statusA.localeCompare(statusB);
+          break;
+      }
+      
+      return sortOrder === 'asc' ? compareValue : -compareValue;
+    });
+    
+    return filtered;
   };
 
   // 🔐 Re-authenticate user
@@ -932,6 +974,51 @@ export default function Profile() {
           <div className="profile-events">
             <h3>Past Events & Bookings</h3>
             
+            {/* Filter and Sort Controls */}
+            <div className="booking-filters">
+              <div className="filter-group">
+                <label htmlFor="sort-by">Sort by:</label>
+                <select 
+                  id="sort-by"
+                  value={sortBy} 
+                  onChange={(e) => setSortBy(e.target.value as 'date' | 'price' | 'status')}
+                  className="filter-select"
+                >
+                  <option value="date">Date</option>
+                  <option value="price">Price</option>
+                  <option value="status">Status</option>
+                </select>
+              </div>
+              
+              <div className="filter-group">
+                <label htmlFor="sort-order">Order:</label>
+                <select 
+                  id="sort-order"
+                  value={sortOrder} 
+                  onChange={(e) => setSortOrder(e.target.value as 'asc' | 'desc')}
+                  className="filter-select"
+                >
+                  <option value="desc">{sortBy === 'date' ? 'Newest First' : 'High to Low'}</option>
+                  <option value="asc">{sortBy === 'date' ? 'Oldest First' : 'Low to High'}</option>
+                </select>
+              </div>
+              
+              <div className="filter-group">
+                <label htmlFor="filter-status">Filter by Status:</label>
+                <select 
+                  id="filter-status"
+                  value={filterStatus} 
+                  onChange={(e) => setFilterStatus(e.target.value as 'all' | 'pending' | 'confirmed' | 'cancelled')}
+                  className="filter-select"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+            </div>
+            
             {loadingBookings ? (
               <div className="booking-loading">
                 <p>Loading your booking history...</p>
@@ -939,10 +1026,12 @@ export default function Profile() {
             ) : (
               <div className="bookings-container">
                 {/* New Structure Bookings */}
-                {bookings.length > 0 && (
-                  <div className="bookings-section">
-                    <h4>Recent Bookings</h4>
-                    {bookings.map((booking) => {
+                {(() => {
+                  const filteredAndSortedBookings = filterAndSortBookings(bookings);
+                  return filteredAndSortedBookings.length > 0 ? (
+                    <div className="bookings-section">
+                      <h4>Recent Bookings ({filteredAndSortedBookings.length})</h4>
+                      {filteredAndSortedBookings.map((booking) => {
                       const isExpanded = expandedBookings.has(booking.orderID);
                       return (
                         <div key={booking.orderID} className="booking-card">
@@ -980,7 +1069,7 @@ export default function Profile() {
                             <div className="booking-items">
                               <strong>Items ({booking.orderDetails.items.length}):</strong>
                               <div className="items-list">
-                                {booking.orderDetails.items.slice(0, 3).map((item, idx) => (
+                                {booking.orderDetails.items.slice(0, 3).map((item: any, idx: number) => (
                                   <span key={idx} className="item-tag">
                                     {item.quantity}x {item.name}
                                   </span>
@@ -1027,13 +1116,16 @@ export default function Profile() {
                       );
                     })}
                   </div>
-                )}
+                ) : null;
+                })()}
                 
                 {/* Legacy Structure Bookings */}
-                {legacyBookings.length > 0 && (
-                  <div className="bookings-section">
-                    <h4>Previous Bookings</h4>
-                    {legacyBookings.map((booking) => {
+                {(() => {
+                  const filteredAndSortedLegacyBookings = filterAndSortBookings(legacyBookings, true);
+                  return filteredAndSortedLegacyBookings.length > 0 ? (
+                    <div className="bookings-section">
+                      <h4>Previous Bookings ({filteredAndSortedLegacyBookings.length})</h4>
+                      {filteredAndSortedLegacyBookings.map((booking) => {
                       const isExpanded = expandedBookings.has(booking.contractId);
                       return (
                         <div key={booking.contractId} className="booking-card legacy">
@@ -1118,21 +1210,39 @@ export default function Profile() {
                       );
                     })}
                   </div>
-                )}
+                ) : null;
+                })()}
                 
                 {/* No Bookings Message */}
-                {bookings.length === 0 && legacyBookings.length === 0 && !loadingBookings && (
-                  <div className="no-bookings">
-                    <h4>No Bookings Yet</h4>
-                    <p>You haven't made any bookings yet. Start planning your next event!</p>
-                    <button 
-                      className="btn-start-booking"
-                      onClick={() => navigate('/home')}
-                    >
-                      Browse Rentals
-                    </button>
-                  </div>
-                )}
+                {(() => {
+                  const filteredBookings = filterAndSortBookings(bookings);
+                  const filteredLegacyBookings = filterAndSortBookings(legacyBookings, true);
+                  const hasNoResults = filteredBookings.length === 0 && filteredLegacyBookings.length === 0;
+                  const hasNoBookings = bookings.length === 0 && legacyBookings.length === 0;
+                  
+                  if (!loadingBookings && (hasNoBookings || hasNoResults)) {
+                    return (
+                      <div className="no-bookings">
+                        <h4>{hasNoBookings ? 'No Bookings Yet' : 'No Matching Bookings'}</h4>
+                        <p>
+                          {hasNoBookings 
+                            ? "You haven't made any bookings yet. Start planning your next event!" 
+                            : "No bookings match your current filter criteria. Try adjusting your filters."
+                          }
+                        </p>
+                        {hasNoBookings && (
+                          <button 
+                            className="btn-start-booking"
+                            onClick={() => navigate('/home')}
+                          >
+                            Browse Rentals
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
             )}
           </div>
