@@ -105,6 +105,8 @@ export function OptionsCarousel({ options, onPurchase }: OptionsCarouselProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<OptionCardProps | null>(null);
   const [leftMaskWidth, setLeftMaskWidth] = useState(37);
+  const [isBeginning, setIsBeginning] = useState(true);
+  const [isEnd, setIsEnd] = useState(false);
   const swiperRef = useRef<SwiperType | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -184,43 +186,42 @@ export function OptionsCarousel({ options, onPurchase }: OptionsCarouselProps) {
       <div className="carousel-container" ref={containerRef}>
         {/* Custom navigation arrows outside the swiper */}
         <button 
-          className="custom-nav-button custom-nav-prev"
+          className={`custom-nav-button custom-nav-prev ${isBeginning ? 'disabled' : ''}`}
           onClick={() => swiperRef.current?.slidePrev()}
+          disabled={isBeginning}
         >
           &#8249;
         </button>
         
         <button 
-          className="custom-nav-button custom-nav-next"
+          className={`custom-nav-button custom-nav-next ${isEnd ? 'disabled' : ''}`}
           onClick={() => swiperRef.current?.slideNext()}
+          disabled={isEnd}
         >
           &#8250;
         </button>
         
         <Swiper
           modules={[Navigation]}
-          slidesPerView={2.5}
+          slidesPerView={'auto'}
           spaceBetween={20}
-          centeredSlides={false}
+          loop={false}
           navigation={false}
-          loop={true}
-          allowTouchMove={true}
-          resistance={true}
-          resistanceRatio={0.85}
-          watchSlidesProgress={true}
+          watchOverflow={true}
           onSwiper={(swiper) => {
             swiperRef.current = swiper;
+            setIsBeginning(swiper.isBeginning);
+            setIsEnd(swiper.isEnd);
           }}
-          onSlideChange={() => {
+          onSlideChange={(swiper) => {
             updateMaskWidth();
-          }}
-          onProgress={() => {
-            updateMaskWidth();
+            setIsBeginning(swiper.isBeginning);
+            setIsEnd(swiper.isEnd);
           }}
           breakpoints={{
-            1024: { slidesPerView: 2.5, spaceBetween: 20 },
-            768: { slidesPerView: 2, spaceBetween: 15 },
-            464: { slidesPerView: 1.5, spaceBetween: 15 },
+            1024: { slidesPerView: 'auto', spaceBetween: 20 },
+            768: { slidesPerView: 'auto', spaceBetween: 15 },
+            464: { slidesPerView: 'auto', spaceBetween: 15 },
             0: { slidesPerView: 1, spaceBetween: 0 },
           }}
           style={{ padding: ".5rem 0" }}
