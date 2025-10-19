@@ -55,9 +55,8 @@ export function CalendarSidebar({ open, onClose, value, onChange }: CalendarSide
                 // val is string | null
                 const date = val ? new Date(val + 'T00:00') : null;
                 onChange([date, date]);
-                if (date) {
-                  onClose();
-                }
+                // Don't auto-close immediately to avoid state timing issues
+                // User can click the Close button instead
               }}
               minDate={new Date()}
               size="lg"

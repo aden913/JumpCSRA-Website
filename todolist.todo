@@ -510,8 +510,10 @@
                   "content": "bookings should be moved to cancelled bookings if they are pending and it is the day of the event IF the event wasnt made this day (dont want to cancel events automatically if made pending so soon)",
                   "id": 1760652857115,
                   "level": "default",
-                  "done": false,
-                  "start": 1760652857115
+                  "done": true,
+                  "start": 1760652857115,
+                  "focus": false,
+                  "end": 1760889884649
                 }
               }
             ],
@@ -519,8 +521,10 @@
               "content": "notify user they must pay the day before the event",
               "id": 1760652816659,
               "level": "default",
-              "done": false,
-              "start": 1760652816659
+              "done": true,
+              "start": 1760652816659,
+              "focus": false,
+              "end": 1760889884071
             }
           }
         ],
@@ -600,8 +604,10 @@
           "content": "expand pending logic",
           "id": 1760815357061,
           "level": "default",
-          "done": false,
-          "start": 1760815357061
+          "done": true,
+          "start": 1760815357061,
+          "focus": false,
+          "end": 1760889896621
         }
       },
       {
@@ -611,8 +617,10 @@
           "content": "fix notification after selecting a date event",
           "id": 1760847971360,
           "level": "default",
-          "done": false,
-          "start": 1760847971360
+          "done": true,
+          "start": 1760847971360,
+          "focus": false,
+          "end": 1760890444950
         }
       },
       {
@@ -711,8 +719,6 @@
       1759373453326,
       1759373517311,
       1759373590708,
-      1759370779329,
-      1759436630874,
       1759635309085,
       1760559160338,
       1760559339476,
@@ -721,8 +727,6 @@
       1760652752056,
       1760652801174,
       1760652816659,
-      1760559142330,
-      1760815357061,
       1760815375482,
       1760815393277,
       1760815458955,
@@ -739,6 +743,6 @@
     "showEndTime": false,
     "simpleMode": false,
     "lang": "en",
-    "version": "1760848973072"
+    "version": "1760890444995"
   }
 }

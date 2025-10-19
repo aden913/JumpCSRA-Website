@@ -108,12 +108,14 @@ export function useWelcomeLogic() {
   };
 
   function handleCalendarClose() {
-    if (hasValidDates) {
+    // Check if at least one date is selected (for single-day events, both dates are the same)
+    const hasAtLeastOneDate = calendarDateRange[0] !== null;
+    if (hasAtLeastOneDate) {
       setCalendarOpen(false);
     } else {
       notifications.show({
-        title: 'Select a date range',
-        message: 'Please select both a start and end date before closing the calendar.',
+        title: 'Select a date',
+        message: 'Please select an event date before closing the calendar.',
         color: 'orange',
       });
     }
