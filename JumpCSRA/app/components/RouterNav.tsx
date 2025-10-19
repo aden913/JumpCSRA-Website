@@ -8,9 +8,10 @@ type RouterNavProps = {
   selectedDates?: [Date | null, Date | null];
   categories?: string[];
   onCategoryChange?: (category: string) => void;
+  hideIcons?: boolean; // New prop to hide cart and profile icons
 };
 
-export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [], onCategoryChange }: RouterNavProps) {
+export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [], onCategoryChange, hideIcons = false }: RouterNavProps) {
   const formatDate = (date: Date | null) => date ? date.toLocaleDateString() : "--";
   const navigate = useNavigate();
   const location = useLocation();
@@ -98,26 +99,30 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
             </button>
           </li>
         </div>
-        <div className="icon-container">
-          <li style={{ position: "relative" }} className="right-icon">
-            <button type="button" className="nav-btn" onClick={() => {
-              console.log("Cart icon clicked");
-              onNavClick && onNavClick("Cart");
-            }}> <img src="/white-cart.png" alt="Cart" className="cart-icon" />
-              {cartCount && cartCount > 0 && (
-                <span className="cart-count" style={{}}>{cartCount}</span>
-              )}
-            </button>
-          </li>
-        </div>
-        {/* Profile Icon */}
-        <div className="icon-container">
-          <li style={{ position: "relative" }} className="right-icon">
-            <Link to="/profile" style={{ display: "inline-block" }}>
-              <img src="/profile-icon.png" alt="Profile" className="profile-icon" style={{ width: 36, height: 36, borderRadius: "50%", border: "2px solid #eee" }} />
-            </Link>
-          </li>
-        </div>
+        {!hideIcons && (
+          <>
+            <div className="icon-container">
+              <li style={{ position: "relative" }} className="right-icon">
+                <button type="button" className="nav-btn" onClick={() => {
+                  console.log("Cart icon clicked");
+                  onNavClick && onNavClick("Cart");
+                }}> <img src="/white-cart.png" alt="Cart" className="cart-icon" />
+                  {cartCount && cartCount > 0 && (
+                    <span className="cart-count" style={{}}>{cartCount}</span>
+                  )}
+                </button>
+              </li>
+            </div>
+            {/* Profile Icon */}
+            <div className="icon-container">
+              <li style={{ position: "relative" }} className="right-icon">
+                <Link to="/profile" style={{ display: "inline-block" }}>
+                  <img src="/profile-icon.png" alt="Profile" className="profile-icon" style={{ width: 36, height: 36, borderRadius: "50%", border: "2px solid #eee" }} />
+                </Link>
+              </li>
+            </div>
+          </>
+        )}
       </ul>
     </nav>
   );

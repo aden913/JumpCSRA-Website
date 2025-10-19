@@ -600,7 +600,7 @@ export default function Profile() {
 
   return (
     <>
-      <RouterNav />
+      <RouterNav hideIcons={true} />
       <div className="profile-container">
         
 
