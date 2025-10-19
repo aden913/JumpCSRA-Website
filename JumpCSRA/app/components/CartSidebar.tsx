@@ -15,13 +15,15 @@ export type CartItem = {
   price: number;
   wetDry: string;
   quantity: number;
-  category: string; // e.g. 'party essential', 'inflateable', 'game', etc.
+  category: string; // e.g. 'party essential', 'inflateable', 'game', 'membership', etc.
   wet?: boolean;
   dry?: boolean;
   image?: string;
   isGiftCard?: boolean;
   giftCardValue?: number; // For gift cards: 50 or 100
   excludeFromDiscounts?: boolean;
+  isMembership?: boolean; // For membership items
+  membershipType?: 'weekday' | 'weekend'; // Type of membership
 };
 
 export type CartSidebarProps = {
@@ -476,6 +478,9 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
     });
   };
 
+  // Check if cart contains a membership
+  const hasMembership = cart.some(item => item.isMembership);
+  
   const cartTotal = displayCart.reduce((sum, item, displayIdx) => {
     // Skip unavailable items
     if (unavailableItems.has(item.id)) {
@@ -490,6 +495,9 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
       const originalIdx = cart.findIndex(cartItem => cartItem.id === item.id);
       const selectedValue = giftCardValues[originalIdx] || 50; // Default to $50
       itemTotal = selectedValue * item.quantity;
+    } else if (item.isMembership) {
+      // Membership items don't get discounted
+      itemTotal = item.price * item.quantity;
     } else {
       // Regular items with duration multiplier
       itemTotal = item.price * item.quantity * durationMultiplier;
@@ -498,6 +506,11 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
       const originalIdx = cart.findIndex(cartItem => cartItem.id === item.id);
       if (supportsWetDry(item) && wetDrySelections[originalIdx] === "Wet") {
         itemTotal += 50 * item.quantity; // $50 surcharge for wet items
+      }
+
+      // Apply 25% membership discount to non-membership items if membership is in cart
+      if (hasMembership && !item.excludeFromDiscounts) {
+        itemTotal = itemTotal * 0.75; // 25% discount
       }
     }
     
@@ -1019,6 +1032,11 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
 
         {/* Total price display */}
         <div className="cart-total" style={{ fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '1rem', textAlign: 'center' }}>
+          {hasMembership && (
+            <div style={{ fontSize: '0.9rem', color: '#4CAF50', marginBottom: '0.5rem' }}>
+              🎉 Membership Discount: 25% off other items!
+            </div>
+          )}
           {discountCalculation.discountAmount > 0 ? (
             <div>
               <div style={{ fontSize: '1rem', color: '#666', textDecoration: 'line-through' }}>

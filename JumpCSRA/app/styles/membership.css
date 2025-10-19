@@ -91,3 +91,124 @@ gap: 2rem;
   margin:2rem;
   border-radius: 30px;
 }
+
+/* Membership Modal Styles */
+.membership-modal {
+  background: white;
+  color: var(--darkBlue);
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 600px;
+  width: 90%;
+  margin: 0 auto;
+  position: relative;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.membership-modal-title {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+  color: var(--darkBlue);
+}
+
+.membership-benefits-list {
+  margin-bottom: 2rem;
+}
+
+.membership-benefit {
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+  line-height: 1.4;
+  color: var(--darkBlue);
+  padding-left: 1rem;
+  position: relative;
+}
+
+.membership-cta {
+  text-align: center;
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.membership-cta h3 {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+  color: var(--darkBlue);
+}
+
+.membership-cta p {
+  font-size: 1.1rem;
+  color: var(--darkBlue);
+  margin: 0;
+}
+
+.membership-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.membership-btn {
+  background: var(--darkBlue);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 180px;
+  text-align: center;
+}
+
+.membership-btn:hover {
+  background: #2a3f56;
+  transform: translateY(-2px);
+}
+
+.membership-btn .price {
+  display: block;
+  font-size: 1.2rem;
+  margin-top: 0.5rem;
+}
+
+.modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--darkBlue);
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.modal-close:hover {
+  background: #f0f0f0;
+}
+
+@media (max-width: 768px) {
+  .membership-buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .membership-btn {
+    width: 100%;
+    max-width: 250px;
+  }
+}

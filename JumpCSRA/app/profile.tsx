@@ -16,7 +16,7 @@ import type { CartItem } from "./components/CartSidebar";
 import { loadBookingData, loadContractData, loadContractByOrderID } from "./utils/databaseUtils";
 import type { BookingData, ContractData } from "./utils/databaseUtils";
 
-const TABS = ["Profile Information", "Past Events"];
+const TABS = ["Profile Information", "Past Events", "Membership"];
 
 export default function Profile() {
   const [canEditEmail, setCanEditEmail] = useState(false);
@@ -988,7 +988,7 @@ export default function Profile() {
               </button>
             </div>
           </div>
-        ) : (
+        ) : activeTab === 1 ? (
           <div className="profile-events">
             <h3>Past Events & Bookings</h3>
             
@@ -1275,6 +1275,40 @@ export default function Profile() {
                 })()}
               </div>
             )}
+          </div>
+        ) : (
+          <div className="profile-membership">
+            <h3>Membership</h3>
+            <div className="membership-content">
+              <div className="membership-status">
+                <h4>Membership Status</h4>
+                <p>You are not currently a member.</p>
+                <p>Join our membership program to get monthly inflatables delivered to your home with exclusive benefits!</p>
+              </div>
+              
+              <div className="membership-benefits">
+                <h4>Membership Benefits</h4>
+                <ul>
+                  <li>Monthly inflatable delivery to your home</li>
+                  <li>25% off all other reservations</li>
+                  <li>No setup or takedown hassle</li>
+                  <li>Priority booking for special events</li>
+                  <li>Fresh new inflatable each month</li>
+                </ul>
+              </div>
+              
+              <div className="membership-action">
+                <button 
+                  className="btn-become-member"
+                  onClick={() => {
+                    navigate('/home');
+                    // We'll add logic to auto-open membership popup later
+                  }}
+                >
+                  Become a Member
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

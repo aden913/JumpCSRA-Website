@@ -121,6 +121,43 @@ export function useWelcomeLogic() {
     }
   }
 
+  const addMembershipToCart = (membershipType: 'weekday' | 'weekend') => {
+    const price = membershipType === 'weekday' ? 199 : 249;
+    const membershipItem: CartItem = {
+      id: `membership-${membershipType}`,
+      name: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership`,
+      price,
+      wetDry: 'N/A',
+      quantity: 1,
+      category: 'membership',
+      image: '/assets/membership-icon.png',
+      isMembership: true,
+      membershipType
+    };
+
+    // Check if membership already in cart
+    const hasExistingMembership = cart.some((item: CartItem) => item.isMembership);
+    if (hasExistingMembership) {
+      notifications.show({
+        title: 'Membership Already Added',
+        message: 'You already have a membership in your cart. Only one membership can be selected.',
+        color: 'orange',
+      });
+      setMembershipOpen(false);
+      return;
+    }
+
+    const newCart = [...cart, membershipItem];
+    setCart(newCart);
+    setMembershipOpen(false);
+    
+    notifications.show({
+      title: 'Membership Added!',
+      message: `${membershipItem.name} has been added to your cart! You'll get 25% off all other items.`,
+      color: 'green',
+    });
+  };
+
   return {
     cartOpen,
     setCartOpen,
@@ -152,6 +189,7 @@ export function useWelcomeLogic() {
     handleOrderNow,
     addToCart,
     handleCalendarClose,
+    addMembershipToCart,
     cartSettings,
   };
 }

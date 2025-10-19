@@ -860,3 +860,91 @@ html, body{ background-color: white;}
     margin: 1rem;
   }
 }
+
+/* Membership Tab Styles */
+.profile-membership {
+  padding: 1rem;
+}
+
+.membership-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.membership-status {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+  border-left: 4px solid #007bff;
+}
+
+.membership-status h4 {
+  margin-top: 0;
+  color: #333;
+}
+
+.membership-benefits {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.membership-benefits h4 {
+  margin-top: 0;
+  color: #333;
+  margin-bottom: 1rem;
+}
+
+.membership-benefits ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.membership-benefits li {
+  padding: 0.5rem 0;
+  position: relative;
+  padding-left: 1.5rem;
+  color: #555;
+}
+
+.membership-benefits li::before {
+  content: '✓';
+  position: absolute;
+  left: 0;
+  color: #28a745;
+  font-weight: bold;
+}
+
+.membership-action {
+  text-align: center;
+}
+
+.btn-become-member {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.btn-become-member:hover {
+  background: #0056b3;
+}
+
+@media (max-width: 768px) {
+  .membership-content {
+    gap: 1rem;
+  }
+  
+  .membership-status,
+  .membership-benefits {
+    padding: 1rem;
+  }
+}

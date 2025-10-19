@@ -412,30 +412,43 @@ export function Welcome() {
         {logic.membershipOpen && (
           <div className="modal-overlay fade-in" onClick={() => logic.setMembershipOpen(false)}>
             <div className="modal-shadow" />
-            <div className="modal-content popup" onClick={(e) => e.stopPropagation()}>
-              <h2 className="modal-title">Membership Information</h2>
-              <div style={{ textAlign: "left", maxWidth: "600px", margin: "0 auto" }}>
-                <div className="membership-div">
-                  <h3 id="membership-title">Jump CSRA Membership</h3>
-                </div>
-                <ul style={{ fontSize: "1.2rem", lineHeight: "2" }}>
-                  <div className="membership-div">
-                    <li>Exclusive member discounts on all rentals</li>
-                    <li>Priority booking for popular dates</li>
-                    <li>Free delivery within service area</li>
-                    <li>Special member-only events and offers</li>
-                    <li>Early access to new inflatables</li>
-                  </div>
-                </ul>
-                <div className="membership-getstarted" style={{ marginTop: "2rem" }}>
-                  <strong>Ready to join?</strong>
-                  <br />
-                  Call <a href="tel:803-221-0466">803-221-0466</a> or email{" "}
-                  <a href="mailto:JumpCSRA@gmail.com">JumpCSRA@gmail.com</a>
-                </div>
+            <div className="membership-modal" onClick={(e) => e.stopPropagation()}>
+              <h2 className="membership-modal-title">Why choose a membership?</h2>
+              
+              <div className="membership-benefits-list">
+                <div className="membership-benefit">Zero Hassle, Zero Stress – We deliver, set up, and take down every month — no planning required.</div>
+                <div className="membership-benefit">Automatic Fun Day – Same day each month, guaranteed — the kids count down, and you don't lift a finger.</div>
+                <div className="membership-benefit">Fresh & Exciting Every Time – A new inflatable each month keeps the excitement alive.</div>
+                <div className="membership-benefit">All-Inclusive Pricing – One flat monthly rate covers delivery, setup, and cleaning.</div>
+                <div className="membership-benefit">Built-In Family Memories – Create a monthly tradition your kids will remember forever.</div>
+                <div className="membership-benefit">Save even more money – Get 25% off all other reservations.</div>
               </div>
+
+              <div className="membership-cta">
+                <h3>Become a Member</h3>
+                <p>Get our best inflatables delivered to your house.<br />
+                We will bring your kids a new inflatable each month.</p>
+              </div>
+
+              <div className="membership-buttons">
+                <button 
+                  className="membership-btn weekday-btn"
+                  onClick={() => logic.addMembershipToCart('weekday')}
+                >
+                  Weekday Membership<br />
+                  <span className="price">$199/month</span>
+                </button>
+                <button 
+                  className="membership-btn weekend-btn"
+                  onClick={() => logic.addMembershipToCart('weekend')}
+                >
+                  Weekend Membership<br />
+                  <span className="price">$249/month</span>
+                </button>
+              </div>
+
               <button className="modal-close" onClick={() => logic.setMembershipOpen(false)}>
-                Close
+                ×
               </button>
             </div>
           </div>
