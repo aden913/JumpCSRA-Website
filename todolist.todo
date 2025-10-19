@@ -603,6 +603,106 @@
           "done": false,
           "start": 1760815357061
         }
+      },
+      {
+        "key": 1760847971360,
+        "children": [],
+        "todo": {
+          "content": "fix notification after selecting a date event",
+          "id": 1760847971360,
+          "level": "default",
+          "done": false,
+          "start": 1760847971360
+        }
+      },
+      {
+        "key": 1760848099014,
+        "children": [],
+        "todo": {
+          "content": "fix option card names",
+          "id": 1760848099014,
+          "level": "default",
+          "done": false,
+          "start": 1760848099014
+        }
+      },
+      {
+        "key": 1760848135445,
+        "children": [],
+        "todo": {
+          "content": "after selecting a category reset swiper position",
+          "id": 1760848135445,
+          "level": "default",
+          "done": false,
+          "start": 1760848135445
+        }
+      },
+      {
+        "key": 1760848177060,
+        "children": [
+          {
+            "key": 1760848212669,
+            "children": [],
+            "todo": {
+              "content": "style membership page to look like wire frame",
+              "id": 1760848212669,
+              "level": "default",
+              "done": false,
+              "start": 1760848212669
+            }
+          },
+          {
+            "key": 1760848218057,
+            "children": [],
+            "todo": {
+              "content": "implement membership logic",
+              "id": 1760848218057,
+              "level": "default",
+              "done": false,
+              "start": 1760848218057
+            }
+          }
+        ],
+        "todo": {
+          "content": "Membership",
+          "id": 1760848177060,
+          "level": "default",
+          "done": false,
+          "start": 1760848177060
+        }
+      },
+      {
+        "key": 1760848636924,
+        "children": [],
+        "todo": {
+          "content": "optimizea the obstacle courses that have duplicates",
+          "id": 1760848636924,
+          "level": "default",
+          "done": false,
+          "start": 1760848636924
+        }
+      },
+      {
+        "key": 1760848894978,
+        "children": [],
+        "todo": {
+          "content": "inflatable",
+          "id": 1760848894978,
+          "level": "default",
+          "done": false,
+          "start": 1760848894978
+        }
+      },
+      {
+        "key": 1760848967163,
+        "children": [],
+        "todo": {
+          "content": "test gc functionality",
+          "id": 1760848967163,
+          "level": "default",
+          "done": false,
+          "start": 1760848967163
+        }
       }
     ],
     "expandKeys": [
@@ -625,7 +725,8 @@
       1760815357061,
       1760815375482,
       1760815393277,
-      1760815458955
+      1760815458955,
+      1760848177060
     ],
     "schema": "https://github.com/Saber2pr/vsc-ext-todolist/blob/master/src/api/type.ts#L3",
     "add_mode": "bottom",
@@ -638,6 +739,6 @@
     "showEndTime": false,
     "simpleMode": false,
     "lang": "en",
-    "version": "1760815609987"
+    "version": "1760848973072"
   }
 }
