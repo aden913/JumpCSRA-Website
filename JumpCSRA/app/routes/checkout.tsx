@@ -32,6 +32,7 @@ import {
   updateBookingStatusBasedOnPayment
 } from "../utils/databaseUtils";
 import type { BookingData, ContractData } from "../utils/databaseUtils";
+import { checkItemAvailability, type ItemAvailability } from "../utils/availabilityUtils";
 import '@mantine/notifications/styles.css';
 import '../styles/checkout-buttons.css';
 
@@ -184,6 +185,10 @@ export default function Checkout() {
   // Last-minute additions state
   const [lastMinuteAdditions, setLastMinuteAdditions] = useState<{[key: string]: number}>({});
   const [showQuantityModal, setShowQuantityModal] = useState<string | null>(null);
+  
+  // Availability tracking state
+  const [itemAvailability, setItemAvailability] = useState<Map<string, ItemAvailability>>(new Map());
+  const [loadingAvailability, setLoadingAvailability] = useState(false);
   
   // Contract and signature state
   const [typedSignature, setTypedSignature] = useState<string>("");
@@ -851,6 +856,62 @@ export default function Checkout() {
     }
   }, [loading, user]);
 
+  // Get party essentials for carousel (must be defined before useEffect that uses it)
+  const partyEssentials = inflateables.filter(item => 
+    item.category && item.category.toLowerCase() === "party-essentials" && 
+    !item.isGiftCard // Exclude gift cards from last-minute additions
+  );
+
+  // Check availability for party essentials when cart or dates change
+  useEffect(() => {
+    const checkAvailability = async () => {
+      if (calendarDateRange[0] && cartSettings.duration && partyEssentials.length > 0) {
+        console.log('🔍 [DEBUG] Checkout: Starting availability check for party essentials...');
+        console.log(`📅 [DEBUG] Checkout: Date range: ${calendarDateRange[0].toISOString().split('T')[0]} for ${cartSettings.duration}`);
+        
+        setLoadingAvailability(true);
+        const startDate = calendarDateRange[0];
+        const endDate = calculateEndDate(startDate, cartSettings.duration);
+        
+        try {
+          const inflateablesData = await loadInflateablesData();
+          const availabilityMap = new Map<string, ItemAvailability>();
+          
+          console.log('🔄 [DEBUG] Checkout: Checking availability for party essentials...');
+          
+          const promises = partyEssentials.map(async (item) => {
+            const inflateable = inflateablesData.find(inf => inf.name === item.name);
+            if (inflateable) {
+              const totalQuantity = inflateable.quantity || 1;
+              console.log(`🔍 [DEBUG] Checkout: Checking "${item.name}" with total quantity: ${totalQuantity}`);
+              
+              const availability = await checkItemAvailability(
+                item.name,
+                totalQuantity,
+                startDate,
+                endDate
+              );
+              
+              availabilityMap.set(item.name, availability);
+              console.log(`✅ [DEBUG] Checkout: Availability for "${item.name}": ${availability.availableQuantity}/${availability.totalQuantity}`);
+            }
+          });
+          
+          await Promise.all(promises);
+          setItemAvailability(availabilityMap);
+          console.log(`🎉 [DEBUG] Checkout: Availability check complete for ${availabilityMap.size} items`);
+          
+        } catch (error) {
+          console.error('❌ [DEBUG] Checkout: Error checking availability:', error);
+        } finally {
+          setLoadingAvailability(false);
+        }
+      }
+    };
+    
+    checkAvailability();
+  }, [calendarDateRange[0], cartSettings.duration, cart, lastMinuteAdditions, partyEssentials.length]);
+
   // Pricing calculations (copied from CartSidebar logic)
   const surfacePrices: Record<string, number> = {
     "grass-stakes": 0,
@@ -873,6 +934,8 @@ export default function Checkout() {
     "24hours": 1.0, // Base price
     "48hours": 1.5, // 50% increase
   };
+
+
 
   // Calculate cart total including last-minute additions
   const durationMultiplier = cartSettings.duration ? durationMultipliers[cartSettings.duration] || 1.0 : 1.0;
@@ -901,14 +964,91 @@ export default function Checkout() {
   const subtotal = cartTotal + lastMinuteTotal + surfaceAdj + timeAdj;
   const total = subtotal + deliveryCost;
 
-  // Get party essentials for carousel
-  const partyEssentials = inflateables.filter(item => 
-    item.category && item.category.toLowerCase() === "party-essentials" && 
-    !item.isGiftCard // Exclude gift cards from last-minute additions
-  );
+  // Load inflateables data function (similar to CartSidebar)
+  const loadInflateablesData = async (): Promise<any[]> => {
+    console.log('🔄 [DEBUG] Checkout: Loading inflateables data from Firebase...');
+    
+    const database = getDatabase();
+    const inflateablesRef = ref(database, 'inflateables');
+    
+    try {
+      const snapshot = await get(inflateablesRef);
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        console.log(`✅ [DEBUG] Checkout: Loaded ${Object.keys(data).length} inflateables from Firebase`);
+        return Object.values(data);
+      } else {
+        console.log('⚠️ [DEBUG] Checkout: No inflateables data found in Firebase');
+        return [];
+      }
+    } catch (error) {
+      console.error('❌ [DEBUG] Checkout: Error loading inflateables:', error);
+      return [];
+    }
+  };
+
+  // Calculate end date based on duration (similar to CartSidebar)
+  const calculateEndDate = (startDate: Date, duration: string): Date => {
+    const endDate = new Date(startDate);
+    if (duration === "24hours") {
+      endDate.setDate(startDate.getDate() + 1);
+    } else if (duration === "48hours") {
+      endDate.setDate(startDate.getDate() + 2);
+    } else { // 4hours
+      endDate.setHours(startDate.getHours() + 4);
+    }
+    return endDate;
+  };
+
+  // Calculate available quantity for an item considering cart items and last-minute additions
+  const getAvailableQuantityForItem = (itemName: string): number => {
+    const availability = itemAvailability.get(itemName);
+    if (!availability) {
+      console.log(`⚠️ [DEBUG] Checkout: No availability data for "${itemName}"`);
+      return 1; // Default to 1 if no availability data
+    }
+
+    // Calculate how much is already in cart and last-minute additions
+    const cartQuantity = cart
+      .filter(item => item.name === itemName)
+      .reduce((sum, item) => sum + item.quantity, 0);
+    
+    const lastMinuteQuantity = lastMinuteAdditions[itemName] || 0;
+    const totalAlreadySelected = cartQuantity + lastMinuteQuantity;
+    
+    const availableToAdd = Math.max(0, availability.availableQuantity - totalAlreadySelected);
+    
+    console.log(`🔢 [DEBUG] Checkout: Availability for "${itemName}": total=${availability.availableQuantity}, cart=${cartQuantity}, lastMinute=${lastMinuteQuantity}, availableToAdd=${availableToAdd}`);
+    
+    return availableToAdd;
+  };
+
+  // Generate quantity options based on availability (similar to CartSidebar)
+  const getQuantityOptions = (itemName: string): number[] => {
+    const maxQuantity = Math.max(1, getAvailableQuantityForItem(itemName));
+    const options = Array.from({ length: maxQuantity }, (_, i) => i + 1);
+    
+    console.log(`✅ [DEBUG] Checkout: Generated quantity options for "${itemName}": [${options.join(', ')}] (max: ${maxQuantity})`);
+    
+    return options;
+  };
 
   // Add item to last-minute additions
   const handleAddLastMinuteItem = (itemName: string, quantity: number) => {
+    // Validate availability before adding
+    const availableQuantity = getAvailableQuantityForItem(itemName);
+    
+    if (quantity > availableQuantity) {
+      console.log(`⚠️ [DEBUG] Checkout: Attempted to add ${quantity} "${itemName}" but only ${availableQuantity} available`);
+      notifications.show({
+        title: 'Insufficient Availability',
+        message: `Only ${availableQuantity} of ${itemName} available for your selected dates.`,
+        color: 'red',
+      });
+      return;
+    }
+    
+    console.log(`✅ [DEBUG] Checkout: Adding ${quantity} "${itemName}" to last-minute additions (${availableQuantity} available)`);
     setLastMinuteAdditions(prev => ({
       ...prev,
       [itemName]: quantity
@@ -1941,13 +2081,44 @@ export default function Checkout() {
                       </button>
                     </div>
                   ) : (
-                    <button
-                      id={`btn-add-to-order-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
-                      className="btn-add-to-order"
-                      onClick={() => setShowQuantityModal(item.name)}
-                    >
-                      Add to Order
-                    </button>
+                    <>
+                      {loadingAvailability ? (
+                        <p style={{ fontSize: '0.8rem', color: '#666', margin: '0.25rem 0' }}>
+                          Checking availability...
+                        </p>
+                      ) : (
+                        <>
+                          {getAvailableQuantityForItem(item.name) === 0 ? (
+                            <>
+                              <p style={{ fontSize: '0.8rem', color: '#dc3545', margin: '0.25rem 0', fontWeight: 'bold' }}>
+                                Not Available
+                              </p>
+                              <button
+                                id={`btn-add-to-order-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
+                                className="btn-add-to-order"
+                                disabled
+                                style={{ opacity: 0.5, cursor: 'not-allowed' }}
+                              >
+                                Out of Stock
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <p style={{ fontSize: '0.8rem', color: '#28a745', margin: '0.25rem 0' }}>
+                                {getAvailableQuantityForItem(item.name)} available
+                              </p>
+                              <button
+                                id={`btn-add-to-order-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
+                                className="btn-add-to-order"
+                                onClick={() => setShowQuantityModal(item.name)}
+                              >
+                                Add to Order
+                              </button>
+                            </>
+                          )}
+                        </>
+                      )}
+                    </>
                   )}
                 </div>
               );
@@ -2820,19 +2991,35 @@ export default function Checkout() {
             <p style={{ marginBottom: '1rem', color: '#666' }}>
               How many {showQuantityModal} would you like to add?
             </p>
-            
-            <div className="checkout-quantity-buttons">
-              {[1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20].map(qty => (
-                <button
-                  key={qty}
-                  id={`btn-quantity-${qty}`}
-                  className="btn-quantity-option"
-                  onClick={() => handleAddLastMinuteItem(showQuantityModal, qty)}
-                >
-                  {qty}
-                </button>
-              ))}
-            </div>
+            {loadingAvailability ? (
+              <p style={{ color: '#666', fontStyle: 'italic' }}>Checking availability...</p>
+            ) : (
+              <>
+                {getAvailableQuantityForItem(showQuantityModal || '') === 0 ? (
+                  <p style={{ color: '#dc3545', fontWeight: 'bold' }}>
+                    No more {showQuantityModal} available for your selected dates.
+                  </p>
+                ) : (
+                  <>
+                    <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '1rem' }}>
+                      Available: {getAvailableQuantityForItem(showQuantityModal || '')} items
+                    </p>
+                    <div className="checkout-quantity-buttons">
+                      {getQuantityOptions(showQuantityModal || '').map(qty => (
+                        <button
+                          key={qty}
+                          id={`btn-quantity-${qty}`}
+                          className="btn-quantity-option"
+                          onClick={() => handleAddLastMinuteItem(showQuantityModal, qty)}
+                        >
+                          {qty}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
             
             <button
               id="btn-quantity-cancel"

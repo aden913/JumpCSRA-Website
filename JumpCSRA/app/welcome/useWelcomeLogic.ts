@@ -97,10 +97,7 @@ export function useWelcomeLogic() {
       category: product.category,
       image: product.image
     }];
-    setCart(newCart);
-    if (typeof window !== "undefined" && window.localStorage) {
-      window.localStorage.setItem("cart", JSON.stringify(newCart));
-    }
+    setCart(newCart); // This automatically saves to localStorage via useCart hook
     setProductOpen(false);
     setModalOpen(false);
     notifications.show({

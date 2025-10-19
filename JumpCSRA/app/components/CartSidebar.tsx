@@ -178,6 +178,9 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
     userCanUse: true,
   });
 
+  // Track if calendar dates have been initialized to avoid resetting quantities on page load
+  const initialCalendarLoadRef = useRef(true);
+
   // Load cart sidebar options from localStorage on component mount
   useEffect(() => {
     setIsHydrated(true);
@@ -611,18 +614,26 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
     }
     
     console.log(`✅ [DEBUG] CartSidebar: Quantity update allowed for "${item.name}": ${newQuantity}`);
+    console.log(`💾 [DEBUG] CartSidebar: Persisting quantity change to localStorage`);
     const newCart = [...cart];
     newCart[index].quantity = newQuantity;
-    setCart(newCart);
-    localStorage.setItem("cart", JSON.stringify(newCart));
+    setCart(newCart); // This automatically saves to localStorage via useCart hook
   };
 
-  // Reset quantities to 1 when dates change
+  // Reset quantities to 1 when dates change (but not on initial load)
   useEffect(() => {
     if (calendarDateRange[0] && cart.length > 0) {
+      if (initialCalendarLoadRef.current) {
+        // This is the initial calendar load from localStorage - don't reset quantities
+        console.log(`� [DEBUG] CartSidebar: Initial calendar date load detected, preserving quantities`);
+        initialCalendarLoadRef.current = false;
+        return;
+      }
+      
+      // This is a user-initiated date change - reset quantities
+      console.log(`🔄 [DEBUG] CartSidebar: User changed dates, resetting all quantities to 1`);
       const resetCart = cart.map(item => ({ ...item, quantity: 1 }));
-      setCart(resetCart);
-      localStorage.setItem("cart", JSON.stringify(resetCart));
+      setCart(resetCart); // This automatically saves to localStorage via useCart hook
     }
   }, [calendarDateRange[0], calendarDateRange[1]]);
 
@@ -645,10 +656,10 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
   };
 
   const removeFromCart = (index: number) => {
+    console.log(`🗑️ [DEBUG] CartSidebar: Removing item at index ${index} from cart`);
     const newCart = [...cart];
     newCart.splice(index, 1);
-    setCart(newCart);
-    localStorage.setItem("cart", JSON.stringify(newCart));
+    setCart(newCart); // This automatically saves to localStorage via useCart hook
   };
 
   return (
