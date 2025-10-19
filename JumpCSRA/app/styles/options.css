@@ -96,9 +96,9 @@
 .option-card {
     background: var(--coral);
   color: var(--darkBlue);
-  border-radius: 28px;
-  padding: 0.9rem 0.6rem 0.6rem 0.6rem;
-  width: 10rem;
+  border-radius: 56px;
+  padding: 1.8rem 1.2rem 1.2rem 1.2rem;
+  width: 20rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -107,31 +107,31 @@
   margin-right: 0 !important;
 }
 .option-card img {
-  width: 8rem;
-  height: 8rem;
-  margin-bottom: 0.4rem;
-    border-radius: 24px;
+  width: 16rem;
+  height: 16rem;
+  margin-bottom: 0.8rem;
+    border-radius: 48px;
 }
 .option-title {
-  font-size: 1.1rem;
+  font-size: 2.2rem;
     font-weight: bold;
   margin-bottom: auto;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.8rem;
 }
 /* Option Card Title Marquee */
 .option-title.marquee-container {
   position: relative;
-  width: 140px;
+  width: 280px;
   height: 1.25em;
   overflow: hidden;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.8rem;
    color: var(--primary-dark);
   background: transparent;
 }
 .marquee-text {
   display: inline-block;
   white-space: nowrap;
-  font-size: 1.1rem;
+  font-size: 2.2rem;
   font-weight: bold;
   animation: marquee-scroll 6s linear infinite;
 }
@@ -147,9 +147,9 @@
     background: var(--darkBlue);
   color: var(--coral);
   border: none;
-  border-radius: 22px;
-  padding: 0.35rem 1rem;
-  font-size: 0.9rem;
+  border-radius: 44px;
+  padding: 0.7rem 2rem;
+  font-size: 1.8rem;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
   margin-top:auto
@@ -162,10 +162,10 @@
 .wetdry-box {
   background: var(  --lightBlue);
   color: var(--coral);
-  border-radius: 12px;
-  padding: 0.3rem 0.6rem;
-  font-size: 0.9rem;
-  margin-top: 0.5rem;
-  margin-bottom: .2rem;
-  max-width: 9rem;
+  border-radius: 24px;
+  padding: 0.6rem 1.2rem;
+  font-size: 1.8rem;
+  margin-top: 1rem;
+  margin-bottom: .4rem;
+  max-width: 18rem;
 }

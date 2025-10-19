@@ -40,9 +40,9 @@ function OptionCard({
   onOrder,
   unavailable,
 }: OptionCardProps) {
-  let fontSize = "1.2rem";
-  if (name.length > 18) fontSize = "1rem";
-  if (name.length > 28) fontSize = ".85rem";
+  let fontSize = "2.4rem";
+  if (name.length > 18) fontSize = "2rem";
+  if (name.length > 28) fontSize = "1.7rem";
 
   let wetDryLabel = "";
   if (wet === true && dry === false) wetDryLabel = "Wet Only";
@@ -199,8 +199,8 @@ export function OptionsCarousel({ options, onPurchase }: OptionsCarouselProps) {
         
         <Swiper
           modules={[Navigation]}
-          slidesPerView={5}
-          spaceBetween={10}
+          slidesPerView={2.5}
+          spaceBetween={20}
           centeredSlides={false}
           navigation={false}
           loop={true}
@@ -218,8 +218,9 @@ export function OptionsCarousel({ options, onPurchase }: OptionsCarouselProps) {
             updateMaskWidth();
           }}
           breakpoints={{
-            1024: { slidesPerView: 5, spaceBetween: 10 },
-            464: { slidesPerView: 3, spaceBetween: 15 },
+            1024: { slidesPerView: 2.5, spaceBetween: 20 },
+            768: { slidesPerView: 2, spaceBetween: 15 },
+            464: { slidesPerView: 1.5, spaceBetween: 15 },
             0: { slidesPerView: 1, spaceBetween: 0 },
           }}
           style={{ padding: ".5rem 0" }}
