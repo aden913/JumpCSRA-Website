@@ -185,6 +185,7 @@ export default function Checkout() {
   // Last-minute additions state
   const [lastMinuteAdditions, setLastMinuteAdditions] = useState<{[key: string]: number}>({});
   const [showQuantityModal, setShowQuantityModal] = useState<string | null>(null);
+  const [selectedQuantity, setSelectedQuantity] = useState<number>(1);
   
   // Availability tracking state
   const [itemAvailability, setItemAvailability] = useState<Map<string, ItemAvailability>>(new Map());
@@ -1054,6 +1055,43 @@ export default function Checkout() {
       [itemName]: quantity
     }));
     setShowQuantityModal(null);
+  };
+
+  // Handle "Add to Order" click with smart logic
+  const handleAddToOrderClick = (itemName: string) => {
+    const availableQuantity = getAvailableQuantityForItem(itemName);
+    
+    if (availableQuantity === 0) {
+      // Should not happen due to UI disabled state, but extra safety
+      notifications.show({
+        title: 'Not Available',
+        message: `${itemName} is not available for your selected dates.`,
+        color: 'red',
+      });
+      return;
+    }
+    
+    if (availableQuantity === 1) {
+      // Only 1 available, add directly without showing popup
+      console.log(`🚀 [DEBUG] Checkout: Auto-adding 1 "${itemName}" (only 1 available)`);
+      handleAddLastMinuteItem(itemName, 1);
+      return;
+    }
+    
+    // Multiple available, show quantity selection modal
+    console.log(`📝 [DEBUG] Checkout: Showing quantity modal for "${itemName}" (${availableQuantity} available)`);
+    
+    // Set dropdown to current quantity if item is already added, otherwise default to 1
+    const currentQuantity = lastMinuteAdditions[itemName] || 1;
+    setSelectedQuantity(currentQuantity);
+    setShowQuantityModal(itemName);
+  };
+
+  // Handle quantity submission from dropdown modal
+  const handleQuantitySubmit = () => {
+    if (showQuantityModal) {
+      handleAddLastMinuteItem(showQuantityModal, selectedQuantity);
+    }
   };
 
   // Signature handling functions
@@ -2068,7 +2106,7 @@ export default function Checkout() {
                       <button
                         id={`btn-change-qty-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
                         className="btn-change-qty"
-                        onClick={() => setShowQuantityModal(item.name)}
+                        onClick={() => handleAddToOrderClick(item.name)}
                       >
                         Change Qty
                       </button>
@@ -2110,7 +2148,7 @@ export default function Checkout() {
                               <button
                                 id={`btn-add-to-order-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
                                 className="btn-add-to-order"
-                                onClick={() => setShowQuantityModal(item.name)}
+                                onClick={() => handleAddToOrderClick(item.name)}
                               >
                                 Add to Order
                               </button>
@@ -3004,29 +3042,73 @@ export default function Checkout() {
                     <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '1rem' }}>
                       Available: {getAvailableQuantityForItem(showQuantityModal || '')} items
                     </p>
-                    <div className="checkout-quantity-buttons">
-                      {getQuantityOptions(showQuantityModal || '').map(qty => (
-                        <button
-                          key={qty}
-                          id={`btn-quantity-${qty}`}
-                          className="btn-quantity-option"
-                          onClick={() => handleAddLastMinuteItem(showQuantityModal, qty)}
-                        >
-                          {qty}
-                        </button>
-                      ))}
+                    <div style={{ marginBottom: '1.5rem' }}>
+                      <label htmlFor="quantity-select" style={{ 
+                        display: 'block', 
+                        marginBottom: '0.5rem',
+                        fontWeight: 'bold',
+                        color: '#333'
+                      }}>
+                        Quantity:
+                      </label>
+                      <select
+                        id="quantity-select"
+                        value={selectedQuantity}
+                        onChange={(e) => setSelectedQuantity(parseInt(e.target.value))}
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          fontSize: '1rem',
+                          border: '2px solid #ddd',
+                          borderRadius: '4px',
+                          backgroundColor: 'white',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {getQuantityOptions(showQuantityModal || '').map(qty => (
+                          <option key={qty} value={qty}>
+                            {qty}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                      <button
+                        id="btn-quantity-submit"
+                        onClick={handleQuantitySubmit}
+                        style={{
+                          backgroundColor: '#28a745',
+                          color: 'white',
+                          border: 'none',
+                          padding: '0.75rem 1.5rem',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '1rem',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        Add to Order
+                      </button>
+                      <button
+                        id="btn-quantity-cancel"
+                        onClick={() => setShowQuantityModal(null)}
+                        style={{
+                          backgroundColor: '#6c757d',
+                          color: 'white',
+                          border: 'none',
+                          padding: '0.75rem 1.5rem',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '1rem'
+                        }}
+                      >
+                        Cancel
+                      </button>
                     </div>
                   </>
                 )}
               </>
             )}
-            
-            <button
-              id="btn-quantity-cancel"
-              onClick={() => setShowQuantityModal(null)}
-            >
-              Cancel
-            </button>
           </div>
         </div>
       )}
