@@ -35,6 +35,7 @@ import type { BookingData, ContractData } from "../utils/databaseUtils";
 import { checkItemAvailability, type ItemAvailability } from "../utils/availabilityUtils";
 import '@mantine/notifications/styles.css';
 import '../styles/checkout-buttons.css';
+import '../styles/checkout.css';
 
 // Contract interfaces
 interface ContractSection {
@@ -1700,57 +1701,24 @@ export default function Checkout() {
         onCategoryChange={() => {}} // No-op on checkout page since we don't filter products here
         hideCartIcon={true} // Hide cart icon on checkout page
       />
-      <div style={{ 
-        maxWidth: '1200px', 
-        margin: '0 auto', 
-        padding: '2rem',
-        backgroundColor: '#f5f5f5',
-        minHeight: '100vh'
-      }}>
-      <h1 style={{ textAlign: 'center', marginBottom: '2rem', color: '#333' }}>
+      <div className="checkout-container">
+      <h1 className="checkout-title">
         Complete Your Order
       </h1>
 
       {/* Progress Indicator */}
-      <div style={{
-        backgroundColor: 'white',
-        padding: '1rem',
-        borderRadius: '8px',
-        marginBottom: '2rem',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="progress-indicator">
+        <div className="progress-steps">
           {stepOrder.map((step, index) => (
-            <div key={step} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-              <div style={{
-                width: '40px',
-                height: '40px',
-                borderRadius: '50%',
-                backgroundColor: stepOrder.indexOf(currentStep) >= index ? '#007bff' : '#e9ecef',
-                color: stepOrder.indexOf(currentStep) >= index ? 'white' : '#6c757d',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 'bold',
-                fontSize: '14px'
-              }}>
+            <div key={step} className="progress-step">
+              <div className={`progress-step-circle ${stepOrder.indexOf(currentStep) >= index ? 'active' : 'inactive'}`}>
                 {index + 1}
               </div>
-              <span style={{ 
-                marginLeft: '0.5rem', 
-                fontSize: '14px',
-                color: stepOrder.indexOf(currentStep) >= index ? '#007bff' : '#6c757d',
-                fontWeight: currentStep === step ? 'bold' : 'normal'
-              }}>
+              <span className={`progress-step-label ${stepOrder.indexOf(currentStep) >= index ? 'active' : 'inactive'} ${currentStep === step ? 'current' : ''}`}>
                 {stepTitles[step]}
               </span>
               {index < stepOrder.length - 1 && (
-                <div style={{
-                  flex: 1,
-                  height: '2px',
-                  backgroundColor: stepOrder.indexOf(currentStep) > index ? '#007bff' : '#e9ecef',
-                  margin: '0 1rem'
-                }} />
+                <div className={`progress-step-connector ${stepOrder.indexOf(currentStep) > index ? 'active' : 'inactive'}`} />
               )}
             </div>
           ))}
@@ -1759,39 +1727,20 @@ export default function Checkout() {
 
       {/* Step Content */}
       {currentStep === 'order-summary' && (
-      <div style={{ 
-        backgroundColor: 'white', 
-        padding: '2rem', 
-        borderRadius: '8px', 
-        marginBottom: '2rem',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-      }}>
-        <h2 style={{ marginBottom: '1rem', color: '#333' }}>Order Summary</h2>
+      <div className="step-container">
+        <h2 className="step-title">Order Summary</h2>
         
         {/* Cart Items */}
-        <div style={{ marginBottom: '1rem' }}>
+        <div className="order-items">
           <h3>Items:</h3>
           {cart.map((item, idx) => (
-            <div key={idx} style={{ 
-              display: 'flex', 
-              alignItems: 'center',
-              justifyContent: 'space-between', 
-              padding: '0.75rem 0',
-              borderBottom: '1px solid #eee'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+            <div key={idx} className="order-item">
+              <div className="order-item-content">
                 {/* Product Image */}
                 <img 
                   src={getProductImage(item.name)} 
                   alt={item.name}
-                  style={{
-                    width: '50px',
-                    height: '50px',
-                    objectFit: 'cover',
-                    borderRadius: '8px',
-                    marginRight: '1rem',
-                    border: '1px solid #ddd'
-                  }}
+                  className="order-item-image"
                   onError={(e) => {
                     // Fallback if image fails to load
                     e.currentTarget.src = '/assets/inflateables/default.png';
@@ -1799,11 +1748,11 @@ export default function Checkout() {
                 />
                 
                 {/* Product Details */}
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                <div className="order-item-details">
+                  <div className="order-item-name">
                     {item.name}
                   </div>
-                  <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                  <div className="order-item-info">
                     Quantity: {item.quantity}
                     {item.isGiftCard ? ` ($${item.giftCardValue || item.price} each)` : ` (${item.wetDry})`}
                   </div>
@@ -1811,8 +1760,8 @@ export default function Checkout() {
               </div>
               
               {/* Price and Remove Button */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+              <div className="order-item-price-section">
+                <div className="order-item-price">
                   ${item.isGiftCard 
                     ? ((item.giftCardValue || item.price) * item.quantity).toFixed(2)
                     : (item.price * item.quantity * durationMultiplier).toFixed(2)
@@ -1831,7 +1780,7 @@ export default function Checkout() {
         </div>
 
         {/* Event Details */}
-        <div style={{ marginBottom: '1rem' }}>
+        <div className="event-details">
           <h3>Event Details:</h3>
           <p><strong>Date:</strong> {calendarDateRange[0]?.toLocaleDateString()} - {calendarDateRange[1]?.toLocaleDateString()}</p>
           <p><strong>Duration:</strong> {cartSettings.duration}</p>
@@ -1841,38 +1790,30 @@ export default function Checkout() {
         </div>
 
         {/* Pricing Breakdown */}
-        <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '2px solid #ddd' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <div className="pricing-breakdown">
+          <div className="pricing-row">
             <span>Cart Subtotal:</span>
             <span>${cartTotal.toFixed(2)}</span>
           </div>
           {surfaceAdj > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div className="pricing-row">
               <span>Surface Adjustment:</span>
               <span>${surfaceAdj.toFixed(2)}</span>
             </div>
           )}
           {timeAdj > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div className="pricing-row">
               <span>Time Adjustment:</span>
               <span>${timeAdj.toFixed(2)}</span>
             </div>
           )}
           {deliveryCost > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div className="pricing-row">
               <span>Delivery Cost:</span>
               <span>${deliveryCost.toFixed(2)}</span>
             </div>
           )}
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            fontWeight: 'bold', 
-            fontSize: '1.2rem',
-            marginTop: '1rem',
-            paddingTop: '1rem',
-            borderTop: '1px solid #ddd'
-          }}>
+          <div className="pricing-total">
             <span>Total:</span>
             <span>${total.toFixed(2)}</span>
           </div>
@@ -1892,20 +1833,14 @@ export default function Checkout() {
       )}
 
       {currentStep === 'delivery' && (
-      <div style={{ 
-        backgroundColor: 'white', 
-        padding: '2rem', 
-        borderRadius: '8px', 
-        marginBottom: '2rem',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-      }}>
-        <h2 style={{ marginBottom: '1rem', color: '#333' }}>Delivery Address</h2>
-        <p style={{ marginBottom: '1rem', color: '#666' }}>
+      <div className="step-container">
+        <h2 className="step-title">Delivery Address</h2>
+        <p className="delivery-description">
           Enter the address where you want your rental items delivered. 
           Delivery cost is $6 per mile from our location in North Augusta, SC.
         </p>
         
-        <div style={{ marginBottom: '1rem' }}>
+        <div className="delivery-input-section">
           <GooglePlacesAutocomplete
             value={deliveryAddress}
             onChange={handleAddressChange}
@@ -2040,21 +1975,11 @@ export default function Checkout() {
       )}
 
       {(currentStep === 'quick-add-totals' || currentStep === 'contract') && (
-        <div style={{ 
-          backgroundColor: 'white', 
-          padding: '2rem', 
-          borderRadius: '8px', 
-          marginBottom: '2rem',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          ...(currentStep === 'contract' && {
-            fontFamily: 'Times, serif',
-            lineHeight: '1.6'
-          })
-        }}>
+        <div className={currentStep === 'contract' ? 'contract-container' : 'step-container'}>
           {currentStep === 'quick-add-totals' && (
             <>
-              <h2 style={{ marginBottom: '1rem', color: '#333' }}>Add Party Essentials</h2>
-              <p style={{ marginBottom: '1rem', color: '#666' }}>
+              <h2 className="step-title">Add Party Essentials</h2>
+              <p className="quick-add-description">
                 Need any last-minute additions? Add party essentials to complete your event setup.
               </p>
             </>
@@ -2063,22 +1988,11 @@ export default function Checkout() {
           {currentStep === 'contract' && (
             <>
               {/* Contract Header */}
-              <div style={{ 
-                textAlign: 'center', 
-                marginBottom: '2rem',
-                borderBottom: '2px solid #000',
-                paddingBottom: '1rem'
-              }}>
-                <h1 style={{ 
-                  margin: '0 0 0.5rem 0', 
-                  fontSize: '1.8rem',
-                  fontWeight: 'bold',
-                  textTransform: 'uppercase',
-                  letterSpacing: '1px'
-                }}>
+              <div className="contract-header">
+                <h1 className="contract-title">
                   JUMP CSRA PARTY RENTAL AGREEMENT
                 </h1>
-                <p style={{ margin: 0, fontSize: '1rem', color: '#666' }}>
+                <p className="contract-date">
                   Event Date: {calendarDateRange[0]?.toLocaleDateString()} - {calendarDateRange[1]?.toLocaleDateString()}
                 </p>
               </div>
@@ -2088,13 +2002,7 @@ export default function Checkout() {
           {currentStep === 'quick-add-totals' && (
             <>
               {/* Party Essentials Carousel */}
-              <div style={{ 
-                display: 'flex', 
-                overflowX: 'auto', 
-                gap: '1rem', 
-                padding: '1rem 0',
-                scrollBehavior: 'smooth'
-              }}>
+              <div className="party-essentials-carousel">
             {partyEssentials.map((item) => {
               const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
               const price = isWeekend ? item.weekendPrice : item.weekdayPrice;
@@ -2103,39 +2011,21 @@ export default function Checkout() {
               return (
                 <div
                   key={item.name}
-                  style={{
-                    minWidth: '200px',
-                    border: '1px solid #ddd',
-                    borderRadius: '8px',
-                    padding: '1rem',
-                    textAlign: 'center',
-                    backgroundColor: currentQuantity > 0 ? '#e8f5e8' : 'white'
-                  }}
+                  className={`party-essential-item ${currentQuantity > 0 ? 'selected' : ''}`}
                 >
                   <img 
                     src={item.img} 
                     alt={item.name}
-                    style={{ 
-                      width: '100px', 
-                      height: '100px', 
-                      objectFit: 'cover',
-                      borderRadius: '4px',
-                      marginBottom: '0.5rem'
-                    }}
+                    className="party-essential-image"
                   />
-                  <h4 style={{ margin: '0.5rem 0', fontSize: '1rem' }}>{item.name}</h4>
-                  <p style={{ margin: '0.25rem 0', color: '#666', fontSize: '0.9rem' }}>
+                  <h4 className="party-essential-name">{item.name}</h4>
+                  <p className="party-essential-price">
                     ${price}/each
                   </p>
                   
                   {currentQuantity > 0 ? (
-                    <div style={{ marginTop: '0.5rem' }}>
-                      <p style={{ 
-                        color: '#28a745', 
-                        fontWeight: 'bold', 
-                        margin: '0.25rem 0',
-                        fontSize: '0.9rem'
-                      }}>
+                    <div className="party-essential-selected">
+                      <p className="party-essential-added-info">
                         Added: {currentQuantity} x ${price} = ${(currentQuantity * price * durationMultiplier).toFixed(2)}
                       </p>
                       <button
@@ -2156,28 +2046,27 @@ export default function Checkout() {
                   ) : (
                     <>
                       {loadingAvailability ? (
-                        <p style={{ fontSize: '0.8rem', color: '#666', margin: '0.25rem 0' }}>
+                        <p className="party-essential-loading">
                           Checking availability...
                         </p>
                       ) : (
                         <>
                           {getAvailableQuantityForItem(item.name) === 0 ? (
                             <>
-                              <p style={{ fontSize: '0.8rem', color: '#dc3545', margin: '0.25rem 0', fontWeight: 'bold' }}>
+                              <p className="party-essential-unavailable">
                                 Not Available
                               </p>
                               <button
                                 id={`btn-add-to-order-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
-                                className="btn-add-to-order"
+                                className="btn-add-to-order disabled"
                                 disabled
-                                style={{ opacity: 0.5, cursor: 'not-allowed' }}
                               >
                                 Out of Stock
                               </button>
                             </>
                           ) : (
                             <>
-                              <p style={{ fontSize: '0.8rem', color: '#28a745', margin: '0.25rem 0' }}>
+                              <p className="party-essential-available">
                                 {getAvailableQuantityForItem(item.name)} available
                               </p>
                               <button
@@ -2207,7 +2096,7 @@ export default function Checkout() {
               borderRadius: '4px',
               border: '1px solid #dee2e6'
             }}>
-              <h4 style={{ margin: '0 0 0.5rem 0' }}>Added Essentials:</h4>
+              <h4 className="essentials-header">Added Essentials:</h4>
               {Object.entries(lastMinuteAdditions)
                 .filter(([_, quantity]) => quantity > 0)
                 .map(([itemName, quantity]) => {
@@ -2216,21 +2105,14 @@ export default function Checkout() {
                   const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
                   const price = isWeekend ? item.weekendPrice : item.weekdayPrice;
                   return (
-                    <div key={itemName} style={{ display: 'flex', justifyContent: 'space-between', margin: '0.25rem 0' }}>
+                    <div key={itemName} className="essentials-item-row">
                       <span>{itemName} x{quantity}</span>
                       <span>${(quantity * price * durationMultiplier).toFixed(2)}</span>
                     </div>
                   );
                 })
               }
-              <div style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                fontWeight: 'bold',
-                marginTop: '0.5rem',
-                paddingTop: '0.5rem',
-                borderTop: '1px solid #dee2e6'
-              }}>
+              <div className="essentials-total">
                 <span>Essentials Total:</span>
                 <span>${lastMinuteTotal.toFixed(2)}</span>
               </div>
@@ -2246,47 +2128,39 @@ export default function Checkout() {
             marginBottom: '2rem',
             boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
           }}>
-            <h2 style={{ marginBottom: '1rem', color: '#333' }}>Updated Order Total</h2>
+            <h2 className="step-title">Updated Order Total</h2>
           
           {/* Pricing Breakdown */}
-          <div style={{ marginTop: '1rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <div className="pricing-breakdown">
+            <div className="pricing-row">
               <span>Original Cart:</span>
               <span>${cartTotal.toFixed(2)}</span>
             </div>
             {lastMinuteTotal > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div className="pricing-row">
                 <span>Party Essentials:</span>
                 <span>${lastMinuteTotal.toFixed(2)}</span>
               </div>
             )}
             {surfaceAdj > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div className="pricing-row">
                 <span>Surface Adjustment:</span>
                 <span>${surfaceAdj.toFixed(2)}</span>
               </div>
             )}
             {timeAdj > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div className="pricing-row">
                 <span>Time Adjustment:</span>
                 <span>${timeAdj.toFixed(2)}</span>
               </div>
             )}
             {deliveryCost > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <div className="pricing-row">
                 <span>Delivery Cost:</span>
                 <span>${deliveryCost.toFixed(2)}</span>
               </div>
             )}
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              fontWeight: 'bold', 
-              fontSize: '1.2rem',
-              marginTop: '1rem',
-              paddingTop: '1rem',
-              borderTop: '2px solid #ddd'
-            }}>
+            <div className="pricing-total">
               <span>Final Total:</span>
               <span>${total.toFixed(2)}</span>
             </div>

@@ -1,0 +1,326 @@
+/* Main checkout container */
+.checkout-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  background-color: #f5f5f5;
+  min-height: 100vh;
+}
+
+/* Main checkout title */
+.checkout-title {
+  text-align: center;
+  margin-bottom: 2rem;
+  color: #333;
+}
+
+/* Progress indicator container */
+.progress-indicator {
+  background-color: white;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.progress-steps {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.progress-step {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.progress-step-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.progress-step-circle.active {
+  background-color: #007bff;
+  color: white;
+}
+
+.progress-step-circle.inactive {
+  background-color: #e9ecef;
+  color: #6c757d;
+}
+
+.progress-step-label {
+  margin-left: 0.5rem;
+  font-size: 14px;
+}
+
+.progress-step-label.active {
+  color: #007bff;
+  font-weight: bold;
+}
+
+.progress-step-label.inactive {
+  color: #6c757d;
+  font-weight: normal;
+}
+
+.progress-step-label.current {
+  font-weight: bold !important;
+}
+
+/* Step content containers */
+.step-container {
+  background-color: white;
+  padding: 2rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.step-title {
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+/* Order Summary Styles */
+.order-items {
+  margin-bottom: 1rem;
+}
+
+.event-details {
+  margin-bottom: 1rem;
+}
+
+.order-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.order-item-content {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.order-item-image {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-right: 1rem;
+  border: 1px solid #ddd;
+}
+
+.order-item-details {
+  flex: 1;
+}
+
+.order-item-name {
+  font-weight: bold;
+  margin-bottom: 0.25rem;
+}
+
+.order-item-info {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.order-item-price-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.order-item-price {
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+/* Pricing breakdown */
+.pricing-breakdown {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 2px solid #ddd;
+}
+
+.pricing-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.pricing-total {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+  font-size: 1.2rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 2px solid #ddd;
+}
+
+.progress-step-connector {
+  flex: 1;
+  height: 2px;
+  margin: 0 1rem;
+}
+
+.progress-step-connector.active {
+  background-color: #007bff;
+}
+
+.progress-step-connector.inactive {
+  background-color: #e9ecef;
+}
+
+/* Delivery Section Styles */
+.delivery-description {
+  margin-bottom: 1rem;
+  color: #666;
+}
+
+.delivery-input-section {
+  margin-bottom: 1rem;
+}
+
+/* Quick Add Section Styles */
+.quick-add-description {
+  margin-bottom: 1rem;
+  color: #666;
+}
+
+.party-essentials-carousel {
+  display: flex;
+  overflow-x: auto;
+  gap: 1rem;
+  padding: 1rem 0;
+  scroll-behavior: smooth;
+}
+
+.party-essential-item {
+  min-width: 200px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+  background-color: white;
+}
+
+.party-essential-item.selected {
+  background-color: #e8f5e8;
+}
+
+.party-essential-image {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.party-essential-name {
+  margin: 0.5rem 0;
+  font-size: 1rem;
+}
+
+.party-essential-price {
+  margin: 0.25rem 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.party-essential-selected {
+  margin-top: 0.5rem;
+}
+
+.party-essential-added-info {
+  color: #28a745;
+  font-weight: bold;
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+}
+
+.party-essential-loading {
+  font-size: 0.8rem;
+  color: #666;
+  margin: 0.25rem 0;
+}
+
+.party-essential-unavailable {
+  font-size: 0.8rem;
+  color: #dc3545;
+  margin: 0.25rem 0;
+  font-weight: bold;
+}
+
+.party-essential-available {
+  font-size: 0.8rem;
+  color: #28a745;
+  margin: 0.25rem 0;
+}
+
+.btn-add-to-order.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Essentials Summary Styles */
+.essentials-header {
+  margin: 0 0 0.5rem 0;
+}
+
+.essentials-item-row {
+  display: flex;
+  justify-content: space-between;
+  margin: 0.25rem 0;
+}
+
+.essentials-total {
+  display: flex;
+  justify-content: space-between;
+  font-weight: bold;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #dee2e6;
+}
+
+/* Contract Section Styles */
+.contract-container {
+  background-color: white;
+  padding: 2rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  font-family: Times, serif;
+  line-height: 1.6;
+}
+
+.contract-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  border-bottom: 2px solid #000;
+  padding-bottom: 1rem;
+}
+
+.contract-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.8rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.contract-date {
+  margin: 0;
+  font-size: 1rem;
+  color: #666;
+}
