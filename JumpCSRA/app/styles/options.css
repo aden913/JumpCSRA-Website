@@ -125,7 +125,7 @@
     border-radius: 48px;
 }
 .option-title {
-  font-size: 2.2rem;
+  font-size: 1.5rem;
     font-weight: bold;
   margin-bottom: auto;
   margin-bottom: 0.8rem;
@@ -143,7 +143,7 @@
 .marquee-text {
   display: inline-block;
   white-space: nowrap;
-  font-size: 2.2rem;
+  font-size: 1.5rem;
   font-weight: bold;
   animation: marquee-scroll 6s linear infinite;
 }

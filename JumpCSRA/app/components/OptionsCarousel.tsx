@@ -40,9 +40,9 @@ function OptionCard({
   onOrder,
   unavailable,
 }: OptionCardProps) {
-  let fontSize = "2.4rem";
-  if (name.length > 18) fontSize = "2rem";
-  if (name.length > 28) fontSize = "1.7rem";
+  let fontSize = "1.5rem";
+  if (name.length > 18) fontSize = "1.25rem";
+  if (name.length > 28) fontSize = "1rem";
 
   let wetDryLabel = "";
   if (wet === true && dry === false) wetDryLabel = "Wet Only";
