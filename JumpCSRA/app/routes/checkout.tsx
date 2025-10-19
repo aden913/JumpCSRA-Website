@@ -1520,6 +1520,7 @@ export default function Checkout() {
         <RouterNav
         categories={categories}
         onCategoryChange={() => {}} // No-op on checkout page since we don't filter products here
+        hideCartIcon={true} // Hide cart icon on checkout page
       />
       <div style={{ 
         maxWidth: '1200px', 
