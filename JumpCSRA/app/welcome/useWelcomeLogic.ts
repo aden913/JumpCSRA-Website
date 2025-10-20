@@ -77,25 +77,33 @@ export function useWelcomeLogic() {
   const addToCart = (product: any) => {
     const wetDry = product.wet && product.dry ? "Wet/Dry" : product.wet ? "Wet" : "Dry";
     const price = typeof product.weekdayPrice === "number" ? product.weekdayPrice : 0;
-    const existing = cart.find((item: CartItem) => item.name === product.name && item.wetDry === wetDry);
-    if (existing) {
-      notifications.show({
-        title: 'Already in Cart',
-        message: `${product.name} is already in your cart. Only one of each item can be selected.`,
-        color: 'orange',
-      });
-      setProductOpen(false);
-      setModalOpen(false);
-      return;
+    
+    // Check if this is a gift card
+    const isGiftCard = product.name?.toLowerCase().includes('gift card') || product.isGiftCard;
+    
+    // Only check for existing items if it's not a gift card
+    if (!isGiftCard) {
+      const existing = cart.find((item: CartItem) => item.name === product.name && item.wetDry === wetDry);
+      if (existing) {
+        notifications.show({
+          title: 'Already in Cart',
+          message: `${product.name} is already in your cart. Only one of each item can be selected.`,
+          color: 'orange',
+        });
+        setProductOpen(false);
+        setModalOpen(false);
+        return;
+      }
     }
     const newCart = [...cart, { 
-      id: product.id || product.name, // Use id if available, fallback to name
+      id: isGiftCard ? `${product.id || product.name}-${Date.now()}` : (product.id || product.name), // Unique ID for gift cards
       name: product.name, 
       price, 
       wetDry, 
       quantity: 1, 
       category: product.category,
-      image: product.image
+      image: product.image,
+      isGiftCard: isGiftCard
     }];
     setCart(newCart); // This automatically saves to localStorage via useCart hook
     setProductOpen(false);

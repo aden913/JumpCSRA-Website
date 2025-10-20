@@ -743,3 +743,6 @@ export function getPromoCardDiscount(cardTitle: string): DiscountType | null {
   }
   return null;
 }
+
+// Export gift card utility functions for use in other components
+export { generateUniqueGiftCardCode, createGiftCardInDatabase };

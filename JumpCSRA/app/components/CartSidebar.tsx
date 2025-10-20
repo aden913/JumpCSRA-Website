@@ -788,42 +788,44 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                     </select>
                   )}
                   
-                  {/* Quantity Selection for all items */}
-                  <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <label htmlFor={`quantity-${idx}`} style={{ fontSize: '0.9rem' }}>
-                      Quantity:
-                    </label>
-                    <select
-                      id={`quantity-${idx}`}
-                      className="quantity-select"
-                      value={item.quantity}
-                      onChange={e => updateQuantity(idx, parseInt(e.target.value))}
-                      disabled={isUnavailable || loadingAvailability}
-                      style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                    >
-                      {loadingAvailability ? (
-                        <option value={item.quantity}>Loading...</option>
-                      ) : (
-                        getQuantityOptions(item.name, item.quantity).map(num => (
-                          <option key={num} value={num}>
-                            {num}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                    {(() => {
-                      const availability = itemAvailability.get(item.name);
-                      return availability ? (
-                        <span style={{ 
-                          fontSize: '0.8rem', 
-                          color: availability.availableQuantity > 5 ? '#666' : '#f57c00',
-                          fontStyle: 'italic'
-                        }}>
-                          ({availability.availableQuantity} available)
-                        </span>
-                      ) : null;
-                    })()}
-                  </div>
+                  {/* Quantity Selection for non-gift card items only */}
+                  {!isGiftCard(item) && (
+                    <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <label htmlFor={`quantity-${idx}`} style={{ fontSize: '0.9rem' }}>
+                        Quantity:
+                      </label>
+                      <select
+                        id={`quantity-${idx}`}
+                        className="quantity-select"
+                        value={item.quantity}
+                        onChange={e => updateQuantity(idx, parseInt(e.target.value))}
+                        disabled={isUnavailable || loadingAvailability}
+                        style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                      >
+                        {loadingAvailability ? (
+                          <option value={item.quantity}>Loading...</option>
+                        ) : (
+                          getQuantityOptions(item.name, item.quantity).map(num => (
+                            <option key={num} value={num}>
+                              {num}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                      {(() => {
+                        const availability = itemAvailability.get(item.name);
+                        return availability ? (
+                          <span style={{ 
+                            fontSize: '0.8rem', 
+                            color: availability.availableQuantity > 5 ? '#666' : '#f57c00',
+                            fontStyle: 'italic'
+                          }}>
+                            ({availability.availableQuantity} available)
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
+                  )}
                   <button 
                     onClick={() => removeFromCart(idx)}
                     disabled={false}
@@ -840,63 +842,68 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
             })
           )}
         </div>
-        {/* Dropdowns for order requirements */}
-        <div className="cart-dropdowns" style={{ margin: '1rem 0' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-            Event Duration:
-            <select value={duration} onChange={e => setDuration(e.target.value)} required style={{ marginLeft: '0.5rem' }}>
-              <option value="">Select duration</option>
-              <option value="4hours">4 Hours (-10%)</option>
-              <option value="24hours">24 Hours (Standard)</option>
-              <option value="48hours">48 Hours (+50%)</option>
-            </select>
-          </label>
-          <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-            Surface:
-            <select value={surface} onChange={e => setSurface(e.target.value)} required style={{ marginLeft: '0.5rem' }}>
-              <option value="">Select surface</option>
-              <option value="grass-stakes">Grass (stakes)</option>
-              <option value="grass-sandbags">Grass (sandbags)</option>
-              <option value="concrete">Concrete/Pavement</option>
-              <option value="indoor">Indoor</option>
-            </select>
-          </label>
-          <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-            Delivery Time:
-            <select value={deliveryTime} onChange={e => setDeliveryTime(e.target.value)} required style={{ marginLeft: '0.5rem' }}>
-              <option value="">Select time</option>
-              {getAvailableDeliveryTimes().map(timeOption => (
-                <option key={timeOption.value} value={timeOption.value}>
-                  {timeOption.label}
-                </option>
-              ))}
-              {getAvailableDeliveryTimes().length === 0 && (
-                <option value="" disabled>
-                  No times available (booking too soon)
-                </option>
-              )}
-            </select>
-            {getAvailableDeliveryTimes().length === 0 && calendarDateRange[0] && (
-              <div style={{ 
-                color: '#dc3545', 
-                fontSize: '0.8rem', 
-                marginTop: '0.25rem',
-                fontStyle: 'italic'
-              }}>
-                Same-day bookings require at least 2 hours notice. Please select a different date or call (803) 221-0466 for urgent requests.
-              </div>
-            )}
-          </label>
-          <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-            Location:
-            <select value={location} onChange={e => setLocation(e.target.value)} required style={{ marginLeft: '0.5rem' }}>
-              <option value="">Select location</option>
-              {locationOptions.map(loc => (
-                <option key={loc} value={loc}>{loc}</option>
-              ))}
-            </select>
-          </label>
-        </div>
+        {/* Dropdowns for order requirements - only show when cart has inflateables */}
+        {(() => {
+          const hasInflateables = cart.some(item => !isGiftCard(item));
+          return hasInflateables ? (
+            <div className="cart-dropdowns" style={{ margin: '1rem 0' }}>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+                Event Duration:
+                <select value={duration} onChange={e => setDuration(e.target.value)} required style={{ marginLeft: '0.5rem' }}>
+                  <option value="">Select duration</option>
+                  <option value="4hours">4 Hours (-10%)</option>
+                  <option value="24hours">24 Hours (Standard)</option>
+                  <option value="48hours">48 Hours (+50%)</option>
+                </select>
+              </label>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+                Surface:
+                <select value={surface} onChange={e => setSurface(e.target.value)} required style={{ marginLeft: '0.5rem' }}>
+                  <option value="">Select surface</option>
+                  <option value="grass-stakes">Grass (stakes)</option>
+                  <option value="grass-sandbags">Grass (sandbags)</option>
+                  <option value="concrete">Concrete/Pavement</option>
+                  <option value="indoor">Indoor</option>
+                </select>
+              </label>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+                Delivery Time:
+                <select value={deliveryTime} onChange={e => setDeliveryTime(e.target.value)} required style={{ marginLeft: '0.5rem' }}>
+                  <option value="">Select time</option>
+                  {getAvailableDeliveryTimes().map(timeOption => (
+                    <option key={timeOption.value} value={timeOption.value}>
+                      {timeOption.label}
+                    </option>
+                  ))}
+                  {getAvailableDeliveryTimes().length === 0 && (
+                    <option value="" disabled>
+                      No times available (booking too soon)
+                    </option>
+                  )}
+                </select>
+                {getAvailableDeliveryTimes().length === 0 && calendarDateRange[0] && (
+                  <div style={{ 
+                    color: '#dc3545', 
+                    fontSize: '0.8rem', 
+                    marginTop: '0.25rem',
+                    fontStyle: 'italic'
+                  }}>
+                    Same-day bookings require at least 2 hours notice. Please select a different date or call (803) 221-0466 for urgent requests.
+                  </div>
+                )}
+              </label>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+                Location:
+                <select value={location} onChange={e => setLocation(e.target.value)} required style={{ marginLeft: '0.5rem' }}>
+                  <option value="">Select location</option>
+                  {locationOptions.map(loc => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          ) : null;
+        })()}
         {/* Discount Section */}
         <div className="cart-discounts" style={{ 
           margin: '1rem 0', 
@@ -1053,16 +1060,19 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
         <div className="cart-footer">
           <button
             id="proceedButton"
-            disabled={
-              cart.length === 0 || 
-              !duration || 
-              !surface || 
-              !deliveryTime || 
-              !location || 
-              !areWetDrySelectionsComplete()
-            }
+            disabled={(() => {
+              const hasInflateables = cart.some(item => !isGiftCard(item));
+              return (
+                cart.length === 0 || 
+                (hasInflateables && (!duration || !surface || !deliveryTime || !location)) ||
+                !areWetDrySelectionsComplete()
+              );
+            })()}
             onClick={() => {
-              if (cart.length > 0 && duration && surface && deliveryTime && location && areWetDrySelectionsComplete()) {
+              const hasInflateables = cart.some(item => !isGiftCard(item));
+              const eventFieldsValid = !hasInflateables || (duration && surface && deliveryTime && location);
+              
+              if (cart.length > 0 && eventFieldsValid && areWetDrySelectionsComplete()) {
                 if (user) {
                   // User is logged in, proceed to checkout
                   navigate('/checkout');

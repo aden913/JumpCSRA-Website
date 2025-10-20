@@ -654,8 +654,10 @@
           "content": "after selecting a category reset swiper position",
           "id": 1760848135445,
           "level": "default",
-          "done": false,
-          "start": 1760848135445
+          "done": true,
+          "start": 1760848135445,
+          "focus": false,
+          "end": 1760977838136
         }
       },
       {
@@ -710,8 +712,10 @@
           "content": "inflatable",
           "id": 1760848894978,
           "level": "default",
-          "done": false,
-          "start": 1760848894978
+          "done": true,
+          "start": 1760848894978,
+          "focus": false,
+          "end": 1760977830600
         }
       },
       {
@@ -732,8 +736,10 @@
           "content": "Make password more simple",
           "id": 1760924004481,
           "level": "default",
-          "done": false,
-          "start": 1760924004481
+          "done": true,
+          "start": 1760924004481,
+          "focus": false,
+          "end": 1760977682881
         }
       }
     ],
@@ -767,6 +773,6 @@
     "showEndTime": false,
     "simpleMode": false,
     "lang": "en",
-    "version": "1760933023348"
+    "version": "1760977838177"
   }
 }

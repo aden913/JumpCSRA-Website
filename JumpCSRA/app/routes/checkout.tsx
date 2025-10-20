@@ -14,6 +14,7 @@ import type { CartItem } from "../components/CartSidebar";
 import { useInflateables } from "../hooks/useInflateables";
 import { useCartSettings } from "../hooks/useCartSettings";
 import { useCategories } from "../hooks/useCategories";
+import { generateUniqueGiftCardCode, createGiftCardInDatabase } from "../hooks/useDiscounts";
 import { notifications } from '@mantine/notifications';
 import { Notifications } from '@mantine/notifications';
 import { MantineProvider } from '@mantine/core';
@@ -206,7 +207,20 @@ export default function Checkout() {
   const BASE_LOCATION = "410 Carolina Springs Rd, North Augusta, SC 29841";
 
   // Checkout step management functions
-  const stepOrder: CheckoutStep[] = ['order-summary', 'delivery', 'quick-add-totals', 'contract', 'payment'];
+  const getStepOrder = (): CheckoutStep[] => {
+    const hasInflateables = cart.some(item => !item.isGiftCard);
+    
+    if (!hasInflateables) {
+      // Gift card only: skip delivery entirely
+      return ['order-summary', 'quick-add-totals', 'contract', 'payment'];
+    } else {
+      // Has inflateables: include delivery but put quick-add before it
+      return ['order-summary', 'quick-add-totals', 'delivery', 'contract', 'payment'];
+    }
+  };
+  
+  const stepOrder = getStepOrder();
+  
   const stepTitles = {
     'order-summary': 'Order Summary',
     'delivery': 'Delivery Information',
@@ -216,11 +230,12 @@ export default function Checkout() {
   };
 
   const goToNextStep = () => {
-    const currentIndex = stepOrder.indexOf(currentStep);
-    if (currentIndex < stepOrder.length - 1) {
+    const currentStepOrder = getStepOrder();
+    const currentIndex = currentStepOrder.indexOf(currentStep);
+    if (currentIndex < currentStepOrder.length - 1) {
       // Validate current step before allowing progression
       if (canProceedFromCurrentStep()) {
-        const nextStep = stepOrder[currentIndex + 1];
+        const nextStep = currentStepOrder[currentIndex + 1];
         setCurrentStep(nextStep);
         // Track that this step has been visited
         setVisitedSteps(prev => new Set([...prev, nextStep]));
@@ -229,14 +244,17 @@ export default function Checkout() {
   };
 
   const goToPreviousStep = () => {
-    const currentIndex = stepOrder.indexOf(currentStep);
+    const currentStepOrder = getStepOrder();
+    const currentIndex = currentStepOrder.indexOf(currentStep);
     if (currentIndex > 0) {
-      setCurrentStep(stepOrder[currentIndex - 1]);
+      setCurrentStep(currentStepOrder[currentIndex - 1]);
     }
   };
 
   // Validation functions for step progression
   const canProceedFromCurrentStep = () => {
+    const hasInflateables = cart.some(item => !item.isGiftCard);
+    
     switch (currentStep) {
       case 'order-summary':
         return cart.length > 0; // Must have items in cart
@@ -245,9 +263,8 @@ export default function Checkout() {
         if (deliverySkipped) return true;
         return deliveryAddress.trim() !== '' && deliveryCost > 0;
       case 'quick-add-totals':
-        // If delivery is skipped for development, don't require address validation
-        if (deliverySkipped) return cart.length > 0;
-        return cart.length > 0 && deliveryAddress.trim() !== '' && deliveryCost > 0;
+        // Quick-add step now comes before delivery, so no delivery validation needed
+        return cart.length > 0;
       case 'contract':
         return contractSigned; // Allow progression when contract is signed
       default:
@@ -256,12 +273,14 @@ export default function Checkout() {
   };
 
   const getNextStepButtonText = () => {
+    const hasInflateables = cart.some(item => !item.isGiftCard);
+    
     switch (currentStep) {
       case 'order-summary':
-        return 'Continue to Delivery';
-      case 'delivery':
-        return 'Continue to Order Review';
+        return hasInflateables ? 'Continue to Quick Add' : 'Continue to Quick Add';
       case 'quick-add-totals':
+        return hasInflateables ? 'Continue to Delivery' : 'Proceed to Contract';
+      case 'delivery':
         return 'Proceed to Contract';
       default:
         return 'Next';
@@ -269,6 +288,8 @@ export default function Checkout() {
   };
 
   const canShowNextButton = () => {
+    const hasInflateables = cart.some(item => !item.isGiftCard);
+    
     const result = (() => {
       switch (currentStep) {
         case 'order-summary':
@@ -278,9 +299,8 @@ export default function Checkout() {
           if (deliverySkipped) return true;
           return deliveryAddress.trim() !== '' && deliveryCost > 0;
         case 'quick-add-totals':
-          // If delivery is skipped for development, don't require address validation
-          if (deliverySkipped) return cart.length > 0;
-          return cart.length > 0 && deliveryAddress.trim() !== '' && deliveryCost > 0;
+          // Quick-add step now comes before delivery, so no delivery validation needed
+          return cart.length > 0;
         default:
           return false;
       }
@@ -299,6 +319,31 @@ export default function Checkout() {
     
     return result;
   };
+
+  // Handle cart changes and adjust current step if needed
+  useEffect(() => {
+    const currentStepOrder = getStepOrder();
+    
+    // If current step is not in the new step order, adjust to a valid step
+    if (!currentStepOrder.includes(currentStep)) {
+      // If we're on delivery but cart only has gift cards, skip to contract
+      if (currentStep === 'delivery') {
+        const hasInflateables = cart.some(item => !item.isGiftCard);
+        if (!hasInflateables) {
+          setCurrentStep('contract');
+          setVisitedSteps(prev => new Set([...prev, 'contract']));
+        }
+      }
+    }
+  }, [cart, currentStep]);
+
+  // Handle payment type when cart changes
+  useEffect(() => {
+    // If cart only has gift cards, force full payment
+    if (!hasInflatables() && paymentType === 'deposit') {
+      setPaymentType('full');
+    }
+  }, [cart, paymentType]);
 
   // Generate contract sections based on cart items
   const generateContractSections = (): ContractSection[] => {
@@ -1111,22 +1156,55 @@ export default function Checkout() {
 
   // Calculate total payment amount
   const calculateTotalAmount = () => {
-    const subtotal = cart.reduce((sum, item) => sum + item.price, 0);
-    const total = subtotal + deliveryCost;
+    // Use the comprehensive total calculation that's already implemented above
     return total.toFixed(2);
   };
 
-  // Calculate 50% deposit amount
+  // Calculate gift card total (always paid in full)
+  const calculateGiftCardTotal = () => {
+    return cart.reduce((sum, item) => {
+      if (item.isGiftCard) {
+        return sum + (item.giftCardValue || item.price) * item.quantity;
+      }
+      return sum;
+    }, 0);
+  };
+
+  // Calculate inflatable total (eligible for deposit)
+  const calculateInflatableTotal = () => {
+    const inflatableCartTotal = cart.reduce((sum, item) => {
+      if (!item.isGiftCard) {
+        return sum + item.price * item.quantity * durationMultiplier;
+      }
+      return sum;
+    }, 0);
+    
+    // Add last-minute additions, surface/time adjustments, and delivery cost for inflatables
+    const adjustments = lastMinuteTotal + surfaceAdj + timeAdj + deliveryCost;
+    return inflatableCartTotal + adjustments;
+  };
+
+  // Calculate 50% deposit amount (only for inflatables)
   const calculateDepositAmount = () => {
-    const total = parseFloat(calculateTotalAmount());
-    return (total * 0.5).toFixed(2);
+    const giftCardTotal = calculateGiftCardTotal();
+    const inflatableTotal = calculateInflatableTotal();
+    const depositOnInflatables = inflatableTotal * 0.5;
+    
+    // Total deposit payment = full gift card amount + 50% of inflatables
+    return (giftCardTotal + depositOnInflatables).toFixed(2);
+  };
+
+  // Check if deposit option should be available
+  const hasInflatables = () => {
+    return cart.some(item => !item.isGiftCard);
   };
 
   // Calculate remaining balance after deposit
   const calculateRemainingBalance = () => {
-    const total = parseFloat(calculateTotalAmount());
-    const deposit = parseFloat(calculateDepositAmount());
-    return (total - deposit).toFixed(2);
+    const inflatableTotal = calculateInflatableTotal();
+    const remainingOnInflatables = inflatableTotal * 0.5;
+    // Gift cards are paid in full with deposit, so no remaining balance for them
+    return remainingOnInflatables.toFixed(2);
   };
 
   // Check if current booking is within the next 2 days (using calendar dates)
@@ -1217,6 +1295,48 @@ export default function Checkout() {
                 color: 'green',
                 autoClose: 8000,
               });
+              
+              // Create gift card database entries for purchased gift cards
+              const giftCardsInCart = cart.filter(item => item.isGiftCard);
+              if (giftCardsInCart.length > 0 && user) {
+                try {
+                  console.log(`Creating ${giftCardsInCart.length} gift card database entries...`);
+                  
+                  for (const giftCardItem of giftCardsInCart) {
+                    // Handle multiple quantities by creating individual gift cards
+                    for (let i = 0; i < giftCardItem.quantity; i++) {
+                      const giftCardCode = await generateUniqueGiftCardCode();
+                      const giftCardValue = giftCardItem.giftCardValue || giftCardItem.price;
+                      
+                      const success = await createGiftCardInDatabase(
+                        giftCardCode,
+                        giftCardValue,
+                        user.uid,
+                        user.email || '',
+                        user.displayName || '',
+                        false // isGift = false for purchased cards
+                      );
+                      
+                      if (success) {
+                        console.log(`✅ Gift card created: ${giftCardCode} - $${giftCardValue}`);
+                      } else {
+                        console.error(`❌ Failed to create gift card: ${giftCardCode}`);
+                      }
+                    }
+                  }
+                  
+                  console.log(`Successfully created gift card database entries for order ${pendingBookingId}`);
+                } catch (giftCardError) {
+                  console.error('Error creating gift card database entries:', giftCardError);
+                  // Don't fail the payment if gift card creation fails - just log the error
+                  notifications.show({
+                    title: '⚠️ Gift Card Warning',
+                    message: 'Payment successful, but there was an issue creating gift card entries. Please contact support.',
+                    color: 'yellow',
+                    autoClose: 10000,
+                  });
+                }
+              }
               
               console.log("Payment completed:", details);
               console.log(`Booking status updated to ${finalStatus} with orderID:`, pendingBookingId);
@@ -1729,19 +1849,22 @@ export default function Checkout() {
       {/* Progress Indicator */}
       <div className="progress-indicator">
         <div className="progress-steps">
-          {stepOrder.map((step, index) => (
-            <div key={step} className="progress-step">
-              <div className={`progress-step-circle ${stepOrder.indexOf(currentStep) >= index ? 'active' : 'inactive'}`}>
-                {index + 1}
+          {(() => {
+            const currentStepOrder = getStepOrder();
+            return currentStepOrder.map((step, index) => (
+              <div key={step} className="progress-step">
+                <div className={`progress-step-circle ${currentStepOrder.indexOf(currentStep) >= index ? 'active' : 'inactive'}`}>
+                  {index + 1}
+                </div>
+                <span className={`progress-step-label ${currentStepOrder.indexOf(currentStep) >= index ? 'active' : 'inactive'} ${currentStep === step ? 'current' : ''}`}>
+                  {stepTitles[step]}
+                </span>
+                {index < currentStepOrder.length - 1 && (
+                  <div className={`progress-step-connector ${currentStepOrder.indexOf(currentStep) > index ? 'active' : 'inactive'}`} />
+                )}
               </div>
-              <span className={`progress-step-label ${stepOrder.indexOf(currentStep) >= index ? 'active' : 'inactive'} ${currentStep === step ? 'current' : ''}`}>
-                {stepTitles[step]}
-              </span>
-              {index < stepOrder.length - 1 && (
-                <div className={`progress-step-connector ${stepOrder.indexOf(currentStep) > index ? 'active' : 'inactive'}`} />
-              )}
-            </div>
-          ))}
+            ));
+          })()}
         </div>
       </div>
 
@@ -1799,15 +1922,20 @@ export default function Checkout() {
           ))}
         </div>
 
-        {/* Event Details */}
-        <div className="event-details">
-          <h3>Event Details:</h3>
-          <p><strong>Date:</strong> {calendarDateRange[0]?.toLocaleDateString()} - {calendarDateRange[1]?.toLocaleDateString()}</p>
-          <p><strong>Duration:</strong> {cartSettings.duration}</p>
-          <p><strong>Surface:</strong> {cartSettings.surface}</p>
-          <p><strong>Delivery Time:</strong> {cartSettings.deliveryTime}</p>
-          <p><strong>Location Type:</strong> {cartSettings.location}</p>
-        </div>
+        {/* Event Details - only show when cart has inflateables */}
+        {(() => {
+          const hasInflateables = cart.some(item => !item.isGiftCard);
+          return hasInflateables ? (
+            <div className="event-details">
+              <h3>Event Details:</h3>
+              <p><strong>Date:</strong> {calendarDateRange[0]?.toLocaleDateString()} - {calendarDateRange[1]?.toLocaleDateString()}</p>
+              <p><strong>Duration:</strong> {cartSettings.duration}</p>
+              <p><strong>Surface:</strong> {cartSettings.surface}</p>
+              <p><strong>Delivery Time:</strong> {cartSettings.deliveryTime}</p>
+              <p><strong>Location Type:</strong> {cartSettings.location}</p>
+            </div>
+          ) : null;
+        })()}
 
         {/* Pricing Breakdown */}
         <div className="pricing-breakdown">
@@ -2766,7 +2894,7 @@ export default function Checkout() {
                     border: paymentType === 'full' ? '2px solid #28a745' : '2px solid #ddd',
                     borderRadius: '4px',
                     backgroundColor: paymentType === 'full' ? '#f8fff8' : '#fff',
-                    flex: 1
+                    flex: hasInflatables() ? 1 : 'auto'
                   }}>
                     <input
                       type="radio"
@@ -2784,32 +2912,35 @@ export default function Checkout() {
                     </div>
                   </label>
                   
-                  <label style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '0.5rem',
-                    cursor: 'pointer',
-                    padding: '1rem',
-                    border: paymentType === 'deposit' ? '2px solid #28a745' : '2px solid #ddd',
-                    borderRadius: '4px',
-                    backgroundColor: paymentType === 'deposit' ? '#f8fff8' : '#fff',
-                    flex: 1
-                  }}>
-                    <input
-                      type="radio"
-                      name="paymentType"
-                      value="deposit"
-                      checked={paymentType === 'deposit'}
-                      onChange={() => setPaymentType('deposit')}
-                      style={{ margin: 0 }}
-                    />
-                    <div>
-                      <div style={{ fontWeight: 'bold', color: '#333' }}>50% Deposit</div>
-                      <div style={{ color: '#666', fontSize: '0.9rem' }}>
-                        Pay ${calculateDepositAmount()} now, ${calculateRemainingBalance()} before event
+                  {/* Only show deposit option if there are inflateables */}
+                  {hasInflatables() && (
+                    <label style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '0.5rem',
+                      cursor: 'pointer',
+                      padding: '1rem',
+                      border: paymentType === 'deposit' ? '2px solid #28a745' : '2px solid #ddd',
+                      borderRadius: '4px',
+                      backgroundColor: paymentType === 'deposit' ? '#f8fff8' : '#fff',
+                      flex: 1
+                    }}>
+                      <input
+                        type="radio"
+                        name="paymentType"
+                        value="deposit"
+                        checked={paymentType === 'deposit'}
+                        onChange={() => setPaymentType('deposit')}
+                        style={{ margin: 0 }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: 'bold', color: '#333' }}>50% Deposit</div>
+                        <div style={{ color: '#666', fontSize: '0.9rem' }}>
+                          Pay ${calculateDepositAmount()} now, ${calculateRemainingBalance()} before event
+                        </div>
                       </div>
-                    </div>
-                  </label>
+                    </label>
+                  )}
                 </div>
                 
                 {paymentType === 'deposit' && (
