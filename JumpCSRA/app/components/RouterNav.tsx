@@ -10,9 +10,11 @@ type RouterNavProps = {
   onCategoryChange?: (category: string) => void;
   hideIcons?: boolean; // Hide both cart and profile icons
   hideCartIcon?: boolean; // Hide only the cart icon
+  searchBarComponent?: React.ReactNode; // Custom component to render in place of dropdown
+  hideNavbarDropdown?: boolean; // Hide the navbar category dropdown
 };
 
-export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [], onCategoryChange, hideIcons = false, hideCartIcon = false }: RouterNavProps) {
+export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [], onCategoryChange, hideIcons = false, hideCartIcon = false, searchBarComponent, hideNavbarDropdown = false }: RouterNavProps) {
   const formatDate = (date: Date | null) => date ? date.toLocaleDateString() : "--";
   const navigate = useNavigate();
   const location = useLocation();
@@ -49,12 +51,19 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
   return (
     <nav className="nav-bar">
       <ul>
-        <Link to="/home" style={{ display: "inline-block" }}>
-          <img src="/logov2.png" alt="JumpCSRA Logo" className="nav-logo" />
-        </Link>
+        {/* Logo */}
+        <li>
+          <Link to="/home" style={{ display: "inline-block" }}>
+            <img src="/logov2.png" alt="JumpCSRA Logo" className="nav-logo" />
+          </Link>
+        </li>
         
-        {/* Category Dropdown */}
-        {categories.length > 0 && (
+        {/* Category Dropdown or Custom Component */}
+        {searchBarComponent ? (
+          <div className="navbar-search-container">
+            {searchBarComponent}
+          </div>
+        ) : categories.length > 0 && !hideNavbarDropdown && (
           <div className="navbar-category-dropdown-container">
             <select
               className="navbar-category-dropdown"
@@ -72,60 +81,66 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
             </select>
           </div>
         )}
-        <div className="icon-container">
-          <li style={{ position: "relative" }}>
-            <button type="button" className="nav-btn calendar-btn" onClick={() => {
-              console.log("Calendar icon clicked");
-              onNavClick && onNavClick("Calendar");
-            }} style={{ position: "relative", padding: 0, background: "none", border: "none" }}>
-              {selectedDates && selectedDates[0] && selectedDates[1] && (
-                <span
-                  className="calendar-dates-overlay"
-                  style={{
-                    transform: "translate(-50%, -50%)",
-                    background: "rgba(255,255,255,0.85)",
-                    color: "#333",
-                    fontSize: "0.8rem",
-                    padding: "2px 6px",
-                    borderRadius: "6px",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                    whiteSpace: "nowrap",
-                    maxWidth: "80px",
-                    pointerEvents: "none"
-                  }}
-                >
-                  {formatDate(selectedDates[0])} - {formatDate(selectedDates[1])}
-                </span>
-              )}
-            </button>
-          </li>
-        </div>
-        {/* Cart Icon */}
-        {!hideIcons && !hideCartIcon && (
+
+        {/* Right side icons container */}
+        <div className="navbar-right-icons">
+          {/* Calendar Icon */}
           <div className="icon-container">
-            <li style={{ position: "relative" }} className="right-icon">
-              <button type="button" className="nav-btn" onClick={() => {
-                console.log("Cart icon clicked");
-                onNavClick && onNavClick("Cart");
-              }}> <img src="/white-cart.png" alt="Cart" className="cart-icon" />
-                {cartCount && cartCount > 0 && (
-                  <span className="cart-count" style={{}}>{cartCount}</span>
+            <li style={{ position: "relative" }}>
+              <button type="button" className="nav-btn calendar-btn" onClick={() => {
+                console.log("Calendar icon clicked");
+                onNavClick && onNavClick("Calendar");
+              }} style={{ position: "relative", padding: 0, background: "none", border: "none" }}>
+                {selectedDates && selectedDates[0] && selectedDates[1] && (
+                  <span
+                    className="calendar-dates-overlay"
+                    style={{
+                      transform: "translate(-50%, -50%)",
+                      background: "rgba(255,255,255,0.85)",
+                      color: "#333",
+                      fontSize: "0.8rem",
+                      padding: "2px 6px",
+                      borderRadius: "6px",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                      whiteSpace: "nowrap",
+                      maxWidth: "80px",
+                      pointerEvents: "none"
+                    }}
+                  >
+                    {formatDate(selectedDates[0])} - {formatDate(selectedDates[1])}
+                  </span>
                 )}
               </button>
             </li>
           </div>
-        )}
-        
-        {/* Profile Icon */}
-        {!hideIcons && (
-          <div className="icon-container">
-            <li style={{ position: "relative" }} className="right-icon">
-              <Link to="/profile" style={{ display: "inline-block" }}>
-                <img src="/profile-icon.png" alt="Profile" className="profile-icon" style={{ width: 36, height: 36, borderRadius: "50%", border: "2px solid #eee" }} />
-              </Link>
-            </li>
-          </div>
-        )}
+          
+          {/* Cart Icon */}
+          {!hideIcons && !hideCartIcon && (
+            <div className="icon-container">
+              <li style={{ position: "relative" }} className="right-icon">
+                <button type="button" className="nav-btn" onClick={() => {
+                  console.log("Cart icon clicked");
+                  onNavClick && onNavClick("Cart");
+                }}> <img src="/white-cart.png" alt="Cart" className="cart-icon" />
+                  {cartCount && cartCount > 0 && (
+                    <span className="cart-count" style={{}}>{cartCount}</span>
+                  )}
+                </button>
+              </li>
+            </div>
+          )}
+          
+          {/* Profile Icon */}
+          {!hideIcons && (
+            <div className="icon-container">
+              <li style={{ position: "relative" }} className="right-icon">
+                <Link to="/profile" style={{ display: "inline-block" }}>
+                  <img src="/profile-icon-white.png" alt="Profile" className="profile-icon" style={{ width: 36, height: 36, borderRadius: "50%", border: "2px solid #eee" }} />
+                </Link>
+              </li>
+            </div>
+          )}
+        </div>
       </ul>
     </nav>
   );

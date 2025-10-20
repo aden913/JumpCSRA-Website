@@ -3,6 +3,7 @@ import { flushSync } from "react-dom";
 import { useNavigate } from "react-router";
 import { LocalStorageDebugger } from "../components/LocalStorageDebugger";
 import { RouterNav } from "../components/RouterNav";
+import { SearchBar } from "../components/SearchBar";
 import { GooglePlacesAutocomplete } from "../components/GooglePlacesAutocomplete";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, firestore } from "../components/FirebaseConfig";
@@ -1697,10 +1698,29 @@ export default function Checkout() {
         <Notifications position="top-right" />
         <LocalStorageDebugger />
         <RouterNav
-        categories={categories}
-        onCategoryChange={() => {}} // No-op on checkout page since we don't filter products here
-        hideCartIcon={true} // Hide cart icon on checkout page
-      />
+          categories={categories}
+          onCategoryChange={() => {}} // No-op on checkout page since we don't filter products here
+          hideCartIcon={true} // Hide cart icon on checkout page
+          hideNavbarDropdown={true} // Hide the navbar category dropdown
+          searchBarComponent={
+            <SearchBar
+              inflateables={inflateables}
+              categories={categories}
+              onCategorySelect={(category) => {
+                // Navigate to home page with category parameter
+                navigate(`/home?category=${encodeURIComponent(category)}`);
+              }}
+              onInflateableSelect={(product) => {
+                // Navigate to home page with product parameter
+                navigate(`/home?product=${encodeURIComponent(product.name)}`);
+              }}
+              focusCarousel={() => {
+                // Navigate to home page and focus on carousel
+                navigate('/home?focus=carousel');
+              }}
+            />
+          }
+        />
       <div className="checkout-container">
       <h1 className="checkout-title">
         Complete Your Order

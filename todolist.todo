@@ -641,8 +641,10 @@
           "content": "fix option card names",
           "id": 1760848099014,
           "level": "default",
-          "done": false,
-          "start": 1760848099014
+          "done": true,
+          "start": 1760848099014,
+          "focus": false,
+          "end": 1760933023299
         }
       },
       {
@@ -722,6 +724,17 @@
           "done": false,
           "start": 1760848967163
         }
+      },
+      {
+        "key": 1760924004481,
+        "children": [],
+        "todo": {
+          "content": "Make password more simple",
+          "id": 1760924004481,
+          "level": "default",
+          "done": false,
+          "start": 1760924004481
+        }
       }
     ],
     "expandKeys": [
@@ -754,6 +767,6 @@
     "showEndTime": false,
     "simpleMode": false,
     "lang": "en",
-    "version": "1760891392768"
+    "version": "1760933023348"
   }
 }

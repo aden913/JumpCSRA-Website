@@ -1,5 +1,5 @@
 import { ModalCarousel } from "../components/ModalCarousel";
-import { OptionsCarousel } from "../components/OptionsCarousel";
+import { OptionsCarousel, OptionsCarouselRef } from "../components/OptionsCarousel";
 import { ProductDetailModal } from "../components/ProductDetailModal";
 import { CalendarSidebar } from "../components/CalendarSidebar";
 import { Notifications } from '@mantine/notifications';
@@ -13,6 +13,7 @@ import { useCart } from '../hooks/useCart';
 import { useDiscounts, getPromoCardDiscount, getDiscountDescription } from '../hooks/useDiscounts';
 
 import React, { useEffect, useLayoutEffect, useState, useRef, useMemo } from "react";
+import { useSearchParams } from "react-router";
 import { getDatabase, ref, onValue } from "firebase/database";
 import { firebaseConfig } from "../components/FirebaseConfig";
 import { initializeApp, getApps } from "firebase/app";
@@ -135,10 +136,20 @@ export function getDetailImages(name: string) {
 }
 
 export function Welcome() {
+  const optionsCarouselRef = useRef<OptionsCarouselRef>(null);
   const logic = useWelcomeLogic();
   const discountLogic = useDiscounts();
 
   const [unavailableInflateables, setUnavailableInflateables] = useState<Set<string>>(new Set());
+
+  // Wrapper function to handle category change and reset carousel
+  const handleCategoryChange = (category: string) => {
+    logic.setSelectedCategory(category);
+    // Reset carousel to beginning after a short delay to allow re-render
+    setTimeout(() => {
+      optionsCarouselRef.current?.resetToBeginning();
+    }, 100);
+  };
 
   // Fetch unavailable inflateables whenever date range changes
   useEffect(() => {
@@ -192,6 +203,60 @@ export function Welcome() {
     }
   }, [logic.calendarDateRange]);
 
+  // Handle URL parameters from checkout navigation
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  useEffect(() => {
+    const category = searchParams.get('category');
+    const productName = searchParams.get('product');
+    const focus = searchParams.get('focus');
+    
+    if (category) {
+      // Set the selected category and reset carousel
+      handleCategoryChange(category);
+      // Clear the URL parameter
+      setSearchParams(new URLSearchParams());
+      // Scroll to options section
+      setTimeout(() => {
+        const optionsSection = document.querySelector('.options-section');
+        if (optionsSection) {
+          optionsSection.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          });
+        }
+      }, 100);
+    }
+    
+    if (productName) {
+      // Find the product and show its details
+      const product = logic.inflateables.find(item => 
+        item.name && item.name.toLowerCase() === productName.toLowerCase()
+      );
+      if (product) {
+        logic.setSelectedProduct(product);
+        logic.setProductOpen(true);
+      }
+      // Clear the URL parameter
+      setSearchParams(new URLSearchParams());
+    }
+    
+    if (focus === 'carousel') {
+      // Scroll to options carousel
+      setTimeout(() => {
+        const optionsSection = document.querySelector('.options-section');
+        if (optionsSection) {
+          optionsSection.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+        }
+      }, 200);
+      // Clear the URL parameter
+      setSearchParams(new URLSearchParams());
+    }
+  }, [searchParams, logic.inflateables, logic.setSelectedCategory, logic.setSelectedProduct, logic.setProductOpen, setSearchParams]);
+
 
   return (
     <>
@@ -218,7 +283,24 @@ export function Welcome() {
           cartCount={logic.cart.reduce((sum: number, item: CartItem) => sum + item.quantity, 0)}
           selectedDates={logic.calendarDateRange}
           categories={logic.categories}
-          onCategoryChange={logic.setSelectedCategory}
+          onCategoryChange={handleCategoryChange}
+          hideNavbarDropdown={true}
+          searchBarComponent={
+            <SearchBar
+              inflateables={logic.inflateables}
+              categories={logic.categories}
+              onCategorySelect={handleCategoryChange}
+              onInflateableSelect={product => {
+                logic.setSelectedProduct(product);
+                logic.setProductOpen(true);
+              }}
+              focusCarousel={() => {
+                if (logic.carouselRef.current) {
+                  logic.carouselRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+                }
+              }}
+            />
+          }
         />
         <CalendarSidebar
           open={logic.calendarOpen || !logic.hasValidDates}
@@ -228,33 +310,7 @@ export function Welcome() {
         />
         {/* Main Section */}
         <section className="main-section">
-          <div className="search-promo">
-            <div className="search-card">
-              <h2>Find Your Fun</h2>
-              <div className="search-bar">
-                <SearchBar
-                  inflateables={logic.inflateables}
-                  categories={logic.categories}
-                  onCategorySelect={logic.setSelectedCategory}
-                  onInflateableSelect={product => {
-                    logic.setSelectedProduct(product);
-                    logic.setProductOpen(true);
-                  }}
-                  focusCarousel={() => {
-                    if (logic.carouselRef.current) {
-                      logic.carouselRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-                    }
-                  }}
-                />
-              </div>
-            </div>
-            <div className="specials-card">
-              <div className="specials-img">
-                <img src="/assets/kids-bg.png" alt="End of Summer Specials" />
-              </div>
-              <div className="specials-text">End of Summer Specials</div>
-            </div>
-          </div>
+          {/* Search card hidden - SearchBar moved to navbar */}
 
           {/* Promo Cards */}
           <div className="promo-cards">
@@ -347,7 +403,6 @@ export function Welcome() {
 
         {/* Options Section */}
         <section className="options-section">
-          <h2>SWIPE FOR MORE FUN</h2>
           <div
             ref={logic.carouselRef}
             className="category-dropdown-container"
@@ -359,7 +414,7 @@ export function Welcome() {
             <select
               id="category-dropdown"
               value={logic.selectedCategory}
-              onChange={(e) => logic.setSelectedCategory(e.target.value)}
+              onChange={(e) => handleCategoryChange(e.target.value)}
               style={{ padding: "0.5rem", fontSize: "1rem" }}
             >
               {logic.categories.map((cat) => (
@@ -369,8 +424,10 @@ export function Welcome() {
               ))}
             </select>
           </div>
+          <h2>SWIPE FOR MORE FUN</h2>
 
           <OptionsCarousel
+            ref={optionsCarouselRef}
             options={logic.filteredOptions.map((opt: any) => {
               const isUnavailable = unavailableInflateables.has(opt.name);
               return {
@@ -381,6 +438,14 @@ export function Welcome() {
             })}
             onPurchase={logic.addToCart}
           />
+          
+          {/* Specials Card */}
+          <div className="specials-card">
+            <div className="specials-img">
+              <img src="/assets/kids-bg.png" alt="End of Summer Specials" />
+            </div>
+            <div className="specials-text">End of Summer Specials</div>
+          </div>
         </section>
 
         {/* Modal for carousel */}

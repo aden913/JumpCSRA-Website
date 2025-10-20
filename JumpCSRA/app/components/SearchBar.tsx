@@ -72,7 +72,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   }, []);
 
   return (
-    <div className="search-bar-container" style={{ position: "relative" }}>
+    <div className="search-bar-container">
       <input
         type="text"
         placeholder="Search..."
@@ -82,18 +82,16 @@ export const SearchBar: React.FC<SearchBarProps> = ({
         }}
         ref={searchInputRef}
         className="search-bar-input"
-        style={{ width: "100%", padding: "0.5rem", fontSize: "1rem" }}
         onFocus={() => {
           setShowSuggestions(suggestions.length > 0);
         }}
       />
       {showSuggestions && (
-        <ul className="search-suggestions" style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "white", zIndex: 10, border: "1px solid #ccc", borderRadius: "0 0 8px 8px", maxHeight: "200px", overflowY: "auto" }}>
+        <ul className="search-suggestions">
           {suggestions.map((item) => (
             <li
               key={item}
               className="search-suggestion-item"
-              style={{ padding: "0.5rem", cursor: "pointer" }}
               onClick={() => handleSuggestionClick(item)}
             >
               {item}

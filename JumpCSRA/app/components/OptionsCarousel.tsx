@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useImperativeHandle } from "react";
 import { ProductDetailModal } from "./ProductDetailModal";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation } from "swiper/modules";
@@ -101,7 +101,12 @@ export type OptionsCarouselProps = {
   onPurchase?: (product: OptionCardProps) => void;
 };
 
-export function OptionsCarousel({ options, onPurchase }: OptionsCarouselProps) {
+export interface OptionsCarouselRef {
+  resetToBeginning: () => void;
+}
+
+export const OptionsCarousel = React.forwardRef<OptionsCarouselRef, OptionsCarouselProps>(
+  ({ options, onPurchase }, ref) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<OptionCardProps | null>(null);
   const [leftMaskWidth, setLeftMaskWidth] = useState(37);
@@ -109,6 +114,15 @@ export function OptionsCarousel({ options, onPurchase }: OptionsCarouselProps) {
   const [isEnd, setIsEnd] = useState(false);
   const swiperRef = useRef<SwiperType | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Expose reset method to parent components
+  useImperativeHandle(ref, () => ({
+    resetToBeginning: () => {
+      if (swiperRef.current) {
+        swiperRef.current.slideTo(0, 300); // Slide to first slide with 300ms animation
+      }
+    }
+  }), []);
 
   const handleOrderNow = (product: OptionCardProps) => {
     // Don't open modal for unavailable items
@@ -242,4 +256,4 @@ export function OptionsCarousel({ options, onPurchase }: OptionsCarouselProps) {
       />
     </>
   );
-}
+});
