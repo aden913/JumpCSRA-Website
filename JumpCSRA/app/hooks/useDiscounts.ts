@@ -693,9 +693,17 @@ async function createGiftCardInDatabase(
       purchaserUserId,
       purchaserEmail,
       purchaserName,
-      status: 'active',
+      status: 'active', // 'active', 'empty', 'expired'
       expirationDate: expirationDate.toISOString(),
       isGift,
+      usageHistory: [] as Array<{
+        type: 'order' | 'wallet';
+        amount: number;
+        date: string;
+        orderID?: string;
+        walletUserId?: string;
+        description: string;
+      }>,
       transactionHistory: [
         {
           type: isGift ? 'promotional_grant' : 'purchase',
@@ -704,6 +712,7 @@ async function createGiftCardInDatabase(
           description: isGift ? 'Free gift card from BOGO promotion' : 'Gift card purchased',
         }
       ],
+      emptyDate: null as string | null, // When balance reached 0
       createdAt: now.toISOString(),
       lastUpdated: now.toISOString(),
     };
@@ -746,3 +755,137 @@ export function getPromoCardDiscount(cardTitle: string): DiscountType | null {
 
 // Export gift card utility functions for use in other components
 export { generateUniqueGiftCardCode, createGiftCardInDatabase };
+
+// Gift card redemption and management functions
+export async function redeemGiftCardToWallet(
+  giftCardCode: string,
+  userId: string,
+  userEmail: string,
+  userName: string
+): Promise<{ success: boolean; message: string; amount?: number }> {
+  try {
+    const giftCardDoc = await getDoc(doc(firestore, 'giftCards', giftCardCode));
+    
+    if (!giftCardDoc.exists()) {
+      return { success: false, message: 'Gift card not found' };
+    }
+    
+    const giftCard = giftCardDoc.data();
+    
+    if (giftCard.status !== 'active') {
+      return { success: false, message: 'Gift card is not active' };
+    }
+    
+    if (giftCard.currentBalance <= 0) {
+      return { success: false, message: 'Gift card has no remaining balance' };
+    }
+    
+    // Check if expired
+    if (new Date(giftCard.expirationDate) < new Date()) {
+      return { success: false, message: 'Gift card has expired' };
+    }
+    
+    const redeemAmount = giftCard.currentBalance;
+    
+    // Add usage history to gift card
+    const updatedUsageHistory = [
+      ...(giftCard.usageHistory || []),
+      {
+        type: 'wallet' as const,
+        amount: redeemAmount,
+        date: new Date().toISOString(),
+        walletUserId: userId,
+        description: `Redeemed to wallet by ${userName} (${userEmail})`
+      }
+    ];
+    
+    // Update gift card - mark as empty
+    const updatedGiftCard = {
+      ...giftCard,
+      currentBalance: 0,
+      status: 'empty',
+      emptyDate: new Date().toISOString(),
+      usageHistory: updatedUsageHistory,
+      lastUpdated: new Date().toISOString()
+    };
+    
+    await setDoc(doc(firestore, 'giftCards', giftCardCode), updatedGiftCard);
+    
+    // Add to user's wallet (import from databaseUtils)
+    const { addWalletTransaction } = await import('../utils/databaseUtils');
+    const walletSuccess = await addWalletTransaction(userId, {
+      type: 'gift_card_redemption',
+      amount: redeemAmount,
+      description: `Gift card redeemed: ${giftCardCode}`,
+      giftCardCode
+    });
+    
+    if (!walletSuccess) {
+      return { success: false, message: 'Failed to add funds to wallet' };
+    }
+    
+    return { 
+      success: true, 
+      message: `Successfully redeemed $${redeemAmount.toFixed(2)} to your wallet`, 
+      amount: redeemAmount 
+    };
+    
+  } catch (error) {
+    console.error('Error redeeming gift card to wallet:', error);
+    return { success: false, message: 'An error occurred while redeeming the gift card' };
+  }
+}
+
+export async function validateGiftCard(giftCardCode: string): Promise<{
+  valid: boolean;
+  balance?: number;
+  message: string;
+}> {
+  try {
+    const giftCardDoc = await getDoc(doc(firestore, 'giftCards', giftCardCode));
+    
+    if (!giftCardDoc.exists()) {
+      return { valid: false, message: 'Gift card not found' };
+    }
+    
+    const giftCard = giftCardDoc.data();
+    
+    if (giftCard.status !== 'active') {
+      return { valid: false, message: 'Gift card is not active' };
+    }
+    
+    if (giftCard.currentBalance <= 0) {
+      return { valid: false, message: 'Gift card has no remaining balance' };
+    }
+    
+    if (new Date(giftCard.expirationDate) < new Date()) {
+      return { valid: false, message: 'Gift card has expired' };
+    }
+    
+    return {
+      valid: true,
+      balance: giftCard.currentBalance,
+      message: `Gift card is valid with $${giftCard.currentBalance.toFixed(2)} balance`
+    };
+    
+  } catch (error) {
+    console.error('Error validating gift card:', error);
+    return { valid: false, message: 'Error validating gift card' };
+  }
+}
+
+// Function to cleanup empty gift cards (to be run as scheduled job)
+export async function cleanupEmptyGiftCards(): Promise<number> {
+  try {
+    const now = new Date();
+    const oneMonthAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+    
+    // This would typically be run as a server-side function
+    // For now, we'll just return 0 as this should be handled by backend
+    console.log('Gift card cleanup should be handled by a server-side scheduled function');
+    return 0;
+  } catch (error) {
+    console.error('Error during gift card cleanup:', error);
+    return 0;
+  }
+}

@@ -64,6 +64,54 @@ export interface ContractData {
   contractStatus: 'unsigned' | 'signed';
 }
 
+// Wallet and Payment Information Types
+export interface WalletTransaction {
+  id: string;
+  type: 'deposit' | 'withdrawal' | 'gift_card_redemption';
+  amount: number;
+  description: string;
+  orderID?: string; // For withdrawals/purchases
+  giftCardCode?: string; // For gift card redemptions
+  paypalTransactionId?: string; // For deposits
+  createdAt: string;
+}
+
+export interface UserWallet {
+  userId: string;
+  balance: number;
+  transactions: WalletTransaction[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SavedPaymentMethod {
+  id: string;
+  paypalVaultId: string; // PayPal vault token
+  type: 'card' | 'paypal';
+  lastFour?: string; // Last 4 digits for cards
+  cardType?: string; // Visa, Mastercard, etc.
+  expiryMonth?: string;
+  expiryYear?: string;
+  isDefault: boolean;
+  createdAt: string;
+}
+
+export interface UserPaymentInfo {
+  userId: string;
+  savedPaymentMethods: SavedPaymentMethod[];
+  billingAddress: {
+    firstName: string;
+    lastName: string;
+    address: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    country: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
 // Booking Database Functions
 export const saveBookingData = async (bookingData: BookingData): Promise<boolean> => {
   try {
@@ -501,4 +549,206 @@ export const getUserData = async () => {
   }
   
   return null;
+};
+
+// Wallet Database Functions
+export const createUserWallet = async (userId: string): Promise<boolean> => {
+  try {
+    const firestore = getFirestore();
+    const walletRef = doc(firestore, 'wallets', userId);
+    
+    const newWallet: UserWallet = {
+      userId,
+      balance: 0,
+      transactions: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    await setDoc(walletRef, newWallet);
+    console.log('User wallet created successfully:', userId);
+    return true;
+  } catch (error) {
+    console.error('Error creating user wallet:', error);
+    return false;
+  }
+};
+
+export const getUserWallet = async (userId: string): Promise<UserWallet | null> => {
+  try {
+    const firestore = getFirestore();
+    const walletRef = doc(firestore, 'wallets', userId);
+    const walletSnap = await getDoc(walletRef);
+    
+    if (walletSnap.exists()) {
+      return walletSnap.data() as UserWallet;
+    } else {
+      // Create wallet if it doesn't exist
+      await createUserWallet(userId);
+      return await getUserWallet(userId);
+    }
+  } catch (error) {
+    console.error('Error getting user wallet:', error);
+    return null;
+  }
+};
+
+export const addWalletTransaction = async (
+  userId: string, 
+  transaction: Omit<WalletTransaction, 'id' | 'createdAt'>
+): Promise<boolean> => {
+  try {
+    const firestore = getFirestore();
+    const walletRef = doc(firestore, 'wallets', userId);
+    const walletSnap = await getDoc(walletRef);
+    
+    if (!walletSnap.exists()) {
+      await createUserWallet(userId);
+    }
+    
+    const currentWallet = walletSnap.data() as UserWallet;
+    const newTransaction: WalletTransaction = {
+      ...transaction,
+      id: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      createdAt: new Date().toISOString()
+    };
+    
+    // Calculate new balance
+    let newBalance = currentWallet.balance;
+    if (transaction.type === 'deposit' || transaction.type === 'gift_card_redemption') {
+      newBalance += transaction.amount;
+    } else if (transaction.type === 'withdrawal') {
+      newBalance -= transaction.amount;
+    }
+    
+    const updatedWallet: UserWallet = {
+      ...currentWallet,
+      balance: Math.max(0, newBalance), // Ensure balance doesn't go negative
+      transactions: [newTransaction, ...currentWallet.transactions],
+      updatedAt: new Date().toISOString()
+    };
+    
+    await setDoc(walletRef, updatedWallet);
+    console.log('Wallet transaction added successfully:', newTransaction.id);
+    return true;
+  } catch (error) {
+    console.error('Error adding wallet transaction:', error);
+    return false;
+  }
+};
+
+export const updateWalletBalance = async (userId: string, newBalance: number): Promise<boolean> => {
+  try {
+    const firestore = getFirestore();
+    const walletRef = doc(firestore, 'wallets', userId);
+    const walletSnap = await getDoc(walletRef);
+    
+    if (!walletSnap.exists()) {
+      return false;
+    }
+    
+    const currentWallet = walletSnap.data() as UserWallet;
+    const updatedWallet: UserWallet = {
+      ...currentWallet,
+      balance: Math.max(0, newBalance),
+      updatedAt: new Date().toISOString()
+    };
+    
+    await setDoc(walletRef, updatedWallet);
+    console.log('Wallet balance updated successfully:', userId, newBalance);
+    return true;
+  } catch (error) {
+    console.error('Error updating wallet balance:', error);
+    return false;
+  }
+};
+
+// Payment Information Database Functions
+export const saveUserPaymentInfo = async (paymentInfo: UserPaymentInfo): Promise<boolean> => {
+  try {
+    const firestore = getFirestore();
+    const paymentRef = doc(firestore, 'paymentInfo', paymentInfo.userId);
+    
+    const dataToSave = {
+      ...paymentInfo,
+      updatedAt: new Date().toISOString()
+    };
+    
+    await setDoc(paymentRef, dataToSave);
+    console.log('User payment info saved successfully:', paymentInfo.userId);
+    return true;
+  } catch (error) {
+    console.error('Error saving user payment info:', error);
+    return false;
+  }
+};
+
+export const getUserPaymentInfo = async (userId: string): Promise<UserPaymentInfo | null> => {
+  try {
+    const firestore = getFirestore();
+    const paymentRef = doc(firestore, 'paymentInfo', userId);
+    const paymentSnap = await getDoc(paymentRef);
+    
+    if (paymentSnap.exists()) {
+      return paymentSnap.data() as UserPaymentInfo;
+    } else {
+      // Create empty payment info if it doesn't exist
+      const newPaymentInfo: UserPaymentInfo = {
+        userId,
+        savedPaymentMethods: [],
+        billingAddress: {
+          firstName: '',
+          lastName: '',
+          address: '',
+          city: '',
+          state: '',
+          zipCode: '',
+          country: 'US'
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      await saveUserPaymentInfo(newPaymentInfo);
+      return newPaymentInfo;
+    }
+  } catch (error) {
+    console.error('Error getting user payment info:', error);
+    return null;
+  }
+};
+
+export const addSavedPaymentMethod = async (
+  userId: string, 
+  paymentMethod: Omit<SavedPaymentMethod, 'id' | 'createdAt'>
+): Promise<boolean> => {
+  try {
+    const currentPaymentInfo = await getUserPaymentInfo(userId);
+    if (!currentPaymentInfo) return false;
+    
+    const newPaymentMethod: SavedPaymentMethod = {
+      ...paymentMethod,
+      id: `pm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      createdAt: new Date().toISOString()
+    };
+    
+    // If this is set as default, make others non-default
+    if (paymentMethod.isDefault) {
+      currentPaymentInfo.savedPaymentMethods = currentPaymentInfo.savedPaymentMethods.map(pm => ({
+        ...pm,
+        isDefault: false
+      }));
+    }
+    
+    const updatedPaymentInfo: UserPaymentInfo = {
+      ...currentPaymentInfo,
+      savedPaymentMethods: [newPaymentMethod, ...currentPaymentInfo.savedPaymentMethods],
+      updatedAt: new Date().toISOString()
+    };
+    
+    return await saveUserPaymentInfo(updatedPaymentInfo);
+  } catch (error) {
+    console.error('Error adding saved payment method:', error);
+    return false;
+  }
 };

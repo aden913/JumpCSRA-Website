@@ -13,10 +13,11 @@ import "./styles/profile.css";
 import { useInflateables } from "./hooks/useInflateables";
 import { useCategories } from "./hooks/useCategories";
 import type { CartItem } from "./components/CartSidebar";
-import { loadBookingData, loadContractData, loadContractByOrderID } from "./utils/databaseUtils";
-import type { BookingData, ContractData } from "./utils/databaseUtils";
+import { loadBookingData, loadContractData, loadContractByOrderID, getUserWallet, getUserPaymentInfo, addWalletTransaction } from "./utils/databaseUtils";
+import type { BookingData, ContractData, UserWallet, UserPaymentInfo } from "./utils/databaseUtils";
+import { redeemGiftCardToWallet, validateGiftCard } from "./hooks/useDiscounts";
 
-const TABS = ["Profile Information", "Past Events", "Membership"];
+const TABS = ["Profile Information", "Past Events", "Membership", "Payment Information"];
 
 export default function Profile() {
   const [canEditEmail, setCanEditEmail] = useState(false);
@@ -50,6 +51,18 @@ export default function Profile() {
 
   // Add phone validation state
   const [phoneError, setPhoneError] = useState<string | null>(null);
+
+  // Payment Information tab state
+  const [userWallet, setUserWallet] = useState<UserWallet | null>(null);
+  const [userPaymentInfo, setUserPaymentInfo] = useState<UserPaymentInfo | null>(null);
+  const [showPasswordVerification, setShowPasswordVerification] = useState(false);
+  const [verificationPassword, setVerificationPassword] = useState("");
+  const [passwordVerified, setPasswordVerified] = useState(false);
+  const [giftCardCode, setGiftCardCode] = useState("");
+  const [giftCardMessage, setGiftCardMessage] = useState<string | null>(null);
+  const [fundingAmount, setFundingAmount] = useState<string>("");
+  const [loadingWallet, setLoadingWallet] = useState(false);
+  const [loadingPaymentInfo, setLoadingPaymentInfo] = useState(false);
 
   const navigate = useNavigate();
   
@@ -580,6 +593,87 @@ export default function Profile() {
       address: addressToSave 
     }));
   };
+
+  // Payment Information tab functions
+  const loadPaymentTabData = async () => {
+    if (!user || activeTab !== 3) return;
+    
+    setLoadingWallet(true);
+    setLoadingPaymentInfo(true);
+    
+    try {
+      const [walletData, paymentData] = await Promise.all([
+        getUserWallet(user.uid),
+        getUserPaymentInfo(user.uid)
+      ]);
+      
+      setUserWallet(walletData);
+      setUserPaymentInfo(paymentData);
+    } catch (error) {
+      console.error('Error loading payment tab data:', error);
+    } finally {
+      setLoadingWallet(false);
+      setLoadingPaymentInfo(false);
+    }
+  };
+
+  const verifyPassword = async () => {
+    if (!user || !verificationPassword) return;
+    
+    try {
+      const { signInWithEmailAndPassword } = await import("firebase/auth");
+      await signInWithEmailAndPassword(auth, user.email!, verificationPassword);
+      setPasswordVerified(true);
+      setShowPasswordVerification(false);
+      setVerificationPassword("");
+      await loadPaymentTabData();
+    } catch (error) {
+      console.error('Password verification failed:', error);
+      alert('Incorrect password. Please try again.');
+    }
+  };
+
+  const handleGiftCardRedeem = async () => {
+    if (!user || !giftCardCode.trim()) return;
+    
+    setGiftCardMessage(null);
+    try {
+      const result = await redeemGiftCardToWallet(
+        giftCardCode.trim(),
+        user.uid,
+        user.email || '',
+        user.displayName || `${profile.firstName} ${profile.lastName}`
+      );
+      
+      setGiftCardMessage(result.message);
+      
+      if (result.success) {
+        setGiftCardCode("");
+        // Refresh wallet data
+        await loadPaymentTabData();
+      }
+    } catch (error) {
+      console.error('Error redeeming gift card:', error);
+      setGiftCardMessage('An error occurred while redeeming the gift card');
+    }
+  };
+
+  const handleWalletFunding = async (amount: number) => {
+    if (!user) return;
+    
+    // This will be implemented in the next phase with PayPal integration
+    console.log('Wallet funding will be implemented with PayPal integration');
+    alert(`Wallet funding with $${amount} will be implemented next`);
+  };
+
+  // Load payment data when tab changes
+  React.useEffect(() => {
+    if (activeTab === 3 && user && !passwordVerified) {
+      setShowPasswordVerification(true);
+    } else if (activeTab === 3 && passwordVerified) {
+      loadPaymentTabData();
+    }
+  }, [activeTab, user, passwordVerified]);
 
   if (loading) return <div className="profile-loading">Loading...</div>;
   if (guest) {
@@ -1276,7 +1370,7 @@ export default function Profile() {
               </div>
             )}
           </div>
-        ) : (
+        ) : activeTab === 2 ? (
           <div className="profile-membership">
             <h3>Membership</h3>
             <div className="membership-content">
@@ -1309,6 +1403,232 @@ export default function Profile() {
                 </button>
               </div>
             </div>
+          </div>
+        ) : (
+          <div className="profile-payment">
+            <h3>Payment Information</h3>
+            
+            {/* Password Verification Modal */}
+            {showPasswordVerification && (
+              <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: 1000
+              }}>
+                <div style={{
+                  backgroundColor: 'white',
+                  padding: '2rem',
+                  borderRadius: '8px',
+                  minWidth: '400px',
+                  textAlign: 'center'
+                }}>
+                  <h4 style={{ marginBottom: '1rem' }}>Verify Your Password</h4>
+                  <p style={{ marginBottom: '1rem', color: '#666' }}>
+                    For security, please enter your password to access payment information:
+                  </p>
+                  
+                  <input
+                    type="password"
+                    value={verificationPassword}
+                    onChange={(e) => setVerificationPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    style={{
+                      padding: '0.75rem',
+                      fontSize: '1rem',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      width: '100%',
+                      marginBottom: '1rem'
+                    }}
+                    onKeyPress={(e) => e.key === 'Enter' && verifyPassword()}
+                  />
+                  
+                  <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                    <button
+                      onClick={() => {
+                        setShowPasswordVerification(false);
+                        setVerificationPassword("");
+                        setActiveTab(0); // Go back to profile tab
+                      }}
+                      style={{
+                        backgroundColor: '#6c757d',
+                        color: 'white',
+                        border: 'none',
+                        padding: '0.75rem 1.5rem',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    
+                    <button
+                      onClick={verifyPassword}
+                      disabled={!verificationPassword.trim()}
+                      style={{
+                        backgroundColor: verificationPassword.trim() ? '#28a745' : '#ccc',
+                        color: 'white',
+                        border: 'none',
+                        padding: '0.75rem 1.5rem',
+                        borderRadius: '4px',
+                        cursor: verificationPassword.trim() ? 'pointer' : 'not-allowed'
+                      }}
+                    >
+                      Verify
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Payment Information Content */}
+            {passwordVerified && (
+              <div className="payment-content">
+                {/* Wallet Section */}
+                <div className="wallet-section">
+                  <h4>💰 Your Wallet</h4>
+                  {loadingWallet ? (
+                    <div>Loading wallet information...</div>
+                  ) : userWallet ? (
+                    <div className="wallet-info">
+                      <div className="wallet-balance">
+                        <h5>Current Balance: ${userWallet.balance.toFixed(2)}</h5>
+                      </div>
+                      
+                      {/* Add Funds Section */}
+                      <div className="wallet-funding">
+                        <h6>Add Funds</h6>
+                        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                          <input
+                            type="number"
+                            value={fundingAmount}
+                            onChange={(e) => setFundingAmount(e.target.value)}
+                            placeholder="Enter amount"
+                            min="5"
+                            max="500"
+                            step="0.01"
+                            style={{
+                              padding: '0.5rem',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              width: '150px'
+                            }}
+                          />
+                          <button
+                            onClick={() => handleWalletFunding(parseFloat(fundingAmount))}
+                            disabled={!fundingAmount || parseFloat(fundingAmount) < 5}
+                            style={{
+                              backgroundColor: '#0070ba',
+                              color: 'white',
+                              border: 'none',
+                              padding: '0.5rem 1rem',
+                              borderRadius: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Add with PayPal
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {/* Gift Card Redemption */}
+                      <div className="gift-card-redemption">
+                        <h6>Redeem Gift Card</h6>
+                        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                          <input
+                            type="text"
+                            value={giftCardCode}
+                            onChange={(e) => setGiftCardCode(e.target.value.toUpperCase())}
+                            placeholder="Enter gift card code"
+                            style={{
+                              padding: '0.5rem',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              width: '200px'
+                            }}
+                          />
+                          <button
+                            onClick={handleGiftCardRedeem}
+                            disabled={!giftCardCode.trim()}
+                            style={{
+                              backgroundColor: '#28a745',
+                              color: 'white',
+                              border: 'none',
+                              padding: '0.5rem 1rem',
+                              borderRadius: '4px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Redeem
+                          </button>
+                        </div>
+                        {giftCardMessage && (
+                          <div style={{ 
+                            color: giftCardMessage.includes('Successfully') ? '#28a745' : '#dc3545',
+                            fontSize: '0.9rem'
+                          }}>
+                            {giftCardMessage}
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Transaction History */}
+                      {userWallet.transactions.length > 0 && (
+                        <div className="wallet-transactions">
+                          <h6>Recent Transactions</h6>
+                          <div className="transaction-list">
+                            {userWallet.transactions.slice(0, 5).map((transaction) => (
+                              <div key={transaction.id} className="transaction-item" style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                padding: '0.5rem',
+                                borderBottom: '1px solid #eee'
+                              }}>
+                                <div>
+                                  <div style={{ fontWeight: 'bold' }}>{transaction.description}</div>
+                                  <div style={{ fontSize: '0.8rem', color: '#666' }}>
+                                    {new Date(transaction.createdAt).toLocaleDateString()}
+                                  </div>
+                                </div>
+                                <div style={{
+                                  color: transaction.type === 'withdrawal' ? '#dc3545' : '#28a745',
+                                  fontWeight: 'bold'
+                                }}>
+                                  {transaction.type === 'withdrawal' ? '-' : '+'}${transaction.amount.toFixed(2)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div>Error loading wallet information</div>
+                  )}
+                </div>
+                
+                {/* Saved Payment Methods Section */}
+                <div className="payment-methods-section">
+                  <h4>💳 Saved Payment Methods</h4>
+                  {loadingPaymentInfo ? (
+                    <div>Loading payment methods...</div>
+                  ) : (
+                    <div className="payment-methods-content">
+                      <p style={{ color: '#666', fontStyle: 'italic' }}>
+                        PayPal vault integration for saved payment methods will be implemented in the next phase.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
