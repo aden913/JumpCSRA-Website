@@ -31,9 +31,11 @@ import {
   generateContractID,
   isBookingWithinTwoDays,
   determineInitialBookingStatus,
-  updateBookingStatusBasedOnPayment
+  updateBookingStatusBasedOnPayment,
+  getUserWallet,
+  addWalletTransaction
 } from "../utils/databaseUtils";
-import type { BookingData, ContractData } from "../utils/databaseUtils";
+import type { BookingData, ContractData, UserWallet } from "../utils/databaseUtils";
 import { checkItemAvailability, type ItemAvailability } from "../utils/availabilityUtils";
 import '@mantine/notifications/styles.css';
 import '../styles/checkout-buttons.css';
@@ -174,6 +176,11 @@ export default function Checkout() {
   const [loadingBookingFromUrl, setLoadingBookingFromUrl] = useState<boolean>(false);
   const [bookingLoadedFromUrl, setBookingLoadedFromUrl] = useState<boolean>(false);
   const [paymentType, setPaymentType] = useState<'full' | 'deposit'>('full');
+
+  // Wallet State
+  const [userWallet, setUserWallet] = useState<UserWallet | null>(null);
+  const [useWalletFirst, setUseWalletFirst] = useState<boolean>(false);
+  const [walletAppliedAmount, setWalletAppliedAmount] = useState<number>(0);
   
   // Checkout step management
   type CheckoutStep = 'order-summary' | 'delivery' | 'quick-add-totals' | 'contract' | 'payment';
@@ -872,6 +879,23 @@ export default function Checkout() {
     loadUserProfile();
   }, [user]);
 
+  // Load user wallet data  
+  useEffect(() => {
+    const loadWallet = async () => {
+      if (!user) return;
+      
+      try {
+        const wallet = await getUserWallet(user.uid);
+        setUserWallet(wallet);
+      } catch (error) {
+        console.error("Error loading user wallet:", error);
+        setUserWallet(null);
+      }
+    };
+
+    loadWallet();
+  }, [user]);
+
 
   // Load cart and settings from localStorage
   useEffect(() => {
@@ -1207,6 +1231,26 @@ export default function Checkout() {
     return remainingOnInflatables.toFixed(2);
   };
 
+  // Calculate how much wallet balance can be applied
+  const calculateWalletApplicableAmount = () => {
+    if (!userWallet || !useWalletFirst) return 0;
+    
+    const paymentAmount = parseFloat(paymentType === 'deposit' ? calculateDepositAmount() : calculateTotalAmount());
+    return Math.min(userWallet.balance, paymentAmount);
+  };
+
+  // Calculate the amount that needs to be paid via PayPal after wallet application
+  const calculatePayPalAmount = () => {
+    const totalPayment = parseFloat(paymentType === 'deposit' ? calculateDepositAmount() : calculateTotalAmount());
+    const walletApplied = calculateWalletApplicableAmount();
+    return Math.max(0, totalPayment - walletApplied);
+  };
+
+  // Update wallet applied amount when toggle changes
+  useEffect(() => {
+    setWalletAppliedAmount(calculateWalletApplicableAmount());
+  }, [useWalletFirst, paymentType, userWallet?.balance, total]);
+
   // Check if current booking is within the next 2 days (using calendar dates)
   const isCurrentBookingWithinTwoDays = () => {
     if (!calendarDateRange || !calendarDateRange[0]) {
@@ -1219,16 +1263,27 @@ export default function Checkout() {
 
   // PayPal payment handlers
   const createPayPalOrder = (data: any, actions: any) => {
-    const paymentAmount = paymentType === 'deposit' ? calculateDepositAmount() : calculateTotalAmount();
-    const description = paymentType === 'deposit' 
+    // Calculate PayPal amount (total payment minus wallet application)
+    const payPalAmount = calculatePayPalAmount();
+    
+    // Skip PayPal if fully covered by wallet
+    if (payPalAmount <= 0) {
+      throw new Error("Order is fully covered by wallet balance");
+    }
+    
+    const baseDescription = paymentType === 'deposit' 
       ? `Jump CSRA Rental - 50% Deposit (${cart.length} item(s))`
       : `Jump CSRA Party Rental - Full Payment (${cart.length} item(s))`;
+      
+    const description = useWalletFirst 
+      ? `${baseDescription} - After Wallet: $${walletAppliedAmount.toFixed(2)}`
+      : baseDescription;
     
     return actions.order.create({
       purchase_units: [
         {
           amount: {
-            value: paymentAmount,
+            value: payPalAmount.toFixed(2),
             currency_code: "USD"
           },
           description: description
@@ -1238,13 +1293,142 @@ export default function Checkout() {
     });
   };
 
+  // Handle wallet-only payment (no PayPal required)
+  const onWalletOnlyPayment = async () => {
+    setProcessingPayment(true);
+    
+    try {
+      if (!user || !userWallet || walletAppliedAmount <= 0) {
+        throw new Error("Invalid wallet payment conditions");
+      }
+
+      // Process wallet transaction
+      const walletTransactionSuccess = await addWalletTransaction(user.uid, {
+        amount: -walletAppliedAmount,
+        type: 'withdrawal',
+        description: `Order payment - ${cart.length} item(s) (Wallet Only)`,
+        orderID: pendingBookingId || `wallet-${Date.now()}`
+      });
+
+      if (!walletTransactionSuccess) {
+        throw new Error("Failed to process wallet transaction");
+      }
+
+      // Refresh wallet data
+      const updatedWallet = await getUserWallet(user.uid);
+      setUserWallet(updatedWallet);
+
+      if (pendingBookingId) {
+        // Load existing booking
+        const existingBooking = await loadBookingData(pendingBookingId);
+        if (existingBooking) {
+          const totalAmount = existingBooking.orderDetails.totalAmount;
+          const depositAmount = walletAppliedAmount;
+
+          // Update booking status
+          const statusUpdated = await updateBookingStatusBasedOnPayment(pendingBookingId, depositAmount, totalAmount);
+          
+          if (statusUpdated) {
+            // Update payment details
+            existingBooking.paymentDetails.depositAmount = depositAmount;
+            existingBooking.paymentDetails.remainingBalance = totalAmount - depositAmount;
+            existingBooking.paymentDetails.paymentStatus = 'completed';
+            existingBooking.paymentDetails.paymentDate = new Date().toISOString();
+            existingBooking.updatedAt = new Date().toISOString();
+            
+            const success = await saveBookingData(existingBooking);
+            if (success) {
+              setPaymentId(`wallet-${Date.now()}`);
+              setPaymentCompleted(true);
+              
+              // Handle gift card creation
+              const giftCardsInCart = cart.filter(item => item.isGiftCard);
+              if (giftCardsInCart.length > 0) {
+                for (const giftCardItem of giftCardsInCart) {
+                  for (let i = 0; i < giftCardItem.quantity; i++) {
+                    const giftCardCode = await generateUniqueGiftCardCode();
+                    const giftCardValue = giftCardItem.giftCardValue || giftCardItem.price;
+                    
+                    await createGiftCardInDatabase(
+                      giftCardCode,
+                      giftCardValue,
+                      user.uid,
+                      user.email || '',
+                      user.displayName || '',
+                      false
+                    );
+                  }
+                }
+              }
+
+              const message = paymentType === 'deposit' 
+                ? `Deposit of $${walletAppliedAmount.toFixed(2)} paid with wallet. Remaining balance: $${(totalAmount - depositAmount).toFixed(2)}.`
+                : `Full payment of $${walletAppliedAmount.toFixed(2)} completed with wallet.`;
+
+              notifications.show({
+                title: '✅ Payment Successful!',
+                message: message,
+                color: 'green',
+                autoClose: 8000,
+              });
+
+              // Clear cart
+              localStorage.removeItem("cart");
+              setCart([]);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Wallet payment error:', error);
+      notifications.show({
+        title: '❌ Payment Failed',
+        message: 'There was an error processing your wallet payment. Please try again.',
+        color: 'red',
+        autoClose: 5000,
+      });
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
   const onPayPalApprove = async (data: any, actions: any) => {
     setProcessingPayment(true);
     
     try {
       const details = await actions.order.capture();
       const paymentId = details.id;
-      const paidAmount = parseFloat(details.purchase_units[0].amount.value);
+      const payPalAmount = parseFloat(details.purchase_units[0].amount.value);
+      
+      // Handle wallet transaction if wallet was used
+      let walletTransactionId = null;
+      if (useWalletFirst && walletAppliedAmount > 0 && user) {
+        try {
+          console.log(`Processing wallet deduction: $${walletAppliedAmount.toFixed(2)}`);
+          
+          const walletTransactionSuccess = await addWalletTransaction(user.uid, {
+            amount: -walletAppliedAmount, // Negative amount for deduction
+            type: 'withdrawal',
+            description: `Order payment - ${cart.length} item(s)`,
+            orderID: data.orderID,
+            paypalTransactionId: paymentId
+          });
+          
+          if (walletTransactionSuccess) {
+            console.log(`✅ Wallet transaction completed successfully`);
+            // Refresh wallet data
+            const updatedWallet = await getUserWallet(user.uid);
+            setUserWallet(updatedWallet);
+          } else {
+            console.error('Failed to create wallet transaction');
+          }
+        } catch (walletError) {
+          console.error('Wallet transaction error:', walletError);
+        }
+      }
+      
+      // Calculate total paid amount (PayPal + Wallet)
+      const totalPaidAmount = payPalAmount + walletAppliedAmount;
       
       if (pendingBookingId) {
         // Load existing booking to get total amount and current status
@@ -1255,9 +1439,9 @@ export default function Checkout() {
           // Determine deposit amount based on payment type
           let depositAmount: number;
           if (paymentType === 'deposit') {
-            depositAmount = paidAmount; // The paid amount is the deposit
+            depositAmount = totalPaidAmount; // The total paid amount (PayPal + Wallet) is the deposit
           } else {
-            depositAmount = paidAmount; // Full payment means the full amount is the deposit
+            depositAmount = totalPaidAmount; // Full payment means the full amount is the deposit
           }
           
           // Update booking status based on payment using the new utility function
@@ -1284,9 +1468,11 @@ export default function Checkout() {
               
               let message: string;
               if (paymentType === 'deposit') {
-                message = `Deposit of $${paidAmount} received. Booking status: ${finalStatus}. Remaining balance: $${(totalAmount - depositAmount).toFixed(2)}.`;
+                const walletPart = useWalletFirst && walletAppliedAmount > 0 ? ` (PayPal: $${payPalAmount.toFixed(2)}, Wallet: $${walletAppliedAmount.toFixed(2)})` : '';
+                message = `Deposit of $${totalPaidAmount.toFixed(2)}${walletPart} received. Booking status: ${finalStatus}. Remaining balance: $${(totalAmount - depositAmount).toFixed(2)}.`;
               } else {
-                message = `Full payment of $${paidAmount} completed. Booking confirmed successfully.`;
+                const walletPart = useWalletFirst && walletAppliedAmount > 0 ? ` (PayPal: $${payPalAmount.toFixed(2)}, Wallet: $${walletAppliedAmount.toFixed(2)})` : '';
+                message = `Full payment of $${totalPaidAmount.toFixed(2)}${walletPart} completed. Booking confirmed successfully.`;
               }
               
               notifications.show({
@@ -1822,6 +2008,7 @@ export default function Checkout() {
           onCategoryChange={() => {}} // No-op on checkout page since we don't filter products here
           hideCartIcon={true} // Hide cart icon on checkout page
           hideNavbarDropdown={true} // Hide the navbar category dropdown
+          walletBalance={userWallet?.balance || 0}
           searchBarComponent={
             <SearchBar
               inflateables={inflateables}
@@ -2869,10 +3056,113 @@ export default function Checkout() {
             </div>
           </div>
 
+          {/* Wallet Section */}
+          {!requiresPhoneCall && userWallet && userWallet.balance > 0 && (
+            <div style={{ 
+              marginBottom: '2rem',
+              padding: '1rem',
+              backgroundColor: '#e8f5e8',
+              border: '2px solid #4CAF50',
+              borderRadius: '8px'
+            }}>
+              <h3 style={{ marginBottom: '1rem', color: '#2e7d32' }}>💰 Wallet Balance</h3>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                marginBottom: '1rem'
+              }}>
+                <div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#2e7d32' }}>
+                    Available: ${userWallet.balance.toFixed(2)}
+                  </div>
+                  {useWalletFirst && (
+                    <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.5rem' }}>
+                      Applied: ${walletAppliedAmount.toFixed(2)} | 
+                      PayPal: ${calculatePayPalAmount().toFixed(2)}
+                    </div>
+                  )}
+                </div>
+                <label style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  color: '#2e7d32',
+                  fontWeight: '600'
+                }}>
+                  <input
+                    type="checkbox"
+                    checked={useWalletFirst}
+                    onChange={(e) => setUseWalletFirst(e.target.checked)}
+                    style={{ 
+                      marginRight: '0.5rem',
+                      transform: 'scale(1.2)'
+                    }}
+                  />
+                  Use Wallet First
+                </label>
+              </div>
+              {useWalletFirst && walletAppliedAmount >= parseFloat(paymentType === 'deposit' ? calculateDepositAmount() : calculateTotalAmount()) && (
+                <div style={{ 
+                  padding: '1rem',
+                  backgroundColor: '#c8e6c9',
+                  borderRadius: '4px',
+                  textAlign: 'center',
+                  fontWeight: 'bold',
+                  color: '#1b5e20'
+                }}>
+                  🎉 Order fully covered by wallet! No additional payment needed.
+                </div>
+              )}
+            </div>
+          )}
+
           {/* PayPal Payment */}
           {!requiresPhoneCall && (
             <div style={{ marginBottom: '2rem' }}>
-              <h3 style={{ marginBottom: '1rem', color: '#333' }}>Complete Payment</h3>
+              <h3 style={{ marginBottom: '1rem', color: '#333' }}>
+                {useWalletFirst && calculatePayPalAmount() > 0 ? 'Complete Remaining Payment' : 'Complete Payment'}
+              </h3>
+              
+              {/* Show wallet-only completion button if fully covered */}
+              {useWalletFirst && calculatePayPalAmount() <= 0 && (
+                <div style={{ 
+                  textAlign: 'center',
+                  padding: '2rem',
+                  backgroundColor: '#e8f5e8',
+                  borderRadius: '8px',
+                  border: '2px solid #4CAF50'
+                }}>
+                  <div style={{ 
+                    fontSize: '1.3rem', 
+                    color: '#2e7d32',
+                    marginBottom: '1rem',
+                    fontWeight: 'bold'
+                  }}>
+                    🎉 Order fully covered by wallet balance!
+                  </div>
+                  <button
+                    onClick={async () => {
+                      // Process wallet-only payment
+                      await onWalletOnlyPayment();
+                    }}
+                    style={{
+                      backgroundColor: '#4CAF50',
+                      color: 'white',
+                      border: 'none',
+                      padding: '1rem 2rem',
+                      borderRadius: '8px',
+                      fontSize: '1.1rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 8px rgba(76, 175, 80, 0.3)'
+                    }}
+                  >
+                    Complete Order with Wallet
+                  </button>
+                </div>
+              )}
               
               {/* Payment Type Selection */}
               <div style={{ 
@@ -2907,7 +3197,19 @@ export default function Checkout() {
                     <div>
                       <div style={{ fontWeight: 'bold', color: '#333' }}>Full Payment</div>
                       <div style={{ color: '#666', fontSize: '0.9rem' }}>
-                        Pay ${calculateTotalAmount()} - Booking confirmed immediately
+                        {useWalletFirst && userWallet && userWallet.balance > 0 ? (
+                          <>
+                            Total: ${calculateTotalAmount()}{' '}
+                            {calculateWalletApplicableAmount() > 0 && (
+                              <span style={{ color: '#2e7d32' }}>
+                                (Wallet: ${Math.min(userWallet.balance, parseFloat(calculateTotalAmount())).toFixed(2)}, 
+                                PayPal: ${Math.max(0, parseFloat(calculateTotalAmount()) - Math.min(userWallet.balance, parseFloat(calculateTotalAmount()))).toFixed(2)})
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          `Pay ${calculateTotalAmount()} - Booking confirmed immediately`
+                        )}
                       </div>
                     </div>
                   </label>
@@ -2936,7 +3238,21 @@ export default function Checkout() {
                       <div>
                         <div style={{ fontWeight: 'bold', color: '#333' }}>50% Deposit</div>
                         <div style={{ color: '#666', fontSize: '0.9rem' }}>
-                          Pay ${calculateDepositAmount()} now, ${calculateRemainingBalance()} before event
+                          {useWalletFirst && userWallet && userWallet.balance > 0 ? (
+                            <>
+                              Deposit: ${calculateDepositAmount()}{' '}
+                              {calculateWalletApplicableAmount() > 0 && (
+                                <span style={{ color: '#2e7d32' }}>
+                                  (Wallet: ${Math.min(userWallet.balance, parseFloat(calculateDepositAmount())).toFixed(2)}, 
+                                  PayPal: ${Math.max(0, parseFloat(calculateDepositAmount()) - Math.min(userWallet.balance, parseFloat(calculateDepositAmount()))).toFixed(2)})
+                                </span>
+                              )}
+                              <br />
+                              Remaining: ${calculateRemainingBalance()} before event
+                            </>
+                          ) : (
+                            `Pay ${calculateDepositAmount()} now, ${calculateRemainingBalance()} before event`
+                          )}
                         </div>
                       </div>
                     </label>
@@ -2970,24 +3286,27 @@ export default function Checkout() {
                 </div>
               )}
               
-              <PayPalScriptProvider options={{ 
-                clientId: "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0", // Your PayPal sandbox client ID
-                currency: "USD",
-                intent: "capture"
-              }}>
-                <PayPalButtons
-                  style={{ 
-                    layout: "vertical",
-                    color: "blue",
-                    shape: "rect",
-                    label: "paypal"
-                  }}
-                  createOrder={createPayPalOrder}
-                  onApprove={onPayPalApprove}
-                  onError={onPayPalError}
-                  disabled={processingPayment}
-                />
-              </PayPalScriptProvider>
+              {/* Only show PayPal buttons if there's an amount to pay via PayPal */}
+              {(!useWalletFirst || calculatePayPalAmount() > 0) && (
+                <PayPalScriptProvider options={{ 
+                  clientId: "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0", // Your PayPal sandbox client ID
+                  currency: "USD",
+                  intent: "capture"
+                }}>
+                  <PayPalButtons
+                    style={{ 
+                      layout: "vertical",
+                      color: "blue",
+                      shape: "rect",
+                      label: "paypal"
+                    }}
+                    createOrder={createPayPalOrder}
+                    onApprove={onPayPalApprove}
+                    onError={onPayPalError}
+                    disabled={processingPayment}
+                  />
+                </PayPalScriptProvider>
+              )}
             </div>
           )}
           

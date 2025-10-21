@@ -12,9 +12,10 @@ type RouterNavProps = {
   hideCartIcon?: boolean; // Hide only the cart icon
   searchBarComponent?: React.ReactNode; // Custom component to render in place of dropdown
   hideNavbarDropdown?: boolean; // Hide the navbar category dropdown
+  walletBalance?: number; // User's wallet balance to display
 };
 
-export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [], onCategoryChange, hideIcons = false, hideCartIcon = false, searchBarComponent, hideNavbarDropdown = false }: RouterNavProps) {
+export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [], onCategoryChange, hideIcons = false, hideCartIcon = false, searchBarComponent, hideNavbarDropdown = false, walletBalance }: RouterNavProps) {
   const formatDate = (date: Date | null) => date ? date.toLocaleDateString() : "--";
   const navigate = useNavigate();
   const location = useLocation();
@@ -130,6 +131,27 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
             </div>
           )}
           
+          {/* Wallet Balance */}
+          {!hideIcons && walletBalance !== undefined && walletBalance > 0 && (
+            <div className="icon-container">
+              <li className="right-icon">
+                <div className="wallet-balance-display" style={{
+                  background: "linear-gradient(135deg, #4CAF50, #45a049)",
+                  color: "white",
+                  padding: "6px 12px",
+                  borderRadius: "20px",
+                  fontSize: "0.9rem",
+                  fontWeight: "600",
+                  boxShadow: "0 2px 8px rgba(76, 175, 80, 0.3)",
+                  border: "2px solid rgba(255,255,255,0.2)",
+                  whiteSpace: "nowrap"
+                }}>
+                  💰 ${walletBalance.toFixed(2)}
+                </div>
+              </li>
+            </div>
+          )}
+
           {/* Profile Icon */}
           {!hideIcons && (
             <div className="icon-container">

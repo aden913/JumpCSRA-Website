@@ -16,6 +16,7 @@ import type { CartItem } from "./components/CartSidebar";
 import { loadBookingData, loadContractData, loadContractByOrderID, getUserWallet, getUserPaymentInfo, addWalletTransaction } from "./utils/databaseUtils";
 import type { BookingData, ContractData, UserWallet, UserPaymentInfo } from "./utils/databaseUtils";
 import { redeemGiftCardToWallet, validateGiftCard } from "./hooks/useDiscounts";
+import { WalletFundingModal } from "./components/WalletFundingModal";
 
 const TABS = ["Profile Information", "Past Events", "Membership", "Payment Information"];
 
@@ -58,11 +59,10 @@ export default function Profile() {
   const [showPasswordVerification, setShowPasswordVerification] = useState(false);
   const [verificationPassword, setVerificationPassword] = useState("");
   const [passwordVerified, setPasswordVerified] = useState(false);
-  const [giftCardCode, setGiftCardCode] = useState("");
-  const [giftCardMessage, setGiftCardMessage] = useState<string | null>(null);
-  const [fundingAmount, setFundingAmount] = useState<string>("");
+
   const [loadingWallet, setLoadingWallet] = useState(false);
   const [loadingPaymentInfo, setLoadingPaymentInfo] = useState(false);
+  const [showWalletModal, setShowWalletModal] = useState(false);
 
   const navigate = useNavigate();
   
@@ -633,37 +633,70 @@ export default function Profile() {
     }
   };
 
-  const handleGiftCardRedeem = async () => {
-    if (!user || !giftCardCode.trim()) return;
+
+
+
+
+  const setDefaultPaymentMethod = async (methodId: string) => {
+    if (!user || !userPaymentInfo) return;
     
-    setGiftCardMessage(null);
     try {
-      const result = await redeemGiftCardToWallet(
-        giftCardCode.trim(),
-        user.uid,
-        user.email || '',
-        user.displayName || `${profile.firstName} ${profile.lastName}`
-      );
+      const updatedMethods = userPaymentInfo.savedPaymentMethods.map(method => ({
+        ...method,
+        isDefault: method.id === methodId
+      }));
       
-      setGiftCardMessage(result.message);
+      const updatedPaymentInfo = {
+        ...userPaymentInfo,
+        savedPaymentMethods: updatedMethods
+      };
       
-      if (result.success) {
-        setGiftCardCode("");
-        // Refresh wallet data
-        await loadPaymentTabData();
+      const { saveUserPaymentInfo } = await import("./utils/databaseUtils");
+      const success = await saveUserPaymentInfo(updatedPaymentInfo);
+      
+      if (success) {
+        setUserPaymentInfo(updatedPaymentInfo);
+      } else {
+        alert('Failed to update default payment method');
       }
     } catch (error) {
-      console.error('Error redeeming gift card:', error);
-      setGiftCardMessage('An error occurred while redeeming the gift card');
+      console.error('Error setting default payment method:', error);
+      alert('An error occurred while updating payment method');
     }
   };
 
-  const handleWalletFunding = async (amount: number) => {
-    if (!user) return;
+  const removePaymentMethod = async (methodId: string) => {
+    if (!user || !userPaymentInfo) return;
     
-    // This will be implemented in the next phase with PayPal integration
-    console.log('Wallet funding will be implemented with PayPal integration');
-    alert(`Wallet funding with $${amount} will be implemented next`);
+    if (!confirm('Are you sure you want to remove this payment method?')) {
+      return;
+    }
+    
+    try {
+      const updatedMethods = userPaymentInfo.savedPaymentMethods.filter(method => method.id !== methodId);
+      
+      // If we removed the default method, set the first remaining method as default
+      if (updatedMethods.length > 0 && !updatedMethods.some(method => method.isDefault)) {
+        updatedMethods[0].isDefault = true;
+      }
+      
+      const updatedPaymentInfo = {
+        ...userPaymentInfo,
+        savedPaymentMethods: updatedMethods
+      };
+      
+      const { saveUserPaymentInfo } = await import("./utils/databaseUtils");
+      const success = await saveUserPaymentInfo(updatedPaymentInfo);
+      
+      if (success) {
+        setUserPaymentInfo(updatedPaymentInfo);
+      } else {
+        alert('Failed to remove payment method');
+      }
+    } catch (error) {
+      console.error('Error removing payment method:', error);
+      alert('An error occurred while removing payment method');
+    }
   };
 
   // Load payment data when tab changes
@@ -1502,82 +1535,25 @@ export default function Profile() {
                         <h5>Current Balance: ${userWallet.balance.toFixed(2)}</h5>
                       </div>
                       
-                      {/* Add Funds Section */}
-                      <div className="wallet-funding">
-                        <h6>Add Funds</h6>
-                        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-                          <input
-                            type="number"
-                            value={fundingAmount}
-                            onChange={(e) => setFundingAmount(e.target.value)}
-                            placeholder="Enter amount"
-                            min="5"
-                            max="500"
-                            step="0.01"
-                            style={{
-                              padding: '0.5rem',
-                              border: '1px solid #ddd',
-                              borderRadius: '4px',
-                              width: '150px'
-                            }}
-                          />
-                          <button
-                            onClick={() => handleWalletFunding(parseFloat(fundingAmount))}
-                            disabled={!fundingAmount || parseFloat(fundingAmount) < 5}
-                            style={{
-                              backgroundColor: '#0070ba',
-                              color: 'white',
-                              border: 'none',
-                              padding: '0.5rem 1rem',
-                              borderRadius: '4px',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            Add with PayPal
-                          </button>
-                        </div>
+                      {/* Add to Wallet Button */}
+                      <div className="wallet-actions" style={{ marginTop: '1rem' }}>
+                        <button
+                          onClick={() => setShowWalletModal(true)}
+                          style={{
+                            backgroundColor: '#28a745',
+                            color: 'white',
+                            border: 'none',
+                            padding: '0.75rem 1.5rem',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '1rem'
+                          }}
+                        >
+                          💰 Add to Wallet
+                        </button>
                       </div>
                       
-                      {/* Gift Card Redemption */}
-                      <div className="gift-card-redemption">
-                        <h6>Redeem Gift Card</h6>
-                        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-                          <input
-                            type="text"
-                            value={giftCardCode}
-                            onChange={(e) => setGiftCardCode(e.target.value.toUpperCase())}
-                            placeholder="Enter gift card code"
-                            style={{
-                              padding: '0.5rem',
-                              border: '1px solid #ddd',
-                              borderRadius: '4px',
-                              width: '200px'
-                            }}
-                          />
-                          <button
-                            onClick={handleGiftCardRedeem}
-                            disabled={!giftCardCode.trim()}
-                            style={{
-                              backgroundColor: '#28a745',
-                              color: 'white',
-                              border: 'none',
-                              padding: '0.5rem 1rem',
-                              borderRadius: '4px',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            Redeem
-                          </button>
-                        </div>
-                        {giftCardMessage && (
-                          <div style={{ 
-                            color: giftCardMessage.includes('Successfully') ? '#28a745' : '#dc3545',
-                            fontSize: '0.9rem'
-                          }}>
-                            {giftCardMessage}
-                          </div>
-                        )}
-                      </div>
+
                       
                       {/* Transaction History */}
                       {userWallet.transactions.length > 0 && (
@@ -1619,12 +1595,90 @@ export default function Profile() {
                   <h4>💳 Saved Payment Methods</h4>
                   {loadingPaymentInfo ? (
                     <div>Loading payment methods...</div>
-                  ) : (
+                  ) : userPaymentInfo ? (
                     <div className="payment-methods-content">
-                      <p style={{ color: '#666', fontStyle: 'italic' }}>
-                        PayPal vault integration for saved payment methods will be implemented in the next phase.
-                      </p>
+                      {userPaymentInfo.savedPaymentMethods.length > 0 ? (
+                        <div className="payment-methods-list">
+                          {userPaymentInfo.savedPaymentMethods.map((method) => (
+                            <div key={method.id} className="payment-method-item" style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              padding: '1rem',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              marginBottom: '0.5rem',
+                              backgroundColor: method.isDefault ? '#f8fff8' : '#fff'
+                            }}>
+                              <div className="payment-method-info">
+                                <div style={{ fontWeight: 'bold' }}>
+                                  {method.type === 'card' ? (
+                                    `${method.cardType} ****${method.lastFour}`
+                                  ) : (
+                                    'PayPal Account'
+                                  )}
+                                  {method.isDefault && <span style={{ color: '#28a745', marginLeft: '0.5rem' }}>(Default)</span>}
+                                </div>
+                                {method.type === 'card' && method.expiryMonth && method.expiryYear && (
+                                  <div style={{ fontSize: '0.9rem', color: '#666' }}>
+                                    Expires {method.expiryMonth}/{method.expiryYear}
+                                  </div>
+                                )}
+                                <div style={{ fontSize: '0.8rem', color: '#999' }}>
+                                  Added {new Date(method.createdAt).toLocaleDateString()}
+                                </div>
+                              </div>
+                              
+                              <div className="payment-method-actions">
+                                <button
+                                  onClick={() => setDefaultPaymentMethod(method.id)}
+                                  style={{
+                                    backgroundColor: method.isDefault ? '#6c757d' : '#28a745',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '0.25rem 0.5rem',
+                                    borderRadius: '4px',
+                                    fontSize: '0.8rem',
+                                    cursor: method.isDefault ? 'not-allowed' : 'pointer',
+                                    marginRight: '0.5rem'
+                                  }}
+                                  disabled={method.isDefault}
+                                >
+                                  {method.isDefault ? 'Default' : 'Set Default'}
+                                </button>
+                                
+                                <button
+                                  onClick={() => removePaymentMethod(method.id)}
+                                  style={{
+                                    backgroundColor: '#dc3545',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '0.25rem 0.5rem',
+                                    borderRadius: '4px',
+                                    fontSize: '0.8rem',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ 
+                          textAlign: 'center', 
+                          padding: '2rem',
+                          color: '#666',
+                          fontStyle: 'italic'
+                        }}>
+                          <p>No saved payment methods yet.</p>
+                          <p>Add funds to your wallet to save your first payment method!</p>
+                        </div>
+                      )}
                     </div>
+                  ) : (
+                    <div>Error loading payment methods</div>
                   )}
                 </div>
               </div>
@@ -1898,6 +1952,29 @@ export default function Profile() {
           </div>
         </div>
       </div>
+    )}
+
+    {/* Wallet Funding Modal */}
+    {user && (
+      <WalletFundingModal
+        isOpen={showWalletModal}
+        onClose={() => setShowWalletModal(false)}
+        userId={user.uid}
+        onSuccess={(amount, method) => {
+          console.log(`Successfully added $${amount} to wallet via ${method}`);
+          
+          // Show success notification
+          const methodText = method === 'gift_card' ? 'gift card' : 'PayPal';
+          alert(`Successfully added $${amount.toFixed(2)} to your wallet via ${methodText}!`);
+          
+          // Refresh wallet data
+          loadPaymentTabData();
+        }}
+        onError={(message) => {
+          console.error('Wallet funding error:', message);
+          alert(`Funding failed: ${message}`);
+        }}
+      />
     )}
     </>
   );
