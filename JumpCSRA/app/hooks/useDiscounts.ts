@@ -754,7 +754,7 @@ export function getPromoCardDiscount(cardTitle: string): DiscountType | null {
 }
 
 // Export gift card utility functions for use in other components
-export { generateUniqueGiftCardCode, createGiftCardInDatabase };
+export { generateUniqueGiftCardCode, createGiftCardInDatabase, getGiftCardDetails };
 
 // Gift card redemption and management functions
 export async function redeemGiftCardToWallet(
@@ -887,5 +887,40 @@ export async function cleanupEmptyGiftCards(): Promise<number> {
   } catch (error) {
     console.error('Error during gift card cleanup:', error);
     return 0;
+  }
+}
+
+// Get full gift card details for balance checker
+async function getGiftCardDetails(giftCardCode: string): Promise<{
+  success: boolean;
+  giftCard?: any;
+  message: string;
+}> {
+  try {
+    const giftCardDoc = await getDoc(doc(firestore, 'giftCards', giftCardCode));
+    
+    if (!giftCardDoc.exists()) {
+      return { success: false, message: 'Gift card not found' };
+    }
+    
+    const giftCard = giftCardDoc.data();
+    
+    if (giftCard.status !== 'active') {
+      return { success: false, message: 'Gift card is not active' };
+    }
+    
+    // Check if expired
+    if (new Date(giftCard.expirationDate) < new Date()) {
+      return { success: false, message: 'Gift card has expired' };
+    }
+    
+    return { 
+      success: true, 
+      giftCard,
+      message: 'Gift card found successfully'
+    };
+  } catch (error) {
+    console.error('Error getting gift card details:', error);
+    return { success: false, message: 'Error retrieving gift card details' };
   }
 }

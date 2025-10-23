@@ -15,7 +15,7 @@ import { useCategories } from "./hooks/useCategories";
 import type { CartItem } from "./components/CartSidebar";
 import { loadBookingData, loadContractData, loadContractByOrderID, getUserWallet, getUserPaymentInfo, addWalletTransaction } from "./utils/databaseUtils";
 import type { BookingData, ContractData, UserWallet, UserPaymentInfo } from "./utils/databaseUtils";
-import { redeemGiftCardToWallet, validateGiftCard } from "./hooks/useDiscounts";
+import { redeemGiftCardToWallet, validateGiftCard, getGiftCardDetails } from "./hooks/useDiscounts";
 import { WalletFundingModal } from "./components/WalletFundingModal";
 
 const TABS = ["Profile Information", "Past Events", "Membership", "Payment Information"];
@@ -63,6 +63,12 @@ export default function Profile() {
   const [loadingWallet, setLoadingWallet] = useState(false);
   const [loadingPaymentInfo, setLoadingPaymentInfo] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
+  
+  // Gift Card Balance Checker State
+  const [giftCardCode, setGiftCardCode] = useState("");
+  const [giftCardLookupResult, setGiftCardLookupResult] = useState<any>(null);
+  const [loadingGiftCardLookup, setLoadingGiftCardLookup] = useState(false);
+  const [giftCardError, setGiftCardError] = useState<string | null>(null);
 
   const navigate = useNavigate();
   
@@ -614,6 +620,60 @@ export default function Profile() {
     } finally {
       setLoadingWallet(false);
       setLoadingPaymentInfo(false);
+    }
+  };
+
+  // Gift Card Balance Checker Function
+  const handleGiftCardLookup = async () => {
+    if (!giftCardCode.trim()) {
+      setGiftCardError("Please enter a gift card code");
+      return;
+    }
+
+    setLoadingGiftCardLookup(true);
+    setGiftCardError(null);
+    setGiftCardLookupResult(null);
+
+    try {
+      const result = await getGiftCardDetails(giftCardCode.trim());
+      
+      if (result.success && result.giftCard) {
+        setGiftCardLookupResult(result.giftCard);
+      } else {
+        setGiftCardError(result.message || "Gift card not found or invalid");
+      }
+    } catch (error) {
+      console.error('Error looking up gift card:', error);
+      setGiftCardError("Error looking up gift card. Please try again.");
+    } finally {
+      setLoadingGiftCardLookup(false);
+    }
+  };
+
+  // Handle redeeming gift card to wallet from balance checker
+  const handleRedeemFromChecker = async (amount?: number) => {
+    if (!user || !giftCardLookupResult || !profile) return;
+
+    try {
+      const success = await redeemGiftCardToWallet(
+        giftCardCode.trim(),
+        user.uid,
+        user.email || '',
+        profile.name || user.displayName || 'Customer'
+      );
+
+      if (success.success) {
+        alert(`Successfully redeemed $${success.amount?.toFixed(2) || '0.00'} to your wallet!`);
+        
+        // Refresh data
+        await loadPaymentTabData();
+        await handleGiftCardLookup(); // Refresh gift card data
+      } else {
+        alert(`Failed to redeem gift card: ${success.message}`);
+      }
+    } catch (error) {
+      console.error('Error redeeming gift card:', error);
+      alert("Error redeeming gift card. Please try again.");
     }
   };
 
@@ -1588,6 +1648,172 @@ export default function Profile() {
                   ) : (
                     <div>Error loading wallet information</div>
                   )}
+                </div>
+                
+                {/* Gift Card Balance Checker Section */}
+                <div className="gift-card-checker-section" style={{ marginBottom: '2rem' }}>
+                  <h4>🎁 Gift Card Balance Checker</h4>
+                  <div style={{ 
+                    background: '#f8f9fa', 
+                    padding: '1.5rem', 
+                    borderRadius: '8px', 
+                    border: '1px solid #dee2e6' 
+                  }}>
+                    <div style={{ marginBottom: '1rem' }}>
+                      <label style={{ 
+                        display: 'block', 
+                        marginBottom: '0.5rem', 
+                        fontWeight: 'bold' 
+                      }}>
+                        Enter Gift Card Code:
+                      </label>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <input
+                          type="text"
+                          value={giftCardCode}
+                          onChange={(e) => {
+                            setGiftCardCode(e.target.value.toUpperCase());
+                            setGiftCardError(null);
+                            setGiftCardLookupResult(null);
+                          }}
+                          placeholder="GIFT-XXXX-XXXX"
+                          style={{
+                            flex: 1,
+                            padding: '0.75rem',
+                            border: '1px solid #ccc',
+                            borderRadius: '4px',
+                            fontSize: '1rem',
+                            letterSpacing: '1px',
+                            fontFamily: 'monospace'
+                          }}
+                        />
+                        <button
+                          onClick={handleGiftCardLookup}
+                          disabled={loadingGiftCardLookup || !giftCardCode.trim()}
+                          style={{
+                            backgroundColor: '#007bff',
+                            color: 'white',
+                            border: 'none',
+                            padding: '0.75rem 1.5rem',
+                            borderRadius: '4px',
+                            cursor: loadingGiftCardLookup ? 'not-allowed' : 'pointer',
+                            opacity: loadingGiftCardLookup || !giftCardCode.trim() ? 0.6 : 1
+                          }}
+                        >
+                          {loadingGiftCardLookup ? 'Checking...' : 'Check Balance'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {giftCardError && (
+                      <div style={{ 
+                        color: '#dc3545', 
+                        backgroundColor: '#f8d7da', 
+                        border: '1px solid #f5c6cb',
+                        borderRadius: '4px',
+                        padding: '0.75rem',
+                        marginBottom: '1rem'
+                      }}>
+                        {giftCardError}
+                      </div>
+                    )}
+
+                    {giftCardLookupResult && (
+                      <div style={{ 
+                        backgroundColor: '#d4edda', 
+                        border: '1px solid #c3e6cb',
+                        borderRadius: '8px',
+                        padding: '1.5rem',
+                        marginTop: '1rem'
+                      }}>
+                        <h5 style={{ 
+                          color: '#155724', 
+                          marginBottom: '1rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem'
+                        }}>
+                          🎁 Gift Card Details
+                        </h5>
+                        
+                        <div style={{ marginBottom: '1rem' }}>
+                          <div style={{ marginBottom: '0.5rem' }}>
+                            <strong>Code:</strong> {giftCardLookupResult.redemptionCode}
+                          </div>
+                          <div style={{ marginBottom: '0.5rem' }}>
+                            <strong>Current Balance:</strong> 
+                            <span style={{ 
+                              color: '#28a745', 
+                              fontSize: '1.2rem', 
+                              fontWeight: 'bold', 
+                              marginLeft: '0.5rem' 
+                            }}>
+                              ${giftCardLookupResult.currentBalance.toFixed(2)}
+                            </span>
+                          </div>
+                          <div style={{ marginBottom: '0.5rem' }}>
+                            <strong>Original Amount:</strong> ${giftCardLookupResult.originalAmount.toFixed(2)}
+                          </div>
+                          <div style={{ marginBottom: '0.5rem' }}>
+                            <strong>Expires:</strong> {new Date(giftCardLookupResult.expirationDate).toLocaleDateString()}
+                          </div>
+                          <div style={{ marginBottom: '1rem' }}>
+                            <strong>Purchased:</strong> {new Date(giftCardLookupResult.purchaseDate).toLocaleDateString()}
+                          </div>
+                        </div>
+
+                        {giftCardLookupResult.currentBalance > 0 && (
+                          <div style={{ 
+                            borderTop: '1px solid #c3e6cb',
+                            paddingTop: '1rem'
+                          }}>
+                            <button
+                              onClick={() => handleRedeemFromChecker()}
+                              style={{
+                                backgroundColor: '#28a745',
+                                color: 'white',
+                                border: 'none',
+                                padding: '0.75rem 1.5rem',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontWeight: 'bold'
+                              }}
+                            >
+                              💰 Add Full Balance to Wallet (${giftCardLookupResult.currentBalance.toFixed(2)})
+                            </button>
+                          </div>
+                        )}
+
+                        {giftCardLookupResult.usageHistory && giftCardLookupResult.usageHistory.length > 0 && (
+                          <div style={{ 
+                            borderTop: '1px solid #c3e6cb',
+                            paddingTop: '1rem',
+                            marginTop: '1rem'
+                          }}>
+                            <h6>Usage History:</h6>
+                            <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                              {giftCardLookupResult.usageHistory.map((usage: any, index: number) => (
+                                <div key={index} style={{ 
+                                  fontSize: '0.9rem', 
+                                  marginBottom: '0.5rem',
+                                  padding: '0.5rem',
+                                  backgroundColor: 'rgba(255,255,255,0.5)',
+                                  borderRadius: '4px'
+                                }}>
+                                  <div style={{ fontWeight: 'bold' }}>
+                                    {usage.type === 'order' ? '🛒' : '💰'} {usage.description}
+                                  </div>
+                                  <div style={{ color: '#666' }}>
+                                    Amount: ${usage.amount.toFixed(2)} • {new Date(usage.date).toLocaleDateString()}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 {/* Saved Payment Methods Section */}

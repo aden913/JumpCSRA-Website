@@ -15,6 +15,7 @@ import { useInflateables } from "../hooks/useInflateables";
 import { useCartSettings } from "../hooks/useCartSettings";
 import { useCategories } from "../hooks/useCategories";
 import { generateUniqueGiftCardCode, createGiftCardInDatabase } from "../hooks/useDiscounts";
+import { sendOrderConfirmationEmail, createGiftCardInfoFromCart, OrderConfirmationEmailData, GiftCardInfo } from "../utils/emailUtils";
 import { notifications } from '@mantine/notifications';
 import { Notifications } from '@mantine/notifications';
 import { MantineProvider } from '@mantine/core';
@@ -209,6 +210,9 @@ export default function Checkout() {
   const [contractSections, setContractSections] = useState<ContractSection[]>([]);
   const [contractMetadata, setContractMetadata] = useState<ContractMetadata | null>(null);
   const [showInitialsPrompt, setShowInitialsPrompt] = useState<boolean>(false);
+  
+  // Email state for promotional gift cards
+  const [promotionalGiftCardEmail, setPromotionalGiftCardEmail] = useState<string>("");
 
   // Base location for distance calculation
   const BASE_LOCATION = "410 Carolina Springs Rd, North Augusta, SC 29841";
@@ -1343,13 +1347,20 @@ export default function Checkout() {
               
               // Handle gift card creation
               const giftCardsInCart = cart.filter(item => item.isGiftCard);
+              console.log('🎁 WALLET PAYMENT - Gift card debug - Cart items:', cart.map(item => ({ name: item.name, isGiftCard: item.isGiftCard, giftCardValue: item.giftCardValue })));
+              console.log('🎁 WALLET PAYMENT - Filtered gift cards:', giftCardsInCart);
+              
               if (giftCardsInCart.length > 0) {
+                console.log(`🎁 WALLET PAYMENT - Creating ${giftCardsInCart.length} gift card database entries...`);
                 for (const giftCardItem of giftCardsInCart) {
+                  console.log(`🎁 WALLET PAYMENT - Processing gift card item:`, giftCardItem);
                   for (let i = 0; i < giftCardItem.quantity; i++) {
                     const giftCardCode = await generateUniqueGiftCardCode();
                     const giftCardValue = giftCardItem.giftCardValue || giftCardItem.price;
                     
-                    await createGiftCardInDatabase(
+                    console.log(`🎁 WALLET PAYMENT - Creating gift card ${i + 1}/${giftCardItem.quantity}: Code=${giftCardCode}, Value=$${giftCardValue}`);
+                    
+                    const success = await createGiftCardInDatabase(
                       giftCardCode,
                       giftCardValue,
                       user.uid,
@@ -1357,8 +1368,46 @@ export default function Checkout() {
                       user.displayName || '',
                       false
                     );
+                    
+                    if (success) {
+                      console.log(`✅ WALLET PAYMENT - Gift card created successfully: ${giftCardCode} - $${giftCardValue}`);
+                    } else {
+                      console.error(`❌ WALLET PAYMENT - Failed to create gift card: ${giftCardCode}`);
+                    }
                   }
                 }
+              } else {
+                console.log('🎁 WALLET PAYMENT - No gift cards in cart:', { giftCardsCount: giftCardsInCart.length });
+              }
+
+              // Send comprehensive order confirmation email after successful wallet payment
+              try {
+                const giftCardInfo = await createGiftCardInfoFromCart(cart);
+                
+                const orderData: OrderConfirmationEmailData = {
+                  recipientEmail: user?.email || '',
+                  recipientName: user?.displayName || userProfile?.firstName || 'Customer',
+                  orderId: pendingBookingId || 'N/A',
+                  orderDate: new Date().toISOString(),
+                  totalAmount: totalAmount,
+                  paidAmount: walletAppliedAmount,
+                  paymentMethod: 'Wallet',
+                  isDeposit: paymentType === 'deposit',
+                  remainingBalance: paymentType === 'deposit' ? totalAmount - depositAmount : 0,
+                  cartItems: cart,
+                  giftCards: giftCardInfo,
+                  promotionalGiftCardEmail: promotionalGiftCardEmail || undefined
+                };
+
+                const emailSent = await sendOrderConfirmationEmail(orderData);
+                
+                if (emailSent) {
+                  console.log(`📧 WALLET PAYMENT - Order confirmation email sent successfully for order ${pendingBookingId}`);
+                } else {
+                  console.warn(`📧 WALLET PAYMENT - Failed to send order confirmation email for order ${pendingBookingId}`);
+                }
+              } catch (emailError) {
+                console.error(`📧 WALLET PAYMENT - Error sending order confirmation email for order ${pendingBookingId}:`, emailError);
               }
 
               const message = paymentType === 'deposit' 
@@ -1484,15 +1533,21 @@ export default function Checkout() {
               
               // Create gift card database entries for purchased gift cards
               const giftCardsInCart = cart.filter(item => item.isGiftCard);
+              console.log('🎁 GIFT CARD DEBUG - Cart items:', cart.map(item => ({ name: item.name, isGiftCard: item.isGiftCard, giftCardValue: item.giftCardValue })));
+              console.log('🎁 GIFT CARD DEBUG - Filtered gift cards:', giftCardsInCart);
+              
               if (giftCardsInCart.length > 0 && user) {
                 try {
-                  console.log(`Creating ${giftCardsInCart.length} gift card database entries...`);
+                  console.log(`🎁 Creating ${giftCardsInCart.length} gift card database entries...`);
                   
                   for (const giftCardItem of giftCardsInCart) {
+                    console.log(`🎁 Processing gift card item:`, giftCardItem);
                     // Handle multiple quantities by creating individual gift cards
                     for (let i = 0; i < giftCardItem.quantity; i++) {
                       const giftCardCode = await generateUniqueGiftCardCode();
                       const giftCardValue = giftCardItem.giftCardValue || giftCardItem.price;
+                      
+                      console.log(`🎁 Creating gift card ${i + 1}/${giftCardItem.quantity}: Code=${giftCardCode}, Value=$${giftCardValue}`);
                       
                       const success = await createGiftCardInDatabase(
                         giftCardCode,
@@ -1504,16 +1559,16 @@ export default function Checkout() {
                       );
                       
                       if (success) {
-                        console.log(`✅ Gift card created: ${giftCardCode} - $${giftCardValue}`);
+                        console.log(`✅ Gift card created successfully: ${giftCardCode} - $${giftCardValue}`);
                       } else {
                         console.error(`❌ Failed to create gift card: ${giftCardCode}`);
                       }
                     }
                   }
                   
-                  console.log(`Successfully created gift card database entries for order ${pendingBookingId}`);
+                  console.log(`🎁 Successfully processed gift card database entries for order ${pendingBookingId}`);
                 } catch (giftCardError) {
-                  console.error('Error creating gift card database entries:', giftCardError);
+                  console.error('❌ Error creating gift card database entries:', giftCardError);
                   // Don't fail the payment if gift card creation fails - just log the error
                   notifications.show({
                     title: '⚠️ Gift Card Warning',
@@ -1522,6 +1577,40 @@ export default function Checkout() {
                     autoClose: 10000,
                   });
                 }
+              } else {
+                console.log('🎁 No gift cards in cart or user not found:', { giftCardsCount: giftCardsInCart.length, hasUser: !!user });
+              }
+
+              // Send comprehensive order confirmation email after successful payment
+              try {
+                const giftCardInfo = await createGiftCardInfoFromCart(cart);
+                
+                const orderData: OrderConfirmationEmailData = {
+                  recipientEmail: user?.email || '',
+                  recipientName: user?.displayName || userProfile?.firstName || 'Customer',
+                  orderId: pendingBookingId || 'N/A',
+                  orderDate: new Date().toISOString(),
+                  totalAmount: totalAmount,
+                  paidAmount: totalPaidAmount,
+                  paymentMethod: useWalletFirst && walletAppliedAmount > 0 
+                    ? `PayPal ($${payPalAmount.toFixed(2)}) + Wallet ($${walletAppliedAmount.toFixed(2)})`
+                    : 'PayPal',
+                  isDeposit: paymentType === 'deposit',
+                  remainingBalance: paymentType === 'deposit' ? totalAmount - depositAmount : 0,
+                  cartItems: cart,
+                  giftCards: giftCardInfo,
+                  promotionalGiftCardEmail: promotionalGiftCardEmail || undefined
+                };
+
+                const emailSent = await sendOrderConfirmationEmail(orderData);
+                
+                if (emailSent) {
+                  console.log(`📧 Order confirmation email sent successfully for order ${pendingBookingId}`);
+                } else {
+                  console.warn(`📧 Failed to send order confirmation email for order ${pendingBookingId}`);
+                }
+              } catch (emailError) {
+                console.error(`📧 Error sending order confirmation email for order ${pendingBookingId}:`, emailError);
               }
               
               console.log("Payment completed:", details);
@@ -3055,6 +3144,50 @@ export default function Checkout() {
               <strong>Total: ${calculateTotalAmount()}</strong>
             </div>
           </div>
+
+          {/* Promotional Gift Card Section - Show when there are qualifying purchases */}
+          {cart.some(item => !item.isGiftCard && parseFloat(item.price) >= 100) && (
+            <div style={{ 
+              marginBottom: '2rem',
+              padding: '1rem',
+              backgroundColor: '#fff9c4',
+              border: '2px solid #f9ca24',
+              borderRadius: '8px'
+            }}>
+              <h3 style={{ marginBottom: '1rem', color: '#f39801' }}>🎁 GOGO Special Offer!</h3>
+              <p style={{ color: '#8c6d00', marginBottom: '1rem' }}>
+                You qualify for a FREE gift card with your purchase! 
+                The promotional gift card will be sent separately and must be used by someone else.
+              </p>
+              <div style={{ marginBottom: '0.5rem' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '0.5rem', 
+                  fontWeight: 'bold',
+                  color: '#8c6d00'
+                }}>
+                  Send promotional gift card to (optional):
+                </label>
+                <input
+                  type="email"
+                  placeholder="Recipient's email address (leave blank to send to your email)"
+                  value={promotionalGiftCardEmail}
+                  onChange={(e) => setPromotionalGiftCardEmail(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    border: '1px solid #f9ca24',
+                    borderRadius: '4px',
+                    fontSize: '1rem',
+                    backgroundColor: '#fffef5'
+                  }}
+                />
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#8c6d00', fontStyle: 'italic' }}>
+                * If no email is provided, the promotional gift card will be sent to your account email
+              </div>
+            </div>
+          )}
 
           {/* Wallet Section */}
           {!requiresPhoneCall && userWallet && userWallet.balance > 0 && (

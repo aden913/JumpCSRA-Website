@@ -388,7 +388,12 @@ export const isBookingPastEventDate = (eventDate: string): boolean => {
   }
 };
 
-export const determineInitialBookingStatus = (eventDate: string, isContractSigned: boolean, depositAmount: number, totalAmount: number): 'deferred' | 'pending' | 'confirmed' => {
+export const determineInitialBookingStatus = (eventDate: string, isContractSigned: boolean, depositAmount: number, totalAmount: number, isGiftCardOnly: boolean = false): 'deferred' | 'pending' | 'confirmed' => {
+  // Gift card only purchases are always confirmed when payment is complete
+  if (isGiftCardOnly && depositAmount >= totalAmount) {
+    return 'confirmed';
+  }
+  
   // Check if booking is within 2 days and contract is signed
   if (isContractSigned && isBookingWithinTwoDays(eventDate)) {
     return 'deferred';
@@ -422,10 +427,19 @@ export const updateBookingStatusBasedOnPayment = async (orderID: string, deposit
     // Parse event date from orderDetails.eventDate (format: "MM/DD/YYYY - MM/DD/YYYY")
     const eventDateString = bookingData.orderDetails.eventDate.split(' - ')[0];
     
+    // Check if this is a gift card only order
+    const isGiftCardOnly = bookingData.orderDetails.items.every(item => 
+      item.name.toLowerCase().includes('gift card') || 
+      item.name.toLowerCase().includes('giftcard')
+    );
+    
     let newStatus: 'deferred' | 'pending' | 'confirmed';
     
-    // If booking was deferred, it should move to pending or confirmed based on payment
-    if (bookingData.status === 'deferred') {
+    // Gift card only orders are always confirmed when payment is complete
+    if (isGiftCardOnly && depositAmount >= totalAmount) {
+      newStatus = 'confirmed';
+    } else if (bookingData.status === 'deferred') {
+      // If booking was deferred, it should move to pending or confirmed based on payment
       if (depositAmount >= totalAmount) {
         newStatus = 'confirmed'; // Full payment
       } else if (depositAmount > 0) {
