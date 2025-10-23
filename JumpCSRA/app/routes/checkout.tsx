@@ -222,10 +222,10 @@ export default function Checkout() {
     const hasInflateables = cart.some(item => !item.isGiftCard);
     
     if (!hasInflateables) {
-      // Gift card only: skip delivery entirely
-      return ['order-summary', 'quick-add-totals', 'contract', 'payment'];
+      // Gift card only: skip delivery and contract entirely
+      return ['order-summary', 'quick-add-totals', 'payment'];
     } else {
-      // Has inflateables: include delivery but put quick-add before it
+      // Has inflateables: include delivery and contract but put quick-add before delivery
       return ['order-summary', 'quick-add-totals', 'delivery', 'contract', 'payment'];
     }
   };
@@ -240,13 +240,45 @@ export default function Checkout() {
     'payment': 'Payment'
   };
 
-  const goToNextStep = () => {
+  const goToNextStep = async () => {
     const currentStepOrder = getStepOrder();
     const currentIndex = currentStepOrder.indexOf(currentStep);
     if (currentIndex < currentStepOrder.length - 1) {
       // Validate current step before allowing progression
       if (canProceedFromCurrentStep()) {
         const nextStep = currentStepOrder[currentIndex + 1];
+        
+        // Special handling for gift card-only orders moving to payment
+        if (nextStep === 'payment' && !pendingBookingId) {
+          const onlyGiftCards = cart.every(item => item.isGiftCard);
+          if (onlyGiftCards) {
+            console.log('🎁 Gift card-only order moving to payment - creating booking first');
+            try {
+              // Create booking for gift card-only order
+              const isWithinTwoDays = isCurrentBookingWithinTwoDays();
+              const needsPhoneCall = isWithinTwoDays && !onlyGiftCards; // Should be false for gift cards
+              const initialStatus = needsPhoneCall ? 'deferred' : 'pending';
+              
+              console.log(`Creating gift card booking - Within 2 days: ${isWithinTwoDays}, Status: ${initialStatus}`);
+              
+              const result = await saveBookingAndContract(initialStatus);
+              if (result) {
+                const { orderID } = result;
+                setPendingBookingId(orderID);
+                setContractSigned(true);
+                console.log('✅ Gift card booking created successfully:', orderID);
+              } else {
+                alert("Error creating booking. Please try again.");
+                return;
+              }
+            } catch (error) {
+              console.error("Error creating gift card booking:", error);
+              alert("Error creating booking. Please try again.");
+              return;
+            }
+          }
+        }
+        
         setCurrentStep(nextStep);
         // Track that this step has been visited
         setVisitedSteps(prev => new Set([...prev, nextStep]));
@@ -290,7 +322,7 @@ export default function Checkout() {
       case 'order-summary':
         return hasInflateables ? 'Continue to Quick Add' : 'Continue to Quick Add';
       case 'quick-add-totals':
-        return hasInflateables ? 'Continue to Delivery' : 'Proceed to Contract';
+        return hasInflateables ? 'Continue to Delivery' : 'Proceed to Payment';
       case 'delivery':
         return 'Proceed to Contract';
       default:
@@ -337,12 +369,13 @@ export default function Checkout() {
     
     // If current step is not in the new step order, adjust to a valid step
     if (!currentStepOrder.includes(currentStep)) {
-      // If we're on delivery but cart only has gift cards, skip to contract
-      if (currentStep === 'delivery') {
+      // If we're on delivery or contract but cart only has gift cards, skip to payment
+      if (currentStep === 'delivery' || currentStep === 'contract') {
         const hasInflateables = cart.some(item => !item.isGiftCard);
         if (!hasInflateables) {
-          setCurrentStep('contract');
-          setVisitedSteps(prev => new Set([...prev, 'contract']));
+          console.log('Gift card-only cart detected, skipping to payment from', currentStep);
+          setCurrentStep('payment');
+          setVisitedSteps(prev => new Set([...prev, 'payment']));
         }
       }
     }
@@ -648,10 +681,14 @@ export default function Checkout() {
       const eventDateString = calendarDateRange[0]?.toLocaleDateString() || '';
       const isWithinTwoDays = isCurrentBookingWithinTwoDays();
       
-      // Determine initial status - deferred if within 2 days, otherwise we'll proceed to payment
-      const initialStatus = isWithinTwoDays ? 'deferred' : 'pending';
+      // Check if cart only contains gift cards
+      const onlyGiftCards = cart.every(item => item.isGiftCard);
       
-      console.log(`Event date: ${eventDateString}, Within 2 days: ${isWithinTwoDays}, Initial status: ${initialStatus}`);
+      // Determine initial status - deferred if within 2 days AND has inflateables, otherwise proceed to payment
+      const needsPhoneCall = isWithinTwoDays && !onlyGiftCards;
+      const initialStatus = needsPhoneCall ? 'deferred' : 'pending';
+      
+      console.log(`Event date: ${eventDateString}, Within 2 days: ${isWithinTwoDays}, Only gift cards: ${onlyGiftCards}, Initial status: ${initialStatus}`);
       
       // Save contract and booking with determined status
       const result = await saveBookingAndContract(initialStatus);
@@ -660,16 +697,18 @@ export default function Checkout() {
         setPendingBookingId(orderID); // Store orderID for payment processing
         setContractSigned(true);
         
-        // Set phone call requirement flag
-        setRequiresPhoneCall(isWithinTwoDays);
+        // Set phone call requirement flag - only if within 2 days AND has inflateables
+        setRequiresPhoneCall(needsPhoneCall);
         
-        if (isWithinTwoDays) {
-          console.log('📞 Booking within 2 days - saved as deferred, phone call required');
+        if (needsPhoneCall) {
+          console.log('📞 Booking within 2 days with inflateables - saved as deferred, phone call required');
+        } else if (isWithinTwoDays && onlyGiftCards) {
+          console.log('🎁 Booking within 2 days but only gift cards - proceeding to payment');
         } else {
           console.log('✅ Booking not urgent - proceeding to payment');
         }
         
-        goToNextStep();
+        await goToNextStep();
       } else {
         alert("Error saving booking. Please try again.");
       }
@@ -2283,7 +2322,7 @@ export default function Checkout() {
         <div className="checkout-main-button-container">
           <button
             id="btn-main-flow"
-            onClick={goToNextStep}
+            onClick={() => goToNextStep()}
             disabled={!canShowNextButton()}
           >
             {getNextStepButtonText()}
@@ -2425,7 +2464,7 @@ export default function Checkout() {
           </button>
           <button
             id="btn-forward-delivery"
-            onClick={goToNextStep}
+            onClick={() => goToNextStep()}
             disabled={!canShowNextButton()}
           >
             {getNextStepButtonText()}
@@ -2942,7 +2981,7 @@ export default function Checkout() {
                 </button>
                 <button
                   id="btn-forward-quick-add"
-                  onClick={goToNextStep}
+                  onClick={() => goToNextStep()}
                   disabled={!canShowNextButton()}
                 >
                   {getNextStepButtonText()}
