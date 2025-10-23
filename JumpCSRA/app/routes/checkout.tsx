@@ -1387,16 +1387,34 @@ export default function Checkout() {
                 const orderData: OrderConfirmationEmailData = {
                   recipientEmail: user?.email || '',
                   recipientName: user?.displayName || userProfile?.firstName || 'Customer',
-                  orderId: pendingBookingId || 'N/A',
+                  orderID: pendingBookingId || 'N/A',
                   orderDate: new Date().toISOString(),
+                  
+                  // Items (converting cart to the expected format)
+                  rentalItems: cart.filter(item => !item.isGiftCard).map(item => ({
+                    name: item.name,
+                    quantity: item.quantity || 1,
+                    price: item.price,
+                    wetDry: item.wetDry
+                  })),
+                  lastMinuteAdditions: [],
+                  
+                  // Pricing
+                  subtotal: cart.reduce((sum, item) => sum + item.price, 0),
+                  surfaceAdjustment: 0,
+                  timeAdjustment: 0,
+                  deliveryCost: deliveryCost,
                   totalAmount: totalAmount,
-                  paidAmount: walletAppliedAmount,
-                  paymentMethod: 'Wallet',
-                  isDeposit: paymentType === 'deposit',
+                  
+                  // Payment info
+                  paymentType: paymentType as 'full' | 'deposit',
+                  amountPaid: walletAppliedAmount,
                   remainingBalance: paymentType === 'deposit' ? totalAmount - depositAmount : 0,
-                  cartItems: cart,
+                  paymentMethod: 'Wallet',
+                  
+                  // Gift cards and booking
                   giftCards: giftCardInfo,
-                  promotionalGiftCardEmail: promotionalGiftCardEmail || undefined
+                  bookingStatus: 'confirmed'
                 };
 
                 const emailSent = await sendOrderConfirmationEmail(orderData);
@@ -1588,18 +1606,36 @@ export default function Checkout() {
                 const orderData: OrderConfirmationEmailData = {
                   recipientEmail: user?.email || '',
                   recipientName: user?.displayName || userProfile?.firstName || 'Customer',
-                  orderId: pendingBookingId || 'N/A',
+                  orderID: pendingBookingId || 'N/A',
                   orderDate: new Date().toISOString(),
+                  
+                  // Items (converting cart to the expected format)
+                  rentalItems: cart.filter(item => !item.isGiftCard).map(item => ({
+                    name: item.name,
+                    quantity: item.quantity || 1,
+                    price: item.price,
+                    wetDry: item.wetDry
+                  })),
+                  lastMinuteAdditions: [],
+                  
+                  // Pricing
+                  subtotal: cart.reduce((sum, item) => sum + item.price, 0),
+                  surfaceAdjustment: 0,
+                  timeAdjustment: 0,
+                  deliveryCost: deliveryCost,
                   totalAmount: totalAmount,
-                  paidAmount: totalPaidAmount,
+                  
+                  // Payment info
+                  paymentType: paymentType as 'full' | 'deposit',
+                  amountPaid: totalPaidAmount,
+                  remainingBalance: paymentType === 'deposit' ? totalAmount - depositAmount : 0,
                   paymentMethod: useWalletFirst && walletAppliedAmount > 0 
                     ? `PayPal ($${payPalAmount.toFixed(2)}) + Wallet ($${walletAppliedAmount.toFixed(2)})`
                     : 'PayPal',
-                  isDeposit: paymentType === 'deposit',
-                  remainingBalance: paymentType === 'deposit' ? totalAmount - depositAmount : 0,
-                  cartItems: cart,
+                  
+                  // Gift cards and booking
                   giftCards: giftCardInfo,
-                  promotionalGiftCardEmail: promotionalGiftCardEmail || undefined
+                  bookingStatus: finalStatus || 'confirmed'
                 };
 
                 const emailSent = await sendOrderConfirmationEmail(orderData);
@@ -3146,7 +3182,7 @@ export default function Checkout() {
           </div>
 
           {/* Promotional Gift Card Section - Show when there are qualifying purchases */}
-          {cart.some(item => !item.isGiftCard && parseFloat(item.price) >= 100) && (
+          {cart.some(item => !item.isGiftCard && item.price >= 100) && (
             <div style={{ 
               marginBottom: '2rem',
               padding: '1rem',

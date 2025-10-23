@@ -518,7 +518,14 @@ function calculateBogoGiftCardDiscount(
 
   // Generate unique gift card codes for free cards
   const generateGiftCardCode = (): string => {
-    const generateSegment = () => Math.floor(1000 + Math.random() * 9000).toString();
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const generateSegment = () => {
+      let result = '';
+      for (let i = 0; i < 4; i++) {
+        result += characters.charAt(Math.floor(Math.random() * characters.length));
+      }
+      return result;
+    };
     const code = `${generateSegment()}-${generateSegment()}-${generateSegment()}`;
     console.log('🎫 Generated gift card code:', code);
     return code;
@@ -633,7 +640,14 @@ function checkIfRangeIncludesSunday(startDate: Date | null, endDate: Date | null
 
 // Helper function to generate unique gift card codes
 function generateGiftCardCode(): string {
-  const generateSegment = () => Math.floor(1000 + Math.random() * 9000).toString();
+  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const generateSegment = () => {
+    let result = '';
+    for (let i = 0; i < 4; i++) {
+      result += characters.charAt(Math.floor(Math.random() * characters.length));
+    }
+    return result;
+  };
   return `${generateSegment()}-${generateSegment()}-${generateSegment()}`;
 }
 
@@ -663,8 +677,14 @@ async function generateUniqueGiftCardCode(): Promise<string> {
 
   if (!isUnique) {
     // Fallback with timestamp to ensure uniqueness
-    const timestamp = Date.now().toString().slice(-4);
-    code = `${generateGiftCardCode().slice(0, -4)}${timestamp}`;
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const timestamp = Date.now().toString();
+    let timestampSegment = '';
+    for (let i = 0; i < 4; i++) {
+      const index = parseInt(timestamp.charAt(i % timestamp.length)) % characters.length;
+      timestampSegment += characters.charAt(index);
+    }
+    code = `${generateGiftCardCode().slice(0, -4)}${timestampSegment}`;
   }
 
   return code;

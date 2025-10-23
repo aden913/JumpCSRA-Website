@@ -65,6 +65,7 @@ export default function Profile() {
   const [showWalletModal, setShowWalletModal] = useState(false);
   
   // Gift Card Balance Checker State
+  const [showGiftCardModal, setShowGiftCardModal] = useState(false);
   const [giftCardCode, setGiftCardCode] = useState("");
   const [giftCardLookupResult, setGiftCardLookupResult] = useState<any>(null);
   const [loadingGiftCardLookup, setLoadingGiftCardLookup] = useState(false);
@@ -675,6 +676,14 @@ export default function Profile() {
       console.error('Error redeeming gift card:', error);
       alert("Error redeeming gift card. Please try again.");
     }
+  };
+
+  // Reset gift card checker
+  const resetGiftCardChecker = () => {
+    setGiftCardCode("");
+    setGiftCardLookupResult(null);
+    setGiftCardError(null);
+    setLoadingGiftCardLookup(false);
   };
 
   const verifyPassword = async () => {
@@ -1657,162 +1666,37 @@ export default function Profile() {
                     background: '#f8f9fa', 
                     padding: '1.5rem', 
                     borderRadius: '8px', 
-                    border: '1px solid #dee2e6' 
+                    border: '1px solid #dee2e6',
+                    textAlign: 'center'
                   }}>
-                    <div style={{ marginBottom: '1rem' }}>
-                      <label style={{ 
-                        display: 'block', 
-                        marginBottom: '0.5rem', 
-                        fontWeight: 'bold' 
-                      }}>
-                        Enter Gift Card Code:
-                      </label>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <input
-                          type="text"
-                          value={giftCardCode}
-                          onChange={(e) => {
-                            setGiftCardCode(e.target.value.toUpperCase());
-                            setGiftCardError(null);
-                            setGiftCardLookupResult(null);
-                          }}
-                          placeholder="GIFT-XXXX-XXXX"
-                          style={{
-                            flex: 1,
-                            padding: '0.75rem',
-                            border: '1px solid #ccc',
-                            borderRadius: '4px',
-                            fontSize: '1rem',
-                            letterSpacing: '1px',
-                            fontFamily: 'monospace'
-                          }}
-                        />
-                        <button
-                          onClick={handleGiftCardLookup}
-                          disabled={loadingGiftCardLookup || !giftCardCode.trim()}
-                          style={{
-                            backgroundColor: '#007bff',
-                            color: 'white',
-                            border: 'none',
-                            padding: '0.75rem 1.5rem',
-                            borderRadius: '4px',
-                            cursor: loadingGiftCardLookup ? 'not-allowed' : 'pointer',
-                            opacity: loadingGiftCardLookup || !giftCardCode.trim() ? 0.6 : 1
-                          }}
-                        >
-                          {loadingGiftCardLookup ? 'Checking...' : 'Check Balance'}
-                        </button>
-                      </div>
-                    </div>
-
-                    {giftCardError && (
-                      <div style={{ 
-                        color: '#dc3545', 
-                        backgroundColor: '#f8d7da', 
-                        border: '1px solid #f5c6cb',
-                        borderRadius: '4px',
-                        padding: '0.75rem',
-                        marginBottom: '1rem'
-                      }}>
-                        {giftCardError}
-                      </div>
-                    )}
-
-                    {giftCardLookupResult && (
-                      <div style={{ 
-                        backgroundColor: '#d4edda', 
-                        border: '1px solid #c3e6cb',
-                        borderRadius: '8px',
-                        padding: '1.5rem',
-                        marginTop: '1rem'
-                      }}>
-                        <h5 style={{ 
-                          color: '#155724', 
-                          marginBottom: '1rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem'
-                        }}>
-                          🎁 Gift Card Details
-                        </h5>
-                        
-                        <div style={{ marginBottom: '1rem' }}>
-                          <div style={{ marginBottom: '0.5rem' }}>
-                            <strong>Code:</strong> {giftCardLookupResult.redemptionCode}
-                          </div>
-                          <div style={{ marginBottom: '0.5rem' }}>
-                            <strong>Current Balance:</strong> 
-                            <span style={{ 
-                              color: '#28a745', 
-                              fontSize: '1.2rem', 
-                              fontWeight: 'bold', 
-                              marginLeft: '0.5rem' 
-                            }}>
-                              ${giftCardLookupResult.currentBalance.toFixed(2)}
-                            </span>
-                          </div>
-                          <div style={{ marginBottom: '0.5rem' }}>
-                            <strong>Original Amount:</strong> ${giftCardLookupResult.originalAmount.toFixed(2)}
-                          </div>
-                          <div style={{ marginBottom: '0.5rem' }}>
-                            <strong>Expires:</strong> {new Date(giftCardLookupResult.expirationDate).toLocaleDateString()}
-                          </div>
-                          <div style={{ marginBottom: '1rem' }}>
-                            <strong>Purchased:</strong> {new Date(giftCardLookupResult.purchaseDate).toLocaleDateString()}
-                          </div>
-                        </div>
-
-                        {giftCardLookupResult.currentBalance > 0 && (
-                          <div style={{ 
-                            borderTop: '1px solid #c3e6cb',
-                            paddingTop: '1rem'
-                          }}>
-                            <button
-                              onClick={() => handleRedeemFromChecker()}
-                              style={{
-                                backgroundColor: '#28a745',
-                                color: 'white',
-                                border: 'none',
-                                padding: '0.75rem 1.5rem',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontWeight: 'bold'
-                              }}
-                            >
-                              💰 Add Full Balance to Wallet (${giftCardLookupResult.currentBalance.toFixed(2)})
-                            </button>
-                          </div>
-                        )}
-
-                        {giftCardLookupResult.usageHistory && giftCardLookupResult.usageHistory.length > 0 && (
-                          <div style={{ 
-                            borderTop: '1px solid #c3e6cb',
-                            paddingTop: '1rem',
-                            marginTop: '1rem'
-                          }}>
-                            <h6>Usage History:</h6>
-                            <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
-                              {giftCardLookupResult.usageHistory.map((usage: any, index: number) => (
-                                <div key={index} style={{ 
-                                  fontSize: '0.9rem', 
-                                  marginBottom: '0.5rem',
-                                  padding: '0.5rem',
-                                  backgroundColor: 'rgba(255,255,255,0.5)',
-                                  borderRadius: '4px'
-                                }}>
-                                  <div style={{ fontWeight: 'bold' }}>
-                                    {usage.type === 'order' ? '🛒' : '💰'} {usage.description}
-                                  </div>
-                                  <div style={{ color: '#666' }}>
-                                    Amount: ${usage.amount.toFixed(2)} • {new Date(usage.date).toLocaleDateString()}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    <p style={{ marginBottom: '1rem', color: '#666' }}>
+                      Check your gift card balance and redeem to your wallet.
+                    </p>
+                    <button
+                      onClick={() => setShowGiftCardModal(true)}
+                      style={{
+                        backgroundColor: '#4a90e2',
+                        color: 'white',
+                        border: 'none',
+                        padding: '0.75rem 1.5rem',
+                        borderRadius: '6px',
+                        fontSize: '1rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        boxShadow: '0 2px 4px rgba(74, 144, 226, 0.3)',
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.backgroundColor = '#357abd';
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.backgroundColor = '#4a90e2';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                    >
+                      Check Gift Card Balance
+                    </button>
                   </div>
                 </div>
                 
@@ -2202,6 +2086,278 @@ export default function Profile() {
         }}
       />
     )}
+
+    {/* Gift Card Balance Checker Modal */}
+    {showGiftCardModal && (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          padding: '2rem',
+          borderRadius: '8px',
+          minWidth: '500px',
+          maxWidth: '600px',
+          maxHeight: '80vh',
+          overflowY: 'auto',
+          textAlign: 'center'
+        }}>
+          <h3 style={{ marginBottom: '1rem', color: '#4a90e2' }}>🎁 Check Gift Card Balance</h3>
+          <p style={{ marginBottom: '1.5rem', color: '#666' }}>
+            Enter your gift card code to check the current balance and redeem to your wallet.
+          </p>
+          
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ 
+              display: 'block', 
+              marginBottom: '0.5rem',
+              fontWeight: 'bold',
+              color: '#333',
+              textAlign: 'left'
+            }}>
+              Gift Card Code:
+            </label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input
+                type="text"
+                value={giftCardCode}
+                onChange={(e) => {
+                  const input = e.target.value;
+                  // Remove all dashes first
+                  const cleaned = input.replace(/-/g, '');
+                  
+                  // Only allow alphanumeric characters (letters and numbers)
+                  const alphanumeric = cleaned.replace(/[^A-Za-z0-9]/g, '');
+                  
+                  // Limit to 12 characters max
+                  const limited = alphanumeric.slice(0, 12);
+                  
+                  // Add dashes automatically: XXXX-XXXX-XXXX
+                  let formatted = limited;
+                  if (limited.length > 4) {
+                    formatted = limited.slice(0, 4) + '-' + limited.slice(4);
+                  }
+                  if (limited.length > 8) {
+                    formatted = limited.slice(0, 4) + '-' + limited.slice(4, 8) + '-' + limited.slice(8);
+                  }
+                  
+                  setGiftCardCode(formatted);
+                  setGiftCardError(null);
+                  setGiftCardLookupResult(null);
+                }}
+                placeholder="Enter gift card code (e.g., Ab3X-Yz9M-Qp2K)"
+                style={{
+                  flex: 1,
+                  padding: '0.75rem',
+                  fontSize: '1rem',
+                  border: '2px solid #ddd',
+                  borderRadius: '4px',
+                  backgroundColor: 'white',
+                  textAlign: 'center',
+                  letterSpacing: '0.5px',
+                  fontFamily: 'monospace'
+                }}
+                disabled={loadingGiftCardLookup}
+                maxLength={14} // XXXX-XXXX-XXXX = 14 characters
+              />
+              <button
+                onClick={handleGiftCardLookup}
+                disabled={loadingGiftCardLookup || !giftCardCode.trim()}
+                style={{
+                  backgroundColor: loadingGiftCardLookup || !giftCardCode.trim() ? '#ccc' : '#4a90e2',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '4px',
+                  cursor: loadingGiftCardLookup || !giftCardCode.trim() ? 'not-allowed' : 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: 'bold'
+                }}
+              >
+                {loadingGiftCardLookup ? 'Checking...' : 'Check Balance'}
+              </button>
+            </div>
+          </div>
+
+          {giftCardError && (
+            <div style={{
+              marginBottom: '1.5rem',
+              padding: '1rem',
+              borderRadius: '6px',
+              backgroundColor: '#f8d7da',
+              border: '1px solid #f5c6cb',
+              color: '#721c24'
+            }}>
+              <div style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                ❌ Error
+              </div>
+              <div>{giftCardError}</div>
+            </div>
+          )}
+
+          {giftCardLookupResult && (
+            <div style={{
+              marginBottom: '1.5rem',
+              padding: '1.5rem',
+              borderRadius: '8px',
+              backgroundColor: '#d4edda',
+              border: '1px solid #c3e6cb',
+              color: '#155724',
+              textAlign: 'left'
+            }}>
+              <h5 style={{ 
+                color: '#155724', 
+                marginBottom: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                🎁 Gift Card Details
+              </h5>
+              
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ marginBottom: '0.5rem' }}>
+                  <strong>Code:</strong> {giftCardLookupResult.redemptionCode}
+                </div>
+                <div style={{ marginBottom: '0.5rem' }}>
+                  <strong>Current Balance:</strong> 
+                  <span style={{ 
+                    color: '#28a745', 
+                    fontSize: '1.2rem', 
+                    fontWeight: 'bold', 
+                    marginLeft: '0.5rem' 
+                  }}>
+                    ${giftCardLookupResult.currentBalance.toFixed(2)}
+                  </span>
+                </div>
+                <div style={{ marginBottom: '0.5rem' }}>
+                  <strong>Original Amount:</strong> ${giftCardLookupResult.originalAmount.toFixed(2)}
+                </div>
+                <div style={{ marginBottom: '0.5rem' }}>
+                  <strong>Expires:</strong> {new Date(giftCardLookupResult.expirationDate).toLocaleDateString()}
+                </div>
+                <div style={{ marginBottom: '1rem' }}>
+                  <strong>Purchased:</strong> {new Date(giftCardLookupResult.purchaseDate).toLocaleDateString()}
+                </div>
+              </div>
+
+              {giftCardLookupResult.currentBalance > 0 && (
+                <div style={{ 
+                  borderTop: '1px solid #c3e6cb',
+                  paddingTop: '1rem',
+                  textAlign: 'center'
+                }}>
+                  <button
+                    onClick={() => handleRedeemFromChecker()}
+                    style={{
+                      backgroundColor: '#28a745',
+                      color: 'white',
+                      border: 'none',
+                      padding: '0.75rem 1.5rem',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    💰 Add Full Balance to Wallet (${giftCardLookupResult.currentBalance.toFixed(2)})
+                  </button>
+                </div>
+              )}
+
+              {giftCardLookupResult.usageHistory && giftCardLookupResult.usageHistory.length > 0 && (
+                <div style={{ 
+                  borderTop: '1px solid #c3e6cb',
+                  paddingTop: '1rem',
+                  marginTop: '1rem'
+                }}>
+                  <h6>Usage History:</h6>
+                  <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                    {giftCardLookupResult.usageHistory.map((usage: any, index: number) => (
+                      <div key={index} style={{ 
+                        fontSize: '0.9rem', 
+                        marginBottom: '0.5rem',
+                        padding: '0.5rem',
+                        backgroundColor: 'rgba(255,255,255,0.5)',
+                        borderRadius: '4px'
+                      }}>
+                        <div style={{ fontWeight: 'bold' }}>
+                          {usage.type === 'order' ? '🛒' : '💰'} {usage.description}
+                        </div>
+                        <div style={{ color: '#666' }}>
+                          Amount: ${usage.amount.toFixed(2)} • {new Date(usage.date).toLocaleDateString()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+            {giftCardLookupResult && (
+              <button
+                onClick={resetGiftCardChecker}
+                style={{
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                  fontWeight: 'bold'
+                }}
+              >
+                Check Another
+              </button>
+            )}
+            
+            <button
+              onClick={() => {
+                setShowGiftCardModal(false);
+                resetGiftCardChecker();
+              }}
+              style={{
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                padding: '0.75rem 1.5rem',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              Close
+            </button>
+          </div>
+
+          <div style={{ 
+            marginTop: '1rem', 
+            fontSize: '0.8rem', 
+            color: '#666',
+            fontStyle: 'italic',
+            textAlign: 'left'
+          }}>
+            <strong>Need help?</strong><br />
+            • Gift card codes are 12 characters in format: XXXX-XXXX-XXXX<br />
+            • Codes contain letters (both cases) and numbers<br />
+            • Codes are case-sensitive - enter exactly as shown<br />
+            • Contact us at (803) 221-0466 if you have issues
+          </div>
+        </div>
+      </div>
+    )}
+
     </>
   );
 }
