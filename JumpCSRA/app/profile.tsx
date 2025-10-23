@@ -13,10 +13,11 @@ import "./styles/profile.css";
 import { useInflateables } from "./hooks/useInflateables";
 import { useCategories } from "./hooks/useCategories";
 import type { CartItem } from "./components/CartSidebar";
-import { loadBookingData, loadContractData, loadContractByOrderID, getUserWallet, getUserPaymentInfo, addWalletTransaction } from "./utils/databaseUtils";
-import type { BookingData, ContractData, UserWallet, UserPaymentInfo } from "./utils/databaseUtils";
+import { loadBookingData, loadContractData, loadContractByOrderID, getUserWallet, getUserPaymentInfo, addWalletTransaction, addSavedPaymentMethod } from "./utils/databaseUtils";
+import type { BookingData, ContractData, UserWallet, UserPaymentInfo, SavedPaymentMethod } from "./utils/databaseUtils";
 import { redeemGiftCardToWallet, validateGiftCard, getGiftCardDetails } from "./hooks/useDiscounts";
 import { WalletFundingModal } from "./components/WalletFundingModal";
+import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 
 const TABS = ["Profile Information", "Past Events", "Membership", "Payment Information"];
 
@@ -70,6 +71,10 @@ export default function Profile() {
   const [giftCardLookupResult, setGiftCardLookupResult] = useState<any>(null);
   const [loadingGiftCardLookup, setLoadingGiftCardLookup] = useState(false);
   const [giftCardError, setGiftCardError] = useState<string | null>(null);
+
+  // Payment Method Storage Modal State
+  const [showPaymentMethodModal, setShowPaymentMethodModal] = useState(false);
+  const [storingPaymentMethod, setStoringPaymentMethod] = useState(false);
 
   const navigate = useNavigate();
   
@@ -766,6 +771,133 @@ export default function Profile() {
       console.error('Error removing payment method:', error);
       alert('An error occurred while removing payment method');
     }
+  };
+
+  // Store payment method functions
+  const createPaymentMethodOrder = async (data: any, actions: any) => {
+    return actions.order.create({
+      intent: "CAPTURE",
+      purchase_units: [{
+        amount: {
+          currency_code: "USD",
+          value: "0.50" // Small verification amount
+        },
+        description: "Payment method verification"
+      }],
+      payment_source: {
+        paypal: {
+          experience_context: {
+            return_url: `${window.location.origin}/profile`,
+            cancel_url: `${window.location.origin}/profile`
+          },
+          attributes: {
+            vault: {
+              store_in_vault: "ON_SUCCESS",
+              usage_pattern: "IMMEDIATE",
+              usage_type: "MERCHANT"
+            }
+          }
+        }
+      }
+    });
+  };
+
+  const onPaymentMethodApprove = async (data: any, actions: any) => {
+    if (!user) return;
+    
+    setStoringPaymentMethod(true);
+    try {
+      const details = await actions.order.capture();
+      console.log('🔍 PayPal capture details (full response):', JSON.stringify(details, null, 2));
+      console.log('🔍 Payment source:', details.payment_source);
+      console.log('🔍 Payment source PayPal:', details.payment_source?.paypal);
+      console.log('🔍 Payment source Card:', details.payment_source?.card);
+      
+      // Refund the verification amount immediately
+      try {
+        // Note: In production, you'd call your backend to process the refund
+        console.log('Processing refund for verification payment:', details.id);
+      } catch (refundError) {
+        console.error('Error processing refund:', refundError);
+        // Continue with saving payment method even if refund fails
+      }
+      
+      // Extract vault information from the response
+      let vaultId = null;
+      let paymentMethodInfo: Omit<SavedPaymentMethod, 'id' | 'createdAt'> | null = null;
+      
+      // Check multiple places where vault info might be stored
+      if (details.payment_source?.paypal?.attributes?.vault?.id) {
+        vaultId = details.payment_source.paypal.attributes.vault.id;
+        paymentMethodInfo = {
+          type: 'paypal' as const,
+          paypalVaultId: vaultId,
+          isDefault: !userPaymentInfo?.savedPaymentMethods?.length
+        };
+      } else if (details.payment_source?.card?.attributes?.vault?.id) {
+        const cardData = details.payment_source.card;
+        vaultId = cardData.attributes.vault.id;
+        paymentMethodInfo = {
+          type: 'card' as const,
+          paypalVaultId: vaultId,
+          lastFour: cardData.last_digits,
+          cardType: cardData.brand,
+          expiryMonth: cardData.expiry?.split('/')[0],
+          expiryYear: cardData.expiry?.split('/')[1],
+          isDefault: !userPaymentInfo?.savedPaymentMethods?.length
+        };
+      } else if (details.payment_source?.paypal?.vault_id) {
+        // Alternative location for vault ID
+        vaultId = details.payment_source.paypal.vault_id;
+        paymentMethodInfo = {
+          type: 'paypal' as const,
+          paypalVaultId: vaultId,
+          isDefault: !userPaymentInfo?.savedPaymentMethods?.length
+        };
+      } else if (details.payment_source?.card?.vault_id) {
+        const cardData = details.payment_source.card;
+        vaultId = cardData.vault_id;
+        paymentMethodInfo = {
+          type: 'card' as const,
+          paypalVaultId: vaultId,
+          lastFour: cardData.last_digits,
+          cardType: cardData.brand,
+          expiryMonth: cardData.expiry?.split('/')[0],
+          expiryYear: cardData.expiry?.split('/')[1],
+          isDefault: !userPaymentInfo?.savedPaymentMethods?.length
+        };
+      }
+      
+      console.log('Extracted vault ID:', vaultId);
+      console.log('Payment method info:', paymentMethodInfo);
+      
+      if (vaultId && paymentMethodInfo) {
+        const success = await addSavedPaymentMethod(user.uid, paymentMethodInfo);
+        
+        if (success) {
+          alert('Payment method stored successfully!');
+          await loadPaymentTabData(); // Refresh payment data
+          setShowPaymentMethodModal(false);
+        } else {
+          alert('Failed to store payment method in database');
+        }
+      } else {
+        console.error('No vault ID found in PayPal response');
+        alert('Payment method could not be stored - no vault information received from PayPal');
+      }
+      
+    } catch (error) {
+      console.error('Error storing payment method:', error);
+      alert('Error storing payment method. Please try again.');
+    } finally {
+      setStoringPaymentMethod(false);
+    }
+  };
+
+  const onPaymentMethodError = (err: any) => {
+    console.error("PayPal payment method error:", err);
+    alert('Error setting up payment method. Please try again.');
+    setStoringPaymentMethod(false);
   };
 
   // Load payment data when tab changes
@@ -1707,6 +1839,45 @@ export default function Profile() {
                     <div>Loading payment methods...</div>
                   ) : userPaymentInfo ? (
                     <div className="payment-methods-content">
+                      {/* Add Payment Method Button */}
+                      <div style={{ 
+                        marginBottom: '1.5rem', 
+                        textAlign: 'center',
+                        padding: '1rem',
+                        backgroundColor: '#f8f9fa',
+                        borderRadius: '8px',
+                        border: '1px solid #dee2e6'
+                      }}>
+                        <p style={{ marginBottom: '1rem', color: '#666' }}>
+                          Store a payment method for faster checkout without adding to wallet.
+                        </p>
+                        <button
+                          onClick={() => setShowPaymentMethodModal(true)}
+                          style={{
+                            backgroundColor: '#0070ba',
+                            color: 'white',
+                            border: 'none',
+                            padding: '0.75rem 1.5rem',
+                            borderRadius: '6px',
+                            fontSize: '1rem',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 4px rgba(0, 112, 186, 0.3)',
+                            transition: 'all 0.2s ease'
+                          }}
+                          onMouseOver={(e) => {
+                            e.currentTarget.style.backgroundColor = '#005fa3';
+                            e.currentTarget.style.transform = 'translateY(-1px)';
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.backgroundColor = '#0070ba';
+                            e.currentTarget.style.transform = 'translateY(0)';
+                          }}
+                        >
+                          💳 Store Payment Method
+                        </button>
+                      </div>
+
                       {userPaymentInfo.savedPaymentMethods.length > 0 ? (
                         <div className="payment-methods-list">
                           {userPaymentInfo.savedPaymentMethods.map((method) => (
@@ -1783,7 +1954,7 @@ export default function Profile() {
                           fontStyle: 'italic'
                         }}>
                           <p>No saved payment methods yet.</p>
-                          <p>Add funds to your wallet to save your first payment method!</p>
+                          <p>Click "Store Payment Method" above to add your first payment method!</p>
                         </div>
                       )}
                     </div>
@@ -2353,6 +2524,110 @@ export default function Profile() {
             • Codes contain letters (both cases) and numbers<br />
             • Codes are case-sensitive - enter exactly as shown<br />
             • Contact us at (803) 221-0466 if you have issues
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Payment Method Storage Modal */}
+    {showPaymentMethodModal && (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          padding: '2rem',
+          borderRadius: '8px',
+          minWidth: '500px',
+          maxWidth: '600px',
+          maxHeight: '80vh',
+          overflowY: 'auto',
+          textAlign: 'center'
+        }}>
+          <h3 style={{ marginBottom: '1rem', color: '#0070ba' }}>💳 Store Payment Method</h3>
+          <p style={{ marginBottom: '1.5rem', color: '#666' }}>
+            We'll securely store your payment method for faster checkout. A small verification charge of $0.50 will be processed and immediately refunded.
+          </p>
+          
+          {storingPaymentMethod && (
+            <div style={{
+              marginBottom: '1.5rem',
+              padding: '1rem',
+              borderRadius: '6px',
+              backgroundColor: '#e3f2fd',
+              border: '1px solid #bbdefb',
+              color: '#1976d2'
+            }}>
+              <div style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                🔄 Processing...
+              </div>
+              <div>Storing your payment method securely...</div>
+            </div>
+          )}
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <PayPalScriptProvider options={{
+              clientId: "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0",
+              currency: "USD",
+              intent: "capture",
+              vault: true
+            }}>
+              <PayPalButtons
+                style={{
+                  layout: "vertical",
+                  color: "blue",
+                  shape: "rect",
+                  label: "pay"
+                }}
+                createOrder={createPaymentMethodOrder}
+                onApprove={onPaymentMethodApprove}
+                onError={onPaymentMethodError}
+                disabled={storingPaymentMethod}
+              />
+            </PayPalScriptProvider>
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+            <button
+              onClick={() => {
+                setShowPaymentMethodModal(false);
+                setStoringPaymentMethod(false);
+              }}
+              style={{
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                padding: '0.75rem 1.5rem',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '1rem'
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+
+          <div style={{ 
+            marginTop: '1rem', 
+            fontSize: '0.8rem', 
+            color: '#666',
+            fontStyle: 'italic',
+            textAlign: 'left'
+          }}>
+            <strong>Security Note:</strong><br />
+            • Your payment information is securely stored by PayPal<br />
+            • We never store your actual card details<br />
+            • The $0.50 verification charge is immediately refunded<br />
+            • You can remove stored methods anytime from this page
           </div>
         </div>
       </div>

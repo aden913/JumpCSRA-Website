@@ -741,6 +741,17 @@
           "focus": false,
           "end": 1760977682881
         }
+      },
+      {
+        "key": 1761244251747,
+        "children": [],
+        "todo": {
+          "content": "saving a payment info in the profile might not be able to be done with a sandbox account.",
+          "id": 1761244251747,
+          "level": "default",
+          "done": false,
+          "start": 1761244251747
+        }
       }
     ],
     "expandKeys": [
@@ -773,6 +784,6 @@
     "showEndTime": false,
     "simpleMode": false,
     "lang": "en",
-    "version": "1760977838177"
+    "version": "1761244278379"
   }
 }
