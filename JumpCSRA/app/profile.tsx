@@ -1773,6 +1773,7 @@ export default function Profile() {
                               <div key={transaction.id} className="transaction-item" style={{
                                 display: 'flex',
                                 justifyContent: 'space-between',
+                                alignItems: 'center',
                                 padding: '0.5rem',
                                 borderBottom: '1px solid #eee'
                               }}>
@@ -1782,11 +1783,30 @@ export default function Profile() {
                                     {new Date(transaction.createdAt).toLocaleDateString()}
                                   </div>
                                 </div>
-                                <div style={{
-                                  color: transaction.type === 'withdrawal' ? '#dc3545' : '#28a745',
-                                  fontWeight: 'bold'
-                                }}>
-                                  {transaction.type === 'withdrawal' ? '-' : '+'}${transaction.amount.toFixed(2)}
+                                <div style={{ textAlign: 'right' }}>
+                                  <div style={{
+                                    color: transaction.type === 'withdrawal' ? '#dc3545' : '#28a745',
+                                    fontWeight: 'bold'
+                                  }}>
+                                    {transaction.type === 'withdrawal' ? '-' : '+'}${transaction.amount.toFixed(2)}
+                                  </div>
+                                  <div style={{ fontSize: '0.8rem', color: '#888' }}>
+                                    {/* Calculate balance after this transaction */}
+                                    Balance: ${(() => {
+                                      // Start from current balance and walk backwards
+                                      const idx = userWallet.transactions.findIndex(t => t.id === transaction.id);
+                                      let balance = userWallet.balance;
+                                      for (let i = 0; i < idx; i++) {
+                                        const t = userWallet.transactions[i];
+                                        if (t.type === 'deposit' || t.type === 'gift_card_redemption') {
+                                          balance -= t.amount;
+                                        } else if (t.type === 'withdrawal') {
+                                          balance += t.amount;
+                                        }
+                                      }
+                                      return balance.toFixed(2);
+                                    })()}
+                                  </div>
                                 </div>
                               </div>
                             ))}
