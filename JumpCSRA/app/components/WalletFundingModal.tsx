@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { validateGiftCard } from '../hooks/useDiscounts';
 import { addWalletTransaction } from '../utils/databaseUtils';
-import { getDoc, doc, setDoc } from 'firebase/firestore';
-import { firestore } from './FirebaseConfig';
+import { getDatabase, ref, get, set } from 'firebase/database';
 
 interface WalletFundingModalProps {
   isOpen: boolean;
@@ -62,27 +61,24 @@ export function WalletFundingModal({ isOpen, onClose, userId, onSuccess, onError
 
   const processGiftCardTransfer = async () => {
     if (!giftCardInfo || !transferAmount || !giftCardCode.trim()) return;
-    
     const amount = parseFloat(transferAmount);
     if (amount <= 0 || amount > giftCardInfo.balance) {
       onError('Invalid transfer amount');
       return;
     }
-
     setLoading(true);
     try {
-      // Update gift card in database
-      const giftCardDoc = await getDoc(doc(firestore, 'giftCards', giftCardCode.trim()));
-      if (!giftCardDoc.exists()) {
+      // Use Realtime Database for gift card
+      const db = getDatabase();
+      const giftCardRef = ref(db, `giftCards/${giftCardCode.trim()}`);
+      const snapshot = await get(giftCardRef);
+      if (!snapshot.exists()) {
         onError('Gift card not found');
         return;
       }
-
-      const giftCard = giftCardDoc.data();
+      const giftCard = snapshot.val();
       const newBalance = giftCard.currentBalance - amount;
       const isNowEmpty = newBalance <= 0;
-
-      // Update gift card
       const updatedGiftCard = {
         ...giftCard,
         currentBalance: newBalance,
@@ -100,9 +96,7 @@ export function WalletFundingModal({ isOpen, onClose, userId, onSuccess, onError
         ],
         lastUpdated: new Date().toISOString()
       };
-
-      await setDoc(doc(firestore, 'giftCards', giftCardCode.trim()), updatedGiftCard);
-
+      await set(giftCardRef, updatedGiftCard);
       // Add to wallet
       const walletSuccess = await addWalletTransaction(userId, {
         type: 'gift_card_redemption',
@@ -110,7 +104,6 @@ export function WalletFundingModal({ isOpen, onClose, userId, onSuccess, onError
         description: `Gift card transfer: ${giftCardCode.trim()}`,
         giftCardCode: giftCardCode.trim()
       });
-
       if (walletSuccess) {
         onSuccess(amount, 'gift_card');
         handleClose();
@@ -260,13 +253,31 @@ export function WalletFundingModal({ isOpen, onClose, userId, onSuccess, onError
                 <input
                   type="text"
                   value={giftCardCode}
-                  onChange={(e) => setGiftCardCode(e.target.value.toUpperCase())}
-                  placeholder="Enter gift card code"
+                  onChange={(e) => {
+                    let input = e.target.value.replace(/-/g, '');
+                    // Only allow alphanumeric
+                    input = input.replace(/[^A-Za-z0-9]/g, '');
+                    // Limit to 12 chars
+                    input = input.slice(0, 12);
+                    // Auto-insert dashes: XXXX-XXXX-XXXX
+                    let formatted = input;
+                    if (input.length > 4) {
+                      formatted = input.slice(0, 4) + '-' + input.slice(4);
+                    }
+                    if (input.length > 8) {
+                      formatted = input.slice(0, 4) + '-' + input.slice(4, 8) + '-' + input.slice(8);
+                    }
+                    setGiftCardCode(formatted);
+                  }}
+                  placeholder="Enter gift card code (e.g., Ab3X-Yz9M-Qp2K)"
                   style={{
                     flex: 1,
                     padding: '0.75rem',
                     border: '1px solid #ddd',
-                    borderRadius: '4px'
+                    borderRadius: '4px',
+                    fontFamily: 'monospace',
+                    textTransform: 'none',
+                    letterSpacing: '0.5px'
                   }}
                 />
                 <button

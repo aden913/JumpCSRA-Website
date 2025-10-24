@@ -631,7 +631,10 @@ export default function Profile() {
 
   // Gift Card Balance Checker Function
   const handleGiftCardLookup = async () => {
+    console.log('[GiftCardBalanceCheck] Lookup started');
+    console.log('[GiftCardBalanceCheck] Input code:', giftCardCode);
     if (!giftCardCode.trim()) {
+      console.warn('[GiftCardBalanceCheck] No code entered');
       setGiftCardError("Please enter a gift card code");
       return;
     }
@@ -641,18 +644,23 @@ export default function Profile() {
     setGiftCardLookupResult(null);
 
     try {
-      const result = await getGiftCardDetails(giftCardCode.trim());
-      
+      const trimmedCode = giftCardCode.trim();
+      console.log('[GiftCardBalanceCheck] Querying getGiftCardDetails with code:', trimmedCode);
+      const result = await getGiftCardDetails(trimmedCode);
+      console.log('[GiftCardBalanceCheck] Lookup result:', result);
       if (result.success && result.giftCard) {
+        console.log('[GiftCardBalanceCheck] Gift card found:', result.giftCard);
         setGiftCardLookupResult(result.giftCard);
       } else {
+        console.warn('[GiftCardBalanceCheck] Lookup failed:', result.message);
         setGiftCardError(result.message || "Gift card not found or invalid");
       }
     } catch (error) {
-      console.error('Error looking up gift card:', error);
+      console.error('[GiftCardBalanceCheck] Error looking up gift card:', error);
       setGiftCardError("Error looking up gift card. Please try again.");
     } finally {
       setLoadingGiftCardLookup(false);
+      console.log('[GiftCardBalanceCheck] Lookup finished');
     }
   };
 

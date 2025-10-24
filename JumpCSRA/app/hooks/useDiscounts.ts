@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { getAuth } from 'firebase/auth';
 import { getDoc, doc, updateDoc, arrayUnion, setDoc, addDoc, collection } from 'firebase/firestore';
 import { firestore } from '../components/FirebaseConfig';
+import { getDatabase, ref, set } from 'firebase/database';
 import type { CartItem } from '../components/CartSidebar';
 
 // Discount types
@@ -737,8 +738,9 @@ async function createGiftCardInDatabase(
       lastUpdated: now.toISOString(),
     };
 
-    await setDoc(doc(firestore, 'giftCards', code), giftCardData);
-    return true;
+  const db = getDatabase();
+  await set(ref(db, `giftCards/${code}`), giftCardData);
+  return true;
   } catch (error) {
     console.error('Error creating gift card in database:', error);
     return false;
@@ -784,42 +786,33 @@ export async function redeemGiftCardToWallet(
   userName: string
 ): Promise<{ success: boolean; message: string; amount?: number }> {
   try {
-    const giftCardDoc = await getDoc(doc(firestore, 'giftCards', giftCardCode));
-    
-    if (!giftCardDoc.exists()) {
+    const db = getDatabase();
+    const giftCardRef = ref(db, `giftCards/${giftCardCode}`);
+    const snapshot = await import('firebase/database').then(({ get }) => get(giftCardRef));
+    if (!snapshot.exists()) {
       return { success: false, message: 'Gift card not found' };
     }
-    
-    const giftCard = giftCardDoc.data();
-    
+    const giftCard = snapshot.val();
     if (giftCard.status !== 'active') {
       return { success: false, message: 'Gift card is not active' };
     }
-    
     if (giftCard.currentBalance <= 0) {
       return { success: false, message: 'Gift card has no remaining balance' };
     }
-    
-    // Check if expired
     if (new Date(giftCard.expirationDate) < new Date()) {
       return { success: false, message: 'Gift card has expired' };
     }
-    
     const redeemAmount = giftCard.currentBalance;
-    
-    // Add usage history to gift card
     const updatedUsageHistory = [
       ...(giftCard.usageHistory || []),
       {
-        type: 'wallet' as const,
+        type: 'wallet',
         amount: redeemAmount,
         date: new Date().toISOString(),
         walletUserId: userId,
         description: `Redeemed to wallet by ${userName} (${userEmail})`
       }
     ];
-    
-    // Update gift card - mark as empty
     const updatedGiftCard = {
       ...giftCard,
       currentBalance: 0,
@@ -828,10 +821,7 @@ export async function redeemGiftCardToWallet(
       usageHistory: updatedUsageHistory,
       lastUpdated: new Date().toISOString()
     };
-    
-    await setDoc(doc(firestore, 'giftCards', giftCardCode), updatedGiftCard);
-    
-    // Add to user's wallet (import from databaseUtils)
+    await set(giftCardRef, updatedGiftCard);
     const { addWalletTransaction } = await import('../utils/databaseUtils');
     const walletSuccess = await addWalletTransaction(userId, {
       type: 'gift_card_redemption',
@@ -839,17 +829,14 @@ export async function redeemGiftCardToWallet(
       description: `Gift card redeemed: ${giftCardCode}`,
       giftCardCode
     });
-    
     if (!walletSuccess) {
       return { success: false, message: 'Failed to add funds to wallet' };
     }
-    
-    return { 
-      success: true, 
-      message: `Successfully redeemed $${redeemAmount.toFixed(2)} to your wallet`, 
-      amount: redeemAmount 
+    return {
+      success: true,
+      message: `Successfully redeemed $${redeemAmount.toFixed(2)} to your wallet`,
+      amount: redeemAmount
     };
-    
   } catch (error) {
     console.error('Error redeeming gift card to wallet:', error);
     return { success: false, message: 'An error occurred while redeeming the gift card' };
@@ -862,32 +849,27 @@ export async function validateGiftCard(giftCardCode: string): Promise<{
   message: string;
 }> {
   try {
-    const giftCardDoc = await getDoc(doc(firestore, 'giftCards', giftCardCode));
-    
-    if (!giftCardDoc.exists()) {
+    const db = getDatabase();
+    const giftCardRef = ref(db, `giftCards/${giftCardCode}`);
+    const snapshot = await import('firebase/database').then(({ get }) => get(giftCardRef));
+    if (!snapshot.exists()) {
       return { valid: false, message: 'Gift card not found' };
     }
-    
-    const giftCard = giftCardDoc.data();
-    
+    const giftCard = snapshot.val();
     if (giftCard.status !== 'active') {
       return { valid: false, message: 'Gift card is not active' };
     }
-    
     if (giftCard.currentBalance <= 0) {
       return { valid: false, message: 'Gift card has no remaining balance' };
     }
-    
     if (new Date(giftCard.expirationDate) < new Date()) {
       return { valid: false, message: 'Gift card has expired' };
     }
-    
     return {
       valid: true,
       balance: giftCard.currentBalance,
       message: `Gift card is valid with $${giftCard.currentBalance.toFixed(2)} balance`
     };
-    
   } catch (error) {
     console.error('Error validating gift card:', error);
     return { valid: false, message: 'Error validating gift card' };
@@ -917,25 +899,21 @@ async function getGiftCardDetails(giftCardCode: string): Promise<{
   message: string;
 }> {
   try {
-    const giftCardDoc = await getDoc(doc(firestore, 'giftCards', giftCardCode));
-    
-    if (!giftCardDoc.exists()) {
+    const db = getDatabase();
+    const giftCardRef = ref(db, `giftCards/${giftCardCode}`);
+    const snapshot = await import('firebase/database').then(({ get }) => get(giftCardRef));
+    if (!snapshot.exists()) {
       return { success: false, message: 'Gift card not found' };
     }
-    
-    const giftCard = giftCardDoc.data();
-    
+    const giftCard = snapshot.val();
     if (giftCard.status !== 'active') {
       return { success: false, message: 'Gift card is not active' };
     }
-    
-    // Check if expired
     if (new Date(giftCard.expirationDate) < new Date()) {
       return { success: false, message: 'Gift card has expired' };
     }
-    
-    return { 
-      success: true, 
+    return {
+      success: true,
       giftCard,
       message: 'Gift card found successfully'
     };

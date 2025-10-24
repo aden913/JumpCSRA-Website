@@ -254,13 +254,9 @@ export default function Checkout() {
           if (onlyGiftCards) {
             console.log('🎁 Gift card-only order moving to payment - creating booking first');
             try {
-              // Create booking for gift card-only order
-              const isWithinTwoDays = isCurrentBookingWithinTwoDays();
-              const needsPhoneCall = isWithinTwoDays && !onlyGiftCards; // Should be false for gift cards
-              const initialStatus = needsPhoneCall ? 'deferred' : 'pending';
-              
-              console.log(`Creating gift card booking - Within 2 days: ${isWithinTwoDays}, Status: ${initialStatus}`);
-              
+              // Always set status to confirmed for gift card-only orders
+              const initialStatus = 'confirmed';
+              console.log(`Creating gift card booking - Status: ${initialStatus}`);
               const result = await saveBookingAndContract(initialStatus);
               if (result) {
                 const { orderID } = result;
@@ -1594,44 +1590,55 @@ export default function Checkout() {
               console.log('🎁 GIFT CARD DEBUG - Filtered gift cards:', giftCardsInCart);
               
               if (giftCardsInCart.length > 0 && user) {
+                let anyGiftCardFailed = false;
                 try {
                   console.log(`🎁 Creating ${giftCardsInCart.length} gift card database entries...`);
-                  
                   for (const giftCardItem of giftCardsInCart) {
-                    console.log(`🎁 Processing gift card item:`, giftCardItem);
-                    // Handle multiple quantities by creating individual gift cards
-                    for (let i = 0; i < giftCardItem.quantity; i++) {
+                    // Log all fields for debugging
+                    console.log('🎁 Gift card item details:', JSON.stringify(giftCardItem));
+                    const quantity = giftCardItem.quantity || 1;
+                    const value = giftCardItem.giftCardValue || giftCardItem.price;
+                    if (!value || value <= 0) {
+                      console.error('❌ Invalid gift card value:', value, giftCardItem);
+                      anyGiftCardFailed = true;
+                      continue;
+                    }
+                    for (let i = 0; i < quantity; i++) {
                       const giftCardCode = await generateUniqueGiftCardCode();
-                      const giftCardValue = giftCardItem.giftCardValue || giftCardItem.price;
-                      
-                      console.log(`🎁 Creating gift card ${i + 1}/${giftCardItem.quantity}: Code=${giftCardCode}, Value=$${giftCardValue}`);
-                      
+                      console.log(`🎁 Creating gift card ${i + 1}/${quantity}: Code=${giftCardCode}, Value=$${value}`);
                       const success = await createGiftCardInDatabase(
                         giftCardCode,
-                        giftCardValue,
+                        value,
                         user.uid,
                         user.email || '',
                         user.displayName || '',
                         false // isGift = false for purchased cards
                       );
-                      
                       if (success) {
-                        console.log(`✅ Gift card created successfully: ${giftCardCode} - $${giftCardValue}`);
+                        console.log(`✅ Gift card created successfully: ${giftCardCode} - $${value}`);
                       } else {
-                        console.error(`❌ Failed to create gift card: ${giftCardCode}`);
+                        console.error(`❌ Failed to create gift card: ${giftCardCode} - $${value}`);
+                        anyGiftCardFailed = true;
                       }
                     }
                   }
-                  
-                  console.log(`🎁 Successfully processed gift card database entries for order ${pendingBookingId}`);
+                  if (anyGiftCardFailed) {
+                    notifications.show({
+                      title: '⚠️ Gift Card Warning',
+                      message: 'Some gift cards failed to be created. Please check the logs or contact support.',
+                      color: 'yellow',
+                      autoClose: 12000,
+                    });
+                  } else {
+                    console.log(`🎁 Successfully processed all gift card database entries for order ${pendingBookingId}`);
+                  }
                 } catch (giftCardError) {
-                  console.error('❌ Error creating gift card database entries:', giftCardError);
-                  // Don't fail the payment if gift card creation fails - just log the error
+                  console.error('❌ Exception during gift card creation:', giftCardError);
                   notifications.show({
-                    title: '⚠️ Gift Card Warning',
-                    message: 'Payment successful, but there was an issue creating gift card entries. Please contact support.',
-                    color: 'yellow',
-                    autoClose: 10000,
+                    title: '⚠️ Gift Card Error',
+                    message: 'Payment successful, but there was an error creating gift card entries. Please contact support.',
+                    color: 'red',
+                    autoClose: 12000,
                   });
                 }
               } else {
@@ -1929,7 +1936,14 @@ export default function Checkout() {
     paypalOrderId?: string,
     paypalTransactionId?: string
   ): Promise<{orderID: string, contractID: string} | null> => {
-    if (!user || !allSectionsInitialed() || !typedSignature.trim() || !customerInitials.trim()) {
+
+    const onlyGiftCards = cart.every(item => item.isGiftCard);
+    if (!user) {
+      console.error("Missing user for booking creation");
+      return null;
+    }
+    // If only gift cards, skip contract validation
+    if (!onlyGiftCards && (!allSectionsInitialed() || !typedSignature.trim() || !customerInitials.trim())) {
       console.error("Missing required contract data");
       return null;
     }
@@ -1957,10 +1971,11 @@ export default function Checkout() {
         fullName = `${firstName} ${lastName}`.trim();
       }
 
+
       // Generate unique IDs
       const orderID = generateOrderID();
       const contractID = generateContractID();
-      
+
       // Prepare booking data
       const bookingData: BookingData = {
         orderID,
@@ -2009,24 +2024,31 @@ export default function Checkout() {
         updatedAt: new Date().toISOString()
       };
 
-      // Prepare contract data
-      const contractData: ContractData = {
-        contractID,
-        orderID,
-        customerID: user.uid,
-        agreementSections: contractSections,
-        signature: {
-          signatureData: typedSignature,
-          signedAt: new Date().toISOString()
-        },
-        contractDate: new Date().toLocaleDateString(),
-        initials: customerInitials,
-        contractStatus: 'signed'
-      };
+      let bookingSaved = false;
+      let contractSaved = false;
 
-      // Save both booking and contract data
-      const bookingSaved = await saveBookingData(bookingData);
-      const contractSaved = await saveContractData(contractData);
+      // If only gift cards, skip contract saving
+      if (onlyGiftCards) {
+        bookingSaved = await saveBookingData(bookingData);
+        contractSaved = true;
+      } else {
+        // Prepare contract data
+        const contractData: ContractData = {
+          contractID,
+          orderID,
+          customerID: user.uid,
+          agreementSections: contractSections,
+          signature: {
+            signatureData: typedSignature,
+            signedAt: new Date().toISOString()
+          },
+          contractDate: new Date().toLocaleDateString(),
+          initials: customerInitials,
+          contractStatus: 'signed'
+        };
+        bookingSaved = await saveBookingData(bookingData);
+        contractSaved = await saveContractData(contractData);
+      }
 
       if (bookingSaved && contractSaved) {
         console.log("Booking and contract saved successfully:", orderID, contractID);
@@ -3495,6 +3517,7 @@ export default function Checkout() {
               )}
               
               {/* Only show PayPal buttons if there's an amount to pay via PayPal */}
+              {/* Always show PayPal buttons if there's an amount to pay via PayPal */}
               {(!useWalletFirst || calculatePayPalAmount() > 0) && (
                 <PayPalScriptProvider options={{ 
                   clientId: "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0", // Your PayPal sandbox client ID
