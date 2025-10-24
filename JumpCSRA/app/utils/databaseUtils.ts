@@ -632,7 +632,8 @@ export const addWalletTransaction = async (
     if (transaction.type === 'deposit' || transaction.type === 'gift_card_redemption') {
       newBalance += transaction.amount;
     } else if (transaction.type === 'withdrawal') {
-      newBalance -= transaction.amount;
+      // withdrawal amount should be negative, so add it
+      newBalance += transaction.amount;
     }
     
     const updatedWallet: UserWallet = {
