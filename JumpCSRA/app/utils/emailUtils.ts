@@ -340,58 +340,97 @@ export const sendOrderConfirmationEmail = async (data: OrderConfirmationEmailDat
     console.log('  🎁 Gift Cards:', data.giftCards.length);
     console.log('  📧 Subject: Order Confirmation #' + data.orderID);
     
-    // Generate email content
-    const htmlContent = generateOrderConfirmationEmailHTML(data);
-    const textContent = generateOrderConfirmationEmailText(data);
-    
-    console.log('  🎨 HTML Email Generated');
-    console.log('  📝 Text Email Generated');
-    
-    // TODO: Replace with actual API call when Firebase Cloud Functions are deployed
-    // For now, simulate successful email sending
-    
-    // Show browser notification for testing
-    if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification('Order Confirmation Email Sent!', {
-        body: `Order #${data.orderID} confirmation sent to ${data.recipientEmail}`,
-        icon: '/favicon.ico'
-      });
-    }
-    
-    // Send separate emails for promotional gift cards to different recipients
-    for (const giftCard of data.giftCards) {
-      if (giftCard.isPromotional && giftCard.recipientEmail && giftCard.recipientEmail !== data.recipientEmail) {
-        await sendPromotionalGiftCardEmail({
-          recipientEmail: giftCard.recipientEmail,
-          recipientName: 'Gift Card Recipient',
-          giftCard: giftCard,
-          purchaserName: data.recipientName
+    try {
+      // Try to use Firebase Cloud Functions
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const { app } = await import('../components/FirebaseConfig');
+      
+      const functions = getFunctions(app);
+      const sendOrderEmail = httpsCallable(functions, 'sendOrderConfirmationEmail');
+      
+      // Call the Firebase Cloud Function
+      const result = await sendOrderEmail(data);
+      
+      console.log('✅ ORDER CONFIRMATION EMAIL - Firebase function result:', result.data);
+      
+      // Send separate emails for promotional gift cards to different recipients
+      for (const giftCard of data.giftCards) {
+        if (giftCard.isPromotional && giftCard.recipientEmail && giftCard.recipientEmail !== data.recipientEmail) {
+          await sendPromotionalGiftCardEmail({
+            recipientEmail: giftCard.recipientEmail,
+            recipientName: 'Gift Card Recipient',
+            giftCard: giftCard,
+            purchaserName: data.recipientName
+          });
+        }
+      }
+      
+      console.log('✅ ORDER CONFIRMATION EMAIL - Email sent successfully via Firebase Functions');
+      return true;
+      
+    } catch (firebaseError) {
+      console.warn('� ORDER CONFIRMATION EMAIL - Firebase Functions not available, using fallback:', firebaseError);
+      
+      // Fallback: Log comprehensive email details for manual processing
+      console.log('📧 ORDER CONFIRMATION EMAIL - COMPREHENSIVE EMAIL DATA:');
+      console.log('==========================================');
+      console.log(`TO: ${data.recipientEmail}`);
+      console.log(`FROM: JumpCSRA Party Rentals <noreply@jumpcsra.com>`);
+      console.log(`SUBJECT: Order Confirmation #${data.orderID} - JumpCSRA Party Rentals`);
+      console.log(`ORDER ID: ${data.orderID}`);
+      console.log(`CUSTOMER: ${data.recipientName}`);
+      console.log(`ORDER DATE: ${data.orderDate}`);
+      console.log(`STATUS: ${data.bookingStatus}`);
+      console.log(`TOTAL: $${data.totalAmount.toFixed(2)}`);
+      console.log(`PAYMENT: $${data.amountPaid.toFixed(2)} (${data.paymentMethod})`);
+      console.log(`REMAINING: $${data.remainingBalance.toFixed(2)}`);
+      
+      if (data.eventDate) console.log(`EVENT DATE: ${data.eventDate}`);
+      if (data.deliveryAddress) console.log(`DELIVERY: ${data.deliveryAddress}`);
+      if (data.deliveryTime) console.log(`TIME: ${data.deliveryTime}`);
+      
+      if (data.rentalItems.length > 0) {
+        console.log('RENTAL ITEMS:');
+        data.rentalItems.forEach(item => {
+          console.log(`  - ${item.name} x${item.quantity} - $${item.price.toFixed(2)}`);
         });
       }
+      
+      if (data.lastMinuteAdditions.length > 0) {
+        console.log('LAST MINUTE ADDITIONS:');
+        data.lastMinuteAdditions.forEach(item => {
+          console.log(`  - ${item.name} x${item.quantity} - $${item.price.toFixed(2)}`);
+        });
+      }
+      
+      if (data.giftCards.length > 0) {
+        console.log('GIFT CARDS:');
+        data.giftCards.forEach(gc => {
+          console.log(`  - ${gc.code}: $${gc.balance.toFixed(2)} ${gc.isPromotional ? '(PROMOTIONAL)' : ''}`);
+          if (gc.recipientEmail && gc.recipientEmail !== data.recipientEmail) {
+            console.log(`    → Send to: ${gc.recipientEmail}`);
+          }
+        });
+      }
+      
+      console.log('==========================================');
+      console.log('⚠️ NOTE: Email system is in development mode.');
+      console.log('📧 The above data should be used to manually send the email.');
+      console.log('🔧 To enable automatic emails, deploy Firebase Cloud Functions on Blaze plan.');
+      
+      // Show browser notification for testing
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification('Order Confirmation Email Ready!', {
+          body: `Order #${data.orderID} details logged to console. Check console for email data.`,
+          icon: '/favicon.ico'
+        });
+      }
+      
+      return true; // Return true since we've logged all the necessary data
     }
-    
-    console.log('✅ ORDER CONFIRMATION EMAIL - Email processing completed successfully');
-    return true;
     
   } catch (error) {
-    console.error('📧 ORDER CONFIRMATION EMAIL - Error processing email:', error);
-    
-    // Comprehensive fallback logging
-    console.log('📧 ORDER CONFIRMATION EMAIL - FALLBACK DATA FOR MANUAL PROCESSING:');
-    console.log('==========================================');
-    console.log(`TO: ${data.recipientEmail}`);
-    console.log(`SUBJECT: Order Confirmation #${data.orderID}`);
-    console.log(`ORDER ID: ${data.orderID}`);
-    console.log(`TOTAL: $${data.totalAmount.toFixed(2)}`);
-    console.log(`PAYMENT: $${data.amountPaid.toFixed(2)} (${data.paymentMethod})`);
-    if (data.giftCards.length > 0) {
-      console.log(`GIFT CARDS:`);
-      data.giftCards.forEach(gc => {
-        console.log(`  - ${gc.code}: $${gc.balance.toFixed(2)} ${gc.isPromotional ? '(PROMOTIONAL)' : ''}`);
-      });
-    }
-    console.log('==========================================');
-    
+    console.error('📧 ORDER CONFIRMATION EMAIL - Unexpected error:', error);
     return false;
   }
 };

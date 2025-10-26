@@ -11,6 +11,227 @@ if (sendGridApiKey) {
   sgMail.setApiKey(sendGridApiKey);
 }
 
+// Order confirmation email interfaces
+interface GiftCardInfo {
+  code: string;
+  balance: number;
+  expirationDate: string;
+  isPromotional?: boolean;
+  promotionalMessage?: string;
+  recipientEmail?: string;
+}
+
+interface OrderConfirmationEmailData {
+  recipientEmail: string;
+  recipientName: string;
+  orderID: string;
+  orderDate: string;
+  
+  // Order details
+  eventDate?: string;
+  deliveryAddress?: string;
+  deliveryTime?: string;
+  duration?: string;
+  surface?: string;
+  
+  // Items
+  rentalItems: Array<{
+    name: string;
+    quantity: number;
+    price: number;
+    duration?: string;
+    wetDry?: string;
+  }>;
+  
+  lastMinuteAdditions: Array<{
+    name: string;
+    quantity: number;
+    price: number;
+  }>;
+  
+  // Pricing breakdown
+  subtotal: number;
+  surfaceAdjustment: number;
+  timeAdjustment: number;
+  deliveryCost: number;
+  totalAmount: number;
+  
+  // Payment info
+  paymentType: 'full' | 'deposit';
+  amountPaid: number;
+  remainingBalance: number;
+  paymentMethod: string;
+  
+  // Gift cards (if any)
+  giftCards: GiftCardInfo[];
+  
+  // Booking status
+  bookingStatus: string;
+  requiresPhoneCall?: boolean;
+}
+
+// Order confirmation email HTML generation
+const generateOrderConfirmationEmailHTML = (data: OrderConfirmationEmailData): string => {
+  const hasRentals = data.rentalItems.length > 0 || data.lastMinuteAdditions.length > 0;
+  const hasGiftCards = data.giftCards.length > 0;
+  
+  const getStatusBanner = (status: string, requiresPhoneCall?: boolean): string => {
+    let statusClass = 'status-confirmed';
+    let statusMessage = '';
+    
+    switch (status.toLowerCase()) {
+      case 'confirmed':
+        statusClass = 'status-confirmed';
+        statusMessage = '✅ Order Confirmed - Your booking is confirmed and ready!';
+        break;
+      case 'pending':
+        statusClass = 'status-pending';
+        statusMessage = '⏳ Order Pending - We\'re processing your order and will confirm shortly.';
+        break;
+      case 'deferred':
+        statusClass = 'status-deferred';
+        statusMessage = '📞 Call Required - Since your event is within 2 days, we\'ll contact you to confirm details.';
+        break;
+      default:
+        statusClass = 'status-pending';
+        statusMessage = '📋 Order Received - Thank you for your order!';
+    }
+    
+    return `<div class="status-banner ${statusClass}">${statusMessage}</div>`;
+  };
+  
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmation - JumpCSRA</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }
+        .section { margin: 25px 0; padding: 20px; background: white; border-radius: 8px; border-left: 4px solid #667eea; }
+        .section h3 { margin-top: 0; color: #667eea; }
+        .item-list { list-style: none; padding: 0; }
+        .item-list li { padding: 8px 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        .item-list li:last-child { border-bottom: none; }
+        .total-row { font-weight: bold; font-size: 18px; background: #667eea; color: white; padding: 15px; border-radius: 5px; text-align: center; margin: 15px 0; }
+        .gift-card { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 20px; margin: 15px 0; border-radius: 10px; text-align: center; }
+        .gift-card.promotional { background: linear-gradient(135deg, #fd7e14 0%, #e63946 100%); }
+        .gift-card-code { font-size: 24px; font-weight: bold; letter-spacing: 2px; margin: 10px 0; }
+        .gift-card-balance { font-size: 32px; font-weight: bold; margin: 10px 0; }
+        .status-banner { padding: 15px; border-radius: 5px; text-align: center; font-weight: bold; margin: 20px 0; }
+        .status-confirmed { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status-pending { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .status-deferred { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .footer { text-align: center; margin-top: 30px; font-size: 14px; color: #666; }
+        .button { background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎉 Order Confirmation</h1>
+        <p>Thank you for your order, ${data.recipientName}!</p>
+        <p><strong>Order #${data.orderID}</strong></p>
+        <p>Placed on ${new Date(data.orderDate).toLocaleDateString()}</p>
+    </div>
+    
+    <div class="content">
+        ${getStatusBanner(data.bookingStatus, data.requiresPhoneCall)}
+        
+        ${hasRentals ? `
+        <div class="section">
+            <h3>🎪 Event Details</h3>
+            ${data.eventDate ? `<p><strong>Event Date:</strong> ${data.eventDate}</p>` : ''}
+            ${data.deliveryAddress ? `<p><strong>Delivery Address:</strong> ${data.deliveryAddress}</p>` : ''}
+            ${data.deliveryTime ? `<p><strong>Delivery Time:</strong> ${data.deliveryTime}</p>` : ''}
+            ${data.duration ? `<p><strong>Duration:</strong> ${data.duration}</p>` : ''}
+            ${data.surface ? `<p><strong>Surface:</strong> ${data.surface}</p>` : ''}
+        </div>
+        
+        <div class="section">
+            <h3>📦 Items Ordered</h3>
+            <ul class="item-list">
+                ${data.rentalItems.map(item => `
+                    <li>
+                        <span>${item.name} ${item.duration ? `(${item.duration})` : ''} ${item.wetDry ? `- ${item.wetDry}` : ''} x${item.quantity}</span>
+                        <span>$${item.price.toFixed(2)}</span>
+                    </li>
+                `).join('')}
+                ${data.lastMinuteAdditions.map(item => `
+                    <li>
+                        <span>${item.name} x${item.quantity}</span>
+                        <span>$${item.price.toFixed(2)}</span>
+                    </li>
+                `).join('')}
+            </ul>
+        </div>
+        ` : ''}
+        
+        <div class="section">
+            <h3>💰 Payment Summary</h3>
+            <ul class="item-list">
+                <li><span>Subtotal:</span><span>$${data.subtotal.toFixed(2)}</span></li>
+                ${data.surfaceAdjustment > 0 ? `<li><span>Surface Adjustment:</span><span>$${data.surfaceAdjustment.toFixed(2)}</span></li>` : ''}
+                ${data.timeAdjustment > 0 ? `<li><span>Time Adjustment:</span><span>$${data.timeAdjustment.toFixed(2)}</span></li>` : ''}
+                ${data.deliveryCost > 0 ? `<li><span>Delivery:</span><span>$${data.deliveryCost.toFixed(2)}</span></li>` : ''}
+            </ul>
+            <div class="total-row">Total: $${data.totalAmount.toFixed(2)}</div>
+            
+            <p><strong>Payment Type:</strong> ${data.paymentType === 'deposit' ? '50% Deposit' : 'Full Payment'}</p>
+            <p><strong>Amount Paid:</strong> $${data.amountPaid.toFixed(2)} (${data.paymentMethod})</p>
+            ${data.remainingBalance > 0 ? `<p><strong>Remaining Balance:</strong> $${data.remainingBalance.toFixed(2)}</p>` : ''}
+        </div>
+        
+        ${hasGiftCards ? `
+        <div class="section">
+            <h3>🎁 Gift Cards</h3>
+            ${data.giftCards.map(giftCard => `
+                <div class="gift-card ${giftCard.isPromotional ? 'promotional' : ''}">
+                    <h4>${giftCard.isPromotional ? '🎉 Promotional Gift Card' : '🎁 Gift Card'}</h4>
+                    <div class="gift-card-code">${giftCard.code}</div>
+                    <div class="gift-card-balance">$${giftCard.balance.toFixed(2)}</div>
+                    <p><strong>Expires:</strong> ${giftCard.expirationDate}</p>
+                    ${giftCard.isPromotional ? `
+                        <div style="background: rgba(255,255,255,0.2); padding: 10px; border-radius: 5px; margin-top: 10px;">
+                            <strong>⚠️ GIFT CARD NOTICE:</strong><br>
+                            ${giftCard.promotionalMessage || 'This promotional gift card must be used by someone else and cannot be used by the purchaser.'}
+                        </div>
+                    ` : ''}
+                    ${giftCard.recipientEmail && giftCard.recipientEmail !== data.recipientEmail ? `
+                        <p><strong>🎁 Recipient:</strong> ${giftCard.recipientEmail}</p>
+                    ` : ''}
+                </div>
+            `).join('')}
+        </div>
+        ` : ''}
+        
+        <div class="section">
+            <h3>📋 What's Next?</h3>
+            ${data.requiresPhoneCall ? `
+                <p><strong>📞 Phone Call Required:</strong> Since your event is within 2 days, we'll contact you to confirm details and arrange delivery.</p>
+            ` : ''}
+            ${data.remainingBalance > 0 ? `
+                <p><strong>💳 Remaining Payment:</strong> The remaining balance of $${data.remainingBalance.toFixed(2)} will be collected before or at the time of delivery.</p>
+            ` : ''}
+            <p><strong>📧 Questions?</strong> Reply to this email or contact us at jumpcsra@gmail.com</p>
+        </div>
+        
+        <div style="text-align: center;">
+            <a href="https://jumpcsra.com" class="button">Visit Our Website</a>
+        </div>
+        
+        <div class="footer">
+            <p>Thank you for choosing JumpCSRA Party Rentals!</p>
+            <p>Making Your Events Unforgettable</p>
+            <p>jumpcsra@gmail.com | jumpcsra.com</p>
+        </div>
+    </div>
+</body>
+</html>`;
+};
+
 interface GiftCardEmailData {
   recipientEmail: string;
   recipientName: string;
@@ -325,3 +546,61 @@ export const sendGiftCardEmailOnCreate = functions.firestore
       }
     }
   });
+
+// Cloud Function to send order confirmation email
+export const sendOrderConfirmationEmail = functions.https.onCall(async (data: OrderConfirmationEmailData, context) => {
+  // Verify that the user is authenticated
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to send order confirmation emails.');
+  }
+
+  try {
+    // Validate input data
+    if (!data.recipientEmail || !data.orderID || !data.totalAmount) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing required email data.');
+    }
+
+    if (!sendGridApiKey) {
+      throw new functions.https.HttpsError('failed-precondition', 'SendGrid API key not configured.');
+    }
+
+    const msg = {
+      to: data.recipientEmail,
+      from: {
+        email: 'noreply@jumpcsra.com', // Replace with your verified sender email
+        name: 'JumpCSRA Party Rentals'
+      },
+      subject: `Order Confirmation #${data.orderID} - JumpCSRA Party Rentals`,
+      html: generateOrderConfirmationEmailHTML(data),
+      // Optional: Add categories for tracking
+      categories: ['order-confirmation', 'transactional'],
+      // Optional: Add custom args for tracking
+      customArgs: {
+        orderID: data.orderID,
+        totalAmount: data.totalAmount.toString(),
+        bookingStatus: data.bookingStatus
+      }
+    };
+
+    await sgMail.send(msg);
+    
+    // Log successful email send
+    console.log(`Order confirmation email sent successfully to ${data.recipientEmail} for order ${data.orderID}`);
+    
+    return { 
+      success: true, 
+      message: 'Order confirmation email sent successfully',
+      emailSent: true
+    };
+
+  } catch (error) {
+    console.error('Error sending order confirmation email:', error);
+    
+    // If it's a SendGrid error, provide more specific information
+    if (error && typeof error === 'object' && 'response' in error) {
+      console.error('SendGrid error response:', (error as any).response?.body);
+    }
+    
+    throw new functions.https.HttpsError('internal', 'Failed to send order confirmation email.');
+  }
+});
