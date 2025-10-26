@@ -691,7 +691,11 @@ export default function Checkout() {
       if (result) {
         const { orderID, contractID } = result;
         setPendingBookingId(orderID); // Store orderID for payment processing
-        setContractSigned(true);
+        
+        // Use flushSync to ensure state update completes before navigation
+        flushSync(() => {
+          setContractSigned(true);
+        });
         
         // Set phone call requirement flag - only if within 2 days AND has inflateables
         setRequiresPhoneCall(needsPhoneCall);
@@ -704,7 +708,11 @@ export default function Checkout() {
           console.log('✅ Booking not urgent - proceeding to payment');
         }
         
-        await goToNextStep();
+        // Direct navigation to payment step to avoid state dependency issues
+        setCurrentStep('payment');
+        setVisitedSteps(prev => new Set([...prev, 'payment']));
+        
+        console.log('🚀 Navigated directly to payment step');
       } else {
         alert("Error saving booking. Please try again.");
       }
@@ -1367,6 +1375,20 @@ export default function Checkout() {
           // Update booking status
           const statusUpdated = await updateBookingStatusBasedOnPayment(pendingBookingId, depositAmount, totalAmount);
           
+          if (!statusUpdated) {
+            console.error('❌ PAYPAL PAYMENT - Failed to update booking status');
+            throw new Error('Failed to update booking status after payment');
+          }
+          
+          console.log('✅ PAYPAL PAYMENT - Booking status updated successfully');
+          
+          if (!statusUpdated) {
+            console.error('❌ WALLET PAYMENT - Failed to update booking status');
+            throw new Error('Failed to update booking status after payment');
+          }
+          
+          console.log('✅ WALLET PAYMENT - Booking status updated successfully');
+          
           if (statusUpdated) {
             // Update payment details
             existingBooking.paymentDetails.depositAmount = depositAmount;
@@ -1550,23 +1572,28 @@ export default function Checkout() {
           const statusUpdated = await updateBookingStatusBasedOnPayment(pendingBookingId, depositAmount, totalAmount);
           
           if (statusUpdated) {
-            // Update payment details in the booking
-            existingBooking.paymentDetails.depositAmount = depositAmount;
-            existingBooking.paymentDetails.remainingBalance = totalAmount - depositAmount;
-            existingBooking.paymentDetails.paypalOrderId = data.orderID;
-            existingBooking.paymentDetails.paypalTransactionId = paymentId;
-            existingBooking.paymentDetails.paymentStatus = 'completed';
-            existingBooking.paymentDetails.paymentDate = new Date().toISOString();
-            existingBooking.updatedAt = new Date().toISOString();
+            // Get the updated booking with the new status before updating payment details
+            const updatedBooking = await loadBookingData(pendingBookingId);
+            if (!updatedBooking) {
+              throw new Error("Could not load updated booking data");
+            }
             
-            const success = await saveBookingData(existingBooking);
+            // Update payment details in the booking (preserving the updated status)
+            updatedBooking.paymentDetails.depositAmount = depositAmount;
+            updatedBooking.paymentDetails.remainingBalance = totalAmount - depositAmount;
+            updatedBooking.paymentDetails.paypalOrderId = data.orderID;
+            updatedBooking.paymentDetails.paypalTransactionId = paymentId;
+            updatedBooking.paymentDetails.paymentStatus = 'completed';
+            updatedBooking.paymentDetails.paymentDate = new Date().toISOString();
+            updatedBooking.updatedAt = new Date().toISOString();
+            
+            const success = await saveBookingData(updatedBooking);
             if (success) {
               setPaymentId(paymentId);
               setPaymentCompleted(true);
               
-              // Get the updated status to show appropriate message
-              const updatedBooking = await loadBookingData(pendingBookingId);
-              const finalStatus = updatedBooking?.status || 'unknown';
+              // Use the status from the updated booking
+              const finalStatus = updatedBooking.status || 'unknown';
               
               let message: string;
               if (paymentType === 'deposit') {

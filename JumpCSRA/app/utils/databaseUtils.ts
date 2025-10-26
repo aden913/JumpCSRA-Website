@@ -417,12 +417,16 @@ export const determineInitialBookingStatus = (eventDate: string, isContractSigne
 
 export const updateBookingStatusBasedOnPayment = async (orderID: string, depositAmount: number, totalAmount: number): Promise<boolean> => {
   try {
+    console.log(`🔄 Starting booking status update for ${orderID}: $${depositAmount}/$${totalAmount}`);
+    
     // Load existing booking to get event date and other details
     const bookingData = await loadBookingData(orderID);
     if (!bookingData) {
-      console.error('Booking not found for payment status update:', orderID);
+      console.error('❌ Booking not found for payment status update:', orderID);
       return false;
     }
+    
+    console.log(`📋 Current booking status: ${bookingData.status}`);
     
     // Parse event date from orderDetails.eventDate (format: "MM/DD/YYYY - MM/DD/YYYY")
     const eventDateString = bookingData.orderDetails.eventDate.split(' - ')[0];
@@ -433,43 +437,64 @@ export const updateBookingStatusBasedOnPayment = async (orderID: string, deposit
       item.name.toLowerCase().includes('giftcard')
     );
     
+    console.log(`🎁 Gift card only order: ${isGiftCardOnly}`);
+    console.log(`💰 Payment check - Deposit: $${depositAmount}, Total: $${totalAmount}, Full payment: ${depositAmount >= totalAmount}`);
+    
     let newStatus: 'deferred' | 'pending' | 'confirmed';
     
     // Gift card only orders are always confirmed when payment is complete
     if (isGiftCardOnly && depositAmount >= totalAmount) {
       newStatus = 'confirmed';
+      console.log(`✅ Gift card only order with full payment → confirmed`);
     } else if (bookingData.status === 'deferred') {
       // If booking was deferred, it should move to pending or confirmed based on payment
       if (depositAmount >= totalAmount) {
         newStatus = 'confirmed'; // Full payment
+        console.log(`✅ Deferred booking with full payment → confirmed`);
       } else if (depositAmount > 0) {
         newStatus = 'pending'; // Deposit payment
+        console.log(`⏳ Deferred booking with deposit → pending`);
       } else {
         newStatus = 'deferred'; // No payment yet
+        console.log(`⏸️ Deferred booking with no payment → deferred`);
       }
     } else {
       // For non-deferred bookings, determine status based on payment
       if (depositAmount >= totalAmount) {
         newStatus = 'confirmed'; // Full payment
+        console.log(`✅ Regular booking with full payment → confirmed`);
       } else if (depositAmount > 0) {
         newStatus = 'pending'; // Deposit payment  
+        console.log(`⏳ Regular booking with deposit → pending`);
       } else {
         // This shouldn't happen - bookings should have payment when this is called
         newStatus = bookingData.status as 'pending' | 'confirmed';
+        console.log(`⚠️ No payment detected, keeping current status: ${newStatus}`);
       }
     }
     
+    console.log(`🎯 Status transition: ${bookingData.status} → ${newStatus}`);
+    
     // Update booking status and payment details
     const database = getDatabase();
+    
+    console.log(`📝 Updating database for ${orderID}...`);
     await set(ref(database, `bookings/${orderID}/status`), newStatus);
     await set(ref(database, `bookings/${orderID}/paymentDetails/depositAmount`), depositAmount);
     await set(ref(database, `bookings/${orderID}/paymentDetails/remainingBalance`), totalAmount - depositAmount);
     await set(ref(database, `bookings/${orderID}/updatedAt`), new Date().toISOString());
     
-    console.log(`Booking ${orderID} status updated to ${newStatus} based on payment: $${depositAmount}/$${totalAmount}`);
+    console.log(`✅ Booking ${orderID} status successfully updated to ${newStatus} based on payment: $${depositAmount}/$${totalAmount}`);
     return true;
   } catch (error) {
-    console.error('Error updating booking status based on payment:', error);
+    console.error('❌ Error updating booking status based on payment:', error);
+    console.error('❌ Error details:', {
+      orderID,
+      depositAmount,
+      totalAmount,
+      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      errorStack: error instanceof Error ? error.stack : undefined
+    });
     return false;
   }
 };

@@ -789,43 +789,40 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                   )}
                   
                   {/* Quantity Selection for non-gift card items only */}
-                  {!isGiftCard(item) && (
-                    <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <label htmlFor={`quantity-${idx}`} style={{ fontSize: '0.9rem' }}>
-                        Quantity:
-                      </label>
-                      <select
-                        id={`quantity-${idx}`}
-                        className="quantity-select"
-                        value={item.quantity}
-                        onChange={e => updateQuantity(idx, parseInt(e.target.value))}
-                        disabled={isUnavailable || loadingAvailability}
-                        style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc' }}
-                      >
-                        {loadingAvailability ? (
-                          <option value={item.quantity}>Loading...</option>
-                        ) : (
-                          getQuantityOptions(item.name, item.quantity).map(num => (
-                            <option key={num} value={num}>
-                              {num}
-                            </option>
-                          ))
-                        )}
-                      </select>
-                      {(() => {
-                        const availability = itemAvailability.get(item.name);
-                        return availability ? (
-                          <span style={{ 
-                            fontSize: '0.8rem', 
-                            color: availability.availableQuantity > 5 ? '#666' : '#f57c00',
-                            fontStyle: 'italic'
-                          }}>
-                            ({availability.availableQuantity} available)
-                          </span>
-                        ) : null;
-                      })()}
-                    </div>
-                  )}
+                  {!isGiftCard(item) && (() => {
+                    const availability = itemAvailability.get(item.name);
+                    const maxQuantity = availability ? availability.availableQuantity : 1;
+                    
+                    // Only show quantity dropdown if more than 1 quantity is available
+                    if (maxQuantity > 1) {
+                      return (
+                        <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <label htmlFor={`quantity-${idx}`} style={{ fontSize: '0.9rem' }}>
+                            Quantity:
+                          </label>
+                          <select
+                            id={`quantity-${idx}`}
+                            className="quantity-select"
+                            value={item.quantity}
+                            onChange={e => updateQuantity(idx, parseInt(e.target.value))}
+                            disabled={isUnavailable || loadingAvailability}
+                            style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                          >
+                            {loadingAvailability ? (
+                              <option value={item.quantity}>Loading...</option>
+                            ) : (
+                              getQuantityOptions(item.name, item.quantity).map(num => (
+                                <option key={num} value={num}>
+                                  {num}
+                                </option>
+                              ))
+                            )}
+                          </select>
+                        </div>
+                      );
+                    }
+                    return null; // Don't show anything if only 1 quantity available
+                  })()}
                   <button 
                     onClick={() => removeFromCart(idx)}
                     disabled={false}
