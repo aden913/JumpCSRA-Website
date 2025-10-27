@@ -11,6 +11,11 @@ if (sendGridApiKey) {
   sgMail.setApiKey(sendGridApiKey);
 }
 
+// PayPal configuration
+const PAYPAL_CLIENT_ID = "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0";
+const PAYPAL_CLIENT_SECRET = functions.config().paypal?.client_secret || "YOUR_PAYPAL_CLIENT_SECRET";
+const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"; // Use https://api-m.paypal.com for production
+
 // Order confirmation email interfaces
 interface GiftCardInfo {
   code: string;
@@ -604,3 +609,487 @@ export const sendOrderConfirmationEmail = functions.https.onCall(async (data: Or
     throw new functions.https.HttpsError('internal', 'Failed to send order confirmation email.');
   }
 });
+
+// PayPal Invoice interfaces
+interface PayPalInvoiceData {
+  recipientEmail: string;
+  recipientName: string;
+  orderID: string;
+  orderDate: string;
+  eventDate?: string;
+  deliveryAddress?: string;
+  deliveryTime?: string;
+  duration?: string;
+  surface?: string;
+  rentalItems: Array<{
+    name: string;
+    quantity: number;
+    price: number;
+    duration?: string;
+    wetDry?: string;
+  }>;
+  lastMinuteAdditions: Array<{
+    name: string;
+    quantity: number;
+    price: number;
+  }>;
+  subtotal: number;
+  surfaceAdjustment: number;
+  timeAdjustment: number;
+  deliveryCost: number;
+  totalAmount: number;
+  paymentType: 'full' | 'deposit';
+  amountPaid: number;
+  remainingBalance: number;
+  paymentMethod: string;
+  giftCards: Array<{
+    code: string;
+    balance: number;
+    expirationDate: string;
+    isPromotional?: boolean;
+    promotionalMessage?: string;
+    recipientEmail?: string;
+  }>;
+  bookingStatus: string;
+  requiresPhoneCall?: boolean;
+  paypalOrderId?: string;
+  paypalTransactionId?: string;
+}
+
+// Get PayPal access token
+const getPayPalAccessToken = async (): Promise<string> => {
+  try {
+    const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64');
+    
+    const response = await fetch(`${PAYPAL_BASE_URL}/v1/oauth2/token`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: 'grant_type=client_credentials'
+    });
+    
+    if (!response.ok) {
+      throw new Error(`PayPal auth failed: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    return data.access_token;
+  } catch (error) {
+    console.error('Error getting PayPal access token:', error);
+    throw error;
+  }
+};
+
+// Convert order data to PayPal invoice format
+const createPayPalInvoicePayload = (data: PayPalInvoiceData) => {
+  const items: any[] = [];
+  
+  // Add rental items
+  data.rentalItems.forEach(item => {
+    items.push({
+      name: item.name,
+      description: `${item.duration ? `Duration: ${item.duration}` : ''}${item.wetDry ? ` - ${item.wetDry}` : ''}`,
+      quantity: item.quantity.toString(),
+      unit_amount: {
+        currency_code: "USD",
+        value: (item.price / item.quantity).toFixed(2)
+      }
+    });
+  });
+  
+  // Add last minute additions
+  data.lastMinuteAdditions.forEach(item => {
+    items.push({
+      name: item.name,
+      description: "Last minute addition",
+      quantity: item.quantity.toString(),
+      unit_amount: {
+        currency_code: "USD",
+        value: (item.price / item.quantity).toFixed(2)
+      }
+    });
+  });
+  
+  // Add adjustments
+  if (data.surfaceAdjustment > 0) {
+    items.push({
+      name: "Surface Adjustment",
+      description: "Additional charge for surface preparation",
+      quantity: "1",
+      unit_amount: {
+        currency_code: "USD",
+        value: data.surfaceAdjustment.toFixed(2)
+      }
+    });
+  }
+  
+  if (data.timeAdjustment > 0) {
+    items.push({
+      name: "Time Adjustment",
+      description: "Additional charge for timing requirements",
+      quantity: "1",
+      unit_amount: {
+        currency_code: "USD",
+        value: data.timeAdjustment.toFixed(2)
+      }
+    });
+  }
+  
+  if (data.deliveryCost > 0) {
+    items.push({
+      name: "Delivery Service",
+      description: "Delivery and setup service",
+      quantity: "1",
+      unit_amount: {
+        currency_code: "USD",
+        value: data.deliveryCost.toFixed(2)
+      }
+    });
+  }
+  
+  // Generate invoice note with gift card info
+  let note = `Order Confirmation for ${data.recipientName}\n\n`;
+  
+  if (data.eventDate) {
+    note += `Event Details:\n`;
+    note += `• Date: ${data.eventDate}\n`;
+    if (data.deliveryAddress) note += `• Address: ${data.deliveryAddress}\n`;
+    if (data.deliveryTime) note += `• Delivery Time: ${data.deliveryTime}\n`;
+    if (data.duration) note += `• Duration: ${data.duration}\n`;
+    if (data.surface) note += `• Surface: ${data.surface}\n`;
+    note += `\n`;
+  }
+  
+  note += `Payment Information:\n`;
+  note += `• Payment Type: ${data.paymentType === 'deposit' ? '50% Deposit' : 'Full Payment'}\n`;
+  note += `• Amount Paid: $${data.amountPaid.toFixed(2)} (${data.paymentMethod})\n`;
+  if (data.remainingBalance > 0) {
+    note += `• Remaining Balance: $${data.remainingBalance.toFixed(2)} (due before event)\n`;
+  }
+  note += `\n`;
+  
+  if (data.giftCards.length > 0) {
+    note += `Gift Cards Included:\n`;
+    data.giftCards.forEach(gc => {
+      note += `• Code: ${gc.code} - $${gc.balance.toFixed(2)}\n`;
+      note += `  Expires: ${gc.expirationDate}\n`;
+      if (gc.isPromotional) {
+        note += `  Type: Promotional Gift Card\n`;
+        if (gc.promotionalMessage) {
+          note += `  Note: ${gc.promotionalMessage}\n`;
+        }
+        if (gc.recipientEmail && gc.recipientEmail !== data.recipientEmail) {
+          note += `  Recipient: ${gc.recipientEmail}\n`;
+        }
+      }
+      note += `\n`;
+    });
+    
+    note += `Gift Card Usage:\n`;
+    note += `• Log in to your account at jumpcsra.com\n`;
+    note += `• Use the gift card balance checker in your profile\n`;
+    note += `• Apply gift card balance during checkout\n`;
+    note += `• Gift cards never expire and can be used for any rental\n\n`;
+  }
+  
+  // Add status information
+  switch (data.bookingStatus.toLowerCase()) {
+    case 'confirmed':
+      note += `Status: ✅ Order Confirmed - Your booking is confirmed and ready!\n`;
+      break;
+    case 'pending':
+      note += `Status: ⏳ Order Pending - We're processing your order and will confirm shortly.\n`;
+      break;
+    case 'deferred':
+      note += `Status: 📞 Call Required - Since your event is within 2 days, we'll contact you to confirm details.\n`;
+      break;
+    default:
+      note += `Status: 📋 Order Received - Thank you for your order!\n`;
+  }
+  
+  if (data.requiresPhoneCall) {
+    note += `Important: We'll contact you to confirm details and arrange delivery.\n`;
+  }
+  
+  note += `\nQuestions? Contact us at jumpcsra@gmail.com or visit jumpcsra.com\n`;
+  note += `Thank you for choosing JumpCSRA Party Rentals!`;
+  
+  return {
+    detail: {
+      invoice_number: `JC-${data.orderID}`,
+      reference: data.paypalOrderId || data.orderID,
+      invoice_date: new Date(data.orderDate).toISOString().split('T')[0],
+      currency_code: "USD",
+      note: note,
+      term: "No refunds after event date",
+      memo: `JumpCSRA Order #${data.orderID}`,
+      payment_term: {
+        term_type: "NET_10",
+        due_date: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      }
+    },
+    invoicer: {
+      name: {
+        given_name: "JumpCSRA",
+        surname: "Party Rentals"
+      },
+      address: {
+        address_line_1: "Your Business Address",
+        admin_area_2: "Your City", 
+        admin_area_1: "SC",
+        postal_code: "Your ZIP",
+        country_code: "US"
+      },
+      email_address: "jumpcsra@gmail.com",
+      phones: [
+        {
+          country_code: "001",
+          national_number: "8032210466",
+          phone_type: "MOBILE"
+        }
+      ],
+      website: "https://jumpcsra.com",
+      additional_notes: "Making Your Events Unforgettable"
+    },
+    primary_recipients: [
+      {
+        billing_info: {
+          name: {
+            given_name: data.recipientName.split(' ')[0] || data.recipientName,
+            surname: data.recipientName.split(' ').slice(1).join(' ') || ""
+          },
+          address: data.deliveryAddress ? {
+            address_line_1: data.deliveryAddress,
+            country_code: "US"
+          } : undefined,
+          email_address: data.recipientEmail
+        }
+      }
+    ],
+    items: items,
+    configuration: {
+      partial_payment: {
+        allow_partial_payment: data.remainingBalance > 0,
+        minimum_amount_due: {
+          currency_code: "USD",
+          value: data.amountPaid.toFixed(2)
+        }
+      },
+      allow_tip: false,
+      tax_calculated_after_discount: true,
+      tax_inclusive: false
+    }
+  };
+};
+
+// Cloud Function to create and send PayPal invoice
+export const createPayPalInvoice = functions.https.onCall(async (data: PayPalInvoiceData, context) => {
+  // Verify that the user is authenticated
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to create PayPal invoices.');
+  }
+
+  try {
+    // Validate input data
+    if (!data.recipientEmail || !data.orderID || !data.totalAmount) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing required invoice data.');
+    }
+
+    console.log(`Creating PayPal invoice for order ${data.orderID}`);
+    
+    // Get PayPal access token
+    const accessToken = await getPayPalAccessToken();
+    
+    // Create invoice payload
+    const invoicePayload = createPayPalInvoicePayload(data);
+    
+    // Create the invoice
+    const createResponse = await fetch(`${PAYPAL_BASE_URL}/v2/invoicing/invoices`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'PayPal-Request-Id': `${data.orderID}-${Date.now()}`
+      },
+      body: JSON.stringify(invoicePayload)
+    });
+    
+    if (!createResponse.ok) {
+      const errorText = await createResponse.text();
+      console.error('PayPal create invoice error:', errorText);
+      throw new functions.https.HttpsError('internal', `PayPal API error: ${createResponse.status}`);
+    }
+    
+    const invoice = await createResponse.json();
+    
+    // Send the invoice
+    const sendResponse = await fetch(`${PAYPAL_BASE_URL}/v2/invoicing/invoices/${invoice.id}/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify({
+        send_to_recipient: true,
+        send_to_invoicer: true
+      })
+    });
+    
+    if (!sendResponse.ok) {
+      const errorText = await sendResponse.text();
+      console.error('PayPal send invoice error:', errorText);
+      throw new functions.https.HttpsError('internal', `Failed to send invoice: ${sendResponse.status}`);
+    }
+    
+    console.log(`PayPal invoice created and sent successfully: ${invoice.id}`);
+    
+    return {
+      success: true,
+      invoiceId: invoice.id,
+      invoiceUrl: invoice.href || `https://paypal.com/invoice/details/${invoice.id}`,
+      message: 'PayPal invoice created and sent successfully'
+    };
+
+  } catch (error) {
+    console.error('Error creating PayPal invoice:', error);
+    
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    
+    throw new functions.https.HttpsError('internal', 'Failed to create PayPal invoice.');
+  }
+});
+
+// Scheduled function to auto-cancel pending orders on event day
+export const autoCancelPendingOrders = functions.pubsub
+  .schedule('0 8 * * *') // Run daily at 8 AM
+  .timeZone('America/New_York') // EST/EDT timezone
+  .onRun(async (context) => {
+    console.log('Running auto-cancel pending orders function...');
+    
+    try {
+      const db = admin.database();
+      const bookingsRef = db.ref('bookings');
+      const snapshot = await bookingsRef.once('value');
+      
+      if (!snapshot.exists()) {
+        console.log('No bookings found');
+        return null;
+      }
+      
+      const bookings = snapshot.val();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Start of today
+      
+      let cancelledCount = 0;
+      
+      for (const [bookingId, booking] of Object.entries(bookings)) {
+        const bookingData = booking as any;
+        
+        // Only process pending bookings
+        if (bookingData.status !== 'pending') {
+          continue;
+        }
+        
+        // Check if event date is today or in the past
+        const eventDateStr = bookingData.orderDetails?.eventDate;
+        if (!eventDateStr) {
+          continue;
+        }
+        
+        // Parse event date (assuming format like "MM/DD/YYYY - MM/DD/YYYY")
+        const dateRange = eventDateStr.split(' - ');
+        const startDateStr = dateRange[0];
+        
+        try {
+          const eventDate = new Date(startDateStr);
+          eventDate.setHours(0, 0, 0, 0);
+          
+          // If event date is today or has passed, cancel the booking
+          if (eventDate <= today) {
+            console.log(`Cancelling booking ${bookingId} with event date ${startDateStr}`);
+            
+            // Update booking status to cancelled
+            await bookingsRef.child(bookingId).update({
+              status: 'cancelled',
+              updatedAt: new Date().toISOString(),
+              notes: admin.database.ServerValue.increment(1) // Will create array if doesn't exist
+            });
+            
+            // Add cancellation note
+            await bookingsRef.child(`${bookingId}/notes`).push({
+              type: 'system',
+              message: 'Booking auto-cancelled due to event date passing without payment completion',
+              timestamp: new Date().toISOString()
+            });
+            
+            // Send cancellation notification email
+            try {
+              if (bookingData.customerInfo?.email) {
+                const msg = {
+                  to: bookingData.customerInfo.email,
+                  from: {
+                    email: 'noreply@jumpcsra.com',
+                    name: 'JumpCSRA Party Rentals'
+                  },
+                  subject: `Booking Cancelled - Order #${bookingData.orderID}`,
+                  html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                      <div style="background: #f8d7da; color: #721c24; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <h2>Booking Cancelled</h2>
+                        <p>Your booking #${bookingData.orderID} has been automatically cancelled because the event date has passed without payment completion.</p>
+                      </div>
+                      
+                      <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+                        <h3>Booking Details:</h3>
+                        <p><strong>Order ID:</strong> ${bookingData.orderID}</p>
+                        <p><strong>Event Date:</strong> ${eventDateStr}</p>
+                        <p><strong>Total Amount:</strong> $${bookingData.orderDetails?.totalAmount?.toFixed(2) || '0.00'}</p>
+                        <p><strong>Cancelled Date:</strong> ${new Date().toLocaleDateString()}</p>
+                      </div>
+                      
+                      <div style="margin-top: 20px; padding: 15px; background: #d1ecf1; border-radius: 8px;">
+                        <p><strong>Need to rebook?</strong> Visit <a href="https://jumpcsra.com">jumpcsra.com</a> to place a new order.</p>
+                        <p>If you have questions, please contact us at jumpcsra@gmail.com or (803) 221-0466.</p>
+                      </div>
+                      
+                      <div style="text-align: center; margin-top: 30px; color: #666; font-size: 14px;">
+                        <p>JumpCSRA Party Rentals</p>
+                        <p>Making Your Events Unforgettable</p>
+                      </div>
+                    </div>
+                  `,
+                  categories: ['booking-cancellation', 'automated'],
+                  customArgs: {
+                    bookingId: bookingId,
+                    reason: 'auto-cancel-event-date-passed'
+                  }
+                };
+                
+                if (sendGridApiKey) {
+                  await sgMail.send(msg);
+                  console.log(`Cancellation email sent to ${bookingData.customerInfo.email} for booking ${bookingId}`);
+                }
+              }
+            } catch (emailError) {
+              console.error(`Error sending cancellation email for booking ${bookingId}:`, emailError);
+            }
+            
+            cancelledCount++;
+          }
+        } catch (dateError) {
+          console.error(`Error parsing event date for booking ${bookingId}:`, dateError);
+        }
+      }
+      
+      console.log(`Auto-cancellation complete. Cancelled ${cancelledCount} bookings.`);
+      return null;
+      
+    } catch (error) {
+      console.error('Error in auto-cancel function:', error);
+      return null;
+    }
+  });

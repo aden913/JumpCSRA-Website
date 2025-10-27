@@ -14,7 +14,7 @@ import type { CartItem } from "../components/CartSidebar";
 import { useInflateables } from "../hooks/useInflateables";
 import { useCartSettings } from "../hooks/useCartSettings";
 import { useCategories } from "../hooks/useCategories";
-import { generateUniqueGiftCardCode, createGiftCardInDatabase } from "../hooks/useDiscounts";
+import { generateUniqueGiftCardCode, createGiftCardInDatabase, useDiscounts } from "../hooks/useDiscounts";
 import { sendOrderConfirmationEmail, createGiftCardInfoFromCart, OrderConfirmationEmailData, GiftCardInfo } from "../utils/emailUtils";
 import { notifications } from '@mantine/notifications';
 import { Notifications } from '@mantine/notifications';
@@ -33,6 +33,9 @@ import {
   isBookingWithinTwoDays,
   determineInitialBookingStatus,
   updateBookingStatusBasedOnPayment,
+  getIncompleteBookingsForUser,
+  shouldDeferBooking,
+  deferBooking,
   getUserWallet,
   addWalletTransaction
 } from "../utils/databaseUtils";
@@ -213,6 +216,9 @@ export default function Checkout() {
   
   // Email state for promotional gift cards
   const [promotionalGiftCardEmail, setPromotionalGiftCardEmail] = useState<string>("");
+
+  // Discount management
+  const { discounts, calculateDiscount, getActiveDiscount } = useDiscounts();
 
   // Base location for distance calculation
   const BASE_LOCATION = "410 Carolina Springs Rd, North Augusta, SC 29841";
@@ -926,6 +932,49 @@ export default function Checkout() {
     loadUserProfile();
   }, [user]);
 
+  // Check for resumed booking and load it
+  useEffect(() => {
+    const checkResumedBooking = async () => {
+      if (!user) return;
+      
+      const resumeBookingId = localStorage.getItem('resumeBookingId');
+      if (resumeBookingId && !pendingBookingId) {
+        try {
+          console.log('Loading resumed booking:', resumeBookingId);
+          const booking = await loadBookingData(resumeBookingId);
+          
+          if (booking && booking.customerID === user.uid) {
+            setPendingBookingId(resumeBookingId);
+            
+            // Set the step to payment since contract should already be signed
+            setCurrentStep('payment');
+            setContractSigned(true);
+            
+            // Clear the resume flag
+            localStorage.removeItem('resumeBookingId');
+            
+            notifications.show({
+              title: '📝 Booking Resumed',
+              message: `Successfully loaded your incomplete booking #${resumeBookingId}`,
+              color: 'green',
+              autoClose: 5000,
+            });
+            
+            console.log('Booking resumed successfully:', booking);
+          } else {
+            console.warn('Resume booking not found or not owned by user:', resumeBookingId);
+            localStorage.removeItem('resumeBookingId');
+          }
+        } catch (error) {
+          console.error('Error resuming booking:', error);
+          localStorage.removeItem('resumeBookingId');
+        }
+      }
+    };
+
+    checkResumedBooking();
+  }, [user, pendingBookingId]);
+
   // Load user wallet data  
   useEffect(() => {
     const loadWallet = async () => {
@@ -1437,15 +1486,118 @@ export default function Checkout() {
                 console.log('🎁 WALLET PAYMENT - No gift cards in cart:', { giftCardsCount: giftCardsInCart.length });
               }
 
-              // Send comprehensive order confirmation email after successful wallet payment
+              // Create promotional gift card for GOGO discount if applicable (wallet payment)
+              if (discounts.bogoGiftCard && giftCardsInCart.length > 0 && user) {
+                try {
+                  console.log('🎁 WALLET GOGO DISCOUNT - Creating promotional gift card...');
+                  
+                  // Find the highest value gift card in the cart
+                  let highestValue = 0;
+                  for (const giftCardItem of giftCardsInCart) {
+                    const value = giftCardItem.giftCardValue || giftCardItem.price;
+                    if (value > highestValue) {
+                      highestValue = value;
+                    }
+                  }
+                  
+                  console.log(`🎁 WALLET GOGO DISCOUNT - Creating promotional gift card with value: $${highestValue}`);
+                  
+                  const promoGiftCardCode = await generateUniqueGiftCardCode();
+                  const recipientEmail = promotionalGiftCardEmail || user.email || '';
+                  
+                  const success = await createGiftCardInDatabase(
+                    promoGiftCardCode,
+                    highestValue,
+                    user.uid,
+                    user.email || '',
+                    user.displayName || '',
+                    true, // isGift = true for promotional cards
+                    recipientEmail // giftedTo parameter
+                  );
+                  
+                  if (success) {
+                    console.log(`✅ WALLET GOGO promotional gift card created: ${promoGiftCardCode} - $${highestValue} for ${recipientEmail}`);
+                    
+                    // Send separate invoice for promotional gift card
+                    try {
+                      const { createAndSendPayPalInvoice } = await import('../utils/paypalInvoiceUtils');
+                      
+                      const promoInvoiceData = {
+                        recipientEmail: recipientEmail,
+                        recipientName: user.displayName || 'Customer',
+                        orderID: 'WALLET-PROMO-' + Date.now(),
+                        orderDate: new Date().toISOString(),
+                        rentalItems: [],
+                        lastMinuteAdditions: [],
+                        subtotal: 0,
+                        surfaceAdjustment: 0,
+                        timeAdjustment: 0,
+                        deliveryCost: 0,
+                        totalAmount: 0,
+                        paymentType: 'full' as const,
+                        amountPaid: 0,
+                        remainingBalance: 0,
+                        paymentMethod: 'Promotional Gift Card (Wallet Payment)',
+                        giftCards: [{
+                          code: promoGiftCardCode,
+                          balance: highestValue,
+                          expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+                          isPromotional: true,
+                          promotionalMessage: 'GOGO Special Offer - Free gift card with your purchase!',
+                          recipientEmail: recipientEmail
+                        }],
+                        bookingStatus: 'promotional_gift_card'
+                      };
+                      
+                      const invoiceResult = await createAndSendPayPalInvoice(promoInvoiceData);
+                      
+                      if (invoiceResult.success) {
+                        console.log('✅ WALLET GOGO promotional gift card invoice sent successfully');
+                        notifications.show({
+                          title: '🎁 Promotional Gift Card Sent!',
+                          message: `A free gift card worth $${highestValue} has been sent to ${recipientEmail}`,
+                          color: 'green',
+                          autoClose: 8000,
+                        });
+                      } else {
+                        console.error('❌ Failed to send wallet promotional gift card invoice:', invoiceResult.error);
+                      }
+                    } catch (invoiceError) {
+                      console.error('❌ Error sending wallet promotional gift card invoice:', invoiceError);
+                    }
+                  } else {
+                    console.error(`❌ Failed to create WALLET GOGO promotional gift card: ${promoGiftCardCode}`);
+                  }
+                } catch (promoError) {
+                  console.error('❌ Exception during WALLET GOGO promotional gift card creation:', promoError);
+                }
+              }
+
+              // Send comprehensive order confirmation via PayPal invoice after successful wallet payment
               try {
-                const giftCardInfo = await createGiftCardInfoFromCart(cart);
+                const { createAndSendPayPalInvoice } = await import('../utils/paypalInvoiceUtils');
                 
-                const orderData: OrderConfirmationEmailData = {
+                // Convert cart to gift card info (simplified for now)
+                const giftCardInfo = cart.filter(item => item.isGiftCard).map(item => ({
+                  code: `GC-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`, // This would be actual gift card codes
+                  balance: item.giftCardValue || item.price,
+                  expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+                  isPromotional: false
+                }));
+                
+                // Prepare invoice data
+                const invoiceData = {
                   recipientEmail: user?.email || '',
                   recipientName: user?.displayName || userProfile?.firstName || 'Customer',
                   orderID: pendingBookingId || 'N/A',
                   orderDate: new Date().toISOString(),
+                  
+                  // Event details
+                  eventDate: calendarDateRange[0]?.toLocaleDateString() || undefined,
+                  deliveryAddress: deliveryAddress || undefined,
+                  deliveryTime: cartSettings.deliveryTime || undefined,
+                  duration: `${cart.length > 0 ? '6' : '6'} hours`, // Default duration, adjust as needed
+                  surface: undefined, // Add surface selection if available
                   
                   // Items (converting cart to the expected format)
                   rentalItems: cart.filter(item => !item.isGiftCard).map(item => ({
@@ -1471,18 +1623,25 @@ export default function Checkout() {
                   
                   // Gift cards and booking
                   giftCards: giftCardInfo,
-                  bookingStatus: 'confirmed'
+                  bookingStatus: 'confirmed',
+                  requiresPhoneCall: false, // Set based on your business logic
+                  
+                  // PayPal transaction details (none for wallet-only payments)
+                  paypalOrderId: undefined,
+                  paypalTransactionId: undefined
                 };
 
-                const emailSent = await sendOrderConfirmationEmail(orderData);
+                const invoiceResult = await createAndSendPayPalInvoice(invoiceData);
                 
-                if (emailSent) {
-                  console.log(`📧 WALLET PAYMENT - Order confirmation email sent successfully for order ${pendingBookingId}`);
+                if (invoiceResult.success) {
+                  console.log(`📧 WALLET PAYMENT - PayPal invoice created successfully for order ${pendingBookingId}`);
+                  console.log('  📄 Invoice ID:', invoiceResult.invoiceId);
+                  console.log('  🔗 Invoice URL:', invoiceResult.invoiceUrl);
                 } else {
-                  console.warn(`📧 WALLET PAYMENT - Failed to send order confirmation email for order ${pendingBookingId}`);
+                  console.warn(`📧 WALLET PAYMENT - Failed to create PayPal invoice for order ${pendingBookingId}:`, invoiceResult.error);
                 }
-              } catch (emailError) {
-                console.error(`📧 WALLET PAYMENT - Error sending order confirmation email for order ${pendingBookingId}:`, emailError);
+              } catch (invoiceError) {
+                console.error(`📧 WALLET PAYMENT - Error creating PayPal invoice for order ${pendingBookingId}:`, invoiceError);
               }
 
               const message = paymentType === 'deposit' 
@@ -1672,15 +1831,118 @@ export default function Checkout() {
                 console.log('🎁 No gift cards in cart or user not found:', { giftCardsCount: giftCardsInCart.length, hasUser: !!user });
               }
 
-              // Send comprehensive order confirmation email after successful payment
+              // Create promotional gift card for GOGO discount if applicable
+              if (discounts.bogoGiftCard && giftCardsInCart.length > 0 && user) {
+                try {
+                  console.log('🎁 GOGO DISCOUNT - Creating promotional gift card...');
+                  
+                  // Find the highest value gift card in the cart
+                  let highestValue = 0;
+                  for (const giftCardItem of giftCardsInCart) {
+                    const value = giftCardItem.giftCardValue || giftCardItem.price;
+                    if (value > highestValue) {
+                      highestValue = value;
+                    }
+                  }
+                  
+                  console.log(`🎁 GOGO DISCOUNT - Creating promotional gift card with value: $${highestValue}`);
+                  
+                  const promoGiftCardCode = await generateUniqueGiftCardCode();
+                  const recipientEmail = promotionalGiftCardEmail || user.email || '';
+                  
+                  const success = await createGiftCardInDatabase(
+                    promoGiftCardCode,
+                    highestValue,
+                    user.uid,
+                    user.email || '',
+                    user.displayName || '',
+                    true, // isGift = true for promotional cards
+                    recipientEmail // giftedTo parameter
+                  );
+                  
+                  if (success) {
+                    console.log(`✅ GOGO promotional gift card created: ${promoGiftCardCode} - $${highestValue} for ${recipientEmail}`);
+                    
+                    // Send separate invoice for promotional gift card
+                    try {
+                      const { createAndSendPayPalInvoice } = await import('../utils/paypalInvoiceUtils');
+                      
+                      const promoInvoiceData = {
+                        recipientEmail: recipientEmail,
+                        recipientName: user.displayName || 'Customer',
+                        orderID: 'PROMO-' + Date.now(),
+                        orderDate: new Date().toISOString(),
+                        rentalItems: [],
+                        lastMinuteAdditions: [],
+                        subtotal: 0,
+                        surfaceAdjustment: 0,
+                        timeAdjustment: 0,
+                        deliveryCost: 0,
+                        totalAmount: 0,
+                        paymentType: 'full' as const,
+                        amountPaid: 0,
+                        remainingBalance: 0,
+                        paymentMethod: 'Promotional Gift Card',
+                        giftCards: [{
+                          code: promoGiftCardCode,
+                          balance: highestValue,
+                          expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+                          isPromotional: true,
+                          promotionalMessage: 'GOGO Special Offer - Free gift card with your purchase!',
+                          recipientEmail: recipientEmail
+                        }],
+                        bookingStatus: 'promotional_gift_card'
+                      };
+                      
+                      const invoiceResult = await createAndSendPayPalInvoice(promoInvoiceData);
+                      
+                      if (invoiceResult.success) {
+                        console.log('✅ GOGO promotional gift card invoice sent successfully');
+                        notifications.show({
+                          title: '🎁 Promotional Gift Card Sent!',
+                          message: `A free gift card worth $${highestValue} has been sent to ${recipientEmail}`,
+                          color: 'green',
+                          autoClose: 8000,
+                        });
+                      } else {
+                        console.error('❌ Failed to send promotional gift card invoice:', invoiceResult.error);
+                      }
+                    } catch (invoiceError) {
+                      console.error('❌ Error sending promotional gift card invoice:', invoiceError);
+                    }
+                  } else {
+                    console.error(`❌ Failed to create GOGO promotional gift card: ${promoGiftCardCode}`);
+                  }
+                } catch (promoError) {
+                  console.error('❌ Exception during GOGO promotional gift card creation:', promoError);
+                }
+              }
+
+              // Send comprehensive order confirmation via PayPal invoice after successful payment
               try {
-                const giftCardInfo = await createGiftCardInfoFromCart(cart);
+                const { createAndSendPayPalInvoice } = await import('../utils/paypalInvoiceUtils');
                 
-                const orderData: OrderConfirmationEmailData = {
+                // Convert cart to gift card info (simplified for now)
+                const giftCardInfo = cart.filter(item => item.isGiftCard).map(item => ({
+                  code: `GC-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`, // This would be actual gift card codes
+                  balance: item.giftCardValue || item.price,
+                  expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+                  isPromotional: false
+                }));
+                
+                // Prepare invoice data
+                const invoiceData = {
                   recipientEmail: user?.email || '',
                   recipientName: user?.displayName || userProfile?.firstName || 'Customer',
                   orderID: pendingBookingId || 'N/A',
                   orderDate: new Date().toISOString(),
+                  
+                  // Event details
+                  eventDate: calendarDateRange[0]?.toLocaleDateString() || undefined,
+                  deliveryAddress: deliveryAddress || undefined,
+                  deliveryTime: cartSettings.deliveryTime || undefined,
+                  duration: `${cart.length > 0 ? '6' : '6'} hours`, // Default duration, adjust as needed
+                  surface: undefined, // Add surface selection if available
                   
                   // Items (converting cart to the expected format)
                   rentalItems: cart.filter(item => !item.isGiftCard).map(item => ({
@@ -1708,18 +1970,25 @@ export default function Checkout() {
                   
                   // Gift cards and booking
                   giftCards: giftCardInfo,
-                  bookingStatus: finalStatus || 'confirmed'
+                  bookingStatus: finalStatus || 'confirmed',
+                  requiresPhoneCall: false, // Set based on your business logic
+                  
+                  // PayPal transaction details
+                  paypalOrderId: data.orderID,
+                  paypalTransactionId: paymentId
                 };
 
-                const emailSent = await sendOrderConfirmationEmail(orderData);
+                const invoiceResult = await createAndSendPayPalInvoice(invoiceData);
                 
-                if (emailSent) {
-                  console.log(`📧 Order confirmation email sent successfully for order ${pendingBookingId}`);
+                if (invoiceResult.success) {
+                  console.log(`📧 PayPal invoice created successfully for order ${pendingBookingId}`);
+                  console.log('  📄 Invoice ID:', invoiceResult.invoiceId);
+                  console.log('  🔗 Invoice URL:', invoiceResult.invoiceUrl);
                 } else {
-                  console.warn(`📧 Failed to send order confirmation email for order ${pendingBookingId}`);
+                  console.warn(`📧 Failed to create PayPal invoice for order ${pendingBookingId}:`, invoiceResult.error);
                 }
-              } catch (emailError) {
-                console.error(`📧 Error sending order confirmation email for order ${pendingBookingId}:`, emailError);
+              } catch (invoiceError) {
+                console.error(`📧 Error creating PayPal invoice for order ${pendingBookingId}:`, invoiceError);
               }
               
               console.log("Payment completed:", details);
@@ -2079,6 +2348,22 @@ export default function Checkout() {
 
       if (bookingSaved && contractSaved) {
         console.log("Booking and contract saved successfully:", orderID, contractID);
+        
+        // Check if booking should be deferred due to event being within 2 days
+        if (!onlyGiftCards && calendarDateRange[0] && shouldDeferBooking(calendarDateRange[0].toISOString())) {
+          console.log("Event is within 2 days, deferring booking:", orderID);
+          const deferred = await deferBooking(orderID, "Event date is within 2 days of contract signing");
+          if (deferred) {
+            console.log("Booking deferred successfully:", orderID);
+            notifications.show({
+              title: '📞 Booking Deferred',
+              message: 'Since your event is within 2 days, we\'ll contact you to confirm details.',
+              color: 'orange',
+              autoClose: 8000,
+            });
+          }
+        }
+        
         return { orderID, contractID };
       } else {
         console.error("Failed to save booking or contract data");
@@ -3269,8 +3554,8 @@ export default function Checkout() {
             </div>
           </div>
 
-          {/* Promotional Gift Card Section - Show when there are qualifying purchases */}
-          {cart.some(item => !item.isGiftCard && item.price >= 100) && (
+          {/* Promotional Gift Card Section - Show when GOGO discount is active AND has gift cards */}
+          {discounts.bogoGiftCard && cart.some(item => item.isGiftCard) && (
             <div style={{ 
               marginBottom: '2rem',
               padding: '1rem',

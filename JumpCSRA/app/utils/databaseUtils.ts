@@ -39,6 +39,11 @@ export interface BookingData {
     paymentStatus: 'pending' | 'completed' | 'failed';
     paymentDate?: string;
   };
+  notes?: Array<{
+    type: 'system' | 'admin' | 'customer';
+    message: string;
+    timestamp: string;
+  }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -792,3 +797,82 @@ export const addSavedPaymentMethod = async (
     return false;
   }
 };
+
+// Get incomplete bookings for a user (for booking recovery)
+export async function getIncompleteBookingsForUser(userId: string): Promise<BookingData[]> {
+  try {
+    const db = getDatabase();
+    const bookingsRef = ref(db, 'bookings');
+    const snapshot = await get(bookingsRef);
+    
+    if (!snapshot.exists()) {
+      return [];
+    }
+    
+    const allBookings = snapshot.val();
+    const incompleteBookings: BookingData[] = [];
+    
+    // Find bookings for this user that are incomplete (pending/deferred and no payment)
+    Object.keys(allBookings).forEach(bookingId => {
+      const booking = allBookings[bookingId];
+      if (booking.customerID === userId && 
+          (booking.status === 'pending' || booking.status === 'deferred') &&
+          (!booking.paymentDetails.paymentStatus || booking.paymentDetails.paymentStatus === 'pending')) {
+        incompleteBookings.push(booking);
+      }
+    });
+    
+    // Sort by creation date (most recent first)
+    incompleteBookings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    console.log(`Found ${incompleteBookings.length} incomplete bookings for user ${userId}`);
+    return incompleteBookings;
+  } catch (error) {
+    console.error('Error getting incomplete bookings for user:', error);
+    return [];
+  }
+}
+
+// Check if booking should be deferred (event within 2 days)
+export function shouldDeferBooking(eventDate: string): boolean {
+  const event = new Date(eventDate);
+  const now = new Date();
+  const twoDaysFromNow = new Date(now.getTime() + (2 * 24 * 60 * 60 * 1000));
+  
+  return event <= twoDaysFromNow;
+}
+
+// Update booking to deferred status
+export async function deferBooking(bookingId: string, reason?: string): Promise<boolean> {
+  try {
+    const booking = await loadBookingData(bookingId);
+    if (!booking) {
+      console.error('Booking not found for deferral:', bookingId);
+      return false;
+    }
+    
+    booking.status = 'deferred';
+    booking.updatedAt = new Date().toISOString();
+    
+    // Add a note about why it was deferred
+    if (!booking.notes) {
+      booking.notes = [];
+    }
+    
+    booking.notes.push({
+      type: 'system',
+      message: reason || 'Booking deferred due to event date within 2 days of contract signing',
+      timestamp: new Date().toISOString()
+    });
+    
+    const success = await saveBookingData(booking);
+    if (success) {
+      console.log(`Booking ${bookingId} deferred successfully`);
+    }
+    
+    return success;
+  } catch (error) {
+    console.error('Error deferring booking:', error);
+    return false;
+  }
+}

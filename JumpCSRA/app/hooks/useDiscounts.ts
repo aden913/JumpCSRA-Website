@@ -698,7 +698,8 @@ async function createGiftCardInDatabase(
   purchaserUserId: string,
   purchaserEmail: string,
   purchaserName: string,
-  isGift: boolean = false
+  isGift: boolean = false,
+  giftedTo?: string
 ): Promise<boolean> {
   try {
     const now = new Date();
@@ -717,6 +718,7 @@ async function createGiftCardInDatabase(
       status: 'active', // 'active', 'empty', 'expired'
       expirationDate: expirationDate.toISOString(),
       isGift,
+      giftedTo: giftedTo || null,
       usageHistory: [] as Array<{
         type: 'order' | 'wallet';
         amount: number;

@@ -13,10 +13,13 @@ import { useCart } from '../hooks/useCart';
 import { useDiscounts, getPromoCardDiscount, getDiscountDescription } from '../hooks/useDiscounts';
 
 import React, { useEffect, useLayoutEffect, useState, useRef, useMemo } from "react";
-import { useSearchParams } from "react-router";
+import { useSearchParams, useNavigate } from "react-router";
 import { getDatabase, ref, onValue } from "firebase/database";
+import { getAuth, onAuthStateChanged, User } from "firebase/auth";
 import { firebaseConfig } from "../components/FirebaseConfig";
 import { initializeApp, getApps } from "firebase/app";
+import { getIncompleteBookingsForUser } from "../utils/databaseUtils";
+import type { BookingData } from "../utils/databaseUtils";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { BannerCarousel } from "../components/BannerCarousel";
 import { SearchBar } from "../components/SearchBar";
@@ -139,8 +142,65 @@ export function Welcome() {
   const optionsCarouselRef = useRef<OptionsCarouselRef>(null);
   const logic = useWelcomeLogic();
   const discountLogic = useDiscounts();
+  const navigate = useNavigate();
 
   const [unavailableInflateables, setUnavailableInflateables] = useState<Set<string>>(new Set());
+  const [user, setUser] = useState<User | null>(null);
+  const [incompleteBookings, setIncompleteBookings] = useState<BookingData[]>([]);
+  const [showBookingRecovery, setShowBookingRecovery] = useState(false);
+
+  // Initialize Firebase Auth
+  const auth = getAuth();
+
+  // Handle user authentication and booking recovery
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      
+      if (currentUser) {
+        // Check for incomplete bookings when user logs in
+        try {
+          const incomplete = await getIncompleteBookingsForUser(currentUser.uid);
+          setIncompleteBookings(incomplete);
+          
+          if (incomplete.length > 0) {
+            // Show notification about incomplete booking after a delay
+            setTimeout(() => {
+              setShowBookingRecovery(true);
+            }, 2000);
+          }
+        } catch (error) {
+          console.error('Error checking for incomplete bookings:', error);
+        }
+      } else {
+        setIncompleteBookings([]);
+        setShowBookingRecovery(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [auth]);
+
+  // Function to continue incomplete booking
+  const continueIncompleteBooking = (booking: BookingData) => {
+    // Store booking ID in localStorage to be picked up by checkout
+    localStorage.setItem('resumeBookingId', booking.orderID);
+    
+    // Navigate to checkout with the incomplete booking
+    navigate('/checkout');
+    
+    notifications.show({
+      title: '📝 Resuming Booking',
+      message: `Continuing with your incomplete booking #${booking.orderID}`,
+      color: 'blue',
+      autoClose: 3000,
+    });
+  };
+
+  // Function to dismiss booking recovery notification
+  const dismissBookingRecovery = () => {
+    setShowBookingRecovery(false);
+  };
 
   // Wrapper function to handle category change and reset carousel
   const handleCategoryChange = (category: string) => {
@@ -271,6 +331,62 @@ export function Welcome() {
         <DevModeToggle />
         <LocalStorageDebugger />
         <Notifications position="top-right" />
+        
+        {/* Booking Recovery Notification */}
+        {showBookingRecovery && incompleteBookings.length > 0 && (
+          <div style={{
+            position: 'fixed',
+            top: '20px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            backgroundColor: '#fff3cd',
+            border: '2px solid #ffeaa7',
+            borderRadius: '8px',
+            padding: '15px 20px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 1000,
+            maxWidth: '500px',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontWeight: 'bold', color: '#856404', marginBottom: '10px' }}>
+              📝 Resume Your Booking
+            </div>
+            <div style={{ color: '#856404', marginBottom: '15px', fontSize: '14px' }}>
+              You have an incomplete booking from {new Date(incompleteBookings[0].createdAt).toLocaleDateString()}
+            </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button
+                onClick={() => continueIncompleteBooking(incompleteBookings[0])}
+                style={{
+                  backgroundColor: '#667eea',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                Continue Booking
+              </button>
+              <button
+                onClick={dismissBookingRecovery}
+                style={{
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+        
         <div className="landing-page">
         {/* Header */}
         <header className="banner">
