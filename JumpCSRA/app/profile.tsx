@@ -13,7 +13,7 @@ import "./styles/profile.css";
 import { useInflateables } from "./hooks/useInflateables";
 import { useCategories } from "./hooks/useCategories";
 import type { CartItem } from "./components/CartSidebar";
-import { loadBookingData, loadContractData, loadContractByOrderID, getUserWallet, getUserPaymentInfo, addWalletTransaction, addSavedPaymentMethod } from "./utils/databaseUtils";
+import { loadBookingData, loadContractData, loadContractByOrderID, getUserWallet, getUserPaymentInfo, addWalletTransaction, addSavedPaymentMethod, deleteAllUserData } from "./utils/databaseUtils";
 import type { BookingData, ContractData, UserWallet, UserPaymentInfo, SavedPaymentMethod } from "./utils/databaseUtils";
 import { redeemGiftCardToWallet, validateGiftCard, getGiftCardDetails } from "./hooks/useDiscounts";
 import { WalletFundingModal } from "./components/WalletFundingModal";
@@ -908,6 +908,117 @@ export default function Profile() {
     setStoringPaymentMethod(false);
   };
 
+  // Enhanced delete account function
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    
+    try {
+      // First, check wallet balance
+      const walletData = await getUserWallet(user.uid);
+      const walletBalance = walletData?.balance || 0;
+      
+      let confirmMessage = "Are you sure you want to delete your account? This action cannot be undone and will permanently delete:\n\n" +
+                          "• Your profile information\n" +
+                          "• Your booking history\n" +
+                          "• Your saved payment methods\n" +
+                          "• Your gift cards";
+      
+      if (walletBalance > 0) {
+        confirmMessage += `\n• Your wallet balance of $${walletBalance.toFixed(2)} (THIS MONEY WILL BE LOST!)`;
+      }
+      
+      confirmMessage += "\n\nType 'DELETE' to confirm account deletion:";
+      
+      const userInput = prompt(confirmMessage);
+      
+      if (userInput !== 'DELETE') {
+        if (userInput !== null) { // User didn't cancel
+          alert('Account deletion cancelled. You must type "DELETE" exactly to confirm.');
+        }
+        return;
+      }
+      
+      // Show final warning if wallet has balance
+      if (walletBalance > 0) {
+        const finalConfirm = confirm(
+          `⚠️ FINAL WARNING ⚠️\n\n` +
+          `You have $${walletBalance.toFixed(2)} in your wallet that will be permanently lost!\n\n` +
+          `Are you absolutely sure you want to proceed with account deletion?`
+        );
+        
+        if (!finalConfirm) {
+          return;
+        }
+      }
+      
+      // Delete all user data from database
+      const deletionResult = await deleteAllUserData(user.uid);
+      
+      if (!deletionResult.success) {
+        throw new Error(deletionResult.error || 'Failed to delete user data');
+      }
+      
+      // Send account deletion email notification since we're on Blaze plan
+      try {
+        const { getFunctions, httpsCallable } = await import('firebase/functions');
+        const functions = getFunctions();
+        const sendAccountDeletionEmail = httpsCallable(functions, 'sendAccountDeletionEmail');
+        
+        await sendAccountDeletionEmail({
+          userEmail: user.email,
+          userName: profile.name || user.displayName || 'Customer',
+          deletedWalletBalance: deletionResult.deletedWalletBalance || 0,
+          deletionDate: new Date().toISOString()
+        });
+        
+        console.log('Account deletion email sent successfully');
+      } catch (emailError) {
+        console.error('Failed to send deletion email:', emailError);
+        // Continue with deletion even if email fails
+      }
+      
+      // Delete Firestore user document
+      const docRef = doc(firestore, "users", user.uid);
+      await updateDoc(docRef, { 
+        deleted: true,
+        deletedAt: new Date().toISOString(),
+        deletedWalletBalance: deletionResult.deletedWalletBalance || 0
+      });
+      await (await import("firebase/firestore")).deleteDoc(docRef);
+
+      // Delete Firebase Auth user
+      await user.delete();
+
+      // Show success message
+      alert(
+        'Your account has been successfully deleted.\n\n' +
+        `${deletionResult.deletedWalletBalance && deletionResult.deletedWalletBalance > 0 
+          ? `Your wallet balance of $${deletionResult.deletedWalletBalance.toFixed(2)} has been forfeited.\n` 
+          : ''
+        }` +
+        'You will receive an email confirmation shortly.\n\n' +
+        'Thank you for using JumpCSRA Party Rentals.'
+      );
+
+      // Sign out and redirect
+      await auth.signOut();
+      navigate("/");
+      
+    } catch (err: any) {
+      console.error('Account deletion error:', err);
+      
+      let errorMessage = "Failed to delete account: ";
+      
+      if (err.code === 'auth/requires-recent-login') {
+        errorMessage += "Please sign out and sign back in, then try again.";
+      } else {
+        errorMessage += (err.message || err);
+      }
+      
+      alert(errorMessage);
+    }
+  };
+
   // Load payment data when tab changes
   React.useEffect(() => {
     if (activeTab === 3 && user && !passwordVerified) {
@@ -1300,25 +1411,7 @@ export default function Profile() {
               <button
                 className="profile-delete-btn"
                 style={{ background: "#c00", color: "#fff", padding: "0.75rem 2rem", borderRadius: "6px", border: "none", fontWeight: "bold" }}
-                onClick={async () => {
-                  if (!window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) return;
-                  if (!user) return;
-                  try {
-                    // Delete Firestore user document
-                    const docRef = doc(firestore, "users", user.uid);
-                    await updateDoc(docRef, { deleted: true }); // Optional: mark as deleted before actual delete
-                    await (await import("firebase/firestore")).deleteDoc(docRef);
-
-                    // Delete Firebase Auth user
-                    await user.delete();
-
-                    // Sign out and redirect
-                    await auth.signOut();
-                    navigate("/");
-                  } catch (err: any) {
-                    alert("Failed to delete account: " + (err.message || err));
-                  }
-                }}
+                onClick={handleDeleteAccount}
               >
                 Delete Account
               </button>

@@ -180,6 +180,9 @@ export default function Checkout() {
   const [loadingBookingFromUrl, setLoadingBookingFromUrl] = useState<boolean>(false);
   const [bookingLoadedFromUrl, setBookingLoadedFromUrl] = useState<boolean>(false);
   const [paymentType, setPaymentType] = useState<'full' | 'deposit'>('full');
+  
+  // Store completed order data for display after cart is cleared
+  const [completedOrderCart, setCompletedOrderCart] = useState<CartItem[]>([]);
 
   // Wallet State
   const [userWallet, setUserWallet] = useState<UserWallet | null>(null);
@@ -216,6 +219,26 @@ export default function Checkout() {
   
   // Email state for promotional gift cards
   const [promotionalGiftCardEmail, setPromotionalGiftCardEmail] = useState<string>("");
+  
+  // Helper function to get the current cart for display
+  // Uses completed order cart if payment is done, otherwise uses active cart
+  const getDisplayCart = (): CartItem[] => {
+    return paymentCompleted && completedOrderCart.length > 0 ? completedOrderCart : cart;
+  };
+
+  // Helper function to calculate totals for display
+  // Uses the display cart (either active or completed order)
+  const getDisplayCartTotal = (): number => {
+    const displayCart = getDisplayCart();
+    const durationMultiplier = cartSettings.duration ? durationMultipliers[cartSettings.duration] || 1.0 : 1.0;
+    return displayCart.reduce((sum, item) => {
+      if (item.isGiftCard) {
+        return sum + (item.giftCardValue || item.price) * item.quantity;
+      } else {
+        return sum + item.price * item.quantity * durationMultiplier;
+      }
+    }, 0);
+  };
 
   // Discount management
   const { discounts, calculateDiscount, getActiveDiscount } = useDiscounts();
@@ -1655,6 +1678,9 @@ export default function Checkout() {
                 autoClose: 8000,
               });
 
+              // Store cart data before clearing for order summary display
+              setCompletedOrderCart([...cart]);
+
               // Clear cart
               localStorage.removeItem("cart");
               setCart([]);
@@ -1990,6 +2016,13 @@ export default function Checkout() {
               } catch (invoiceError) {
                 console.error(`📧 Error creating PayPal invoice for order ${pendingBookingId}:`, invoiceError);
               }
+              
+              // Store cart data before clearing for order summary display
+              setCompletedOrderCart([...cart]);
+              
+              // Clear cart after successful payment
+              localStorage.removeItem("cart");
+              setCart([]);
               
               console.log("Payment completed:", details);
               console.log(`Booking status updated to ${finalStatus} with orderID:`, pendingBookingId);
@@ -2477,8 +2510,8 @@ export default function Checkout() {
     );
   }
 
-  // If cart is empty, redirect back to home
-  if (cart.length === 0) {
+  // If cart is empty and no completed order, redirect back to home
+  if (cart.length === 0 && completedOrderCart.length === 0) {
     return (
       <div style={{ 
         display: 'flex', 
@@ -2561,7 +2594,7 @@ export default function Checkout() {
         {/* Cart Items */}
         <div className="order-items">
           <h3>Items:</h3>
-          {cart.map((item, idx) => (
+          {getDisplayCart().map((item, idx) => (
             <div key={idx} className="order-item">
               <div className="order-item-content">
                 {/* Product Image */}
@@ -3530,7 +3563,7 @@ export default function Checkout() {
             <h3 style={{ margin: '0 0 1rem 0', color: '#333' }}>Order Summary</h3>
             <div style={{ marginBottom: '0.5rem' }}>
               <strong>Items:</strong>
-              {cart.map((item, index) => (
+              {getDisplayCart().map((item, index) => (
                 <div key={index} style={{ marginLeft: '1rem', color: '#666' }}>
                   • {item.name} - ${item.price.toFixed(2)}
                   {item.wetDry && ` (${item.wetDry})`}
@@ -3538,7 +3571,7 @@ export default function Checkout() {
               ))}
             </div>
             <div style={{ marginBottom: '0.5rem', color: '#666' }}>
-              <strong>Subtotal:</strong> ${cart.reduce((sum, item) => sum + item.price, 0).toFixed(2)}
+              <strong>Subtotal:</strong> ${getDisplayCartTotal().toFixed(2)}
             </div>
             <div style={{ marginBottom: '0.5rem', color: '#666' }}>
               <strong>Delivery:</strong> ${deliveryCost.toFixed(2)}

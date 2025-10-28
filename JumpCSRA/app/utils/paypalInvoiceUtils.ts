@@ -338,29 +338,131 @@ export const createAndSendPayPalInvoice = async (data: InvoiceData): Promise<{ s
     console.log('  💰 Total Amount: $' + data.totalAmount.toFixed(2));
     console.log('  🎁 Gift Cards:', data.giftCards.length);
     
+    // First, let's test if Firebase Functions are available and deployed
     try {
-      // Try to use Firebase Cloud Functions
       const { getFunctions, httpsCallable } = await import('firebase/functions');
       const { app } = await import('../components/FirebaseConfig');
       
       const functions = getFunctions(app);
-      const createPayPalInvoice = httpsCallable(functions, 'createPayPalInvoice');
+      console.log('📧 PAYPAL INVOICE - Firebase Functions loaded, project ID:', functions.app.options.projectId);
       
-      // Call the Firebase Cloud Function
-      const result = await createPayPalInvoice(data);
-      
-      console.log('✅ PAYPAL INVOICE - Firebase function result:', result.data);
-      
-      return {
-        success: true,
-        invoiceId: (result.data as any).invoiceId,
-        invoiceUrl: (result.data as any).invoiceUrl
-      };
+      // Try the PayPal invoice function first
+      try {
+        const createPayPalInvoice = httpsCallable(functions, 'createPayPalInvoice');
+        
+        console.log('📧 PAYPAL INVOICE - Calling Firebase createPayPalInvoice function...');
+        
+        const result = await createPayPalInvoice(data);
+        
+        console.log('✅ PAYPAL INVOICE - PayPal invoice created successfully:', result.data);
+        
+        return {
+          success: true,
+          invoiceId: (result.data as any).invoiceId,
+          invoiceUrl: (result.data as any).invoiceUrl
+        };
+        
+      } catch (paypalError) {
+        console.error('❌ PAYPAL INVOICE - PayPal invoice function failed:', paypalError);
+        console.error('PayPal error details:', {
+          code: (paypalError as any).code,
+          message: (paypalError as any).message,
+          details: (paypalError as any).details,
+          stack: (paypalError as any).stack
+        });
+        
+        // Try fallback to order confirmation email
+        console.log('🔄 PAYPAL INVOICE - Trying fallback order confirmation email...');
+        
+        const sendOrderConfirmationEmail = httpsCallable(functions, 'sendOrderConfirmationEmail');
+        
+        const emailData = {
+          recipientEmail: data.recipientEmail,
+          recipientName: data.recipientName,
+          orderID: data.orderID,
+          orderDate: data.orderDate,
+          eventDate: data.eventDate,
+          deliveryAddress: data.deliveryAddress,
+          deliveryTime: data.deliveryTime,
+          duration: data.duration,
+          surface: data.surface,
+          rentalItems: data.rentalItems,
+          lastMinuteAdditions: data.lastMinuteAdditions,
+          subtotal: data.subtotal,
+          surfaceAdjustment: data.surfaceAdjustment,
+          timeAdjustment: data.timeAdjustment,
+          deliveryCost: data.deliveryCost,
+          totalAmount: data.totalAmount,
+          paymentType: data.paymentType,
+          amountPaid: data.amountPaid,
+          remainingBalance: data.remainingBalance,
+          paymentMethod: data.paymentMethod,
+          giftCards: data.giftCards,
+          bookingStatus: data.bookingStatus,
+          requiresPhoneCall: data.requiresPhoneCall
+        };
+        
+        const emailResult = await sendOrderConfirmationEmail(emailData);
+        
+        console.log('✅ PAYPAL INVOICE - Order confirmation email sent successfully:', emailResult.data);
+        
+        return {
+          success: true,
+          invoiceId: 'EMAIL-' + data.orderID,
+          invoiceUrl: 'mailto:' + data.recipientEmail,
+          error: 'PayPal invoicing temporarily unavailable, sent order confirmation email instead'
+        };
+      }
       
     } catch (firebaseError) {
-      console.warn('� PAYPAL INVOICE - Firebase Functions not available, using fallback:', firebaseError);
+      console.error('❌ PAYPAL INVOICE - Firebase Functions error:', firebaseError);
+      console.error('Firebase error details:', {
+        code: (firebaseError as any).code,
+        message: (firebaseError as any).message,
+        details: (firebaseError as any).details
+      });
+      
+      // Use simple email service as fallback
+      console.log('🔄 PAYPAL INVOICE - Using simple email service fallback...');
+      
+      try {
+        const { createOrderConfirmationEmail, showEmailInstructions } = await import('./simpleEmailService');
+        
+        const emailResult = await createOrderConfirmationEmail({
+          recipientEmail: data.recipientEmail,
+          recipientName: data.recipientName,
+          orderID: data.orderID,
+          orderDate: data.orderDate,
+          totalAmount: data.totalAmount,
+          rentalItems: data.rentalItems,
+          giftCards: data.giftCards,
+          bookingStatus: data.bookingStatus
+        });
+        
+        if (emailResult.success && emailResult.emailUrl) {
+          // Show email instructions to user
+          setTimeout(() => {
+            showEmailInstructions(data.recipientEmail, emailResult.emailUrl!);
+          }, 1000);
+          
+          console.log('✅ PAYPAL INVOICE - Simple email service fallback completed');
+          
+          return {
+            success: true,
+            invoiceId: 'SIMPLE-EMAIL-' + data.orderID,
+            invoiceUrl: emailResult.emailUrl,
+            error: 'Firebase Functions unavailable, using simple email fallback'
+          };
+        } else {
+          throw new Error('Simple email service also failed');
+        }
+        
+      } catch (simpleEmailError) {
+        console.error('❌ PAYPAL INVOICE - Simple email service also failed:', simpleEmailError);
+      }
       
       // Fallback: Log comprehensive invoice data for development
+      console.log('📧 PAYPAL INVOICE - Using development fallback due to Firebase error');
       console.log('📧 PAYPAL INVOICE - COMPREHENSIVE INVOICE DATA:');
       console.log('==========================================');
       console.log('Invoice Number:', `JC-${data.orderID}`);

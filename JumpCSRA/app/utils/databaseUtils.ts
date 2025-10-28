@@ -876,3 +876,91 @@ export async function deferBooking(bookingId: string, reason?: string): Promise<
     return false;
   }
 }
+
+// Delete all user data (for account deletion)
+export async function deleteAllUserData(userId: string): Promise<{
+  success: boolean;
+  deletedWalletBalance?: number;
+  error?: string;
+}> {
+  try {
+    const db = getDatabase();
+    
+    // Get user wallet to check balance
+    let walletBalance = 0;
+    try {
+      const userWallet = await getUserWallet(userId);
+      if (userWallet) {
+        walletBalance = userWallet.balance;
+      }
+    } catch (error) {
+      console.warn('Could not get wallet balance during deletion:', error);
+    }
+    
+    // Delete user wallet data
+    const walletRef = ref(db, `userWallets/${userId}`);
+    await set(walletRef, null);
+    
+    // Delete user payment info
+    const paymentInfoRef = ref(db, `userPaymentInfo/${userId}`);
+    await set(paymentInfoRef, null);
+    
+    // Delete user bookings (mark as deleted to preserve order history)
+    const bookingsRef = ref(db, 'bookings');
+    const bookingsSnapshot = await get(bookingsRef);
+    
+    if (bookingsSnapshot.exists()) {
+      const allBookings = bookingsSnapshot.val();
+      const updates: Record<string, any> = {};
+      
+      Object.keys(allBookings).forEach(bookingId => {
+        const booking = allBookings[bookingId];
+        if (booking.customerID === userId) {
+          updates[`bookings/${bookingId}/status`] = 'deleted';
+          updates[`bookings/${bookingId}/customerInfo/deleted`] = true;
+          updates[`bookings/${bookingId}/deletedAt`] = new Date().toISOString();
+        }
+      });
+      
+      if (Object.keys(updates).length > 0) {
+        await set(ref(db), updates);
+      }
+    }
+    
+    // Delete gift cards purchased by user (but not promotional ones)
+    const giftCardsRef = ref(db, 'giftCards');
+    const giftCardsSnapshot = await get(giftCardsRef);
+    
+    if (giftCardsSnapshot.exists()) {
+      const allGiftCards = giftCardsSnapshot.val();
+      const giftCardUpdates: Record<string, any> = {};
+      
+      Object.keys(allGiftCards).forEach(giftCardCode => {
+        const giftCard = allGiftCards[giftCardCode];
+        if (giftCard.purchaserUserId === userId && !giftCard.isGift) {
+          // Mark as deleted instead of removing completely
+          giftCardUpdates[`giftCards/${giftCardCode}/status`] = 'deleted';
+          giftCardUpdates[`giftCards/${giftCardCode}/deletedAt`] = new Date().toISOString();
+        }
+      });
+      
+      if (Object.keys(giftCardUpdates).length > 0) {
+        await set(ref(db), giftCardUpdates);
+      }
+    }
+    
+    console.log(`Successfully deleted all data for user ${userId}, wallet balance was $${walletBalance}`);
+    
+    return {
+      success: true,
+      deletedWalletBalance: walletBalance
+    };
+    
+  } catch (error) {
+    console.error('Error deleting user data:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}

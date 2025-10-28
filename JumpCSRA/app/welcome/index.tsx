@@ -202,6 +202,49 @@ export function Welcome() {
     setShowBookingRecovery(false);
   };
 
+  // Function to delete incomplete booking
+  const deleteIncompleteBooking = async (booking: BookingData) => {
+    if (!confirm(`Are you sure you want to delete booking #${booking.orderID}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      // Delete the booking by setting status to 'cancelled'
+      const { updateBookingStatus } = await import('../utils/databaseUtils');
+      const success = await updateBookingStatus(booking.orderID, 'cancelled');
+      
+      if (success) {
+        notifications.show({
+          title: '🗑️ Booking Deleted',
+          message: `Booking #${booking.orderID} has been deleted`,
+          color: 'red',
+          autoClose: 3000,
+        });
+        
+        // Remove from incomplete bookings and hide notification
+        setIncompleteBookings(prev => prev.filter(b => b.orderID !== booking.orderID));
+        if (incompleteBookings.length <= 1) {
+          setShowBookingRecovery(false);
+        }
+      } else {
+        notifications.show({
+          title: '❌ Delete Failed',
+          message: 'Failed to delete booking. Please try again.',
+          color: 'red',
+          autoClose: 5000,
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting booking:', error);
+      notifications.show({
+        title: '❌ Delete Failed',
+        message: 'An error occurred while deleting the booking.',
+        color: 'red',
+        autoClose: 5000,
+      });
+    }
+  };
+
   // Wrapper function to handle category change and reset carousel
   const handleCategoryChange = (category: string) => {
     logic.setSelectedCategory(category);
@@ -368,6 +411,20 @@ export function Welcome() {
                 }}
               >
                 Continue Booking
+              </button>
+              <button
+                onClick={() => deleteIncompleteBooking(incompleteBookings[0])}
+                style={{
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 16px',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                Delete Booking
               </button>
               <button
                 onClick={dismissBookingRecovery}
