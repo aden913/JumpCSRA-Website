@@ -1,0 +1,19 @@
+{
+  "name": "jumpcsra-production",
+  "version": "1.0.0",
+  "description": "Production deployment for JumpCSRA",
+  "main": "serverFiles/server.js",
+  "scripts": {
+    "start": "node serverFiles/server.js",
+    "deploy": "./deploy.sh",
+    "build": "cd JumpCSRA && npm install && npm run build",
+    "install-deps": "cd serverFiles && npm install --production",
+    "pm2-start": "pm2 start ecosystem.config.js",
+    "pm2-restart": "pm2 restart jumpcsra-server",
+    "pm2-logs": "pm2 logs jumpcsra-server",
+    "pm2-status": "pm2 list"
+  },
+  "keywords": ["jumpcsra", "production", "deployment"],
+  "author": "JumpCSRA",
+  "license": "MIT"
+}
