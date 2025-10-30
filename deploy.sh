@@ -54,17 +54,11 @@ npm run build
 echo "⚙️ Setting up environment..."
 cd $DEPLOY_DIR/serverFiles
 if [ ! -f .env ]; then
-    echo "Creating .env file template..."
-    cat > .env << EOL
-NODE_ENV=production
-PORT=3000
-SENDGRID_API_KEY=your_sendgrid_api_key_here
-FIREBASE_PROJECT_ID=your_firebase_project_id
-FRONTEND_URL=https://your-domain.com
-RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX_REQUESTS=100
-EOL
-    echo "⚠️  Please edit .env file with your actual credentials"
+    echo "Creating .env file from template..."
+    cp env.template .env
+    echo "⚠️  IMPORTANT: Edit .env file with your actual credentials!"
+    echo "   1. Get SendGrid API key from: https://app.sendgrid.com/settings/api_keys"
+    echo "   2. Get Firebase credentials from Firebase Console > Project Settings > Service Accounts"
 fi
 
 # Create logs directory with proper permissions

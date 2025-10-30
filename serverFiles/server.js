@@ -93,18 +93,23 @@ app.use((err, req, res, next) => {
 // Initialize services
 async function startServer() {
   try {
-    // Initialize Firebase
-    await initializeFirebase();
-    logger.info('Firebase initialized successfully');
+    // Initialize Firebase (optional - server continues without it)
+    const firebaseResult = await initializeFirebase();
+    if (firebaseResult) {
+      logger.info('Firebase initialized successfully');
+    } else {
+      logger.warn('Firebase initialization skipped - some features may be limited');
+    }
 
-    // Start email scheduler
+    // Start email scheduler (will work with or without Firebase)
     schedulerService.startScheduler();
     logger.info('Email scheduler started');
 
     // Start server
     const server = app.listen(PORT, () => {
-      logger.info(`JumpCSRA Email Server running on port ${PORT}`);
+      logger.info(`JumpCSRA Server running on port ${PORT}`);
       logger.info(`Environment: ${process.env.NODE_ENV}`);
+      logger.info(`Serving React app from: ${buildPath}`);
     });
 
     // Graceful shutdown

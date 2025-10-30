@@ -9,6 +9,21 @@ const initializeFirebase = async () => {
       return firebaseApp;
     }
 
+    // Check if all required environment variables are present
+    const requiredVars = [
+      'FIREBASE_PROJECT_ID',
+      'FIREBASE_CLIENT_EMAIL', 
+      'FIREBASE_PRIVATE_KEY'
+    ];
+
+    const missingVars = requiredVars.filter(varName => !process.env[varName]);
+    
+    if (missingVars.length > 0) {
+      logger.warn(`Missing Firebase environment variables: ${missingVars.join(', ')}`);
+      logger.warn('Firebase features will be disabled. Server will continue without Firebase.');
+      return null;
+    }
+
     // Initialize Firebase Admin SDK
     const serviceAccount = {
       type: "service_account",
@@ -26,20 +41,23 @@ const initializeFirebase = async () => {
     return firebaseApp;
   } catch (error) {
     logger.error('Failed to initialize Firebase:', error);
-    throw error;
+    logger.warn('Firebase features will be disabled. Server will continue without Firebase.');
+    return null;
   }
 };
 
 const getFirestore = () => {
   if (!firebaseApp) {
-    throw new Error('Firebase not initialized');
+    logger.warn('Firebase not initialized - Firestore operations will be skipped');
+    return null;
   }
   return admin.firestore();
 };
 
 const getAuth = () => {
   if (!firebaseApp) {
-    throw new Error('Firebase not initialized');
+    logger.warn('Firebase not initialized - Auth operations will be skipped');
+    return null;
   }
   return admin.auth();
 };

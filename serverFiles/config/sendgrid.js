@@ -1,16 +1,56 @@
 const sgMail = require('@sendgrid/mail');
 const logger = require('../utils/logger');
 
-// Initialize SendGrid
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+// Initialize SendGrid with validation
+let sendGridInitialized = false;
+
+const initializeSendGrid = () => {
+  const apiKey = process.env.SENDGRID_API_KEY;
+  
+  if (!apiKey) {
+    logger.warn('SENDGRID_API_KEY not found in environment variables');
+    logger.warn('Email functionality will be disabled');
+    return false;
+  }
+
+  if (!apiKey.startsWith('SG.')) {
+    logger.warn('Invalid SendGrid API key format - should start with "SG."');
+    logger.warn('Email functionality will be disabled');
+    return false;
+  }
+
+  try {
+    sgMail.setApiKey(apiKey);
+    sendGridInitialized = true;
+    logger.info('SendGrid initialized successfully');
+    return true;
+  } catch (error) {
+    logger.error('Failed to initialize SendGrid:', error);
+    return false;
+  }
+};
+
+// Initialize on startup
+initializeSendGrid();
 
 const sendEmail = async (emailData) => {
+  if (!sendGridInitialized) {
+    logger.warn('SendGrid not initialized - email will be skipped');
+    return {
+      success: false,
+      error: {
+        message: 'SendGrid not configured',
+        code: 'SENDGRID_NOT_INITIALIZED'
+      }
+    };
+  }
+
   try {
     const msg = {
       to: emailData.to,
       from: {
-        email: process.env.SENDGRID_FROM_EMAIL,
-        name: process.env.SENDGRID_FROM_NAME
+        email: process.env.SENDGRID_FROM_EMAIL || 'noreply@jumpcsra.com',
+        name: process.env.SENDGRID_FROM_NAME || 'JumpCSRA'
       },
       subject: emailData.subject,
       html: emailData.html,
