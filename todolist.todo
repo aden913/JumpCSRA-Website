@@ -808,6 +808,196 @@
           "done": false,
           "start": 1761444774384
         }
+      },
+      {
+        "key": 1761757488629,
+        "children": [
+          {
+            "key": 1761757498903,
+            "children": [],
+            "todo": {
+              "content": "account creation",
+              "id": 1761757498903,
+              "level": "default",
+              "done": false,
+              "start": 1761757498903
+            }
+          },
+          {
+            "key": 1761757510441,
+            "children": [],
+            "todo": {
+              "content": "shopping cart reminder",
+              "id": 1761757510441,
+              "level": "default",
+              "done": false,
+              "start": 1761757510441
+            }
+          },
+          {
+            "key": 1761757528633,
+            "children": [],
+            "todo": {
+              "content": "after a payment",
+              "id": 1761757528633,
+              "level": "default",
+              "done": false,
+              "start": 1761757528633
+            }
+          },
+          {
+            "key": 1761757557216,
+            "children": [],
+            "todo": {
+              "content": "reminder to pay rest of deposit",
+              "id": 1761757557216,
+              "level": "default",
+              "done": false,
+              "start": 1761757557216
+            }
+          },
+          {
+            "key": 1761757575096,
+            "children": [],
+            "todo": {
+              "content": "confirmation email 2 days prior to event",
+              "id": 1761757575096,
+              "level": "default",
+              "done": false,
+              "start": 1761757575096
+            }
+          },
+          {
+            "key": 1761757591655,
+            "children": [],
+            "todo": {
+              "content": "post event thanks email",
+              "id": 1761757591655,
+              "level": "default",
+              "done": false,
+              "start": 1761757591655
+            }
+          },
+          {
+            "key": 1761757610378,
+            "children": [],
+            "todo": {
+              "content": "9 month post event email",
+              "id": 1761757610378,
+              "level": "default",
+              "done": false,
+              "start": 1761757610378
+            }
+          },
+          {
+            "key": 1761757659665,
+            "children": [
+              {
+                "key": 1761757681961,
+                "children": [],
+                "todo": {
+                  "content": "why",
+                  "id": 1761757681961,
+                  "level": "default",
+                  "done": false,
+                  "start": 1761757681961
+                }
+              }
+            ],
+            "todo": {
+              "content": "special upgrade email",
+              "id": 1761757659665,
+              "level": "default",
+              "done": false,
+              "start": 1761757659665
+            }
+          },
+          {
+            "key": 1761757698803,
+            "children": [],
+            "todo": {
+              "content": "extra day promo",
+              "id": 1761757698803,
+              "level": "default",
+              "done": false,
+              "start": 1761757698803
+            }
+          },
+          {
+            "key": 1761757731623,
+            "children": [],
+            "todo": {
+              "content": "delivery and pickup times",
+              "id": 1761757731623,
+              "level": "default",
+              "done": false,
+              "start": 1761757731623
+            }
+          },
+          {
+            "key": 1761757745063,
+            "children": [],
+            "todo": {
+              "content": "",
+              "id": 1761757745063,
+              "level": "default",
+              "done": false,
+              "start": 1761757745063
+            }
+          }
+        ],
+        "todo": {
+          "content": "automated emails",
+          "id": 1761757488629,
+          "level": "default",
+          "done": false,
+          "start": 1761757488629
+        }
+      },
+      {
+        "key": 1761757767861,
+        "children": [
+          {
+            "key": 1761757780193,
+            "children": [],
+            "todo": {
+              "content": "refunds",
+              "id": 1761757780193,
+              "level": "default",
+              "done": false,
+              "start": 1761757780193
+            }
+          },
+          {
+            "key": 1761757788258,
+            "children": [],
+            "todo": {
+              "content": "cancellations",
+              "id": 1761757788258,
+              "level": "default",
+              "done": false,
+              "start": 1761757788258
+            }
+          },
+          {
+            "key": 1761757793289,
+            "children": [],
+            "todo": {
+              "content": "charges for damage",
+              "id": 1761757793289,
+              "level": "default",
+              "done": false,
+              "start": 1761757793289
+            }
+          }
+        ],
+        "todo": {
+          "content": "manual template based emails",
+          "id": 1761757767861,
+          "level": "default",
+          "done": false,
+          "start": 1761757767861
+        }
       }
     ],
     "expandKeys": [
@@ -828,7 +1018,9 @@
       1760815393277,
       1760815458955,
       1760848177060,
-      1761444774384
+      1761444774384,
+      1761757528633,
+      1761757488629
     ],
     "schema": "https://github.com/Saber2pr/vsc-ext-todolist/blob/master/src/api/type.ts#L3",
     "add_mode": "bottom",
@@ -841,6 +1033,6 @@
     "showEndTime": false,
     "simpleMode": false,
     "lang": "en",
-    "version": "1761444793158"
+    "version": "1761838077871"
   }
 }

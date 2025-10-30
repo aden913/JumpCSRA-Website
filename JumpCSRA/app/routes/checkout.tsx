@@ -16,6 +16,7 @@ import { useCartSettings } from "../hooks/useCartSettings";
 import { useCategories } from "../hooks/useCategories";
 import { generateUniqueGiftCardCode, createGiftCardInDatabase, useDiscounts } from "../hooks/useDiscounts";
 import { sendOrderConfirmationEmail, createGiftCardInfoFromCart, OrderConfirmationEmailData, GiftCardInfo } from "../utils/emailUtils";
+import { sendEnhancedOrderConfirmation, scheduleCartReminderEmail, scheduleDepositReminderEmail, scheduleEventConfirmationEmail, schedulePostEventThanksEmail, scheduleRebookingReminderEmail } from "../utils/backendEmailService";
 import { notifications } from '@mantine/notifications';
 import { Notifications } from '@mantine/notifications';
 import { MantineProvider } from '@mantine/core';
@@ -1370,6 +1371,96 @@ export default function Checkout() {
     setWalletAppliedAmount(calculateWalletApplicableAmount());
   }, [useWalletFirst, paymentType, userWallet?.balance, total]);
 
+  // Cart abandonment tracking
+  useEffect(() => {
+    let cartAbandonmentTimeout: NodeJS.Timeout | null = null;
+
+    const scheduleCartReminder = async () => {
+      if (cart.length > 0 && user && user.email) {
+        try {
+          const cartValue = cart.reduce((sum, item) => sum + item.price, 0);
+          
+          await scheduleCartReminderEmail({
+            userID: user.uid,
+            cartItems: cart,
+            cartValue: cartValue,
+            customerEmail: user.email,
+            customerName: user.displayName || userProfile?.firstName || 'Customer'
+          });
+          
+          console.log('📧 Cart abandonment reminder scheduled for 24 hours');
+        } catch (error) {
+          console.error('Failed to schedule cart abandonment reminder:', error);
+        }
+      }
+    };
+
+    // Schedule reminder if cart has items and user is logged in
+    if (cart.length > 0 && user) {
+      // Clear any existing timeout
+      if (cartAbandonmentTimeout) {
+        clearTimeout(cartAbandonmentTimeout);
+      }
+      
+      // Schedule reminder for 5 minutes from now (for testing - change to longer in production)
+      cartAbandonmentTimeout = setTimeout(scheduleCartReminder, 5 * 60 * 1000); // 5 minutes for demo
+    }
+
+    // Cleanup function
+    return () => {
+      if (cartAbandonmentTimeout) {
+        clearTimeout(cartAbandonmentTimeout);
+      }
+    };
+  }, [cart, user, userProfile]);
+
+  // Schedule automated emails after successful payment
+  const scheduleAutomatedEmails = async (bookingData: any) => {
+    if (!user || !user.email) return;
+
+    const commonBookingData = {
+      bookingID: bookingData.orderID,
+      customerEmail: user.email,
+      customerName: user.displayName || userProfile?.firstName || 'Customer',
+      eventDate: calendarDateRange[0]?.toISOString() || new Date().toISOString(),
+      bookingDetails: {
+        deliveryAddress: deliveryAddress,
+        deliveryTime: cartSettings.deliveryTime,
+        items: cart.filter(item => !item.isGiftCard).map(item => ({
+          name: item.name,
+          quantity: item.quantity || 1,
+          price: item.price
+        }))
+      }
+    };
+
+    try {
+      // Schedule deposit reminder if this was a deposit payment
+      if (paymentType === 'deposit') {
+        await scheduleDepositReminderEmail({
+          ...commonBookingData,
+          remainingAmount: bookingData.remainingBalance || 0
+        });
+        console.log('📧 Deposit reminder scheduled');
+      }
+
+      // Schedule event confirmation (2 days before)
+      await scheduleEventConfirmationEmail(commonBookingData);
+      console.log('📧 Event confirmation scheduled');
+
+      // Schedule post-event thank you (1 day after)
+      await schedulePostEventThanksEmail(commonBookingData);
+      console.log('📧 Post-event thank you scheduled');
+
+      // Schedule rebooking reminder (9 months after)
+      await scheduleRebookingReminderEmail(commonBookingData);
+      console.log('📧 Rebooking reminder scheduled');
+
+    } catch (error) {
+      console.error('Failed to schedule automated emails:', error);
+    }
+  };
+
   // Check if current booking is within the next 2 days (using calendar dates)
   const isCurrentBookingWithinTwoDays = () => {
     if (!calendarDateRange || !calendarDateRange[0]) {
@@ -1541,41 +1632,30 @@ export default function Checkout() {
                   if (success) {
                     console.log(`✅ WALLET GOGO promotional gift card created: ${promoGiftCardCode} - $${highestValue} for ${recipientEmail}`);
                     
-                    // Send separate invoice for promotional gift card
+                    // Send separate gift card email for promotional gift card
                     try {
-                      const { createAndSendPayPalInvoice } = await import('../utils/paypalInvoiceUtils');
+                      const { getFunctions, httpsCallable } = await import('firebase/functions');
+                      const { app } = await import('../components/FirebaseConfig');
                       
-                      const promoInvoiceData = {
+                      const functions = getFunctions(app);
+                      const sendGiftCardEmail = httpsCallable(functions, 'sendGiftCardEmail');
+                      
+                      const giftCardEmailData = {
                         recipientEmail: recipientEmail,
                         recipientName: user.displayName || 'Customer',
-                        orderID: 'WALLET-PROMO-' + Date.now(),
-                        orderDate: new Date().toISOString(),
-                        rentalItems: [],
-                        lastMinuteAdditions: [],
-                        subtotal: 0,
-                        surfaceAdjustment: 0,
-                        timeAdjustment: 0,
-                        deliveryCost: 0,
-                        totalAmount: 0,
-                        paymentType: 'full' as const,
-                        amountPaid: 0,
-                        remainingBalance: 0,
-                        paymentMethod: 'Promotional Gift Card (Wallet Payment)',
-                        giftCards: [{
-                          code: promoGiftCardCode,
-                          balance: highestValue,
-                          expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-                          isPromotional: true,
-                          promotionalMessage: 'GOGO Special Offer - Free gift card with your purchase!',
-                          recipientEmail: recipientEmail
-                        }],
-                        bookingStatus: 'promotional_gift_card'
+                        giftCardCode: promoGiftCardCode,
+                        giftCardBalance: highestValue,
+                        expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+                        purchaseDate: new Date().toLocaleDateString(),
+                        isPromotional: true,
+                        promotionalMessage: 'GOGO Special Offer - Free gift card with your purchase!'
                       };
                       
-                      const invoiceResult = await createAndSendPayPalInvoice(promoInvoiceData);
+                      const emailResult = await sendGiftCardEmail(giftCardEmailData);
+                      const result = emailResult.data as any;
                       
-                      if (invoiceResult.success) {
-                        console.log('✅ WALLET GOGO promotional gift card invoice sent successfully');
+                      if (result.success) {
+                        console.log('✅ WALLET GOGO promotional gift card email sent successfully');
                         notifications.show({
                           title: '🎁 Promotional Gift Card Sent!',
                           message: `A free gift card worth $${highestValue} has been sent to ${recipientEmail}`,
@@ -1583,10 +1663,10 @@ export default function Checkout() {
                           autoClose: 8000,
                         });
                       } else {
-                        console.error('❌ Failed to send wallet promotional gift card invoice:', invoiceResult.error);
+                        console.error('❌ Failed to send wallet promotional gift card email:', result.message);
                       }
-                    } catch (invoiceError) {
-                      console.error('❌ Error sending wallet promotional gift card invoice:', invoiceError);
+                    } catch (emailError) {
+                      console.error('❌ Error sending wallet promotional gift card email:', emailError);
                     }
                   } else {
                     console.error(`❌ Failed to create WALLET GOGO promotional gift card: ${promoGiftCardCode}`);
@@ -1596,10 +1676,8 @@ export default function Checkout() {
                 }
               }
 
-              // Send comprehensive order confirmation via PayPal invoice after successful wallet payment
+              // Send comprehensive order confirmation via enhanced backend email system
               try {
-                const { createAndSendPayPalInvoice } = await import('../utils/paypalInvoiceUtils');
-                
                 // Convert cart to gift card info (simplified for now)
                 const giftCardInfo = cart.filter(item => item.isGiftCard).map(item => ({
                   code: `GC-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`, // This would be actual gift card codes
@@ -1608,7 +1686,7 @@ export default function Checkout() {
                   isPromotional: false
                 }));
                 
-                // Prepare invoice data
+                // Prepare invoice data for backend
                 const invoiceData = {
                   recipientEmail: user?.email || '',
                   recipientName: user?.displayName || userProfile?.firstName || 'Customer',
@@ -1616,9 +1694,9 @@ export default function Checkout() {
                   orderDate: new Date().toISOString(),
                   
                   // Event details
-                  eventDate: calendarDateRange[0]?.toLocaleDateString() || undefined,
-                  deliveryAddress: deliveryAddress || undefined,
-                  deliveryTime: cartSettings.deliveryTime || undefined,
+                  eventDate: calendarDateRange[0]?.toLocaleDateString() || new Date().toLocaleDateString(),
+                  deliveryAddress: deliveryAddress || '',
+                  deliveryTime: cartSettings.deliveryTime || '',
                   duration: `${cart.length > 0 ? '6' : '6'} hours`, // Default duration, adjust as needed
                   surface: undefined, // Add surface selection if available
                   
@@ -1654,17 +1732,16 @@ export default function Checkout() {
                   paypalTransactionId: undefined
                 };
 
-                const invoiceResult = await createAndSendPayPalInvoice(invoiceData);
+                const result = await sendEnhancedOrderConfirmation(invoiceData);
                 
-                if (invoiceResult.success) {
-                  console.log(`📧 WALLET PAYMENT - PayPal invoice created successfully for order ${pendingBookingId}`);
-                  console.log('  📄 Invoice ID:', invoiceResult.invoiceId);
-                  console.log('  🔗 Invoice URL:', invoiceResult.invoiceUrl);
+                if (result.success) {
+                  console.log(`📧 WALLET PAYMENT - Enhanced order confirmation email sent successfully for order ${pendingBookingId}`);
+                  console.log('  ✅ Email Status:', result.emailSent ? 'Sent' : 'Pending');
                 } else {
-                  console.warn(`📧 WALLET PAYMENT - Failed to create PayPal invoice for order ${pendingBookingId}:`, invoiceResult.error);
+                  console.warn(`📧 WALLET PAYMENT - Order confirmation email had issues for order ${pendingBookingId}:`, result.message);
                 }
               } catch (invoiceError) {
-                console.error(`📧 WALLET PAYMENT - Error creating PayPal invoice for order ${pendingBookingId}:`, invoiceError);
+                console.error(`📧 WALLET PAYMENT - Error sending order confirmation email for order ${pendingBookingId}:`, invoiceError);
               }
 
               const message = paymentType === 'deposit' 
@@ -1944,10 +2021,8 @@ export default function Checkout() {
                 }
               }
 
-              // Send comprehensive order confirmation via PayPal invoice after successful payment
+              // Send comprehensive order confirmation via enhanced backend email system
               try {
-                const { createAndSendPayPalInvoice } = await import('../utils/paypalInvoiceUtils');
-                
                 // Convert cart to gift card info (simplified for now)
                 const giftCardInfo = cart.filter(item => item.isGiftCard).map(item => ({
                   code: `GC-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`, // This would be actual gift card codes
@@ -1956,7 +2031,7 @@ export default function Checkout() {
                   isPromotional: false
                 }));
                 
-                // Prepare invoice data
+                // Prepare invoice data for backend
                 const invoiceData = {
                   recipientEmail: user?.email || '',
                   recipientName: user?.displayName || userProfile?.firstName || 'Customer',
@@ -1964,9 +2039,9 @@ export default function Checkout() {
                   orderDate: new Date().toISOString(),
                   
                   // Event details
-                  eventDate: calendarDateRange[0]?.toLocaleDateString() || undefined,
-                  deliveryAddress: deliveryAddress || undefined,
-                  deliveryTime: cartSettings.deliveryTime || undefined,
+                  eventDate: calendarDateRange[0]?.toLocaleDateString() || new Date().toLocaleDateString(),
+                  deliveryAddress: deliveryAddress || '',
+                  deliveryTime: cartSettings.deliveryTime || '',
                   duration: `${cart.length > 0 ? '6' : '6'} hours`, // Default duration, adjust as needed
                   surface: undefined, // Add surface selection if available
                   
@@ -1999,22 +2074,21 @@ export default function Checkout() {
                   bookingStatus: finalStatus || 'confirmed',
                   requiresPhoneCall: false, // Set based on your business logic
                   
-                  // PayPal transaction details
+                  // PayPal transaction details (for reference)
                   paypalOrderId: data.orderID,
                   paypalTransactionId: paymentId
                 };
 
-                const invoiceResult = await createAndSendPayPalInvoice(invoiceData);
+                const result = await sendEnhancedOrderConfirmation(invoiceData);
                 
-                if (invoiceResult.success) {
-                  console.log(`📧 PayPal invoice created successfully for order ${pendingBookingId}`);
-                  console.log('  📄 Invoice ID:', invoiceResult.invoiceId);
-                  console.log('  🔗 Invoice URL:', invoiceResult.invoiceUrl);
+                if (result.success) {
+                  console.log(`📧 Enhanced order confirmation email sent successfully for order ${pendingBookingId}`);
+                  console.log('  ✅ Email Status:', result.emailSent ? 'Sent' : 'Pending');
                 } else {
-                  console.warn(`📧 Failed to create PayPal invoice for order ${pendingBookingId}:`, invoiceResult.error);
+                  console.warn(`📧 Order confirmation email had issues for order ${pendingBookingId}:`, result.message);
                 }
               } catch (invoiceError) {
-                console.error(`📧 Error creating PayPal invoice for order ${pendingBookingId}:`, invoiceError);
+                console.error(`📧 Error sending order confirmation email for order ${pendingBookingId}:`, invoiceError);
               }
               
               // Store cart data before clearing for order summary display

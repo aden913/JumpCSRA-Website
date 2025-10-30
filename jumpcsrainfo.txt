@@ -9,33 +9,6 @@ sudo apt install certbot python3-certbot-nginx -y
 sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
 
 
-to do 
-
-setup server cron
-get domain setup
-get https setup
-Finish developing the site
-	develope product information popups
-	dev. search bar 
-	fix nav and maybe member cards
-Maybe integrate a login system for website
-Implement date system
-add wet or dry for options
-make mobile responsive
-figure out a way to display dimentions
-fully implement cart functionality
-add other promo card functionality
-
-add Wet Or Dry, Dry Only, Wet Only on corresponding units?
-
-LAST WORKED ON
-	modal
-
-
-
-
-
-
 Forthekids5867
 Jumpsra123!
 aden@170.187.145.7

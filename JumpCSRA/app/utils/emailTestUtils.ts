@@ -88,6 +88,7 @@ export const testFirebaseFunctionsDeployment = async (): Promise<{
     const functionsToTest = [
       'createPayPalInvoice',
       'sendOrderConfirmationEmail',
+      'sendEnhancedOrderConfirmation', // New SendGrid-based enhanced email system
       'sendGiftCardEmail'
     ];
     
@@ -126,6 +127,92 @@ export const testFirebaseFunctionsDeployment = async (): Promise<{
   }
   
   return results;
+};
+
+// Test enhanced order confirmation email with SendGrid (new system)
+export const testEnhancedOrderConfirmationEmail = async (testEmail: string): Promise<{
+  success: boolean;
+  message: string;
+  error?: string;
+}> => {
+  try {
+    console.log('📧 EMAIL TEST - Testing enhanced SendGrid order confirmation email to:', testEmail);
+    
+    const { getFunctions, httpsCallable } = await import('firebase/functions');
+    const { app } = await import('../components/FirebaseConfig');
+    
+    const functions = getFunctions(app);
+    const sendEnhancedOrderConfirmation = httpsCallable(functions, 'sendEnhancedOrderConfirmation');
+    
+    // Sample test data for enhanced email system
+    const testEmailData = {
+      recipientEmail: testEmail,
+      recipientName: 'Test Customer',
+      orderID: 'TEST-ENHANCED-' + Date.now(),
+      orderDate: new Date().toISOString(),
+      eventDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(), // 7 days from now
+      deliveryAddress: '123 Test Street, Test City, SC 12345',
+      deliveryTime: '10:00 AM - 2:00 PM',
+      duration: '6 hours',
+      surface: 'Grass',
+      rentalItems: [
+        {
+          name: 'Test Enhanced Bounce House',
+          quantity: 1,
+          price: 200.00,
+          wetDry: 'Wet/Dry'
+        }
+      ],
+      lastMinuteAdditions: [
+        {
+          name: 'Test Add-on Item',
+          quantity: 2,
+          price: 15.00
+        }
+      ],
+      subtotal: 200.00,
+      surfaceAdjustment: 10.00,
+      timeAdjustment: 0,
+      deliveryCost: 30.00,
+      totalAmount: 270.00,
+      paymentType: 'deposit' as const,
+      amountPaid: 135.00,
+      remainingBalance: 135.00,
+      paymentMethod: 'PayPal + Wallet',
+      giftCards: [
+        {
+          code: 'TEST-ENHANCED-GC-' + Date.now(),
+          balance: 50.00,
+          expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString(), // 1 year from now
+          isPromotional: true,
+          promotionalMessage: 'Thank you for testing our enhanced email system!',
+          recipientEmail: testEmail
+        }
+      ],
+      bookingStatus: 'deposit_paid',
+      requiresPhoneCall: false,
+      paypalOrderId: 'TEST-PAYPAL-' + Date.now(),
+      paypalTransactionId: 'TEST-TXN-' + Date.now()
+    };
+    
+    const result = await sendEnhancedOrderConfirmation(testEmailData);
+    
+    console.log('✅ EMAIL TEST - Enhanced order confirmation email test result:', result.data);
+    
+    return {
+      success: true,
+      message: `Enhanced test email sent successfully to ${testEmail}. Order ID: ${testEmailData.orderID}`
+    };
+    
+  } catch (error: any) {
+    console.error('❌ EMAIL TEST - Enhanced order confirmation email test failed:', error);
+    
+    return {
+      success: false,
+      message: 'Enhanced test email failed',
+      error: error.message || 'Unknown error'
+    };
+  }
 };
 
 // Test order confirmation email with sample data
@@ -292,6 +379,7 @@ export const testPayPalInvoice = async (testEmail: string): Promise<{
 export const runEmailSystemDiagnostics = async (testEmail?: string): Promise<{
   deploymentCheck: Awaited<ReturnType<typeof testFirebaseFunctionsDeployment>>;
   emailTest?: Awaited<ReturnType<typeof testOrderConfirmationEmail>>;
+  enhancedEmailTest?: Awaited<ReturnType<typeof testEnhancedOrderConfirmationEmail>>;
   invoiceTest?: Awaited<ReturnType<typeof testPayPalInvoice>>;
 }> => {
   console.log('🔍 EMAIL TEST - Running comprehensive email system diagnostics...');
@@ -303,12 +391,16 @@ export const runEmailSystemDiagnostics = async (testEmail?: string): Promise<{
   results.deploymentCheck = await testFirebaseFunctionsDeployment();
   
   if (testEmail) {
-    // Test 2: Try order confirmation email
-    console.log('📧 EMAIL TEST - Step 2: Testing order confirmation email...');
+    // Test 2: Try order confirmation email (legacy)
+    console.log('📧 EMAIL TEST - Step 2: Testing legacy order confirmation email...');
     results.emailTest = await testOrderConfirmationEmail(testEmail);
     
-    // Test 3: Try PayPal invoice creation
-    console.log('💰 EMAIL TEST - Step 3: Testing PayPal invoice creation...');
+    // Test 3: Try enhanced SendGrid order confirmation email (new system)
+    console.log('✨ EMAIL TEST - Step 3: Testing enhanced SendGrid order confirmation email...');
+    results.enhancedEmailTest = await testEnhancedOrderConfirmationEmail(testEmail);
+    
+    // Test 4: Try PayPal invoice creation
+    console.log('💰 EMAIL TEST - Step 4: Testing PayPal invoice creation...');
     results.invoiceTest = await testPayPalInvoice(testEmail);
   }
   
@@ -318,7 +410,8 @@ export const runEmailSystemDiagnostics = async (testEmail?: string): Promise<{
   console.log('  ❌ Errors Found:', results.deploymentCheck.errors.length);
   
   if (testEmail) {
-    console.log('  📧 Email Test:', results.emailTest?.success ? '✅ Passed' : '❌ Failed');
+    console.log('  📧 Legacy Email Test:', results.emailTest?.success ? '✅ Passed' : '❌ Failed');
+    console.log('  ✨ Enhanced Email Test:', results.enhancedEmailTest?.success ? '✅ Passed' : '❌ Failed');
     console.log('  💰 Invoice Test:', results.invoiceTest?.success ? '✅ Passed' : '❌ Failed');
   }
   
@@ -338,11 +431,21 @@ export const displayDiagnosticsResults = (results: Awaited<ReturnType<typeof run
   console.groupEnd();
   
   if (results.emailTest) {
-    console.group('📧 Order Confirmation Email Test');
+    console.group('📧 Legacy Order Confirmation Email Test');
     console.log('Status:', results.emailTest.success ? '✅ Success' : '❌ Failed');
     console.log('Message:', results.emailTest.message);
     if (results.emailTest.error) {
       console.log('Error:', results.emailTest.error);
+    }
+    console.groupEnd();
+  }
+  
+  if (results.enhancedEmailTest) {
+    console.group('✨ Enhanced SendGrid Order Confirmation Email Test');
+    console.log('Status:', results.enhancedEmailTest.success ? '✅ Success' : '❌ Failed');
+    console.log('Message:', results.enhancedEmailTest.message);
+    if (results.enhancedEmailTest.error) {
+      console.log('Error:', results.enhancedEmailTest.error);
     }
     console.groupEnd();
   }

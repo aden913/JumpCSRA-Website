@@ -105,6 +105,6 @@ export const testPayPalDebug = functions.https.onCall(async (data, context) => {
     
   } catch (error) {
     console.error('PayPal test error:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: error instanceof Error ? error.message : String(error) };
   }
 });

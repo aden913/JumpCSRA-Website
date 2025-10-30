@@ -31,13 +31,17 @@ export function EmailTestPanel() {
       displayDiagnosticsResults(diagnostics);
       
       // Show summary alert
-      const { deploymentCheck, emailTest, invoiceTest } = diagnostics;
+      const { deploymentCheck, emailTest, enhancedEmailTest, invoiceTest } = diagnostics;
       let summary = `Email System Test Results:\n\n`;
       summary += `✅ Functions Available: ${deploymentCheck.availableFunctions.length}\n`;
       summary += `❌ Errors: ${deploymentCheck.errors.length}\n`;
       
       if (emailTest) {
-        summary += `📧 Email Test: ${emailTest.success ? 'PASSED' : 'FAILED'}\n`;
+        summary += `📧 Legacy Email Test: ${emailTest.success ? 'PASSED' : 'FAILED'}\n`;
+      }
+      
+      if (enhancedEmailTest) {
+        summary += `✨ Enhanced Email Test: ${enhancedEmailTest.success ? 'PASSED' : 'FAILED'}\n`;
       }
       
       if (invoiceTest) {
@@ -53,6 +57,34 @@ export function EmailTestPanel() {
     } catch (error) {
       console.error('Email test failed:', error);
       alert(`Test failed: ${error}`);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const testEnhancedEmailOnly = async () => {
+    if (!testEmail.trim()) {
+      alert('Please enter a test email address');
+      return;
+    }
+
+    setIsRunning(true);
+
+    try {
+      const { testEnhancedOrderConfirmationEmail } = await import('../utils/emailTestUtils');
+      const result = await testEnhancedOrderConfirmationEmail(testEmail);
+      
+      console.log('Enhanced SendGrid email test result:', result);
+      
+      if (result.success) {
+        alert(`✅ Enhanced SendGrid Email Test PASSED!\n\n${result.message}\n\nCheck your email for the enhanced invoice-style order confirmation.`);
+      } else {
+        alert(`❌ Enhanced SendGrid Email Test FAILED!\n\nError: ${result.error || 'Unknown error'}\n\nCheck console for details.`);
+      }
+      
+    } catch (error) {
+      console.error('Enhanced email test failed:', error);
+      alert(`Enhanced email test failed: ${error}`);
     } finally {
       setIsRunning(false);
     }
@@ -148,6 +180,23 @@ export function EmailTestPanel() {
         </button>
         
         <button
+          onClick={testEnhancedEmailOnly}
+          disabled={isRunning}
+          style={{
+            background: '#17a2b8',
+            color: 'white',
+            border: 'none',
+            padding: '8px 12px',
+            borderRadius: '4px',
+            cursor: isRunning ? 'not-allowed' : 'pointer',
+            fontSize: '13px',
+            fontWeight: 'bold'
+          }}
+        >
+          {isRunning ? '📧 Testing...' : '✨ Test Enhanced SendGrid'}
+        </button>
+        
+        <button
           onClick={runQuickTest}
           disabled={isRunning}
           style={{
@@ -181,7 +230,12 @@ export function EmailTestPanel() {
           </div>
           {results.emailTest && (
             <div>
-              📧 Email: {results.emailTest.success ? '✅' : '❌'}
+              📧 Legacy Email: {results.emailTest.success ? '✅' : '❌'}
+            </div>
+          )}
+          {results.enhancedEmailTest && (
+            <div>
+              ✨ Enhanced Email: {results.enhancedEmailTest.success ? '✅' : '❌'}
             </div>
           )}
           {results.invoiceTest && (
