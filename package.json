@@ -1,5 +1,21 @@
 {
-  "dependencies": {
-    "firebase-functions": "^6.6.0"
-  }
+  "name": "jumpcsra-monorepo",
+  "version": "1.0.0",
+  "description": "JumpCSRA bounce house rental platform",
+  "private": true,
+  "workspaces": [
+    "JumpCSRA",
+    "serverFiles"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=JumpCSRA",
+    "build": "npm run build --workspace=JumpCSRA",
+    "build:server": "npm install --workspace=serverFiles",
+    "start": "npm start --workspace=serverFiles",
+    "deploy": "./deploy.sh",
+    "quickfix": "./quickfix.sh"
+  },
+  "keywords": ["jumpcsra", "rental", "bounce-house"],
+  "author": "JumpCSRA",
+  "license": "MIT"
 }

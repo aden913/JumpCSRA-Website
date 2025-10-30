@@ -1,9 +1,12 @@
 # Dependencies
 node_modules/
-*/node_modules/
-serverFiles/node_modules/
 JumpCSRA/node_modules/
+serverFiles/node_modules/
 functions/node_modules/
+
+# Monorepo workspace files
+.yarn/
+.pnp.*
 
 # Build outputs
 JumpCSRA/build/
@@ -12,10 +15,13 @@ serverFiles/logs/
 
 # Environment variables
 .env
-.env.local
-.env.production
-.env.development
+.env.*
+!.env.example
+!.env.template
 serverFiles/.env
+serverFiles/.env.*
+!serverFiles/.env.example
+!serverFiles/.env.template
 
 # OS generated files
 .DS_Store
@@ -50,3 +56,6 @@ firebase-debug.log
 # Temporary files
 *.tmp
 *.temp
+
+# Vite cache
+.vite/

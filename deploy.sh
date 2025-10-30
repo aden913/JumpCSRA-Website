@@ -42,12 +42,12 @@ sudo chown -R $USER:$USER $DEPLOY_DIR
 # Install serverFiles dependencies
 echo "📦 Installing backend dependencies..."
 cd $DEPLOY_DIR/serverFiles
-npm install --production
+npm install --production --no-workspaces
 
 # Build React app
 echo "🔨 Building React application..."
 cd $DEPLOY_DIR/JumpCSRA
-npm install
+npm install --no-workspaces
 npm run build
 
 # Setup environment file

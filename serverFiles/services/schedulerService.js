@@ -40,6 +40,12 @@ class SchedulerService {
     try {
       await this.initialize();
       
+      // Skip if Firebase is not available
+      if (!this.db) {
+        logger.warn('Firebase not available - skipping scheduled email processing');
+        return;
+      }
+      
       const now = new Date();
       const snapshot = await this.db.collection('scheduledEmails')
         .where('status', '==', 'pending')
@@ -138,6 +144,12 @@ class SchedulerService {
   async cleanupOldLogs() {
     try {
       await this.initialize();
+      
+      // Skip if Firebase is not available
+      if (!this.db) {
+        logger.warn('Firebase not available - skipping log cleanup');
+        return;
+      }
       
       // Delete email logs older than 90 days
       const ninetyDaysAgo = new Date(Date.now() - (90 * 24 * 60 * 60 * 1000));
