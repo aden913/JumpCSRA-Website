@@ -3,6 +3,7 @@ module.exports = {
     {
       name: 'jumpcsra-server',
       script: './serverFiles/server.js',
+      cwd: '/var/www/jumpcsra',
       env: {
         NODE_ENV: 'production',
         PORT: 3000,
@@ -12,7 +13,10 @@ module.exports = {
       instances: 1,
       autorestart: true,
       watch: false,
-      max_memory_restart: '1G'
+      max_memory_restart: '1G',
+      error_file: '/home/aden/.pm2/logs/jumpcsra-server-error.log',
+      out_file: '/home/aden/.pm2/logs/jumpcsra-server-out.log',
+      log_file: '/home/aden/.pm2/logs/jumpcsra-server.log'
     }
   ]
 };

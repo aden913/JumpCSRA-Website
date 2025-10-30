@@ -4,8 +4,13 @@ const path = require('path');
 // Create logs directory if it doesn't exist
 const fs = require('fs');
 const logsDir = path.join(__dirname, '..', 'logs');
-if (!fs.existsSync(logsDir)) {
-  fs.mkdirSync(logsDir, { recursive: true });
+try {
+  if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+  }
+} catch (error) {
+  // If we can't create logs directory, use system temp directory
+  console.warn('Could not create logs directory, using temp directory:', error.message);
 }
 
 const logger = winston.createLogger({
@@ -17,26 +22,27 @@ const logger = winston.createLogger({
   ),
   defaultMeta: { service: 'jumpcsra-email-server' },
   transports: [
-    // Write all logs with level 'error' and below to error.log
-    new winston.transports.File({ 
-      filename: path.join(logsDir, 'error.log'), 
-      level: 'error' 
-    }),
-    // Write all logs to combined.log
-    new winston.transports.File({ 
-      filename: path.join(logsDir, 'combined.log') 
+    // Always log to console in production for PM2 to capture
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      )
     })
   ]
 });
 
-// If we're not in production, log to the console as well
-if (process.env.NODE_ENV !== 'production') {
-  logger.add(new winston.transports.Console({
-    format: winston.format.combine(
-      winston.format.colorize(),
-      winston.format.simple()
-    )
+// Try to add file transports if possible
+try {
+  logger.add(new winston.transports.File({ 
+    filename: path.join(logsDir, 'error.log'), 
+    level: 'error' 
   }));
+  logger.add(new winston.transports.File({ 
+    filename: path.join(logsDir, 'combined.log') 
+  }));
+} catch (error) {
+  console.warn('Could not set up file logging:', error.message);
 }
 
 module.exports = logger;
