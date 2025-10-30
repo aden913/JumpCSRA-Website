@@ -59,3 +59,5 @@ firebase-debug.log
 
 # Vite cache
 .vite/
+
+.jumpcsrainfo.txt
