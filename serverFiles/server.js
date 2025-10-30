@@ -67,8 +67,26 @@ app.use('/api/email', emailRoutes);
 // Serve static files from React build
 app.use(express.static(buildPath));
 
+// React Router v7 SSR handler
+let reactRouterHandler;
+try {
+  // Import the React Router server build
+  const serverBuild = require('../JumpCSRA/build/server/index.js');
+  const { createRequestHandler } = require('@react-router/express');
+  
+  reactRouterHandler = createRequestHandler({
+    build: serverBuild,
+    mode: process.env.NODE_ENV
+  });
+  
+  logger.info('React Router SSR handler initialized');
+} catch (error) {
+  logger.warn('React Router SSR not available, falling back to static serving:', error.message);
+  reactRouterHandler = null;
+}
+
 // Handle React Router routes - send all non-API requests to React
-app.get('*', (req, res) => {
+app.get('*', (req, res, next) => {
   // Skip API routes
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({
@@ -77,8 +95,27 @@ app.get('*', (req, res) => {
     });
   }
   
-  // Serve React app for all other routes
-  res.sendFile(path.join(buildPath, 'index.html'));
+  // Use React Router SSR if available, otherwise serve static files
+  if (reactRouterHandler) {
+    return reactRouterHandler(req, res, next);
+  } else {
+    // Fallback: serve a basic HTML shell for SPA mode
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JumpCSRA</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module" src="/assets/entry.client-DbCpDke0.js"></script>
+</body>
+</html>`;
+    res.send(html);
+  }
 });
 
 // Error handling middleware
