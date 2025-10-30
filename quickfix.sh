@@ -83,9 +83,13 @@ EOL
     echo "✅ Created temporary index.html"
 fi
 
+# Setup environment file
+echo "⚙️ Setting up environment..."
+cd $DEPLOY_DIR/serverFiles
+bash setup-env.sh
+
 # Install server dependencies
 echo "📦 Installing server dependencies..."
-cd $DEPLOY_DIR/serverFiles
 npm install --production --no-workspaces
 
 # Set proper permissions
