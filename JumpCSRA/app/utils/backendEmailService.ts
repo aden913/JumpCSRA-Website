@@ -62,16 +62,16 @@ class BackendEmailService {
       const hostname = window.location.hostname;
       
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'http://localhost:3000'; // Same port as server
+        return 'http://localhost:3000'; // Development
       } else {
-        // Production - use same domain (no separate port needed)
+        // Production - use same domain
         return `${window.location.protocol}//${hostname}`;
       }
     }
     
     // Fallback for server-side rendering
     return process.env.NODE_ENV === 'production' 
-      ? 'https://your-domain.com' // Replace with your Linode domain
+      ? 'http://170.187.145.7' // Your Linode server IP
       : 'http://localhost:3000';
   }
 

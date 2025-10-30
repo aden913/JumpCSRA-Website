@@ -1,21 +1,17 @@
 {
-  "name": "jumpcsra-monorepo",
+  "name": "jumpcsra-frontend",
   "version": "1.0.0",
-  "description": "JumpCSRA bounce house rental platform",
+  "description": "JumpCSRA bounce house rental platform - Frontend",
   "private": true,
   "workspaces": [
-    "JumpCSRA",
-    "serverFiles"
+    "JumpCSRA"
   ],
   "scripts": {
     "dev": "npm run dev --workspace=JumpCSRA",
     "build": "npm run build --workspace=JumpCSRA",
-    "build:server": "npm install --workspace=serverFiles",
-    "start": "npm start --workspace=serverFiles",
-    "deploy": "./deploy.sh",
-    "quickfix": "./quickfix.sh"
+    "preview": "npm run preview --workspace=JumpCSRA"
   },
-  "keywords": ["jumpcsra", "rental", "bounce-house"],
+  "keywords": ["jumpcsra", "rental", "bounce-house", "frontend"],
   "author": "JumpCSRA",
   "license": "MIT"
 }
