@@ -998,6 +998,52 @@
           "done": false,
           "start": 1761757767861
         }
+      },
+      {
+        "key": 1762023390776,
+        "children": [
+          {
+            "key": 1762023399287,
+            "children": [],
+            "todo": {
+              "content": "add or substitute quote, reserved, paid, complete, and cancelled",
+              "id": 1762023399287,
+              "level": "default",
+              "done": false,
+              "start": 1762023399287
+            }
+          }
+        ],
+        "todo": {
+          "content": "update status'",
+          "id": 1762023390776,
+          "level": "default",
+          "done": false,
+          "start": 1762023390776
+        }
+      },
+      {
+        "key": 1762027130406,
+        "children": [
+          {
+            "key": 1762027139575,
+            "children": [],
+            "todo": {
+              "content": "at least 14 days is a full refund. anything less goes to the account",
+              "id": 1762027139575,
+              "level": "default",
+              "done": false,
+              "start": 1762027139575
+            }
+          }
+        ],
+        "todo": {
+          "content": "cancellation/refund",
+          "id": 1762027130406,
+          "level": "default",
+          "done": false,
+          "start": 1762027130406
+        }
       }
     ],
     "expandKeys": [
@@ -1020,7 +1066,9 @@
       1760848177060,
       1761444774384,
       1761757528633,
-      1761757488629
+      1761757488629,
+      1762023390776,
+      1762027130406
     ],
     "schema": "https://github.com/Saber2pr/vsc-ext-todolist/blob/master/src/api/type.ts#L3",
     "add_mode": "bottom",
@@ -1033,6 +1081,6 @@
     "showEndTime": false,
     "simpleMode": false,
     "lang": "en",
-    "version": "1761838077871"
+    "version": "1762027181436"
   }
 }
