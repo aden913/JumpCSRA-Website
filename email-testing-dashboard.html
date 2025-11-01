@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JumpCSRA Email Testing Dashboard</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .test-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+        }
+        
+        .test-card h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        
+        .test-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .test-button:hover {
+            background: #5a67d8;
+        }
+        
+        .test-button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+        }
+        
+        .run-all-button {
+            background: #48bb78;
+            font-size: 18px;
+            padding: 15px 30px;
+            margin: 20px 0;
+        }
+        
+        .results {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .log {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 5px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-pending { background: #ed8936; }
+        .status-success { background: #48bb78; }
+        .status-error { background: #f56565; }
+        
+        .config-section {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .config-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 JumpCSRA Email Testing Dashboard</h1>
+        <p>Test all email automation scenarios for your email server</p>
+    </div>
+    
+    <div class="config-section">
+        <h3>⚙️ Configuration</h3>
+        <div style="background: #e6fffa; padding: 15px; border-radius: 5px; margin-bottom: 15px; border-left: 4px solid #38b2ac;">
+            <strong>💡 Testing Instructions:</strong><br>
+            1. Use "Direct Server" to test your email server on port 3001<br>
+            2. If you get CORS errors, run: <code>node test-proxy.js</code><br>
+            3. Then use "Local Proxy" option and open: <code>http://localhost:8080/email-testing-dashboard.html</code>
+        </div>
+        
+        <label>Server URL:</label>
+        <select id="serverUrl" class="config-input">
+            <option value="http://170.187.145.7:3001">Direct Server (Production)</option>
+            <option value="http://localhost:8080">Local Proxy (If CORS issues)</option>
+        </select>
+        
+        <label>Test Email Address:</label>
+        <input type="email" id="testEmail" class="config-input" placeholder="your-email@example.com">
+        
+        <label>Customer Name:</label>
+        <input type="text" id="customerName" class="config-input" value="John Test User" placeholder="John Test User">
+    </div>
+    
+    <button class="test-button run-all-button" onclick="runAllTests()">
+        🚀 Run All Email Tests
+    </button>
+    
+    <div class="test-grid">
+        <div class="test-card">
+            <h3>🆕 Account Creation</h3>
+            <p>Welcome email sent when a new customer creates an account.</p>
+            <button class="test-button" onclick="testSingleEmail('account-created')">Test Account Creation</button>
+            <div id="status-account-created"><span class="status-indicator status-pending"></span>Ready to test</div>
+        </div>
+        
+        <div class="test-card">
+            <h3>🛒 Cart Reminder</h3>
+            <p>Reminder email for customers with items in their cart.</p>
+            <button class="test-button" onclick="testSingleEmail('cart-reminder')">Test Cart Reminder</button>
+            <div id="status-cart-reminder"><span class="status-indicator status-pending"></span>Ready to test</div>
+        </div>
+        
+        <div class="test-card">
+            <h3>💳 Payment Confirmation</h3>
+            <p>Confirmation email sent after any payment is processed.</p>
+            <button class="test-button" onclick="testSingleEmail('payment-confirmation')">Test Payment Confirmation</button>
+            <div id="status-payment-confirmation"><span class="status-indicator status-pending"></span>Ready to test</div>
+        </div>
+        
+        <div class="test-card">
+            <h3>💰 Deposit Reminder</h3>
+            <p>Reminder to pay remaining balance on booking deposit.</p>
+            <button class="test-button" onclick="testSingleEmail('deposit-reminder')">Test Deposit Reminder</button>
+            <div id="status-deposit-reminder"><span class="status-indicator status-pending"></span>Ready to test</div>
+        </div>
+        
+        <div class="test-card">
+            <h3>📅 Booking Confirmation</h3>
+            <p>Confirmation email sent 2 days before the event.</p>
+            <button class="test-button" onclick="testSingleEmail('booking-confirmation')">Test Booking Confirmation</button>
+            <div id="status-booking-confirmation"><span class="status-indicator status-pending"></span>Ready to test</div>
+        </div>
+        
+        <div class="test-card">
+            <h3>🙏 Post-Event Thanks</h3>
+            <p>Thank you email sent after an event is completed.</p>
+            <button class="test-button" onclick="testSingleEmail('post-event-thanks')">Test Post-Event Thanks</button>
+            <div id="status-post-event-thanks"><span class="status-indicator status-pending"></span>Ready to test</div>
+        </div>
+        
+        <div class="test-card">
+            <h3>🔄 9-Month Follow-up</h3>
+            <p>Follow-up email sent 9 months after last booking.</p>
+            <button class="test-button" onclick="testSingleEmail('follow-up')">Test Follow-up Email</button>
+            <div id="status-follow-up"><span class="status-indicator status-pending"></span>Ready to test</div>
+        </div>
+        
+        <div class="test-card">
+            <h3>🏥 Server Health</h3>
+            <p>Check if the email server is running and responding.</p>
+            <button class="test-button" onclick="testServerHealth()">Test Server Health</button>
+            <div id="status-health"><span class="status-indicator status-pending"></span>Ready to test</div>
+        </div>
+    </div>
+    
+    <div class="results">
+        <h3>📊 Test Results</h3>
+        <div id="test-summary">No tests run yet. Click a test button above to start.</div>
+        <div class="log" id="test-log"></div>
+    </div>
+
+    <script>
+        // Get configuration values
+        function getConfig() {
+            return {
+                baseUrl: document.getElementById('serverUrl').value.trim(),
+                testEmail: document.getElementById('testEmail').value.trim(),
+                customerName: document.getElementById('customerName').value.trim() || 'John Test User'
+            };
+        }
+        
+        // Log function
+        function log(message) {
+            const logElement = document.getElementById('test-log');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.textContent += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        // Update status indicator
+        function updateStatus(testName, status, message) {
+            const statusElement = document.getElementById(`status-${testName}`);
+            if (statusElement) {
+                const indicator = statusElement.querySelector('.status-indicator');
+                indicator.className = `status-indicator status-${status}`;
+                statusElement.innerHTML = `<span class="status-indicator status-${status}"></span>${message}`;
+            }
+        }
+        
+        // Test data generators
+        function getTestData(emailType) {
+            const config = getConfig();
+            const baseData = {
+                customerName: config.customerName,
+                customerEmail: config.testEmail,
+                customerId: 'test_customer_001'
+            };
+            
+            const futureDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
+            const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+            const oldDate = new Date(Date.now() - 270 * 24 * 60 * 60 * 1000).toISOString();
+            
+            const testItems = [
+                { name: 'Bounce House', price: 150 },
+                { name: 'Water Slide', price: 200 }
+            ];
+            
+            switch (emailType) {
+                case 'account-created':
+                    return baseData;
+                    
+                case 'cart-reminder':
+                    return {
+                        ...baseData,
+                        cartItems: testItems,
+                        cartTotal: 350,
+                        cartId: 'test_cart_001'
+                    };
+                    
+                case 'payment-confirmation':
+                    return {
+                        ...baseData,
+                        bookingId: 'test_booking_001',
+                        paymentAmount: 175,
+                        bookingDetails: {
+                            eventDate: futureDate,
+                            items: testItems,
+                            total: 350,
+                            amountPaid: 175,
+                            remainingBalance: 175
+                        }
+                    };
+                    
+                case 'deposit-reminder':
+                    return {
+                        ...baseData,
+                        bookingId: 'test_booking_001',
+                        remainingAmount: 175,
+                        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+                        bookingDetails: {
+                            eventDate: futureDate,
+                            items: testItems
+                        }
+                    };
+                    
+                case 'booking-confirmation':
+                    return {
+                        ...baseData,
+                        bookingId: 'test_booking_001',
+                        eventDate: futureDate,
+                        bookingDetails: {
+                            items: testItems,
+                            setupTime: '10:00 AM',
+                            pickupTime: '6:00 PM',
+                            address: '123 Test Street, Test City, TC 12345'
+                        }
+                    };
+                    
+                case 'post-event-thanks':
+                    return {
+                        ...baseData,
+                        bookingId: 'test_booking_001',
+                        eventDate: pastDate,
+                        bookingDetails: {
+                            items: testItems
+                        }
+                    };
+                    
+                case 'follow-up':
+                    return {
+                        ...baseData,
+                        lastBookingDate: oldDate,
+                        lastBookingId: 'test_booking_001'
+                    };
+                    
+                default:
+                    return baseData;
+            }
+        }
+        
+        // Test single email endpoint
+        async function testSingleEmail(emailType) {
+            const config = getConfig();
+            
+            if (!config.testEmail) {
+                alert('Please enter a test email address first!');
+                return;
+            }
+            
+            // Use the correct endpoint names (with hyphens, not underscores)
+            const endpoint = emailType; // Keep the hyphenated format
+            updateStatus(emailType, 'pending', 'Testing...');
+            log(`Starting test: ${emailType}`);
+            
+            try {
+                const testData = getTestData(emailType);
+                log(`Sending request to: ${config.baseUrl}/api/email/${endpoint}`);
+                log(`Test data: ${JSON.stringify(testData, null, 2)}`);
+                
+                const response = await fetch(`${config.baseUrl}/api/email/${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    updateStatus(emailType, 'success', `✅ Email sent successfully`);
+                    log(`✅ SUCCESS: ${result.message}`);
+                    if (result.emailId) log(`📧 Email ID: ${result.emailId}`);
+                } else {
+                    updateStatus(emailType, 'error', `❌ ${result.error || 'Failed'}`);
+                    log(`❌ ERROR: ${result.error || result.message}`);
+                }
+                
+            } catch (error) {
+                updateStatus(emailType, 'error', `💥 Network error`);
+                log(`💥 NETWORK ERROR: ${error.message}`);
+            }
+        }
+        
+        // Test server health
+        async function testServerHealth() {
+            const config = getConfig();
+            updateStatus('health', 'pending', 'Checking...');
+            log('Testing server health...');
+            
+            try {
+                const response = await fetch(`${config.baseUrl}/health`);
+                const data = await response.json();
+                
+                updateStatus('health', 'success', `✅ Server online`);
+                log(`✅ Server Status: ${data.status}`);
+                log(`📊 Version: ${data.version}`);
+                log(`🔗 Available endpoints: ${JSON.stringify(data.endpoints, null, 2)}`);
+                
+            } catch (error) {
+                updateStatus('health', 'error', `❌ Server offline`);
+                log(`❌ Health check failed: ${error.message}`);
+            }
+        }
+        
+        // Run all tests
+        async function runAllTests() {
+            const config = getConfig();
+            
+            if (!config.testEmail) {
+                alert('Please enter a test email address first!');
+                return;
+            }
+            
+            log('🚀 Starting comprehensive email system test...');
+            log(`📧 Test emails will be sent to: ${config.testEmail}`);
+            log(`🌐 Testing server: ${config.baseUrl}`);
+            
+            // Clear previous results
+            document.getElementById('test-summary').textContent = 'Running tests...';
+            
+            const tests = [
+                'health',
+                'account-created',
+                'cart-reminder', 
+                'payment-confirmation',
+                'deposit-reminder',
+                'booking-confirmation',
+                'post-event-thanks',
+                'follow-up'
+            ];
+            
+            let passed = 0;
+            
+            // Run health check first
+            await testServerHealth();
+            
+            // Run all email tests
+            for (const test of tests.slice(1)) {
+                await testSingleEmail(test);
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second between tests
+            }
+            
+            // Update summary
+            const statusElements = document.querySelectorAll('[id^="status-"]');
+            const successCount = Array.from(statusElements).filter(el => 
+                el.querySelector('.status-success')
+            ).length;
+            
+            document.getElementById('test-summary').textContent = 
+                `Test completed: ${successCount}/${tests.length} passed`;
+            
+            log(`\n🎯 Final Results: ${successCount}/${tests.length} tests passed`);
+            
+            if (successCount === tests.length) {
+                log('🎉 All tests passed! Email system is working correctly.');
+            } else {
+                log('⚠️ Some tests failed. Check individual test results above.');
+            }
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            log('📧 JumpCSRA Email Testing Dashboard loaded');
+            log('✅ Ready to test email automation endpoints');
+            log('ℹ️ Enter your email address above to receive test emails');
+        });
+    </script>
+</body>
+</html>

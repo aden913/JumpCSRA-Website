@@ -1,0 +1,16 @@
+{
+  "name": "jumpcsra-email-testing",
+  "version": "1.0.0",
+  "description": "Email testing tools for JumpCSRA",
+  "main": "test-proxy.js",
+  "scripts": {
+    "test-server": "node test-proxy.js",
+    "test": "node email-tests.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "node-fetch": "^3.3.2"
+  },
+  "type": "module"
+}
