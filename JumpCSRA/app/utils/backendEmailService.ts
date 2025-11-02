@@ -62,17 +62,17 @@ class BackendEmailService {
       const hostname = window.location.hostname;
       
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'http://localhost:3000'; // Development
+        return 'http://localhost:3001'; // Development - email server port
       } else {
-        // Production - use same domain
-        return `${window.location.protocol}//${hostname}`;
+        // Production - use email server port 3001
+        return 'http://170.187.145.7:3001';
       }
     }
     
     // Fallback for server-side rendering
     return process.env.NODE_ENV === 'production' 
-      ? 'http://170.187.145.7' // Your Linode server IP
-      : 'http://localhost:3000';
+      ? 'http://170.187.145.7:3001' // Your email server
+      : 'http://localhost:3001';
   }
 
   private getApiKey(): string {
@@ -111,10 +111,10 @@ class BackendEmailService {
 
   // Account creation email
   async sendAccountCreationEmail(userData: UserData) {
-    return this.makeRequest('account-creation', {
-      email: userData.email,
-      name: userData.name || userData.displayName,
-      userID: userData.userID || userData.uid
+    return this.makeRequest('account-created', {
+      customerEmail: userData.email,
+      customerName: userData.name || userData.displayName,
+      customerId: userData.userID || userData.uid
     });
   }
 
@@ -122,77 +122,91 @@ class BackendEmailService {
   async sendOrderConfirmationEmail(orderData: OrderData) {
     // Transform data to match backend expectations
     const transformedData = {
-      orderID: orderData.orderID,
       customerEmail: orderData.recipientEmail || orderData.customerEmail,
       customerName: orderData.recipientName || orderData.customerName,
-      totalAmount: orderData.totalAmount,
-      eventDate: orderData.eventDate,
-      items: orderData.rentalItems || orderData.items || [],
-      deliveryAddress: orderData.deliveryAddress,
-      deliveryTime: orderData.deliveryTime,
-      paymentType: orderData.paymentType,
-      amountPaid: orderData.amountPaid,
-      remainingBalance: orderData.remainingBalance,
-      paymentMethod: orderData.paymentMethod,
-      giftCards: orderData.giftCards || [],
-      bookingStatus: orderData.bookingStatus
+      bookingId: orderData.orderID,
+      paymentAmount: orderData.amountPaid || orderData.totalAmount,
+      bookingDetails: {
+        eventDate: orderData.eventDate,
+        items: orderData.rentalItems || orderData.items || [],
+        total: orderData.totalAmount,
+        amountPaid: orderData.amountPaid || orderData.totalAmount,
+        remainingBalance: orderData.remainingBalance || 0,
+        address: orderData.deliveryAddress,
+        setupTime: orderData.deliveryTime
+      }
     };
 
-    return this.makeRequest('order-confirmation', transformedData);
+    return this.makeRequest('payment-confirmation', transformedData);
   }
 
   // Schedule cart abandonment reminder
   async scheduleCartReminderEmail(cartData: CartData) {
     return this.makeRequest('cart-reminder', {
-      userID: cartData.userID,
-      cartItems: cartData.cartItems,
-      cartValue: cartData.cartValue,
       customerEmail: cartData.customerEmail,
-      customerName: cartData.customerName
+      customerName: cartData.customerName,
+      customerId: cartData.userID,
+      cartItems: cartData.cartItems,
+      cartTotal: cartData.cartValue,
+      cartId: `cart_${cartData.userID}_${Date.now()}`
     });
   }
 
   // Schedule deposit reminder
   async scheduleDepositReminderEmail(bookingData: BookingData) {
     return this.makeRequest('deposit-reminder', {
-      bookingID: bookingData.bookingID,
       customerEmail: bookingData.customerEmail,
       customerName: bookingData.customerName,
-      eventDate: bookingData.eventDate,
-      remainingAmount: bookingData.remainingAmount
+      customerId: bookingData.bookingID.split('_')[0], // Extract user ID from booking ID
+      bookingId: bookingData.bookingID,
+      remainingAmount: bookingData.remainingAmount,
+      dueDate: bookingData.eventDate, // Could be calculated based on business rules
+      bookingDetails: {
+        eventDate: bookingData.eventDate,
+        items: bookingData.bookingDetails?.items || []
+      }
     });
   }
 
   // Schedule event confirmation (2 days before)
   async scheduleEventConfirmationEmail(bookingData: BookingData) {
-    return this.makeRequest('event-confirmation', {
-      bookingID: bookingData.bookingID,
+    return this.makeRequest('booking-confirmation', {
       customerEmail: bookingData.customerEmail,
       customerName: bookingData.customerName,
+      customerId: bookingData.bookingID.split('_')[0], // Extract user ID from booking ID
+      bookingId: bookingData.bookingID,
       eventDate: bookingData.eventDate,
-      bookingDetails: bookingData.bookingDetails
+      bookingDetails: {
+        items: bookingData.bookingDetails?.items || [],
+        setupTime: bookingData.bookingDetails?.setupTime || 'TBD',
+        pickupTime: bookingData.bookingDetails?.pickupTime || 'TBD',
+        address: bookingData.bookingDetails?.address || 'TBD'
+      }
     });
   }
 
   // Schedule post-event thank you
   async schedulePostEventThanksEmail(bookingData: BookingData) {
     return this.makeRequest('post-event-thanks', {
-      bookingID: bookingData.bookingID,
       customerEmail: bookingData.customerEmail,
       customerName: bookingData.customerName,
+      customerId: bookingData.bookingID.split('_')[0], // Extract user ID from booking ID
+      bookingId: bookingData.bookingID,
       eventDate: bookingData.eventDate,
-      bookingDetails: bookingData.bookingDetails
+      bookingDetails: {
+        items: bookingData.bookingDetails?.items || []
+      }
     });
   }
 
   // Schedule rebooking reminder (9 months later)
   async scheduleRebookingReminderEmail(bookingData: BookingData) {
-    return this.makeRequest('rebooking-reminder', {
-      bookingID: bookingData.bookingID,
+    return this.makeRequest('follow-up', {
       customerEmail: bookingData.customerEmail,
       customerName: bookingData.customerName,
-      eventDate: bookingData.eventDate,
-      bookingDetails: bookingData.bookingDetails
+      customerId: bookingData.bookingID.split('_')[0], // Extract user ID from booking ID
+      lastBookingDate: bookingData.eventDate,
+      lastBookingId: bookingData.bookingID
     });
   }
 
@@ -208,7 +222,11 @@ class BackendEmailService {
 
   // Test email (development only)
   async sendTestEmail(type: string, email: string) {
-    return this.makeRequest('test', { type, email });
+    return this.makeRequest('test', { 
+      customerEmail: email,
+      customerName: 'Test User',
+      testType: type
+    });
   }
 
   // Health check

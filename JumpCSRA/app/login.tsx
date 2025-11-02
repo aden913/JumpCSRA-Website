@@ -22,6 +22,7 @@ import {
 import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
 import { initializeApp, getApps } from "firebase/app";
 import { firebaseConfig } from "./components/FirebaseConfig";
+import { sendAccountCreationEmail } from "./utils/backendEmailService";
 
 // Initialize Firebase once
 if (!getApps().length) {
@@ -160,6 +161,21 @@ const handleCompleteProfile = async (e: React.FormEvent) => {
       usedDiscounts: [], // Initialize empty array for discount tracking
       lastUpdated: new Date().toISOString(),
     }, { merge: true });
+
+    console.log("Google user profile completed, sending welcome email...");
+    
+    // Send welcome email after Google user completes profile
+    try {
+      await sendAccountCreationEmail({
+        email: pendingUser.email || '',
+        name: `${firstName} ${lastName}`,
+        uid: pendingUser.uid
+      });
+      console.log("✅ Welcome email sent to Google user successfully");
+    } catch (emailError) {
+      console.error("❌ Failed to send welcome email to Google user:", emailError);
+      // Don't block profile completion if email fails
+    }
 
     await updatePassword(pendingUser, password);
 
@@ -484,6 +500,21 @@ useEffect(() => {
         createdAt: new Date().toISOString(),
         lastUpdated: new Date().toISOString(),
       });
+
+      console.log("User document saved successfully, sending welcome email...");
+      
+      // Send welcome email after successful account creation
+      try {
+        await sendAccountCreationEmail({
+          email: userCred.user.email || email,
+          name: `${firstName} ${lastName}`,
+          uid: userCred.user.uid
+        });
+        console.log("✅ Welcome email sent successfully");
+      } catch (emailError) {
+        console.error("❌ Failed to send welcome email:", emailError);
+        // Don't block account creation if email fails
+      }
 
       await sendEmailVerification(userCred.user);
       setPendingUser(userCred.user);

@@ -17,6 +17,7 @@ import { useCategories } from "../hooks/useCategories";
 import { generateUniqueGiftCardCode, createGiftCardInDatabase, useDiscounts } from "../hooks/useDiscounts";
 import { sendOrderConfirmationEmail, createGiftCardInfoFromCart, OrderConfirmationEmailData, GiftCardInfo } from "../utils/emailUtils";
 import { sendEnhancedOrderConfirmation, scheduleCartReminderEmail, scheduleDepositReminderEmail, scheduleEventConfirmationEmail, schedulePostEventThanksEmail, scheduleRebookingReminderEmail } from "../utils/backendEmailService";
+import { clearCartAbandonment } from "../utils/cartAbandonmentTracker";
 import { notifications } from '@mantine/notifications';
 import { Notifications } from '@mantine/notifications';
 import { MantineProvider } from '@mantine/core';
@@ -1758,6 +1759,11 @@ export default function Checkout() {
               // Store cart data before clearing for order summary display
               setCompletedOrderCart([...cart]);
 
+              // Clear cart abandonment tracking (user completed checkout)
+              if (user) {
+                clearCartAbandonment(user.uid);
+              }
+
               // Clear cart
               localStorage.removeItem("cart");
               setCart([]);
@@ -2093,6 +2099,11 @@ export default function Checkout() {
               
               // Store cart data before clearing for order summary display
               setCompletedOrderCart([...cart]);
+              
+              // Clear cart abandonment tracking (user completed checkout)
+              if (user) {
+                clearCartAbandonment(user.uid);
+              }
               
               // Clear cart after successful payment
               localStorage.removeItem("cart");
