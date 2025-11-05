@@ -9,6 +9,7 @@ import {
 
 import type { Route } from "./+types/root";
 import { EmailTestingComponent } from "./components/EmailTestingComponent";
+import EmailSchedulerTesting from "./components/EmailSchedulerTesting";
 import "./utils/directEmailTesting"; // Load direct email testing
 import "./app.css";
 
@@ -37,6 +38,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <body>
         {children}
         {import.meta.env.DEV && <EmailTestingComponent />}
+        {import.meta.env.DEV && <EmailSchedulerTesting />}
         <ScrollRestoration />
         <Scripts />
       </body>
