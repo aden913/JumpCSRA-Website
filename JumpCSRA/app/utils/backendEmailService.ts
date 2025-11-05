@@ -57,22 +57,9 @@ class BackendEmailService {
   }
 
   private getBaseURL(): string {
-    // Check if we're in development or production
-    if (typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      
-      if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'http://localhost:3001'; // Development - email server port
-      } else {
-        // Production - use email server port 3001
-        return 'http://170.187.145.7:3001';
-      }
-    }
-    
-    // Fallback for server-side rendering
-    return process.env.NODE_ENV === 'production' 
-      ? 'http://170.187.145.7:3001' // Your email server
-      : 'http://localhost:3001';
+    // Always use production email server since it's the only one running
+    // In the future, you could run a local email server for development
+    return 'http://170.187.145.7:3001';
   }
 
   private getApiKey(): string {

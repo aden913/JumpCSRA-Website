@@ -989,6 +989,10 @@ export default function Profile() {
       // Delete Firebase Auth user
       await user.delete();
 
+      // Clear all localStorage data
+      console.log('Clearing localStorage...');
+      localStorage.clear();
+
       // Show success message
       alert(
         'Your account has been successfully deleted.\n\n' +

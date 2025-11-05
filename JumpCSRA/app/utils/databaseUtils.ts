@@ -885,6 +885,7 @@ export async function deleteAllUserData(userId: string): Promise<{
 }> {
   try {
     const db = getDatabase();
+    const firestore = getFirestore();
     
     // Get user wallet to check balance
     let walletBalance = 0;
@@ -896,6 +897,9 @@ export async function deleteAllUserData(userId: string): Promise<{
     } catch (error) {
       console.warn('Could not get wallet balance during deletion:', error);
     }
+    
+    // Delete from Realtime Database
+    console.log('Deleting Realtime Database data...');
     
     // Delete user wallet data
     const walletRef = ref(db, `userWallets/${userId}`);
@@ -947,6 +951,39 @@ export async function deleteAllUserData(userId: string): Promise<{
       if (Object.keys(giftCardUpdates).length > 0) {
         await set(ref(db), giftCardUpdates);
       }
+    }
+    
+    // Delete from Firestore collections
+    console.log('Deleting Firestore collections...');
+    
+    try {
+      // Delete from paymentInfo collection
+      const { collection, query, where, getDocs, deleteDoc } = await import('firebase/firestore');
+      
+      const paymentInfoQuery = query(
+        collection(firestore, 'paymentInfo'), 
+        where('userId', '==', userId)
+      );
+      const paymentInfoSnapshot = await getDocs(paymentInfoQuery);
+      
+      const paymentInfoDeletions = paymentInfoSnapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(paymentInfoDeletions);
+      console.log(`Deleted ${paymentInfoSnapshot.docs.length} paymentInfo documents`);
+      
+      // Delete from wallets collection
+      const walletsQuery = query(
+        collection(firestore, 'wallets'), 
+        where('userId', '==', userId)
+      );
+      const walletsSnapshot = await getDocs(walletsQuery);
+      
+      const walletsDeletions = walletsSnapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(walletsDeletions);
+      console.log(`Deleted ${walletsSnapshot.docs.length} wallets documents`);
+      
+    } catch (firestoreError) {
+      console.error('Error deleting Firestore collections:', firestoreError);
+      // Continue with deletion even if Firestore deletion partially fails
     }
     
     console.log(`Successfully deleted all data for user ${userId}, wallet balance was $${walletBalance}`);

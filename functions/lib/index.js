@@ -1,7 +1,7 @@
 "use strict";
 var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendAccountDeletionEmail = exports.autoCancelPendingOrders = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.testPayPalDebug = exports.testFunction = void 0;
+exports.sendAccountDeletionEmail = exports.autoCancelPendingOrders = exports.processScheduledEmails = exports.triggerTestEmail = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.testPayPalDebug = exports.testFunction = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const sgMail = require("@sendgrid/mail");
@@ -1255,6 +1255,778 @@ exports.createPayPalInvoice = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('internal', 'Failed to create PayPal invoice.');
     }
 });
+// ============================================================================
+// SCHEDULED EMAIL FUNCTIONS - Individual email sending functions
+// ============================================================================
+// Cart abandonment email
+async function sendCartAbandonmentEmail(cart, userId) {
+    try {
+        console.log('📧 Sending cart abandonment email to:', cart.customerEmail);
+        const emailHTML = generateCartAbandonmentEmailHTML(cart, userId);
+        const msg = {
+            to: cart.customerEmail,
+            from: 'jumpcsra@gmail.com',
+            subject: 'Don\'t forget your bounce house rental! 🏰',
+            html: emailHTML,
+            categories: ['cart-abandonment', 'marketing']
+        };
+        await sgMail.send(msg);
+        console.log('✅ Cart abandonment email sent successfully');
+    }
+    catch (error) {
+        console.error('❌ Error sending cart abandonment email:', error);
+        throw error;
+    }
+}
+// Deposit reminder email
+async function sendDepositReminderEmail(booking, bookingId) {
+    try {
+        console.log('📧 Sending deposit reminder email to:', booking.customerEmail);
+        const emailHTML = generateDepositReminderEmailHTML(booking, bookingId);
+        const msg = {
+            to: booking.customerEmail,
+            from: 'jumpcsra@gmail.com',
+            subject: `Final Payment Due Soon - Event ${booking.eventDate} 💰`,
+            html: emailHTML,
+            categories: ['deposit-reminder', 'transactional']
+        };
+        await sgMail.send(msg);
+        console.log('✅ Deposit reminder email sent successfully');
+    }
+    catch (error) {
+        console.error('❌ Error sending deposit reminder email:', error);
+        throw error;
+    }
+}
+// Event confirmation email
+async function sendEventConfirmationEmail(booking, bookingId) {
+    try {
+        console.log('📧 Sending event confirmation email to:', booking.customerEmail);
+        const emailHTML = generateEventConfirmationEmailHTML(booking, bookingId);
+        const msg = {
+            to: booking.customerEmail,
+            from: 'jumpcsra@gmail.com',
+            subject: `Your Event is Coming Up! - ${booking.eventDate} 🎉`,
+            html: emailHTML,
+            categories: ['event-confirmation', 'transactional']
+        };
+        await sgMail.send(msg);
+        console.log('✅ Event confirmation email sent successfully');
+    }
+    catch (error) {
+        console.error('❌ Error sending event confirmation email:', error);
+        throw error;
+    }
+}
+// Post-event thank you email
+async function sendPostEventThanksEmail(booking, bookingId) {
+    try {
+        console.log('📧 Sending post-event thank you email to:', booking.customerEmail);
+        const emailHTML = generatePostEventThanksEmailHTML(booking, bookingId);
+        const msg = {
+            to: booking.customerEmail,
+            from: 'jumpcsra@gmail.com',
+            subject: `Thank you for choosing JumpCSRA! 🙏`,
+            html: emailHTML,
+            categories: ['post-event', 'marketing']
+        };
+        await sgMail.send(msg);
+        console.log('✅ Post-event thank you email sent successfully');
+    }
+    catch (error) {
+        console.error('❌ Error sending post-event thank you email:', error);
+        throw error;
+    }
+}
+// Rebooking reminder email
+async function sendRebookingReminderEmail(booking, bookingId) {
+    try {
+        console.log('📧 Sending rebooking reminder email to:', booking.customerEmail);
+        const emailHTML = generateRebookingReminderEmailHTML(booking, bookingId);
+        const msg = {
+            to: booking.customerEmail,
+            from: 'jumpcsra@gmail.com',
+            subject: `Time for Another Party? 🎈 Special Returning Customer Discount!`,
+            html: emailHTML,
+            categories: ['rebooking-reminder', 'marketing']
+        };
+        await sgMail.send(msg);
+        console.log('✅ Rebooking reminder email sent successfully');
+    }
+    catch (error) {
+        console.error('❌ Error sending rebooking reminder email:', error);
+        throw error;
+    }
+}
+// ============================================================================
+// EMAIL TEMPLATE GENERATORS - HTML templates for scheduled emails
+// ============================================================================
+// Cart abandonment email template
+function generateCartAbandonmentEmailHTML(cart, userId) {
+    const cartItems = cart.cartItems || [];
+    const cartTotal = cart.cartValue || 0;
+    const itemsHTML = cartItems.map((item) => `
+    <tr>
+      <td style="padding: 10px; border-bottom: 1px solid #eee;">
+        <strong>${item.name || item.title}</strong><br>
+        <small style="color: #666;">${item.category || 'Rental Item'}</small>
+      </td>
+      <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">
+        $${(item.price || 0).toFixed(2)}
+      </td>
+    </tr>
+  `).join('');
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Don't Forget Your Bounce House Rental!</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        .header { text-align: center; color: #2c5aa0; margin-bottom: 30px; }
+        .cta-button { display: inline-block; background: #ff6b35; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🏰 Don't Forget Your Bounce House Rental!</h1>
+        </div>
+        
+        <p>Hi ${cart.customerName || 'there'}!</p>
+        
+        <p>We noticed you left some amazing bounce houses in your cart. Don't let the fun slip away! Your party rentals are waiting for you:</p>
+        
+        <table>
+          <thead>
+            <tr style="background-color: #f8f9fa;">
+              <th style="padding: 15px; text-align: left;">Item</th>
+              <th style="padding: 15px; text-align: right;">Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHTML}
+          </tbody>
+          <tfoot>
+            <tr style="background-color: #2c5aa0; color: white;">
+              <th style="padding: 15px; text-align: left;">Total</th>
+              <th style="padding: 15px; text-align: right;">$${cartTotal.toFixed(2)}</th>
+            </tr>
+          </tfoot>
+        </table>
+        
+        <div style="text-align: center;">
+          <a href="https://jumpcsra.com/checkout" class="cta-button">Complete Your Booking Now! 🎉</a>
+        </div>
+        
+        <p>❗ <strong>Important:</strong> Popular items book up fast, especially on weekends. Complete your booking now to secure your date!</p>
+        
+        <p>Questions? Reply to this email or call us at (555) 123-4567.</p>
+        
+        <div class="footer">
+          <p>JumpCSRA Party Rentals - Making Your Celebrations Unforgettable!</p>
+          <p>If you no longer wish to receive these emails, <a href="#">unsubscribe here</a>.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+// Deposit reminder email template
+function generateDepositReminderEmailHTML(booking, bookingId) {
+    const eventDate = new Date(booking.eventDate).toLocaleDateString();
+    const remainingAmount = booking.remainingBalance || 0;
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Final Payment Due Soon</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        .header { text-align: center; color: #2c5aa0; margin-bottom: 30px; }
+        .alert { background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .cta-button { display: inline-block; background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>💰 Final Payment Reminder</h1>
+        </div>
+        
+        <p>Hi ${booking.customerName || 'there'}!</p>
+        
+        <p>Your bounce house party is coming up soon! Just a friendly reminder that your final payment is due.</p>
+        
+        <div class="alert">
+          <strong>Event Details:</strong><br>
+          📅 <strong>Date:</strong> ${eventDate}<br>
+          💵 <strong>Remaining Balance:</strong> $${remainingAmount.toFixed(2)}<br>
+          🆔 <strong>Booking ID:</strong> ${bookingId}
+        </div>
+        
+        <p>To ensure your event goes smoothly, please complete your final payment as soon as possible. You can pay online through your customer portal or call us directly.</p>
+        
+        <div style="text-align: center;">
+          <a href="https://jumpcsra.com/profile" class="cta-button">Pay Remaining Balance 💳</a>
+        </div>
+        
+        <p><strong>Payment Options:</strong></p>
+        <ul>
+          <li>💻 Online: Log into your account at jumpcsra.com</li>
+          <li>📞 Phone: Call us at (555) 123-4567</li>
+          <li>💵 Cash: Pay on delivery (arrangement required)</li>
+        </ul>
+        
+        <p>Thank you for choosing JumpCSRA for your celebration!</p>
+        
+        <div class="footer">
+          <p>JumpCSRA Party Rentals - Making Your Celebrations Unforgettable!</p>
+          <p>Questions? Reply to this email or call (555) 123-4567</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+// Event confirmation email template
+function generateEventConfirmationEmailHTML(booking, bookingId) {
+    const eventDate = new Date(booking.eventDate).toLocaleDateString();
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Your Event is Coming Up!</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        .header { text-align: center; color: #2c5aa0; margin-bottom: 30px; }
+        .info-box { background: #e3f2fd; border: 1px solid #2196f3; color: #1565c0; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .checklist { background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; }
+        .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🎉 Your Event is Almost Here!</h1>
+        </div>
+        
+        <p>Hi ${booking.customerName || 'there'}!</p>
+        
+        <p>We're excited that your bounce house party is coming up in just a few days! Here's everything you need to know:</p>
+        
+        <div class="info-box">
+          <strong>Event Details:</strong><br>
+          📅 <strong>Date:</strong> ${eventDate}<br>
+          📍 <strong>Address:</strong> ${booking.deliveryAddress || 'As provided'}<br>
+          🕐 <strong>Setup Time:</strong> ${booking.deliveryTime || 'As scheduled'}<br>
+          🆔 <strong>Booking ID:</strong> ${bookingId}
+        </div>
+        
+        <div class="checklist">
+          <h3>📋 Pre-Event Checklist:</h3>
+          <ul>
+            <li>✅ Ensure the setup area is clear and accessible</li>
+            <li>✅ Have electrical outlets within 100 feet available</li>
+            <li>✅ Check weather forecast (we'll contact you if needed)</li>
+            <li>✅ Prepare space for our delivery team</li>
+            <li>✅ Have someone available during delivery window</li>
+          </ul>
+        </div>
+        
+        <p><strong>Delivery Information:</strong></p>
+        <ul>
+          <li>🚚 Our team will arrive during your scheduled time window</li>
+          <li>⚡ We'll need access to electricity for setup</li>
+          <li>🏠 Please ensure the setup area is easily accessible</li>
+          <li>📱 We'll call 30 minutes before arrival</li>
+        </ul>
+        
+        <p><strong>Weather Policy:</strong> We monitor weather conditions closely. If severe weather is expected, we'll contact you to discuss rescheduling options.</p>
+        
+        <p>Need to make any changes or have questions? Contact us immediately at (555) 123-4567.</p>
+        
+        <p>We can't wait to help make your celebration amazing! 🎈</p>
+        
+        <div class="footer">
+          <p>JumpCSRA Party Rentals - Making Your Celebrations Unforgettable!</p>
+          <p>Questions? Reply to this email or call (555) 123-4567</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+// Post-event thank you email template
+function generatePostEventThanksEmailHTML(booking, bookingId) {
+    const eventDate = new Date(booking.eventDate).toLocaleDateString();
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Thank You for Choosing JumpCSRA!</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        .header { text-align: center; color: #2c5aa0; margin-bottom: 30px; }
+        .highlight { background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 15px; border-radius: 5px; margin: 20px 0; text-align: center; }
+        .cta-button { display: inline-block; background: #ff6b35; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🙏 Thank You for Choosing JumpCSRA!</h1>
+        </div>
+        
+        <p>Hi ${booking.customerName || 'there'}!</p>
+        
+        <p>We hope your event on ${eventDate} was absolutely amazing! It was our pleasure to help make your celebration special with our bounce house rentals.</p>
+        
+        <div class="highlight">
+          <h3>🌟 How did we do?</h3>
+          <p>Your feedback means the world to us! Please take a moment to share your experience.</p>
+        </div>
+        
+        <div style="text-align: center;">
+          <a href="https://g.page/r/YOUR_GOOGLE_REVIEW_LINK/review" class="cta-button">Leave a Google Review ⭐</a>
+        </div>
+        
+        <p><strong>Share Your Photos! 📸</strong><br>
+        We'd love to see photos from your event! Tag us on social media @JumpCSRA or email them to us. We might feature your celebration (with permission) on our website!</p>
+        
+        <p><strong>Planning Another Event?</strong><br>
+        As a returning customer, you'll receive exclusive discounts and early access to new equipment. Keep us in mind for:</p>
+        <ul>
+          <li>🎂 Birthday parties</li>
+          <li>🎓 Graduation celebrations</li>
+          <li>🏫 School events</li>
+          <li>🏢 Corporate gatherings</li>
+          <li>🎪 Community festivals</li>
+        </ul>
+        
+        <p><strong>Refer a Friend:</strong> Know someone planning a party? Refer them to JumpCSRA and you'll both receive a special discount on your next rental!</p>
+        
+        <p>Thank you again for trusting us with your special day. We hope to bounce with you again soon! 🎈</p>
+        
+        <div class="footer">
+          <p>JumpCSRA Party Rentals - Making Your Celebrations Unforgettable!</p>
+          <p>Follow us: Facebook | Instagram | Twitter</p>
+          <p>Questions? Reply to this email or call (555) 123-4567</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+// Rebooking reminder email template
+function generateRebookingReminderEmailHTML(booking, bookingId) {
+    const lastEventDate = new Date(booking.eventDate).toLocaleDateString();
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Time for Another Party?</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        .header { text-align: center; color: #2c5aa0; margin-bottom: 30px; }
+        .discount-box { background: linear-gradient(135deg, #ff6b35, #f39c12); color: white; padding: 20px; border-radius: 10px; text-align: center; margin: 20px 0; }
+        .cta-button { display: inline-block; background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .features { background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; }
+        .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🎈 Time for Another Amazing Party?</h1>
+        </div>
+        
+        <p>Hi ${booking.customerName || 'there'}!</p>
+        
+        <p>It's been a while since your last bounce house party with us on ${lastEventDate}, and we've been thinking about you! Are you ready to create more unforgettable memories?</p>
+        
+        <div class="discount-box">
+          <h2>🎉 SPECIAL RETURNING CUSTOMER OFFER!</h2>
+          <h3 style="margin: 10px 0; font-size: 28px;">15% OFF</h3>
+          <p style="margin: 5px 0;">Your Next Rental + FREE Setup</p>
+          <p style="font-size: 14px; margin: 5px 0;">Use Code: WELCOME-BACK</p>
+        </div>
+        
+        <div style="text-align: center;">
+          <a href="https://jumpcsra.com?discount=WELCOME-BACK" class="cta-button">Browse Bounce Houses 🏰</a>
+        </div>
+        
+        <div class="features">
+          <h3>🆕 What's New Since Your Last Visit:</h3>
+          <ul>
+            <li>🎪 Brand new themed bounce houses (Princess, Superhero, Sports)</li>
+            <li>🌊 Water slide combos for summer fun</li>
+            <li>🎯 Interactive games and obstacle courses</li>
+            <li>📱 Improved online booking with instant confirmation</li>
+            <li>🚚 Extended delivery areas</li>
+          </ul>
+        </div>
+        
+        <p><strong>Perfect for:</strong></p>
+        <ul>
+          <li>🎂 Upcoming birthdays</li>
+          <li>🎓 Graduation celebrations</li>
+          <li>☀️ Summer parties</li>
+          <li>🏫 School events</li>
+          <li>👨‍👩‍👧‍👦 Family reunions</li>
+        </ul>
+        
+        <p><strong>Why Choose JumpCSRA Again?</strong></p>
+        <ul>
+          <li>✅ Same great service you remember</li>
+          <li>✅ Clean, sanitized equipment</li>
+          <li>✅ Professional setup and pickup</li>
+          <li>✅ Competitive pricing</li>
+          <li>✅ Last-minute availability</li>
+        </ul>
+        
+        <p><strong>⏰ Limited Time Offer:</strong> This 15% discount expires in 30 days, so book soon to secure your date and savings!</p>
+        
+        <p>Ready to bounce back into fun? We can't wait to help make your next celebration spectacular! 🎉</p>
+        
+        <div class="footer">
+          <p>JumpCSRA Party Rentals - Making Your Celebrations Unforgettable!</p>
+          <p>Questions? Reply to this email or call (555) 123-4567</p>
+          <p>If you no longer wish to receive these emails, <a href="#">unsubscribe here</a>.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+// ============================================================================
+// MANUAL EMAIL TESTING FUNCTIONS - For immediate testing via frontend
+// ============================================================================
+// Manual email testing function (callable from frontend)
+exports.triggerTestEmail = functions.https.onCall(async (data, context) => {
+    console.log('🧪 MANUAL TEST: Triggering test email:', data);
+    try {
+        const db = admin.database();
+        switch (data.emailType) {
+            case 'cart-abandonment':
+                if (!data.userId)
+                    throw new Error('userId required for cart abandonment email');
+                const cartRef = db.ref(`carts/${data.userId}`);
+                const cartSnapshot = await cartRef.once('value');
+                if (cartSnapshot.exists()) {
+                    await sendCartAbandonmentEmail(cartSnapshot.val(), data.userId);
+                    return { success: true, message: 'Cart abandonment email sent' };
+                }
+                throw new Error('Cart not found');
+            case 'deposit-reminder':
+                if (!data.bookingId)
+                    throw new Error('bookingId required for deposit reminder email');
+                const bookingRef = db.ref(`bookings/${data.bookingId}`);
+                const bookingSnapshot = await bookingRef.once('value');
+                if (bookingSnapshot.exists()) {
+                    await sendDepositReminderEmail(bookingSnapshot.val(), data.bookingId);
+                    return { success: true, message: 'Deposit reminder email sent' };
+                }
+                throw new Error('Booking not found');
+            case 'event-confirmation':
+                if (!data.bookingId)
+                    throw new Error('bookingId required for event confirmation email');
+                const eventBookingRef = db.ref(`bookings/${data.bookingId}`);
+                const eventBookingSnapshot = await eventBookingRef.once('value');
+                if (eventBookingSnapshot.exists()) {
+                    await sendEventConfirmationEmail(eventBookingSnapshot.val(), data.bookingId);
+                    return { success: true, message: 'Event confirmation email sent' };
+                }
+                throw new Error('Booking not found');
+            case 'post-event-thanks':
+                if (!data.bookingId)
+                    throw new Error('bookingId required for post-event email');
+                const postEventBookingRef = db.ref(`bookings/${data.bookingId}`);
+                const postEventBookingSnapshot = await postEventBookingRef.once('value');
+                if (postEventBookingSnapshot.exists()) {
+                    await sendPostEventThanksEmail(postEventBookingSnapshot.val(), data.bookingId);
+                    return { success: true, message: 'Post-event thank you email sent' };
+                }
+                throw new Error('Booking not found');
+            case 'rebooking-reminder':
+                if (!data.bookingId)
+                    throw new Error('bookingId required for rebooking reminder email');
+                const rebookingBookingRef = db.ref(`bookings/${data.bookingId}`);
+                const rebookingBookingSnapshot = await rebookingBookingRef.once('value');
+                if (rebookingBookingSnapshot.exists()) {
+                    await sendRebookingReminderEmail(rebookingBookingSnapshot.val(), data.bookingId);
+                    return { success: true, message: 'Rebooking reminder email sent' };
+                }
+                throw new Error('Booking not found');
+            case 'process-all-scheduled':
+                const now = Date.now();
+                await processCartAbandonmentEmails(db, now);
+                await processDepositReminderEmails(db, now);
+                await processEventConfirmationEmails(db, now);
+                await processPostEventEmails(db, now);
+                await processRebookingReminderEmails(db, now);
+                return { success: true, message: 'All scheduled emails processed' };
+            default:
+                throw new Error('Invalid email type. Use: cart-abandonment, deposit-reminder, event-confirmation, post-event-thanks, rebooking-reminder, or process-all-scheduled');
+        }
+    }
+    catch (error) {
+        console.error('❌ MANUAL TEST: Error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        return { success: false, error: errorMessage };
+    }
+});
+// ============================================================================
+// SCHEDULED EMAIL SYSTEM - Checks database daily for emails to send
+// ============================================================================
+// Environment variable for testing mode (speeds up email timing)
+const emailConfig = functions.config().email || {};
+const isTestingMode = emailConfig.testing_mode === 'true';
+console.log(`📧 EMAIL SCHEDULER: Testing mode ${isTestingMode ? 'ENABLED' : 'DISABLED'}`);
+// Email timing constants (in milliseconds)
+const EMAIL_TIMING = {
+    CART_ABANDONMENT: isTestingMode ? 1 * 60 * 1000 : 24 * 60 * 60 * 1000, // 1 min vs 24 hours
+    DEPOSIT_REMINDER: isTestingMode ? 2 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000, // 2 min vs 7 days
+    EVENT_CONFIRMATION: isTestingMode ? 3 * 60 * 1000 : 3 * 24 * 60 * 60 * 1000, // 3 min vs 3 days
+    POST_EVENT_THANKS: isTestingMode ? 4 * 60 * 1000 : 1 * 24 * 60 * 60 * 1000, // 4 min vs 1 day
+    REBOOKING_REMINDER: isTestingMode ? 5 * 60 * 1000 : 9 * 30 * 24 * 60 * 60 * 1000 // 5 min vs 9 months
+};
+console.log('📧 EMAIL TIMING CONFIG:', {
+    testingMode: isTestingMode,
+    cartAbandonment: isTestingMode ? '1 minute' : '24 hours',
+    depositReminder: isTestingMode ? '2 minutes' : '7 days',
+    eventConfirmation: isTestingMode ? '3 minutes' : '3 days',
+    postEventThanks: isTestingMode ? '4 minutes' : '1 day',
+    rebookingReminder: isTestingMode ? '5 minutes' : '9 months'
+});
+// Main scheduled function to process all email types
+exports.processScheduledEmails = functions.pubsub
+    .schedule(isTestingMode ? '*/2 * * * *' : '0 */6 * * *') // Every 2 minutes in testing, every 6 hours in production
+    .timeZone('America/New_York') // EST/EDT timezone
+    .onRun(async (context) => {
+    console.log(`🕐 SCHEDULER: Running scheduled email processor... (Testing Mode: ${isTestingMode})`);
+    try {
+        const db = admin.database();
+        const now = Date.now();
+        // Process cart abandonment emails
+        await processCartAbandonmentEmails(db, now);
+        // Process deposit reminder emails
+        await processDepositReminderEmails(db, now);
+        // Process event confirmation emails
+        await processEventConfirmationEmails(db, now);
+        // Process post-event thank you emails
+        await processPostEventEmails(db, now);
+        // Process rebooking reminder emails
+        await processRebookingReminderEmails(db, now);
+        console.log('✅ SCHEDULER: All scheduled emails processed successfully');
+    }
+    catch (error) {
+        console.error('❌ SCHEDULER: Error processing scheduled emails:', error);
+        throw error;
+    }
+});
+// Helper function to process cart abandonment emails
+async function processCartAbandonmentEmails(db, now) {
+    try {
+        console.log('📧 SCHEDULER: Checking cart abandonment emails...');
+        const cartsRef = db.ref('carts');
+        const snapshot = await cartsRef.once('value');
+        if (!snapshot.exists()) {
+            console.log('📧 SCHEDULER: No carts found');
+            return;
+        }
+        const carts = snapshot.val();
+        let emailsSent = 0;
+        for (const [userId, cartData] of Object.entries(carts)) {
+            const cart = cartData;
+            // Skip if cart is empty or user already checked out
+            if (!cart.cartItems || cart.cartItems.length === 0)
+                continue;
+            // Check if cart abandonment email should be sent
+            const cartLastUpdated = cart.lastUpdated || cart.createdAt || now;
+            const timeSinceUpdate = now - cartLastUpdated;
+            if (timeSinceUpdate >= EMAIL_TIMING.CART_ABANDONMENT) {
+                // Check if we already sent this email
+                const emailSentKey = `cartAbandonment_${userId}_${cartLastUpdated}`;
+                const emailRef = db.ref(`emailsSent/${emailSentKey}`);
+                const emailSentSnapshot = await emailRef.once('value');
+                if (!emailSentSnapshot.exists()) {
+                    await sendCartAbandonmentEmail(cart, userId);
+                    await emailRef.set({ sentAt: now, type: 'cart-abandonment' });
+                    emailsSent++;
+                }
+            }
+        }
+        console.log(`📧 SCHEDULER: Sent ${emailsSent} cart abandonment emails`);
+    }
+    catch (error) {
+        console.error('❌ SCHEDULER: Error processing cart abandonment emails:', error);
+    }
+}
+// Helper function to process deposit reminder emails
+async function processDepositReminderEmails(db, now) {
+    try {
+        console.log('📧 SCHEDULER: Checking deposit reminder emails...');
+        const bookingsRef = db.ref('bookings');
+        const snapshot = await bookingsRef.once('value');
+        if (!snapshot.exists()) {
+            console.log('📧 SCHEDULER: No bookings found');
+            return;
+        }
+        const bookings = snapshot.val();
+        let emailsSent = 0;
+        for (const [bookingId, bookingData] of Object.entries(bookings)) {
+            const booking = bookingData;
+            // Only process bookings with remaining balance (deposit payments)
+            if (!booking.remainingBalance || booking.remainingBalance <= 0)
+                continue;
+            if (booking.status !== 'confirmed')
+                continue;
+            const eventDate = new Date(booking.eventDate).getTime();
+            const timeUntilEvent = eventDate - now;
+            // Send reminder 7 days before event (or testing interval)
+            if (timeUntilEvent <= EMAIL_TIMING.DEPOSIT_REMINDER && timeUntilEvent > 0) {
+                const emailSentKey = `depositReminder_${bookingId}`;
+                const emailRef = db.ref(`emailsSent/${emailSentKey}`);
+                const emailSentSnapshot = await emailRef.once('value');
+                if (!emailSentSnapshot.exists()) {
+                    await sendDepositReminderEmail(booking, bookingId);
+                    await emailRef.set({ sentAt: now, type: 'deposit-reminder' });
+                    emailsSent++;
+                }
+            }
+        }
+        console.log(`📧 SCHEDULER: Sent ${emailsSent} deposit reminder emails`);
+    }
+    catch (error) {
+        console.error('❌ SCHEDULER: Error processing deposit reminder emails:', error);
+    }
+}
+// Helper function to process event confirmation emails
+async function processEventConfirmationEmails(db, now) {
+    try {
+        console.log('📧 SCHEDULER: Checking event confirmation emails...');
+        const bookingsRef = db.ref('bookings');
+        const snapshot = await bookingsRef.once('value');
+        if (!snapshot.exists()) {
+            console.log('📧 SCHEDULER: No bookings found');
+            return;
+        }
+        const bookings = snapshot.val();
+        let emailsSent = 0;
+        for (const [bookingId, bookingData] of Object.entries(bookings)) {
+            const booking = bookingData;
+            // Only process confirmed bookings
+            if (booking.status !== 'confirmed')
+                continue;
+            const eventDate = new Date(booking.eventDate).getTime();
+            const timeUntilEvent = eventDate - now;
+            // Send confirmation 3 days before event
+            if (timeUntilEvent <= EMAIL_TIMING.EVENT_CONFIRMATION && timeUntilEvent > 0) {
+                const emailSentKey = `eventConfirmation_${bookingId}`;
+                const emailRef = db.ref(`emailsSent/${emailSentKey}`);
+                const emailSentSnapshot = await emailRef.once('value');
+                if (!emailSentSnapshot.exists()) {
+                    await sendEventConfirmationEmail(booking, bookingId);
+                    await emailRef.set({ sentAt: now, type: 'event-confirmation' });
+                    emailsSent++;
+                }
+            }
+        }
+        console.log(`📧 SCHEDULER: Sent ${emailsSent} event confirmation emails`);
+    }
+    catch (error) {
+        console.error('❌ SCHEDULER: Error processing event confirmation emails:', error);
+    }
+}
+// Helper function to process post-event thank you emails
+async function processPostEventEmails(db, now) {
+    try {
+        console.log('📧 SCHEDULER: Checking post-event emails...');
+        const bookingsRef = db.ref('bookings');
+        const snapshot = await bookingsRef.once('value');
+        if (!snapshot.exists()) {
+            console.log('📧 SCHEDULER: No bookings found');
+            return;
+        }
+        const bookings = snapshot.val();
+        let emailsSent = 0;
+        for (const [bookingId, bookingData] of Object.entries(bookings)) {
+            const booking = bookingData;
+            // Only process completed events
+            if (booking.status !== 'confirmed' && booking.status !== 'completed')
+                continue;
+            const eventDate = new Date(booking.eventDate).getTime();
+            const timeSinceEvent = now - eventDate;
+            // Send thank you 1 day after event
+            if (timeSinceEvent >= EMAIL_TIMING.POST_EVENT_THANKS) {
+                const emailSentKey = `postEventThanks_${bookingId}`;
+                const emailRef = db.ref(`emailsSent/${emailSentKey}`);
+                const emailSentSnapshot = await emailRef.once('value');
+                if (!emailSentSnapshot.exists()) {
+                    await sendPostEventThanksEmail(booking, bookingId);
+                    await emailRef.set({ sentAt: now, type: 'post-event-thanks' });
+                    emailsSent++;
+                }
+            }
+        }
+        console.log(`📧 SCHEDULER: Sent ${emailsSent} post-event emails`);
+    }
+    catch (error) {
+        console.error('❌ SCHEDULER: Error processing post-event emails:', error);
+    }
+}
+// Helper function to process rebooking reminder emails
+async function processRebookingReminderEmails(db, now) {
+    try {
+        console.log('📧 SCHEDULER: Checking rebooking reminder emails...');
+        const bookingsRef = db.ref('bookings');
+        const snapshot = await bookingsRef.once('value');
+        if (!snapshot.exists()) {
+            console.log('📧 SCHEDULER: No bookings found');
+            return;
+        }
+        const bookings = snapshot.val();
+        let emailsSent = 0;
+        for (const [bookingId, bookingData] of Object.entries(bookings)) {
+            const booking = bookingData;
+            // Only process completed events
+            if (booking.status !== 'completed')
+                continue;
+            const eventDate = new Date(booking.eventDate).getTime();
+            const timeSinceEvent = now - eventDate;
+            // Send rebooking reminder 9 months after event
+            if (timeSinceEvent >= EMAIL_TIMING.REBOOKING_REMINDER) {
+                const emailSentKey = `rebookingReminder_${bookingId}`;
+                const emailRef = db.ref(`emailsSent/${emailSentKey}`);
+                const emailSentSnapshot = await emailRef.once('value');
+                if (!emailSentSnapshot.exists()) {
+                    await sendRebookingReminderEmail(booking, bookingId);
+                    await emailRef.set({ sentAt: now, type: 'rebooking-reminder' });
+                    emailsSent++;
+                }
+            }
+        }
+        console.log(`📧 SCHEDULER: Sent ${emailsSent} rebooking reminder emails`);
+    }
+    catch (error) {
+        console.error('❌ SCHEDULER: Error processing rebooking reminder emails:', error);
+    }
+}
 // Scheduled function to auto-cancel pending orders on event day
 exports.autoCancelPendingOrders = functions.pubsub
     .schedule('0 8 * * *') // Run daily at 8 AM

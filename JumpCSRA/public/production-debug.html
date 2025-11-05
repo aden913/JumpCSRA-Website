@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Production Debug Page</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+        img { max-width: 200px; margin: 10px; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h1>Production Environment Debug</h1>
+    
+    <div class="test-section">
+        <h2>Environment Check</h2>
+        <p>If you can see this page, static file serving is working.</p>
+        <p>Current URL: <span id="currentUrl"></span></p>
+        <p>User Agent: <span id="userAgent"></span></p>
+        <p>Timestamp: <span id="timestamp"></span></p>
+    </div>
+
+    <div class="test-section">
+        <h2>Navbar Assets Test</h2>
+        <div>
+            <h3>Main Logo (logov2.png):</h3>
+            <img src="/logov2.png" alt="Logo v2" onload="markSuccess('logo')" onerror="markError('logo')">
+            <span id="logo-status"></span>
+        </div>
+        <div>
+            <h3>Cart Icon (white-cart.png):</h3>
+            <img src="/white-cart.png" alt="White Cart" onload="markSuccess('cart')" onerror="markError('cart')">
+            <span id="cart-status"></span>
+        </div>
+        <div>
+            <h3>Profile Icon (profile-icon-white.png):</h3>
+            <img src="/profile-icon-white.png" alt="Profile Icon White" onload="markSuccess('profile')" onerror="markError('profile')">
+            <span id="profile-status"></span>
+        </div>
+        <div>
+            <h3>Login Logo (jump-logo.png):</h3>
+            <img src="/jump-logo.png" alt="Jump Logo" onload="markSuccess('jump-logo')" onerror="markError('jump-logo')">
+            <span id="jump-logo-status"></span>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>JavaScript Environment Test</h2>
+        <p>React Router Environment: <span id="env-check"></span></p>
+        <p>Build Info: <span id="build-info"></span></p>
+        <button onclick="testJavaScript()">Test JavaScript Functionality</button>
+        <div id="js-test-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Network Connectivity</h2>
+        <button onclick="testEmailServer()">Test Email Server Connection</button>
+        <div id="email-test-result"></div>
+    </div>
+
+    <script>
+        // Initialize page
+        document.getElementById('currentUrl').textContent = window.location.href;
+        document.getElementById('userAgent').textContent = navigator.userAgent;
+        document.getElementById('timestamp').textContent = new Date().toISOString();
+
+        // Check environment
+        try {
+            document.getElementById('env-check').textContent = 'Production (import.meta not available in regular script)';
+            document.getElementById('build-info').textContent = 'Static HTML test page';
+        } catch (error) {
+            document.getElementById('env-check').textContent = 'Error checking environment';
+            document.getElementById('build-info').textContent = error.message;
+        }
+
+        function markSuccess(id) {
+            document.getElementById(id + '-status').innerHTML = '<span class="success">✓ Loaded</span>';
+        }
+
+        function markError(id) {
+            document.getElementById(id + '-status').innerHTML = '<span class="error">✗ Failed to load</span>';
+        }
+
+        function testJavaScript() {
+            try {
+                // Test basic functionality
+                const testDiv = document.createElement('div');
+                testDiv.textContent = 'JavaScript is working!';
+                
+                // Test if React-like functionality would work
+                const reactTest = typeof React !== 'undefined' ? 'React available' : 'React not available in global scope (normal for production)';
+                
+                document.getElementById('js-test-result').innerHTML = 
+                    '<div class="success">✓ JavaScript is functional</div>' +
+                    '<div>React Status: ' + reactTest + '</div>';
+            } catch (error) {
+                document.getElementById('js-test-result').innerHTML = 
+                    '<div class="error">✗ JavaScript error: ' + error.message + '</div>';
+            }
+        }
+
+        async function testEmailServer() {
+            try {
+                const response = await fetch('http://170.187.145.7:3001/health', {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                
+                if (response.ok) {
+                    const data = await response.text();
+                    document.getElementById('email-test-result').innerHTML = 
+                        '<div class="success">✓ Email server reachable</div>' +
+                        '<div>Response: ' + data + '</div>';
+                } else {
+                    document.getElementById('email-test-result').innerHTML = 
+                        '<div class="error">✗ Email server responded with status: ' + response.status + '</div>';
+                }
+            } catch (error) {
+                document.getElementById('email-test-result').innerHTML = 
+                    '<div class="error">✗ Cannot reach email server: ' + error.message + '</div>';
+            }
+        }
+
+        // Auto-test JS on load
+        setTimeout(testJavaScript, 1000);
+    </script>
+</body>
+</html>

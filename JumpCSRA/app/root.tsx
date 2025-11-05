@@ -8,7 +8,8 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
-import { EmailTestPanel } from "./components/EmailTestPanel";
+import { EmailTestingComponent } from "./components/EmailTestingComponent";
+import "./utils/directEmailTesting"; // Load direct email testing
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
@@ -35,7 +36,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
-        <EmailTestPanel />
+        {import.meta.env.DEV && <EmailTestingComponent />}
         <ScrollRestoration />
         <Scripts />
       </body>

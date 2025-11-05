@@ -59,7 +59,15 @@ export default function Login() {
 
   // Check if user is already authenticated
   useEffect(() => {
+    // Add timeout to prevent indefinite hanging
+    const authTimeout = setTimeout(() => {
+      console.log("Authentication check timed out after 10 seconds");
+      setIsCheckingAuth(false);
+    }, 10000);
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      clearTimeout(authTimeout); // Clear timeout when auth state changes
+      
       if (user) {
         console.log("User already signed in:", user.uid);
         
@@ -94,7 +102,10 @@ export default function Login() {
     });
 
     // Cleanup subscription on unmount
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(authTimeout);
+      unsubscribe();
+    };
   }, []);
 
   // SVG icons for password visibility
@@ -554,6 +565,24 @@ useEffect(() => {
         <img src="/jump-logo.png" alt="Jump Logo" className="login-logo" />
         <div style={{ textAlign: 'center', marginTop: '2rem' }}>
           <p>Checking authentication...</p>
+          <button
+            onClick={() => {
+              console.log("Authentication check bypassed by user - going to sign in");
+              setIsCheckingAuth(false);
+              setShowSignInForm(true);
+            }}
+            style={{
+              marginTop: '1rem',
+              padding: '0.5rem 1rem',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Go to Sign In
+          </button>
         </div>
       </div>
     );
