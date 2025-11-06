@@ -3,7 +3,8 @@ import { useNavigate } from "react-router";
 import { onAuthStateChanged } from "firebase/auth";
 import { getDatabase, ref, get } from "firebase/database";
 import { initializeApp, getApps } from "firebase/app";
-import { auth, firebaseConfig } from "./FirebaseConfig";
+import { auth, firebaseConfig, firestore } from "./FirebaseConfig";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { getUnavailableInflateables } from '../utils/bookingUtils';
 import { useDiscounts, getDiscountDescription, type DiscountCalculation } from '../hooks/useDiscounts';
 import { checkItemAvailability, type ItemAvailability } from '../utils/availabilityUtils';
@@ -675,6 +676,46 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
     setCart(newCart); // This automatically saves to localStorage via useCart hook
   };
 
+  // Save cart to Firestore for abandonment tracking
+  const saveCartToFirestore = async (user: any) => {
+    if (!user || cart.length === 0) return;
+
+    try {
+      const cartData = {
+        userId: user.uid,
+        customerEmail: user.email,
+        customerName: user.displayName || 'Customer',
+        cartItems: cart.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          category: item.category,
+          wetDry: item.wetDry,
+          isGiftCard: item.isGiftCard || false,
+          giftCardValue: item.giftCardValue || null
+        })),
+        cartValue: total,
+        eventDetails: {
+          startDate: calendarDateRange[0]?.toISOString(),
+          duration: duration,
+          surface: surface,
+          deliveryTime: deliveryTime,
+          location: location
+        },
+        createdAt: serverTimestamp(),
+        lastUpdated: serverTimestamp(),
+        status: 'active', // Will be marked as 'abandoned' if not completed within 1 hour
+        source: 'cart-sidebar'
+      };
+
+      await setDoc(doc(firestore, 'carts', user.uid), cartData);
+      console.log('✅ Cart saved to Firestore for abandonment tracking');
+    } catch (error) {
+      console.error('❌ Error saving cart to Firestore:', error);
+    }
+  };
+
   return (
     <>
       <div className={`cart-overlay${open ? " open" : ""}`} onClick={onClose}></div>
@@ -1065,12 +1106,14 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                 !areWetDrySelectionsComplete()
               );
             })()}
-            onClick={() => {
+            onClick={async () => {
               const hasInflateables = cart.some(item => !isGiftCard(item));
               const eventFieldsValid = !hasInflateables || (duration && surface && deliveryTime && location);
               
               if (cart.length > 0 && eventFieldsValid && areWetDrySelectionsComplete()) {
                 if (user) {
+                  // Save cart to Firestore for abandonment tracking before proceeding
+                  await saveCartToFirestore(user);
                   // User is logged in, proceed to checkout
                   navigate('/checkout');
                 } else {

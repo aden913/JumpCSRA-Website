@@ -8,9 +8,7 @@ import {
 } from "react-router";
 
 import type { Route } from "./+types/root";
-import { EmailTestingComponent } from "./components/EmailTestingComponent";
-import EmailSchedulerTesting from "./components/EmailSchedulerTesting";
-import "./utils/directEmailTesting"; // Load direct email testing
+import EmailTestingDashboard from "./components/EmailTestingDashboard";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
@@ -37,8 +35,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
-        {import.meta.env.DEV && <EmailTestingComponent />}
-        {import.meta.env.DEV && <EmailSchedulerTesting />}
+        {import.meta.env.DEV && <EmailTestingDashboard />}
         <ScrollRestoration />
         <Scripts />
       </body>

@@ -2029,6 +2029,8 @@ export default function Checkout() {
 
               // Send comprehensive order confirmation via enhanced backend email system
               try {
+                console.log(`📧 PAYPAL PAYMENT - Preparing order confirmation email for order ${pendingBookingId}`);
+                
                 // Convert cart to gift card info (simplified for now)
                 const giftCardInfo = cart.filter(item => item.isGiftCard).map(item => ({
                   code: `GC-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`, // This would be actual gift card codes
@@ -2085,16 +2087,49 @@ export default function Checkout() {
                   paypalTransactionId: paymentId
                 };
 
+                console.log(`📧 PAYPAL PAYMENT - Sending order confirmation email with data:`, {
+                  email: invoiceData.recipientEmail,
+                  orderID: invoiceData.orderID,
+                  amount: invoiceData.amountPaid,
+                  items: invoiceData.rentalItems.length
+                });
+
                 const result = await sendEnhancedOrderConfirmation(invoiceData);
                 
-                if (result.success) {
-                  console.log(`📧 Enhanced order confirmation email sent successfully for order ${pendingBookingId}`);
+                console.log(`📧 PAYPAL PAYMENT - Order confirmation email result:`, result);
+                
+                if (result && result.success) {
+                  console.log(`✅ PAYPAL PAYMENT - Order confirmation email sent successfully for order ${pendingBookingId}`);
                   console.log('  ✅ Email Status:', result.emailSent ? 'Sent' : 'Pending');
+                  
+                  // Show user notification
+                  notifications.show({
+                    title: '📧 Email Sent',
+                    message: 'Order confirmation email sent successfully!',
+                    color: 'green',
+                    autoClose: 5000,
+                  });
                 } else {
-                  console.warn(`📧 Order confirmation email had issues for order ${pendingBookingId}:`, result.message);
+                  console.warn(`⚠️ PAYPAL PAYMENT - Order confirmation email had issues for order ${pendingBookingId}:`, result?.message || 'Unknown error');
+                  
+                  // Show user notification
+                  notifications.show({
+                    title: '⚠️ Email Issue',
+                    message: 'Order confirmed but email may be delayed. Check your inbox in a few minutes.',
+                    color: 'yellow',
+                    autoClose: 8000,
+                  });
                 }
               } catch (invoiceError) {
-                console.error(`📧 Error sending order confirmation email for order ${pendingBookingId}:`, invoiceError);
+                console.error(`❌ PAYPAL PAYMENT - Error sending order confirmation email for order ${pendingBookingId}:`, invoiceError);
+                
+                // Show user notification
+                notifications.show({
+                  title: '❌ Email Error',
+                  message: 'Order confirmed but confirmation email failed. Please save your order details.',
+                  color: 'red',
+                  autoClose: 10000,
+                });
               }
               
               // Store cart data before clearing for order summary display
