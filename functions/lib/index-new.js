@@ -294,4 +294,4 @@ async function processRebookingReminderEmails(db, now) {
     console.log('🔄 SCHEDULER: Processing rebooking reminder emails...');
     // Implementation would go here
 }
-//# sourceMappingURL=index.js.map
+//# sourceMappingURL=index-new.js.map
