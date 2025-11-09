@@ -239,9 +239,6 @@ export const sendAccountCreationEmail = (userData: UserData) =>
 export const sendOrderConfirmationEmail = (orderData: OrderData) => 
   backendEmailService.sendOrderConfirmationEmail(orderData);
 
-export const sendEnhancedOrderConfirmation = (orderData: OrderData) => 
-  backendEmailService.sendOrderConfirmationEmail(orderData);
-
 export const scheduleCartReminderEmail = (cartData: CartData) => 
   backendEmailService.scheduleCartReminderEmail(cartData);
 

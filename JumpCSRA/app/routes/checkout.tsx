@@ -16,7 +16,7 @@ import { useCartSettings } from "../hooks/useCartSettings";
 import { useCategories } from "../hooks/useCategories";
 import { generateUniqueGiftCardCode, createGiftCardInDatabase, useDiscounts } from "../hooks/useDiscounts";
 import { sendOrderConfirmationEmail, createGiftCardInfoFromCart, OrderConfirmationEmailData, GiftCardInfo } from "../utils/emailUtils";
-import { sendEnhancedOrderConfirmation, scheduleCartReminderEmail, scheduleDepositReminderEmail, scheduleEventConfirmationEmail, schedulePostEventThanksEmail, scheduleRebookingReminderEmail } from "../utils/backendEmailService";
+import { scheduleCartReminderEmail, scheduleDepositReminderEmail, scheduleEventConfirmationEmail, schedulePostEventThanksEmail, scheduleRebookingReminderEmail } from "../utils/backendEmailService";
 import { clearCartAbandonment } from "../utils/cartAbandonmentTracker";
 import { notifications } from '@mantine/notifications';
 import { Notifications } from '@mantine/notifications';
@@ -1733,13 +1733,27 @@ export default function Checkout() {
                   paypalTransactionId: undefined
                 };
 
-                const result = await sendEnhancedOrderConfirmation(invoiceData);
+                // Call Cloud Function to send order confirmation email
+                try {
+                  const { getFunctions, httpsCallable } = await import('firebase/functions');
+                  const { initializeApp, getApps } = await import('firebase/app');
+                  
+                  let app;
+                  if (getApps().length === 0) {
+                    const { firebaseConfig } = await import('../components/FirebaseConfig');
+                    app = initializeApp(firebaseConfig);
+                  } else {
+                    app = getApps()[0];
+                  }
+                  
+                  const functions = getFunctions(app);
+                  const sendOrderConfirmation = httpsCallable(functions, 'sendOrderConfirmationEmail');
+                  const result = await sendOrderConfirmation(invoiceData);
                 
-                if (result.success) {
-                  console.log(`📧 WALLET PAYMENT - Enhanced order confirmation email sent successfully for order ${pendingBookingId}`);
-                  console.log('  ✅ Email Status:', result.emailSent ? 'Sent' : 'Pending');
-                } else {
-                  console.warn(`📧 WALLET PAYMENT - Order confirmation email had issues for order ${pendingBookingId}:`, result.message);
+                  console.log(`📧 WALLET PAYMENT - Order confirmation email sent successfully for order ${pendingBookingId}`);
+                  console.log('  ✅ Cloud Function Response:', result.data);
+                } catch (emailError) {
+                  console.error(`📧 WALLET PAYMENT - Error sending order confirmation email for order ${pendingBookingId}:`, emailError);
                 }
               } catch (invoiceError) {
                 console.error(`📧 WALLET PAYMENT - Error sending order confirmation email for order ${pendingBookingId}:`, invoiceError);
@@ -2094,13 +2108,25 @@ export default function Checkout() {
                   items: invoiceData.rentalItems.length
                 });
 
-                const result = await sendEnhancedOrderConfirmation(invoiceData);
+                // Call Cloud Function to send order confirmation email
+                try {
+                  const { getFunctions, httpsCallable } = await import('firebase/functions');
+                  const { initializeApp, getApps } = await import('firebase/app');
+                  
+                  let app;
+                  if (getApps().length === 0) {
+                    const { firebaseConfig } = await import('../components/FirebaseConfig');
+                    app = initializeApp(firebaseConfig);
+                  } else {
+                    app = getApps()[0];
+                  }
+                  
+                  const functions = getFunctions(app);
+                  const sendOrderConfirmation = httpsCallable(functions, 'sendOrderConfirmationEmail');
+                  const result = await sendOrderConfirmation(invoiceData);
                 
-                console.log(`📧 PAYPAL PAYMENT - Order confirmation email result:`, result);
-                
-                if (result && result.success) {
+                  console.log(`📧 PAYPAL PAYMENT - Order confirmation email result:`, result.data);
                   console.log(`✅ PAYPAL PAYMENT - Order confirmation email sent successfully for order ${pendingBookingId}`);
-                  console.log('  ✅ Email Status:', result.emailSent ? 'Sent' : 'Pending');
                   
                   // Show user notification
                   notifications.show({
@@ -2109,8 +2135,8 @@ export default function Checkout() {
                     color: 'green',
                     autoClose: 5000,
                   });
-                } else {
-                  console.warn(`⚠️ PAYPAL PAYMENT - Order confirmation email had issues for order ${pendingBookingId}:`, result?.message || 'Unknown error');
+                } catch (emailError) {
+                  console.warn(`⚠️ PAYPAL PAYMENT - Order confirmation email had issues for order ${pendingBookingId}:`, emailError);
                   
                   // Show user notification
                   notifications.show({

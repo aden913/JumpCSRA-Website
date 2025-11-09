@@ -518,7 +518,7 @@ export default function EmailTestingDashboard() {
       
       if (functionName === 'triggerTestEmail') {
         testData = { emailType: 'cart-abandonment' };
-      } else if (functionName === 'sendEnhancedOrderConfirmation') {
+      } else if (functionName === 'sendOrderConfirmationEmail') {
         testData = {
           recipientEmail: testEmail,
           customerName: testName,
@@ -738,7 +738,7 @@ export default function EmailTestingDashboard() {
             Test Trigger Email Function
           </button>
           <button
-            onClick={() => testCloudFunction('sendEnhancedOrderConfirmation')}
+            onClick={() => testCloudFunction('sendOrderConfirmationEmail')}
             disabled={loading}
             style={{
               padding: '8px',

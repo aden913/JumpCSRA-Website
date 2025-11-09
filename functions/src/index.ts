@@ -38,37 +38,73 @@ if (!admin.apps.length) {
 // =============================================================================
 
 /**
- * Send enhanced order confirmation email
+ * Order Confirmation Email Function
+ * 
+ * Purpose: Sends comprehensive order confirmation emails to customers after successful purchase
+ * 
+ * Functionality:
+ * - Validates order data including items, pricing, and customer details
+ * - Calls external email server to send professionally formatted confirmation emails
+ * - Includes order details, payment information, and booking specifics
+ * - Handles both one-time purchases and recurring bookings
+ * - Returns actual email server response for proper status tracking
+ * 
+ * Authentication: Not required (allows guest checkouts)
+ * 
+ * Input Data (OrderConfirmationEmailData):
+ * - customerEmail: Recipient email address
+ * - customerName: Customer's full name
+ * - orderID: Unique order identifier
+ * - orderItems: Array of purchased items with details
+ * - totalAmount: Total order value
+ * - paymentMethod: Payment type (PayPal, credit card, etc.)
+ * - bookingDate: Event/service date
+ * - Additional booking and payment details
+ * 
+ * Response: Returns email server response with delivery status and message ID
+ * 
+ * Error Handling: Preserves original error types from email server for debugging
  */
-export const sendEnhancedOrderConfirmation = functions.https.onCall(async (data: OrderConfirmationEmailData, context) => {
-  console.log('📧 ENHANCED EMAIL - Cloud Function called, auth status:', !!context.auth);
+export const sendOrderConfirmationEmail = functions.https.onCall(async (data: OrderConfirmationEmailData, context) => {
+  console.log('📧 ORDER CONFIRMATION - Cloud Function called, auth status:', !!context.auth);
   
   try {
-    await sendOrderEmail(data);
-    return { success: true, message: 'Enhanced order confirmation email sent successfully' };
+    const result = await sendOrderEmail(data);
+    return result; // Return the actual email server response
   } catch (error: any) {
-    console.error('❌ ENHANCED EMAIL - Cloud Function error:', error);
+    console.error('❌ ORDER CONFIRMATION - Cloud Function error:', error);
     throw error; // Re-throw to preserve the original error type
   }
 });
 
 /**
- * Send order confirmation email (legacy function name)
- */
-export const sendOrderConfirmationEmail = functions.https.onCall(async (data: OrderConfirmationEmailData, context) => {
-  console.log('📧 ORDER EMAIL - Cloud Function called');
-  
-  try {
-    await sendOrderEmail(data);
-    return { success: true, message: 'Order confirmation email sent successfully' };
-  } catch (error: any) {
-    console.error('❌ ORDER EMAIL - Cloud Function error:', error);
-    throw error;
-  }
-});
-
-/**
- * Send gift card email
+ * Gift Card Email Function
+ * 
+ * Purpose: Sends digital gift cards to recipients with personalized messages and redemption codes
+ * 
+ * Functionality:
+ * - Delivers beautifully formatted gift card emails to recipients
+ * - Includes unique redemption codes and balance information
+ * - Supports personalized messages from sender to recipient
+ * - Handles gift card expiration dates and purchase tracking
+ * - Integrates with gift card management system for code validation
+ * 
+ * Authentication: Required (prevents unauthorized gift card generation)
+ * 
+ * Input Data (GiftCardEmailData):
+ * - recipientEmail: Gift card recipient's email address
+ * - recipientName: Recipient's full name
+ * - senderName: Gift card purchaser's name
+ * - personalMessage: Optional custom message from sender
+ * - giftCardCode: Unique redemption code
+ * - giftCardBalance: Monetary value of gift card
+ * - expirationDate: When gift card expires
+ * - purchaseDate: When gift card was purchased
+ * - orderID: Associated purchase order
+ * 
+ * Response: Returns email server response with delivery confirmation
+ * 
+ * Security: Authentication prevents abuse and unauthorized gift card creation
  */
 export const sendGiftCardEmail = functions.https.onCall(async (data: GiftCardEmailData, context) => {
   console.log('🎁 GIFT CARD - Cloud Function called, auth status:', !!context.auth);
@@ -78,8 +114,8 @@ export const sendGiftCardEmail = functions.https.onCall(async (data: GiftCardEma
   }
 
   try {
-    await sendGiftEmail(data);
-    return { success: true, message: 'Gift card email sent successfully' };
+    const result = await sendGiftEmail(data);
+    return result; // Return the actual email server response
   } catch (error: any) {
     console.error('❌ GIFT CARD - Cloud Function error:', error);
     throw error;
@@ -87,7 +123,32 @@ export const sendGiftCardEmail = functions.https.onCall(async (data: GiftCardEma
 });
 
 /**
- * Send gift card email when gift card is created in Firestore
+ * Automated Gift Card Email Trigger (Firestore)
+ * 
+ * Purpose: Automatically sends gift card emails when new gift cards are created in Firestore
+ * 
+ * Functionality:
+ * - Triggered automatically when a document is added to the 'giftCards' collection
+ * - Filters for purchased gift cards (not promotional/admin-created ones)
+ * - Validates required email data before sending
+ * - Prevents duplicate emails by checking purchase status
+ * - Provides seamless customer experience without manual intervention
+ * 
+ * Trigger: Firestore document creation in 'giftCards/{giftCardId}'
+ * 
+ * Processing Logic:
+ * - Checks if gift card is marked as purchased (isPurchased: true)
+ * - Validates recipient email exists
+ * - Constructs email data from Firestore document
+ * - Calls email service to send gift card
+ * - Logs success/failure for monitoring
+ * 
+ * Data Requirements:
+ * - Firestore document must have isPurchased: true
+ * - Must include recipientEmail field
+ * - Supports optional fields like senderName, personalMessage
+ * 
+ * Error Handling: Logs errors but doesn't block Firestore write operations
  */
 export const sendGiftCardEmailOnCreate = functions.firestore
   .document('giftCards/{giftCardId}')
@@ -120,7 +181,36 @@ export const sendGiftCardEmailOnCreate = functions.firestore
   });
 
 /**
- * Send account deletion confirmation email
+ * Account Deletion Confirmation Email Function
+ * 
+ * Purpose: Sends confirmation emails when users delete their accounts for security and compliance
+ * 
+ * Functionality:
+ * - Confirms account deletion action to user's email address
+ * - Documents deletion date and optional reason for records
+ * - Provides security confirmation for account changes
+ * - Supports GDPR and privacy compliance requirements
+ * - Includes information about data retention policies
+ * 
+ * Authentication: Required (ensures only account owner can trigger deletion emails)
+ * 
+ * Input Data:
+ * - email: Account email address for confirmation
+ * - name: User's name (optional, for personalization)
+ * - reason: Optional deletion reason for feedback tracking
+ * 
+ * Processing:
+ * - Validates user authentication before sending
+ * - Constructs AccountDeletionEmailData with deletion timestamp
+ * - Calls email service to send confirmation
+ * - Returns email server response for verification
+ * 
+ * Security Features:
+ * - Authentication required prevents unauthorized deletion confirmations
+ * - Logs all deletion attempts for security monitoring
+ * - Preserves error details for debugging failed attempts
+ * 
+ * Compliance: Supports audit trails for account deletion processes
  */
 export const sendAccountDeletionEmail = functions.https.onCall(async (data: {
   email: string;
@@ -141,8 +231,8 @@ export const sendAccountDeletionEmail = functions.https.onCall(async (data: {
       reason: data.reason
     };
 
-    await sendDeletionEmail(emailData);
-    return { success: true, message: 'Account deletion email sent successfully' };
+    const result = await sendDeletionEmail(emailData);
+    return result; // Return the actual email server response
   } catch (error: any) {
     console.error('❌ ACCOUNT DELETION - Cloud Function error:', error);
     throw error;
@@ -154,7 +244,40 @@ export const sendAccountDeletionEmail = functions.https.onCall(async (data: {
 // =============================================================================
 
 /**
- * Create and send PayPal invoice
+ * PayPal Invoice Creation and Delivery Function
+ * 
+ * Purpose: Creates and sends professional PayPal invoices for bookings and services
+ * 
+ * Functionality:
+ * - Integrates with PayPal API to create formal invoices
+ * - Automatically sends invoices to customer email addresses
+ * - Handles complex pricing structures including deposits and full payments
+ * - Supports recurring billing for ongoing services
+ * - Manages invoice tracking and payment status monitoring
+ * 
+ * Authentication: Recommended but not strictly required for invoice creation
+ * 
+ * Input Data (PayPalInvoiceData):
+ * - customerEmail: Invoice recipient email
+ * - customerName: Customer full name and contact information
+ * - invoiceItems: Detailed line items with descriptions and pricing
+ * - totalAmount: Invoice total with taxes and fees
+ * - dueDate: Payment due date
+ * - bookingDetails: Associated booking information
+ * - paymentTerms: Payment conditions and policies
+ * 
+ * PayPal Integration:
+ * - Uses PayPal REST API for invoice creation
+ * - Automatically generates unique invoice IDs
+ * - Sends invoices through PayPal's email system
+ * - Provides payment links for easy customer access
+ * 
+ * Response Data:
+ * - success: Boolean indicating operation success
+ * - invoiceId: PayPal-generated invoice identifier
+ * - invoiceDetails: Complete invoice object from PayPal
+ * 
+ * Error Handling: Preserves PayPal API errors for debugging payment issues
  */
 export const createPayPalInvoice = functions.https.onCall(async (data: PayPalInvoiceData, context) => {
   console.log('💰 PAYPAL INVOICE - Cloud Function called, auth status:', !!context.auth);
@@ -175,7 +298,38 @@ export const createPayPalInvoice = functions.https.onCall(async (data: PayPalInv
 });
 
 /**
- * Test PayPal connection and API functionality
+ * PayPal Connection Testing and Diagnostics Function
+ * 
+ * Purpose: Tests PayPal API connectivity and validates configuration for troubleshooting
+ * 
+ * Functionality:
+ * - Verifies PayPal API credentials and authentication
+ * - Tests connection to PayPal sandbox and production environments
+ * - Validates API permissions and access levels
+ * - Performs basic API calls to ensure functionality
+ * - Returns detailed diagnostic information for debugging
+ * 
+ * Use Cases:
+ * - Development environment setup verification
+ * - Production deployment validation
+ * - Troubleshooting payment processing issues
+ * - Regular health checks for PayPal integration
+ * - Configuration validation after updates
+ * 
+ * Testing Features:
+ * - Authentication token validation
+ * - API endpoint accessibility checks
+ * - Response time measurements
+ * - Error condition testing
+ * - Environment configuration verification
+ * 
+ * Response Data:
+ * - Connection status and response times
+ * - API version and capability information
+ * - Environment details (sandbox vs production)
+ * - Detailed error messages for failed connections
+ * 
+ * Security: No sensitive data exposed in test responses
  */
 export const testPayPalDebug = functions.https.onCall(async (data, context) => {
   console.log('🧪 PAYPAL TEST - Cloud Function called');
@@ -194,7 +348,39 @@ export const testPayPalDebug = functions.https.onCall(async (data, context) => {
 // =============================================================================
 
 /**
- * Manual trigger for testing different email types
+ * Manual Email Testing and Trigger Function
+ * 
+ * Purpose: Provides manual testing capabilities for all automated email types in the system
+ * 
+ * Functionality:
+ * - Allows manual triggering of specific email types for testing
+ * - Validates email processing logic without waiting for scheduled triggers
+ * - Supports development and debugging of email automation workflows
+ * - Provides immediate feedback on email system functionality
+ * - Enables testing of edge cases and error conditions
+ * 
+ * Authentication: Required (prevents unauthorized email testing/spamming)
+ * 
+ * Supported Email Types:
+ * - 'cart-abandonment': Reminds customers of items left in cart
+ * - 'deposit-reminder': Prompts for required deposit payments
+ * - 'event-confirmation': Confirms upcoming event details
+ * - 'post-event-thanks': Thank you messages after event completion
+ * - 'rebooking-reminder': Encourages repeat bookings from past customers
+ * 
+ * Input Data:
+ * - type: Email type to trigger (see supported types above)
+ * - email: Test recipient email address
+ * - name: Test recipient name
+ * - bookingId: Required for booking-specific emails (optional for general types)
+ * 
+ * Testing Features:
+ * - Individual email type testing
+ * - Real-time error reporting
+ * - Success/failure status tracking
+ * - Integration with actual email processing functions
+ * 
+ * Development Use: Essential for testing email automation before production deployment
  */
 export const triggerTestEmail = functions.https.onCall(async (data: { 
   type: string; 
@@ -246,7 +432,41 @@ export const triggerTestEmail = functions.https.onCall(async (data: {
 });
 
 /**
- * Scheduled email processing (runs every 2 minutes in testing mode)
+ * Automated Email Processing Scheduler (Cloud Scheduler)
+ * 
+ * Purpose: Automatically processes all scheduled email types at regular intervals
+ * 
+ * Functionality:
+ * - Runs comprehensive email automation system on schedule
+ * - Processes multiple email types simultaneously for efficiency
+ * - Monitors database for conditions triggering automated emails
+ * - Ensures timely delivery of customer communications
+ * - Maintains customer engagement through automated touchpoints
+ * 
+ * Schedule Configuration:
+ * - Current: Every 2 minutes (testing/development mode)
+ * - Production: Should be changed to 'every 1 hours' for optimal performance
+ * - Adjustable based on business needs and email volume
+ * 
+ * Email Types Processed:
+ * - Cart Abandonment: Recovers potentially lost sales
+ * - Deposit Reminders: Ensures timely payment collection
+ * - Event Confirmations: Provides pre-event customer communication
+ * - Post-Event Thanks: Maintains customer relationships
+ * - Rebooking Reminders: Drives repeat business
+ * 
+ * Processing Strategy:
+ * - Parallel processing for improved performance
+ * - Database timestamp checks to prevent duplicate sends
+ * - Error isolation (one failure doesn't stop others)
+ * - Comprehensive logging for monitoring and debugging
+ * 
+ * Monitoring:
+ * - Success/failure logging for each email type
+ * - Performance metrics and processing times
+ * - Error tracking for system health monitoring
+ * 
+ * Production Notes: Adjust schedule frequency based on email volume and business requirements
  */
 export const processScheduledEmails = functions.pubsub
   .schedule('every 2 minutes') // For production, change to 'every 1 hours'
@@ -273,7 +493,45 @@ export const processScheduledEmails = functions.pubsub
   });
 
 /**
- * Auto-cancel pending orders after 24 hours
+ * Automatic Pending Order Cleanup Function (Cloud Scheduler)
+ * 
+ * Purpose: Automatically cancels pending orders that remain unpaid after 24 hours
+ * 
+ * Functionality:
+ * - Maintains database hygiene by cleaning up stale pending orders
+ * - Prevents indefinite reservation of inventory/time slots
+ * - Provides clear order lifecycle management
+ * - Reduces administrative overhead for manual order cleanup
+ * - Supports business rules for payment deadlines
+ * 
+ * Schedule: Runs every hour to ensure timely cleanup
+ * 
+ * Processing Logic:
+ * - Queries database for orders with 'pending' status
+ * - Identifies orders older than 24 hours (configurable threshold)
+ * - Updates order status to 'auto-canceled' with timestamp
+ * - Records cancellation reason for audit purposes
+ * - Batch processes multiple orders for efficiency
+ * 
+ * Business Rules:
+ * - 24-hour grace period for payment completion
+ * - Preserves order data for record keeping
+ * - Marks cancellation reason as automatic system action
+ * - Maintains audit trail with timestamps
+ * 
+ * Database Operations:
+ * - Efficient querying using Firebase Database indexing
+ * - Batch updates to minimize database writes
+ * - Atomic operations to prevent data inconsistency
+ * - Comprehensive logging for monitoring
+ * 
+ * Benefits:
+ * - Automatic inventory/slot release for rebooking
+ * - Reduced manual administration
+ * - Clear customer expectations for payment deadlines
+ * - Improved system performance through data cleanup
+ * 
+ * Configuration: 24-hour threshold can be adjusted based on business requirements
  */
 export const autoCancelPendingOrders = functions.pubsub
   .schedule('every 1 hours')

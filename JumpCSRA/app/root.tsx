@@ -6,9 +6,11 @@ import {
   Scripts,
   ScrollRestoration,
 } from "react-router";
+import { useState } from "react";
 
 import type { Route } from "./+types/root";
 import EmailTestingDashboard from "./components/EmailTestingDashboard";
+import CloudFunctionTestingDashboard from "./components/CloudFunctionTestingDashboard";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
@@ -25,6 +27,8 @@ export const links: Route.LinksFunction = () => [
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const [testingMode, setTestingMode] = useState<'email' | 'cloudfunction' | 'none'>('none');
+
   return (
     <html lang="en">
       <head>
@@ -35,7 +39,52 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
-        {import.meta.env.DEV && <EmailTestingDashboard />}
+        {import.meta.env.DEV && (
+          <>
+            {/* Testing Mode Toggle */}
+            <div style={{
+              position: 'fixed',
+              top: '10px',
+              right: '10px',
+              zIndex: 1001,
+              display: 'flex',
+              gap: '5px'
+            }}>
+              <button
+                onClick={() => setTestingMode(testingMode === 'email' ? 'none' : 'email')}
+                style={{
+                  padding: '5px 10px',
+                  fontSize: '11px',
+                  backgroundColor: testingMode === 'email' ? '#007bff' : '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer'
+                }}
+              >
+                📧 Email Server
+              </button>
+              <button
+                onClick={() => setTestingMode(testingMode === 'cloudfunction' ? 'none' : 'cloudfunction')}
+                style={{
+                  padding: '5px 10px',
+                  fontSize: '11px',
+                  backgroundColor: testingMode === 'cloudfunction' ? '#007bff' : '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer'
+                }}
+              >
+                🔥 Cloud Functions
+              </button>
+            </div>
+
+            {/* Testing Dashboards */}
+            {testingMode === 'email' && <EmailTestingDashboard />}
+            {testingMode === 'cloudfunction' && <CloudFunctionTestingDashboard />}
+          </>
+        )}
         <ScrollRestoration />
         <Scripts />
       </body>
