@@ -449,11 +449,18 @@ export default function Checkout() {
     }
     
     // Check for water rentals by looking at both the 'wet' property and user's wetDry selection
-    const hasWaterRentals = cart.some(item => {
+    const hasWaterRentals = cart.some((item, index) => {
       const inflatable = inflateables.find(inf => inf.name === item.name);
-      // Check if the inflatable can be wet AND the user selected wet mode
-      return inflatable?.wet === true && item.wetDry === 'Wet';
+      // Check if the inflatable can be wet AND the user selected wet mode for this cart item
+      const userSelectedWet = cartSettings.wetDrySelections?.[index] === 'Wet';
+      const canBeWet = inflatable?.wet === true || inflatable?.wet === "true";
+      
+      console.log(`[WET CONTRACT DEBUG] Item: ${item.name}, Index: ${index}, Can be wet: ${canBeWet}, User selected wet: ${userSelectedWet}, WetDry selection: ${cartSettings.wetDrySelections?.[index]}`);
+      
+      return canBeWet && userSelectedWet;
     });
+    
+    console.log(`[WET CONTRACT DEBUG] Has water rentals: ${hasWaterRentals}`);
     
     // Get customer info
     const customerName = userProfile?.firstName && userProfile?.lastName 
