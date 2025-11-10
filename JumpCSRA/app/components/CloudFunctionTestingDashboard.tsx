@@ -15,6 +15,8 @@ export default function CloudFunctionTestingDashboard() {
   const [results, setResults] = useState<string[]>([]);
   const [testEmail, setTestEmail] = useState('');
   const [testName, setTestName] = useState('Test Customer');
+  const [specificBookingId, setSpecificBookingId] = useState('');
+  const [useSpecificBooking, setUseSpecificBooking] = useState(false);
 
   // Initialize Firebase Functions
   const functions = getFunctions();
@@ -169,15 +171,31 @@ export default function CloudFunctionTestingDashboard() {
     try {
       addResult(`📧 Testing Email Scheduler: ${emailType}...`);
       
+      // If using specific booking, validate the booking ID
+      if (useSpecificBooking && !specificBookingId.trim()) {
+        addResult(`❌ ${emailType}: Please enter a booking ID when testing specific bookings`);
+        setLoading(false);
+        return;
+      }
+      
       const triggerEmail = httpsCallable(functions, 'triggerTestEmail');
-      const result = await triggerEmail({
+      const testData: any = {
         type: emailType,
         email: testEmail,
-        name: testName,
-        bookingId: emailType.includes('booking') ? `TEST_BOOKING_${Date.now()}` : undefined
-      });
+        name: testName
+      };
       
-      addResult(`✅ ${emailType}: Email scheduled successfully!`);
+      // Add booking ID if testing specific booking or if it's a booking-related email
+      if (useSpecificBooking && specificBookingId.trim()) {
+        testData.bookingId = specificBookingId.trim();
+        addResult(`🎯 Testing ${emailType} on specific booking: ${specificBookingId}`);
+      } else if (emailType.includes('booking') || emailType.includes('deposit') || emailType.includes('event') || emailType.includes('thanks') || emailType.includes('rebooking')) {
+        testData.bookingId = `TEST_BOOKING_${Date.now()}`;
+      }
+      
+      const result = await triggerEmail(testData);
+      
+      addResult(`✅ ${emailType}: Email test completed successfully!`);
       addResult(`📊 Scheduler Response: ${JSON.stringify(result.data, null, 2)}`);
       
     } catch (error: any) {
@@ -244,6 +262,40 @@ export default function CloudFunctionTestingDashboard() {
             onChange={(e) => setTestName(e.target.value)}
             style={{ width: '100%', padding: '4px', marginTop: '2px' }}
           />
+        </div>
+        
+        {/* Specific Booking Testing */}
+        <div style={{ marginTop: '10px', padding: '8px', background: '#fff3cd', borderRadius: '4px', border: '1px solid #ffeaa7' }}>
+          <label style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', fontSize: '12px' }}>
+            <input
+              type="checkbox"
+              checked={useSpecificBooking}
+              onChange={(e) => setUseSpecificBooking(e.target.checked)}
+              style={{ marginRight: '5px' }}
+            />
+            🎯 Test on Specific Booking
+          </label>
+          {useSpecificBooking && (
+            <div>
+              <input
+                type="text"
+                placeholder="Enter Booking OrderID (e.g., ORDER_123456)"
+                value={specificBookingId}
+                onChange={(e) => setSpecificBookingId(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '6px',
+                  border: '1px solid #ddd',
+                  borderRadius: '3px',
+                  fontSize: '11px',
+                  boxSizing: 'border-box'
+                }}
+              />
+              <div style={{ fontSize: '10px', color: '#856404', marginTop: '4px' }}>
+                💡 When enabled, scheduled email tests will target this specific booking
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

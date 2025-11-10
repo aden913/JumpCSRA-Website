@@ -44,6 +44,12 @@ export interface BookingData {
     message: string;
     timestamp: string;
   }>;
+  emails?: {
+    depositReminder: boolean;
+    eventConfirmation: boolean;
+    thanks: boolean;
+    rebooking: boolean;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -123,13 +129,21 @@ export const saveBookingData = async (bookingData: BookingData): Promise<boolean
     const database = getDatabase();
     const bookingsRef = ref(database, `bookings/${bookingData.orderID}`);
     
+    // Initialize email tracking collection if it doesn't exist
     const dataToSave = {
       ...bookingData,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      // Initialize email tracking flags for scheduled emails
+      emails: bookingData.emails || {
+        depositReminder: false,
+        eventConfirmation: false,
+        thanks: false,
+        rebooking: false
+      }
     };
     
     await set(bookingsRef, dataToSave);
-    console.log('Booking data saved successfully:', bookingData.orderID);
+    console.log('Booking data saved successfully with email tracking:', bookingData.orderID);
     return true;
   } catch (error) {
     console.error('Error saving booking data:', error);

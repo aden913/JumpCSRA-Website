@@ -7,6 +7,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.autoCancelPendingOrders = exports.processScheduledEmails = exports.triggerTestEmail = exports.testPayPalDebug = exports.createPayPalInvoice = exports.sendAccountDeletionEmail = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.sendOrderConfirmationEmail = exports.testFunction = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const axios_1 = require("axios");
 // Import service modules
 const emailService_1 = require("./services/emailService");
 const paypalService_1 = require("./services/paypalService");
@@ -362,16 +363,14 @@ exports.triggerTestEmail = functions.https.onCall(async (data, context) => {
             case 'deposit-reminder':
                 if (!data.bookingId)
                     throw new Error('bookingId required for deposit reminder');
-                await processDepositReminderEmails(db, now);
+                await processDepositReminderEmails(db, now, data.bookingId);
                 return { success: true, message: 'Deposit reminder email sent' };
             case 'event-confirmation':
                 if (!data.bookingId)
                     throw new Error('bookingId required for event confirmation');
-                await processEventConfirmationEmails(db, now);
+                await processEventConfirmationEmails(db, now, data.bookingId);
                 return { success: true, message: 'Event confirmation email sent' };
             case 'post-event-thanks':
-                if (!data.bookingId)
-                    throw new Error('bookingId required for post-event email');
                 await processPostEventEmails(db, now);
                 return { success: true, message: 'Post-event thank you email sent' };
             case 'rebooking-reminder':
@@ -530,27 +529,354 @@ exports.autoCancelPendingOrders = functions.pubsub
 // =============================================================================
 // EMAIL PROCESSING HELPER FUNCTIONS
 // =============================================================================
-// These functions would contain the actual email processing logic
-// For now, they're placeholders that would need to be implemented
-// based on the original scheduler functions from the large index.ts file
+// Email timing constants for scheduled functions
+const isTestingMode = process.env.NODE_ENV !== 'production';
+const EMAIL_TIMING = {
+    CART_ABANDONMENT: isTestingMode ? 1 * 60 * 1000 : 24 * 60 * 60 * 1000, // 1 min vs 24 hours
+    DEPOSIT_REMINDER: isTestingMode ? 2 * 60 * 1000 : 2 * 24 * 60 * 60 * 1000, // 2 min vs 2 days
+    EVENT_CONFIRMATION: isTestingMode ? 3 * 60 * 1000 : 3 * 24 * 60 * 60 * 1000, // 3 min vs 3 days
+    POST_EVENT_THANKS: isTestingMode ? 4 * 60 * 1000 : 1 * 24 * 60 * 60 * 1000, // 4 min vs 1 day
+    REBOOKING_REMINDER: isTestingMode ? 5 * 60 * 1000 : 9 * 30 * 24 * 60 * 60 * 1000 // 5 min vs 9 months
+};
+// Email server configuration for scheduled emails
+const EMAIL_SERVER_BASE_URL = 'http://170.187.145.7:3001';
+const EMAIL_SERVER_API_KEY = 'jumpcsra_secure_api_key_2024';
+console.log('📧 EMAIL TIMING CONFIG:', {
+    testingMode: isTestingMode,
+    cartAbandonment: isTestingMode ? '1 minute' : '24 hours',
+    depositReminder: isTestingMode ? '2 minutes' : '7 days',
+    eventConfirmation: isTestingMode ? '3 minutes' : '3 days',
+    postEventThanks: isTestingMode ? '4 minutes' : '1 day',
+    rebookingReminder: isTestingMode ? '5 minutes' : '9 months'
+});
 async function processCartAbandonmentEmails(db, now) {
-    console.log('🛒 SCHEDULER: Processing cart abandonment emails...');
-    // Implementation would go here
+    var _a;
+    try {
+        console.log('🛒 SCHEDULER: Checking cart abandonment emails...');
+        const cartsRef = db.ref('carts');
+        const snapshot = await cartsRef.once('value');
+        if (!snapshot.exists()) {
+            console.log('🛒 SCHEDULER: No carts found');
+            return;
+        }
+        const carts = snapshot.val();
+        let emailsSent = 0;
+        for (const [cartId, cartData] of Object.entries(carts)) {
+            const cart = cartData;
+            // Skip if no email address
+            if (!cart.email)
+                continue;
+            const lastUpdated = cart.lastUpdated || cart.createdAt;
+            if (!lastUpdated)
+                continue;
+            const timeSinceUpdate = now - lastUpdated;
+            // Check if cart abandonment time has passed
+            if (timeSinceUpdate >= EMAIL_TIMING.CART_ABANDONMENT) {
+                const emailSentKey = `cartAbandonment_${cartId}`;
+                const emailRef = db.ref(`emailsSent/${emailSentKey}`);
+                const emailSentSnapshot = await emailRef.once('value');
+                if (!emailSentSnapshot.exists()) {
+                    // Call email server directly for cart abandonment
+                    try {
+                        const emailData = {
+                            customerEmail: cart.email,
+                            customerName: ((_a = cart.customerInfo) === null || _a === void 0 ? void 0 : _a.name) || 'Customer',
+                            cartData: {
+                                items: cart.items || [],
+                                cartId: cartId,
+                                lastUpdated: lastUpdated
+                            }
+                        };
+                        await axios_1.default.post(`${EMAIL_SERVER_BASE_URL}/api/email/cart-abandonment`, emailData, {
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-API-Key': EMAIL_SERVER_API_KEY,
+                                'Accept': 'application/json'
+                            },
+                            timeout: 30000
+                        });
+                        await emailRef.set({ sentAt: now, type: 'cart-abandonment' });
+                        emailsSent++;
+                        console.log(`✅ SCHEDULER: Sent cart abandonment email to ${cart.email}`);
+                    }
+                    catch (emailError) {
+                        console.error(`❌ SCHEDULER: Failed to send cart abandonment email to ${cart.email}:`, emailError);
+                    }
+                }
+            }
+        }
+        console.log(`🛒 SCHEDULER: Sent ${emailsSent} cart abandonment emails`);
+    }
+    catch (error) {
+        console.error('❌ SCHEDULER: Error processing cart abandonment emails:', error);
+    }
 }
-async function processDepositReminderEmails(db, now) {
-    console.log('💰 SCHEDULER: Processing deposit reminder emails...');
-    // Implementation would go here
+async function processDepositReminderEmails(db, now, specificBookingId) {
+    var _a, _b, _c, _d;
+    try {
+        console.log('💰 SCHEDULER: Checking deposit reminder emails...');
+        const bookingsRef = db.ref('bookings');
+        const snapshot = await bookingsRef.once('value');
+        if (!snapshot.exists()) {
+            console.log('💰 SCHEDULER: No bookings found');
+            return;
+        }
+        const bookings = snapshot.val();
+        let emailsSent = 0;
+        for (const [bookingId, bookingData] of Object.entries(bookings)) {
+            const booking = bookingData;
+            // If testing specific booking, only process that one
+            if (specificBookingId && bookingId !== specificBookingId)
+                continue;
+            // Only process pending bookings with remaining balance (deposit payments)
+            const remainingBalance = ((_a = booking.paymentDetails) === null || _a === void 0 ? void 0 : _a.remainingBalance) || 0;
+            if (!remainingBalance || remainingBalance <= 0)
+                continue;
+            if (booking.status !== 'pending')
+                continue;
+            if (!((_b = booking.customerInfo) === null || _b === void 0 ? void 0 : _b.email))
+                continue;
+            if (((_c = booking.emails) === null || _c === void 0 ? void 0 : _c.depositReminder) === true)
+                continue; // Already sent
+            // Parse event date from the date range string (e.g., "11/10/2025 - 11/10/2025")
+            const eventDateString = (_d = booking.orderDetails) === null || _d === void 0 ? void 0 : _d.eventDate;
+            if (!eventDateString)
+                continue;
+            // Extract the first date from the range
+            const firstDate = eventDateString.split(' - ')[0];
+            const eventDate = new Date(firstDate).getTime();
+            if (isNaN(eventDate)) {
+                console.log(`💰 SCHEDULER: Invalid event date for booking ${bookingId}: ${eventDateString}`);
+                continue;
+            }
+            const timeUntilEvent = eventDate - now;
+            console.log(`💰 SCHEDULER: Booking ${bookingId} - Event in ${Math.round(timeUntilEvent / (1000 * 60 * 60))} hours`);
+            // Send reminder if event is within 2 days (or 2 min in testing mode)
+            if (timeUntilEvent <= EMAIL_TIMING.DEPOSIT_REMINDER && timeUntilEvent > 0) {
+                try {
+                    const emailData = {
+                        customerEmail: booking.customerInfo.email,
+                        customerName: booking.customerInfo.name || 'Customer',
+                        bookingId: bookingId,
+                        remainingAmount: remainingBalance,
+                        dueDate: firstDate, // Event date as due date
+                        bookingDetails: {
+                            eventDate: firstDate,
+                            eventDetails: booking.orderDetails || {}
+                        }
+                    };
+                    console.log(`💰 SCHEDULER: Sending deposit reminder to ${booking.customerInfo.email} for booking ${bookingId}`);
+                    await axios_1.default.post(`${EMAIL_SERVER_BASE_URL}/api/email/deposit-reminder`, emailData, {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-API-Key': EMAIL_SERVER_API_KEY,
+                            'Accept': 'application/json'
+                        },
+                        timeout: 30000
+                    });
+                    // Update the email tracking flag
+                    await db.ref(`bookings/${bookingId}/emails/depositReminder`).set(true);
+                    emailsSent++;
+                    console.log(`✅ SCHEDULER: Sent deposit reminder email to ${booking.customerInfo.email} for booking ${bookingId}`);
+                }
+                catch (emailError) {
+                    console.error(`❌ SCHEDULER: Failed to send deposit reminder email to ${booking.customerInfo.email}:`, emailError);
+                }
+            }
+            else {
+                console.log(`💰 SCHEDULER: Booking ${bookingId} doesn't meet timing criteria (${Math.round(timeUntilEvent / (1000 * 60 * 60))} hours until event)`);
+            }
+        }
+        console.log(`💰 SCHEDULER: Sent ${emailsSent} deposit reminder emails`);
+    }
+    catch (error) {
+        console.error('❌ SCHEDULER: Error processing deposit reminder emails:', error);
+    }
 }
-async function processEventConfirmationEmails(db, now) {
-    console.log('📅 SCHEDULER: Processing event confirmation emails...');
-    // Implementation would go here
+async function processEventConfirmationEmails(db, now, specificBookingId) {
+    var _a, _b;
+    try {
+        console.log('📅 SCHEDULER: Checking event confirmation emails...');
+        const bookingsRef = db.ref('bookings');
+        const snapshot = await bookingsRef.once('value');
+        if (!snapshot.exists()) {
+            console.log('📅 SCHEDULER: No bookings found');
+            return;
+        }
+        const bookings = snapshot.val();
+        let emailsSent = 0;
+        for (const [bookingId, bookingData] of Object.entries(bookings)) {
+            const booking = bookingData;
+            // If testing specific booking, only process that one
+            if (specificBookingId && bookingId !== specificBookingId)
+                continue;
+            // Only process confirmed bookings with no remaining balance
+            if (booking.status !== 'confirmed')
+                continue;
+            if (booking.remainingBalance > 0)
+                continue; // Still has deposit due
+            if (!((_a = booking.customerInfo) === null || _a === void 0 ? void 0 : _a.email))
+                continue;
+            if (((_b = booking.emails) === null || _b === void 0 ? void 0 : _b.eventConfirmation) === true)
+                continue; // Already sent
+            const eventDate = new Date(booking.eventDate).getTime();
+            const timeUntilEvent = eventDate - now;
+            console.log(`📅 SCHEDULER: Booking ${bookingId} - Event in ${Math.round(timeUntilEvent / (1000 * 60 * 60))} hours`);
+            // Send confirmation based on timing (3 days before event or testing interval)
+            // Skip timing check if testing specific booking
+            if (specificBookingId || (timeUntilEvent <= EMAIL_TIMING.EVENT_CONFIRMATION && timeUntilEvent > 0)) {
+                try {
+                    const emailData = {
+                        customerEmail: booking.customerInfo.email,
+                        customerName: booking.customerInfo.name || 'Customer',
+                        bookingData: {
+                            bookingId: bookingId,
+                            eventDate: booking.eventDate,
+                            eventDetails: booking.eventDetails || {},
+                            deliveryAddress: booking.deliveryAddress,
+                            setupTime: booking.setupTime
+                        }
+                    };
+                    await axios_1.default.post(`${EMAIL_SERVER_BASE_URL}/api/email/event-confirmation`, emailData, {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-API-Key': EMAIL_SERVER_API_KEY,
+                            'Accept': 'application/json'
+                        },
+                        timeout: 30000
+                    });
+                    // Update the email tracking flag
+                    await db.ref(`bookings/${bookingId}/emails/eventConfirmation`).set(true);
+                    emailsSent++;
+                    console.log(`✅ SCHEDULER: Sent event confirmation email to ${booking.customerInfo.email}`);
+                }
+                catch (emailError) {
+                    console.error(`❌ SCHEDULER: Failed to send event confirmation email to ${booking.customerInfo.email}:`, emailError);
+                }
+            }
+        }
+        console.log(`📅 SCHEDULER: Sent ${emailsSent} event confirmation emails`);
+    }
+    catch (error) {
+        console.error('❌ SCHEDULER: Error processing event confirmation emails:', error);
+    }
 }
 async function processPostEventEmails(db, now) {
-    console.log('🎉 SCHEDULER: Processing post-event thank you emails...');
-    // Implementation would go here
+    var _a, _b;
+    try {
+        console.log('🎉 SCHEDULER: Checking post-event thank you emails...');
+        const bookingsRef = db.ref('bookings');
+        const snapshot = await bookingsRef.once('value');
+        if (!snapshot.exists()) {
+            console.log('🎉 SCHEDULER: No bookings found');
+            return;
+        }
+        const bookings = snapshot.val();
+        let emailsSent = 0;
+        for (const [bookingId, bookingData] of Object.entries(bookings)) {
+            const booking = bookingData;
+            // Only process events that have passed
+            if (!((_a = booking.customerInfo) === null || _a === void 0 ? void 0 : _a.email))
+                continue;
+            if (((_b = booking.emails) === null || _b === void 0 ? void 0 : _b.thanks) === true)
+                continue; // Already sent
+            const eventDate = new Date(booking.eventDate).getTime();
+            const timeSinceEvent = now - eventDate;
+            // Send thank you email after event (1 day after or testing interval)
+            if (timeSinceEvent >= EMAIL_TIMING.POST_EVENT_THANKS) {
+                try {
+                    const emailData = {
+                        customerEmail: booking.customerInfo.email,
+                        customerName: booking.customerInfo.name || 'Customer',
+                        bookingData: {
+                            bookingId: bookingId,
+                            eventDate: booking.eventDate,
+                            eventDetails: booking.eventDetails || {}
+                        }
+                    };
+                    await axios_1.default.post(`${EMAIL_SERVER_BASE_URL}/api/email/post-event-thanks`, emailData, {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-API-Key': EMAIL_SERVER_API_KEY,
+                            'Accept': 'application/json'
+                        },
+                        timeout: 30000
+                    });
+                    // Update the email tracking flag
+                    await db.ref(`bookings/${bookingId}/emails/thanks`).set(true);
+                    emailsSent++;
+                    console.log(`✅ SCHEDULER: Sent post-event thank you email to ${booking.customerInfo.email}`);
+                }
+                catch (emailError) {
+                    console.error(`❌ SCHEDULER: Failed to send post-event thank you email to ${booking.customerInfo.email}:`, emailError);
+                }
+            }
+        }
+        console.log(`🎉 SCHEDULER: Sent ${emailsSent} post-event thank you emails`);
+    }
+    catch (error) {
+        console.error('❌ SCHEDULER: Error processing post-event thank you emails:', error);
+    }
 }
 async function processRebookingReminderEmails(db, now) {
-    console.log('🔄 SCHEDULER: Processing rebooking reminder emails...');
-    // Implementation would go here
+    var _a, _b;
+    try {
+        console.log('🔄 SCHEDULER: Checking rebooking reminder emails...');
+        const bookingsRef = db.ref('bookings');
+        const snapshot = await bookingsRef.once('value');
+        if (!snapshot.exists()) {
+            console.log('🔄 SCHEDULER: No bookings found');
+            return;
+        }
+        const bookings = snapshot.val();
+        let emailsSent = 0;
+        for (const [bookingId, bookingData] of Object.entries(bookings)) {
+            const booking = bookingData;
+            // Only process events that have passed significantly
+            if (!((_a = booking.customerInfo) === null || _a === void 0 ? void 0 : _a.email))
+                continue;
+            if (((_b = booking.emails) === null || _b === void 0 ? void 0 : _b.rebooking) === true)
+                continue; // Already sent
+            const eventDate = new Date(booking.eventDate).getTime();
+            const timeSinceEvent = now - eventDate;
+            // Send rebooking reminder after significant time (9 months or testing interval)
+            if (timeSinceEvent >= EMAIL_TIMING.REBOOKING_REMINDER) {
+                try {
+                    const emailData = {
+                        customerEmail: booking.customerInfo.email,
+                        customerName: booking.customerInfo.name || 'Customer',
+                        bookingData: {
+                            bookingId: bookingId,
+                            eventDate: booking.eventDate,
+                            eventDetails: booking.eventDetails || {},
+                            pastExperience: {
+                                satisfactionLevel: 'excellent', // Could be tracked from feedback
+                                favoriteItems: booking.rentalItems || []
+                            }
+                        }
+                    };
+                    await axios_1.default.post(`${EMAIL_SERVER_BASE_URL}/api/email/rebooking-reminder`, emailData, {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-API-Key': EMAIL_SERVER_API_KEY,
+                            'Accept': 'application/json'
+                        },
+                        timeout: 30000
+                    });
+                    // Update the email tracking flag
+                    await db.ref(`bookings/${bookingId}/emails/rebooking`).set(true);
+                    emailsSent++;
+                    console.log(`✅ SCHEDULER: Sent rebooking reminder email to ${booking.customerInfo.email}`);
+                }
+                catch (emailError) {
+                    console.error(`❌ SCHEDULER: Failed to send rebooking reminder email to ${booking.customerInfo.email}:`, emailError);
+                }
+            }
+        }
+        console.log(`🔄 SCHEDULER: Sent ${emailsSent} rebooking reminder emails`);
+    }
+    catch (error) {
+        console.error('❌ SCHEDULER: Error processing rebooking reminder emails:', error);
+    }
 }
 //# sourceMappingURL=index.js.map

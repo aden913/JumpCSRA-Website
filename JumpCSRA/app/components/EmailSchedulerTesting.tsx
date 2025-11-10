@@ -1,7 +1,7 @@
 // Email Scheduler Testing Component - Development Only
 import React, { useState, useEffect } from 'react';
 import { auth } from './FirebaseConfig';
-import { getDatabase, ref, set } from 'firebase/database';
+import { getDatabase, ref, set, get } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
@@ -24,6 +24,8 @@ const EmailSchedulerTesting: React.FC = () => {
   const [eventDate, setEventDate] = useState('');
   const [bookingStatus, setBookingStatus] = useState<'pending' | 'confirmed' | 'completed'>('confirmed');
   const [remainingBalance, setRemainingBalance] = useState(0);
+  const [specificBookingId, setSpecificBookingId] = useState('');
+  const [testMode, setTestMode] = useState<'create' | 'existing'>('create');
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<string[]>([]);
 
@@ -265,6 +267,13 @@ const EmailSchedulerTesting: React.FC = () => {
           totalAmount: bookingData.cartValue
         },
         remainingBalance: remainingBalance,
+        // Initialize email tracking flags
+        emails: {
+          depositReminder: false,
+          eventConfirmation: false,
+          thanks: false,
+          rebooking: false
+        },
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
@@ -297,6 +306,90 @@ const EmailSchedulerTesting: React.FC = () => {
     }
   };
 
+  // Test scheduled emails on a specific booking
+  const testSpecificBooking = async () => {
+    if (!specificBookingId.trim()) {
+      addResult('❌ Please enter a booking ID');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const database = getDatabase();
+      const bookingRef = ref(database, `bookings/${specificBookingId}`);
+      const snapshot = await get(bookingRef);
+      
+      if (!snapshot.exists()) {
+        addResult(`❌ Booking ${specificBookingId} not found`);
+        return;
+      }
+
+      const booking = snapshot.val();
+      addResult(`✅ Found booking: ${specificBookingId}`);
+      addResult(`📧 Customer: ${booking.customerInfo?.name || 'Unknown'} (${booking.customerInfo?.email || 'No email'})`);
+      addResult(`📅 Event Date: ${booking.orderDetails?.eventDate || booking.eventDate || 'No date'}`);
+      addResult(`💰 Status: ${booking.status}, Remaining Balance: $${booking.remainingBalance || 0}`);
+      
+      // Check email tracking flags
+      const emails = booking.emails || {};
+      addResult(`📬 Email Status: Deposit=${emails.depositReminder || false}, Event=${emails.eventConfirmation || false}, Thanks=${emails.thanks || false}, Rebooking=${emails.rebooking || false}`);
+      
+      // Check which emails would be triggered
+      const now = Date.now();
+      const eventDate = new Date(booking.orderDetails?.eventDate || booking.eventDate).getTime();
+      const timeUntilEvent = eventDate - now;
+      const timeSinceEvent = now - eventDate;
+      
+      addResult(`⏰ Time until event: ${Math.round(timeUntilEvent / (60 * 1000))} minutes`);
+      addResult(`⏰ Time since event: ${Math.round(timeSinceEvent / (60 * 1000))} minutes`);
+      
+      // Check eligibility for each email type
+      if (booking.status === 'pending' && booking.remainingBalance > 0 && !emails.depositReminder) {
+        addResult(`✅ ELIGIBLE: Deposit reminder (testing: 2 min before event)`);
+      } else {
+        addResult(`❌ NOT ELIGIBLE: Deposit reminder (status=${booking.status}, balance=${booking.remainingBalance}, sent=${emails.depositReminder})`);
+      }
+      
+      if (booking.status === 'confirmed' && booking.remainingBalance <= 0 && !emails.eventConfirmation) {
+        addResult(`✅ ELIGIBLE: Event confirmation (testing: 3 min before event)`);
+      } else {
+        addResult(`❌ NOT ELIGIBLE: Event confirmation (status=${booking.status}, balance=${booking.remainingBalance}, sent=${emails.eventConfirmation})`);
+      }
+      
+      if (!emails.thanks && timeSinceEvent > 0) {
+        addResult(`✅ ELIGIBLE: Post-event thanks (testing: 4 min after event)`);
+      } else {
+        addResult(`❌ NOT ELIGIBLE: Post-event thanks (sent=${emails.thanks}, event passed=${timeSinceEvent > 0})`);
+      }
+      
+      if (!emails.rebooking && timeSinceEvent > 0) {
+        addResult(`✅ ELIGIBLE: Rebooking reminder (testing: 5 min after event)`);
+      } else {
+        addResult(`❌ NOT ELIGIBLE: Rebooking reminder (sent=${emails.rebooking}, event passed=${timeSinceEvent > 0})`);
+      }
+      
+      // Now test the actual scheduled email functions using existing processScheduledEmails
+      addResult(`\n🧪 Testing scheduled email functions on booking ${specificBookingId}...`);
+      
+      const functions = getFunctions();
+      const processScheduled = httpsCallable(functions, 'processScheduledEmails');
+      
+      // The existing processScheduledEmails function will process all bookings,
+      // but we can monitor specifically for our booking in the results
+      const result = await processScheduled({});
+      const response = result.data as any;
+      
+      addResult(`📊 Scheduler Response: Function completed processing all eligible bookings`);
+      addResult(`📊 Note: Check above for your specific booking's eligibility. The function processes ALL eligible bookings in the database.`);
+      addResult(`📊 If your booking was eligible, the email should have been sent and the tracking flag updated.`);
+      
+    } catch (error: any) {
+      addResult(`❌ Error testing booking: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Manually trigger email function
   const triggerTestEmail = async (emailType: string, bookingId?: string, userId?: string) => {
     setIsLoading(true);
@@ -304,16 +397,30 @@ const EmailSchedulerTesting: React.FC = () => {
       const functions = getFunctions();
       const triggerEmail = httpsCallable(functions, 'triggerTestEmail');
       
-      const data: any = { emailType };
-      if (bookingId) data.bookingId = bookingId;
+      // Create test data with required fields
+      const data: any = { 
+        type: emailType,  // This was missing! The function expects 'type', not 'emailType'
+        email: 'coxaden@gmail.com',  // Add your test email
+        name: 'Test User'  // Add test name
+      };
+      
+      // Add bookingId for functions that require it
+      if (emailType === 'deposit-reminder' || emailType === 'event-confirmation' || emailType === 'post-event-thanks' || emailType === 'rebooking-reminder') {
+        data.bookingId = bookingId || `test_booking_${Date.now()}`;
+        if (bookingId) {
+          addResult(`🎯 Testing ${emailType} on specific booking: ${bookingId}`);
+        }
+      }
+      
       if (userId) data.userId = userId;
       
       const result = await triggerEmail(data);
       const response = result.data as any;
-      addResult(`✅ ${emailType} triggered: ${response.message || 'Success'}`);
+      addResult(`✅ ${emailType}: ${response.message || 'Success'}`);
+      addResult(`📊 Response Details: ${JSON.stringify(response)}`);
       
     } catch (error) {
-      addResult(`❌ Error triggering ${emailType}: ${error}`);
+      addResult(`❌ ${emailType}: Email test failed: ${error}`);
     } finally {
       setIsLoading(false);
     }
@@ -415,24 +522,125 @@ const EmailSchedulerTesting: React.FC = () => {
         )}
       </div>
 
-      {/* Manual Email Triggers (No Database Write Required) */}
+      {/* Test Mode Selection */}
       <div style={{ marginBottom: '15px' }}>
-        <h4 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>🚀 Complete Email Testing Workflow:</h4>
-        <p style={{ fontSize: '11px', color: '#666', margin: '0 0 8px 0' }}>
-          Creates test data for ALL email types, then processes them
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '5px', marginBottom: '15px' }}>
-          <button 
-            onClick={createTestBookingsAndCarts} 
-            disabled={isLoading || !user} 
-            style={{ 
-              padding: '10px', 
-              fontSize: '13px', 
-              background: '#ff6b35', 
-              color: 'white', 
-              border: 'none', 
-              borderRadius: '4px',
-              fontWeight: 'bold'
+        <h4 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>🎯 Test Mode:</h4>
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+          <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center' }}>
+            <input
+              type="radio"
+              value="create"
+              checked={testMode === 'create'}
+              onChange={(e) => setTestMode(e.target.value as 'create' | 'existing')}
+              style={{ marginRight: '5px' }}
+            />
+            Create Test Bookings
+          </label>
+          <label style={{ fontSize: '12px', display: 'flex', alignItems: 'center' }}>
+            <input
+              type="radio"
+              value="existing"
+              checked={testMode === 'existing'}
+              onChange={(e) => setTestMode(e.target.value as 'create' | 'existing')}
+              style={{ marginRight: '5px' }}
+            />
+            Test Existing Booking
+          </label>
+        </div>
+
+        {testMode === 'existing' && (
+          <div style={{ marginBottom: '10px' }}>
+            <input
+              type="text"
+              placeholder="Enter Booking OrderID (e.g., ORDER_123456)"
+              value={specificBookingId}
+              onChange={(e) => setSpecificBookingId(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                fontSize: '12px',
+                boxSizing: 'border-box'
+              }}
+            />
+            <button
+              onClick={testSpecificBooking}
+              disabled={isLoading || !specificBookingId.trim()}
+              style={{
+                width: '100%',
+                padding: '8px',
+                fontSize: '12px',
+                background: '#17a2b8',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                marginTop: '5px',
+                fontWeight: 'bold'
+              }}
+            >
+              🔍 Analyze Booking
+            </button>
+            
+            {/* Individual Email Testing Buttons for Specific Booking */}
+            <div style={{ marginTop: '10px' }}>
+              <h5 style={{ margin: '5px 0', fontSize: '12px' }}>Test Individual Email Types:</h5>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px' }}>
+                <button
+                  onClick={() => triggerTestEmail('deposit-reminder', specificBookingId)}
+                  disabled={isLoading || !specificBookingId.trim()}
+                  style={{ padding: '6px', fontSize: '10px', background: '#ffc107', color: 'black', border: 'none', borderRadius: '3px' }}
+                >
+                  💰 Deposit
+                </button>
+                <button
+                  onClick={() => triggerTestEmail('event-confirmation', specificBookingId)}
+                  disabled={isLoading || !specificBookingId.trim()}
+                  style={{ padding: '6px', fontSize: '10px', background: '#17a2b8', color: 'white', border: 'none', borderRadius: '3px' }}
+                >
+                  📅 Event
+                </button>
+                <button
+                  onClick={() => triggerTestEmail('post-event-thanks', specificBookingId)}
+                  disabled={isLoading || !specificBookingId.trim()}
+                  style={{ padding: '6px', fontSize: '10px', background: '#28a745', color: 'white', border: 'none', borderRadius: '3px' }}
+                >
+                  🎉 Thanks
+                </button>
+                <button
+                  onClick={() => triggerTestEmail('rebooking-reminder', specificBookingId)}
+                  disabled={isLoading || !specificBookingId.trim()}
+                  style={{ padding: '6px', fontSize: '10px', background: '#6f42c1', color: 'white', border: 'none', borderRadius: '3px' }}
+                >
+                  🔄 Rebook
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Test Creation Workflow - Only show in create mode */}
+      {testMode === 'create' && (
+        <>
+          {/* Manual Email Triggers (No Database Write Required) */}
+          <div style={{ marginBottom: '15px' }}>
+            <h4 style={{ margin: '0 0 8px 0', fontSize: '14px' }}>🚀 Complete Email Testing Workflow:</h4>
+            <p style={{ fontSize: '11px', color: '#666', margin: '0 0 8px 0' }}>
+              Creates test data for ALL email types, then processes them
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '5px', marginBottom: '15px' }}>
+              <button 
+                onClick={createTestBookingsAndCarts} 
+                disabled={isLoading || !user} 
+                style={{ 
+                  padding: '10px', 
+                  fontSize: '13px', 
+                  background: '#ff6b35', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '4px',
+                  fontWeight: 'bold'
             }}
           >
             📝 Step 1: Create ALL Test Data (Carts + Bookings)
@@ -564,6 +772,8 @@ const EmailSchedulerTesting: React.FC = () => {
           </button>
         </div>
       </div>
+      </>
+      )}
 
       {/* Results */}
       <div style={{ marginTop: '15px' }}>
