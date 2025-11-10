@@ -43,6 +43,13 @@ async function checkBookingData() {
     console.log(`✓ eventDate (raw): ${bookingData.orderDetails?.eventDate}`);
     console.log(`✓ emails.depositReminder: ${bookingData.emails?.depositReminder}`);
     
+    // Check specific fields needed for event confirmation
+    console.log('\n📅 Event Confirmation Criteria Check:');
+    console.log(`✓ status: ${bookingData.status} (needs: 'confirmed')`);
+    console.log(`✓ remainingBalance: ${bookingData.paymentDetails?.remainingBalance} (needs: 0)`);
+    console.log(`✓ customerInfo.email: ${bookingData.customerInfo?.email}`);
+    console.log(`✓ emails.eventConfirmation: ${bookingData.emails?.eventConfirmation}`);
+    
     // Parse event date correctly
     const eventDateString = bookingData.orderDetails?.eventDate;
     const firstDate = eventDateString ? eventDateString.split(' - ')[0] : null;
@@ -61,19 +68,35 @@ async function checkBookingData() {
     console.log(`Hours until event: ${hoursUntilEvent.toFixed(2)}`);
     console.log(`Days until event: ${daysUntilEvent.toFixed(2)}`);
     
-    // Check if it meets timing criteria (2 days = 48 hours)
+    // Check if it meets timing criteria
     const withinTwoDays = timeUntilEvent <= (2 * 24 * 60 * 60 * 1000) && timeUntilEvent > 0;
-    console.log(`Within 2 days? ${withinTwoDays}`);
+    const withinThreeDays = timeUntilEvent <= (3 * 24 * 60 * 60 * 1000) && timeUntilEvent > 0;
+    console.log(`Within 2 days (deposit reminder)? ${withinTwoDays}`);
+    console.log(`Within 3 days (event confirmation)? ${withinThreeDays}`);
     
-    // Overall eligibility
+    // Overall eligibility for deposit reminder
     const remainingBalance = bookingData.paymentDetails?.remainingBalance || 0;
-    const eligible = remainingBalance > 0 && 
+    const eligibleDepositReminder = remainingBalance > 0 && 
                     bookingData.status === 'pending' && 
                     bookingData.customerInfo?.email && 
                     bookingData.emails?.depositReminder !== true &&
                     withinTwoDays;
     
-    console.log(`\n🎯 Overall Eligibility for Deposit Reminder: ${eligible ? '✅ YES' : '❌ NO'}`);
+    // Overall eligibility for event confirmation
+    const eligibleEventConfirmation = bookingData.status === 'confirmed' &&
+                    remainingBalance <= 0 &&
+                    bookingData.customerInfo?.email &&
+                    bookingData.emails?.eventConfirmation !== true &&
+                    withinThreeDays;
+    
+    console.log(`\n🎯 Deposit Reminder Eligibility: ${eligibleDepositReminder ? '✅ YES' : '❌ NO'}`);
+    console.log(`🎯 Event Confirmation Eligibility: ${eligibleEventConfirmation ? '✅ YES' : '❌ NO'}`);
+    
+    if (!eligibleEventConfirmation) {
+      console.log('\n📋 To make eligible for Event Confirmation, change:');
+      if (bookingData.status !== 'confirmed') console.log(`   - status: "${bookingData.status}" → "confirmed"`);
+      if (remainingBalance > 0) console.log(`   - remainingBalance: ${remainingBalance} → 0`);
+    }
     
   } catch (error) {
     console.error('❌ Error checking booking:', error);

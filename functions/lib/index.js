@@ -361,14 +361,10 @@ exports.triggerTestEmail = functions.https.onCall(async (data, context) => {
                 await processCartAbandonmentEmails(db, now);
                 return { success: true, message: 'Cart abandonment email sent' };
             case 'deposit-reminder':
-                if (!data.bookingId)
-                    throw new Error('bookingId required for deposit reminder');
-                await processDepositReminderEmails(db, now, data.bookingId);
+                await processDepositReminderEmails(db, now);
                 return { success: true, message: 'Deposit reminder email sent' };
             case 'event-confirmation':
-                if (!data.bookingId)
-                    throw new Error('bookingId required for event confirmation');
-                await processEventConfirmationEmails(db, now, data.bookingId);
+                await processEventConfirmationEmails(db, now);
                 return { success: true, message: 'Event confirmation email sent' };
             case 'post-event-thanks':
                 await processPostEventEmails(db, now);
@@ -398,7 +394,7 @@ exports.triggerTestEmail = functions.https.onCall(async (data, context) => {
  * - Maintains customer engagement through automated touchpoints
  *
  * Schedule Configuration:
- * - Current: Every 2 minutes (testing/development mode)
+ * - Current: Every 2 minutes (production scheduler)
  * - Production: Should be changed to 'every 1 hours' for optimal performance
  * - Adjustable based on business needs and email volume
  *
@@ -529,25 +525,23 @@ exports.autoCancelPendingOrders = functions.pubsub
 // =============================================================================
 // EMAIL PROCESSING HELPER FUNCTIONS
 // =============================================================================
-// Email timing constants for scheduled functions
-const isTestingMode = process.env.NODE_ENV !== 'production';
+// Email timing constants for scheduled functions (production values only)
 const EMAIL_TIMING = {
-    CART_ABANDONMENT: isTestingMode ? 1 * 60 * 1000 : 24 * 60 * 60 * 1000, // 1 min vs 24 hours
-    DEPOSIT_REMINDER: isTestingMode ? 2 * 60 * 1000 : 2 * 24 * 60 * 60 * 1000, // 2 min vs 2 days
-    EVENT_CONFIRMATION: isTestingMode ? 3 * 60 * 1000 : 3 * 24 * 60 * 60 * 1000, // 3 min vs 3 days
-    POST_EVENT_THANKS: isTestingMode ? 4 * 60 * 1000 : 1 * 24 * 60 * 60 * 1000, // 4 min vs 1 day
-    REBOOKING_REMINDER: isTestingMode ? 5 * 60 * 1000 : 9 * 30 * 24 * 60 * 60 * 1000 // 5 min vs 9 months
+    CART_ABANDONMENT: 24 * 60 * 60 * 1000, // 24 hours
+    DEPOSIT_REMINDER: 2 * 24 * 60 * 60 * 1000, // 2 days
+    EVENT_CONFIRMATION: 3 * 24 * 60 * 60 * 1000, // 3 days
+    POST_EVENT_THANKS: 1 * 24 * 60 * 60 * 1000, // 1 day
+    REBOOKING_REMINDER: 9 * 30 * 24 * 60 * 60 * 1000 // 9 months
 };
 // Email server configuration for scheduled emails
 const EMAIL_SERVER_BASE_URL = 'http://170.187.145.7:3001';
 const EMAIL_SERVER_API_KEY = 'jumpcsra_secure_api_key_2024';
-console.log('📧 EMAIL TIMING CONFIG:', {
-    testingMode: isTestingMode,
-    cartAbandonment: isTestingMode ? '1 minute' : '24 hours',
-    depositReminder: isTestingMode ? '2 minutes' : '7 days',
-    eventConfirmation: isTestingMode ? '3 minutes' : '3 days',
-    postEventThanks: isTestingMode ? '4 minutes' : '1 day',
-    rebookingReminder: isTestingMode ? '5 minutes' : '9 months'
+console.log('📧 EMAIL TIMING CONFIG (Production Mode):', {
+    cartAbandonment: '24 hours',
+    depositReminder: '2 days',
+    eventConfirmation: '3 days',
+    postEventThanks: '1 day',
+    rebookingReminder: '9 months'
 });
 async function processCartAbandonmentEmails(db, now) {
     var _a;
@@ -611,7 +605,7 @@ async function processCartAbandonmentEmails(db, now) {
         console.error('❌ SCHEDULER: Error processing cart abandonment emails:', error);
     }
 }
-async function processDepositReminderEmails(db, now, specificBookingId) {
+async function processDepositReminderEmails(db, now) {
     var _a, _b, _c, _d;
     try {
         console.log('💰 SCHEDULER: Checking deposit reminder emails...');
@@ -625,9 +619,6 @@ async function processDepositReminderEmails(db, now, specificBookingId) {
         let emailsSent = 0;
         for (const [bookingId, bookingData] of Object.entries(bookings)) {
             const booking = bookingData;
-            // If testing specific booking, only process that one
-            if (specificBookingId && bookingId !== specificBookingId)
-                continue;
             // Only process pending bookings with remaining balance (deposit payments)
             const remainingBalance = ((_a = booking.paymentDetails) === null || _a === void 0 ? void 0 : _a.remainingBalance) || 0;
             if (!remainingBalance || remainingBalance <= 0)
@@ -693,8 +684,8 @@ async function processDepositReminderEmails(db, now, specificBookingId) {
         console.error('❌ SCHEDULER: Error processing deposit reminder emails:', error);
     }
 }
-async function processEventConfirmationEmails(db, now, specificBookingId) {
-    var _a, _b;
+async function processEventConfirmationEmails(db, now) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
     try {
         console.log('📅 SCHEDULER: Checking event confirmation emails...');
         const bookingsRef = db.ref('bookings');
@@ -707,37 +698,47 @@ async function processEventConfirmationEmails(db, now, specificBookingId) {
         let emailsSent = 0;
         for (const [bookingId, bookingData] of Object.entries(bookings)) {
             const booking = bookingData;
-            // If testing specific booking, only process that one
-            if (specificBookingId && bookingId !== specificBookingId)
-                continue;
-            // Only process confirmed bookings with no remaining balance
+            // Only process confirmed bookings with no remaining balance  
+            const remainingBalance = ((_a = booking.paymentDetails) === null || _a === void 0 ? void 0 : _a.remainingBalance) || 0;
             if (booking.status !== 'confirmed')
                 continue;
-            if (booking.remainingBalance > 0)
+            if (remainingBalance > 0)
                 continue; // Still has deposit due
-            if (!((_a = booking.customerInfo) === null || _a === void 0 ? void 0 : _a.email))
+            if (!((_b = booking.customerInfo) === null || _b === void 0 ? void 0 : _b.email))
                 continue;
-            if (((_b = booking.emails) === null || _b === void 0 ? void 0 : _b.eventConfirmation) === true)
+            if (((_c = booking.emails) === null || _c === void 0 ? void 0 : _c.eventConfirmation) === true)
                 continue; // Already sent
-            const eventDate = new Date(booking.eventDate).getTime();
+            // Parse event date from the date range string (e.g., "11/11/2025 - 11/11/2025")
+            const eventDateString = (_d = booking.orderDetails) === null || _d === void 0 ? void 0 : _d.eventDate;
+            if (!eventDateString)
+                continue;
+            // Extract the first date from the range
+            const firstDate = eventDateString.split(' - ')[0];
+            const eventDate = new Date(firstDate).getTime();
+            if (isNaN(eventDate)) {
+                console.log(`📅 SCHEDULER: Invalid event date for booking ${bookingId}: ${eventDateString}`);
+                continue;
+            }
             const timeUntilEvent = eventDate - now;
             console.log(`📅 SCHEDULER: Booking ${bookingId} - Event in ${Math.round(timeUntilEvent / (1000 * 60 * 60))} hours`);
-            // Send confirmation based on timing (3 days before event or testing interval)
-            // Skip timing check if testing specific booking
-            if (specificBookingId || (timeUntilEvent <= EMAIL_TIMING.EVENT_CONFIRMATION && timeUntilEvent > 0)) {
+            // Send confirmation if event is within 3 days
+            if (timeUntilEvent <= EMAIL_TIMING.EVENT_CONFIRMATION && timeUntilEvent > 0) {
                 try {
                     const emailData = {
                         customerEmail: booking.customerInfo.email,
                         customerName: booking.customerInfo.name || 'Customer',
-                        bookingData: {
-                            bookingId: bookingId,
-                            eventDate: booking.eventDate,
-                            eventDetails: booking.eventDetails || {},
-                            deliveryAddress: booking.deliveryAddress,
-                            setupTime: booking.setupTime
+                        bookingId: bookingId,
+                        eventDate: firstDate,
+                        bookingDetails: {
+                            eventDetails: booking.orderDetails || {},
+                            deliveryAddress: ((_e = booking.orderDetails) === null || _e === void 0 ? void 0 : _e.deliveryAddress) || '',
+                            deliveryTime: ((_f = booking.orderDetails) === null || _f === void 0 ? void 0 : _f.deliveryTime) || '',
+                            duration: ((_g = booking.orderDetails) === null || _g === void 0 ? void 0 : _g.duration) || '',
+                            surface: ((_h = booking.orderDetails) === null || _h === void 0 ? void 0 : _h.surface) || '',
+                            items: ((_j = booking.orderDetails) === null || _j === void 0 ? void 0 : _j.items) || []
                         }
                     };
-                    await axios_1.default.post(`${EMAIL_SERVER_BASE_URL}/api/email/event-confirmation`, emailData, {
+                    await axios_1.default.post(`${EMAIL_SERVER_BASE_URL}/api/email/booking-confirmation`, emailData, {
                         headers: {
                             'Content-Type': 'application/json',
                             'X-API-Key': EMAIL_SERVER_API_KEY,
@@ -762,7 +763,7 @@ async function processEventConfirmationEmails(db, now, specificBookingId) {
     }
 }
 async function processPostEventEmails(db, now) {
-    var _a, _b;
+    var _a, _b, _c, _d, _e;
     try {
         console.log('🎉 SCHEDULER: Checking post-event thank you emails...');
         const bookingsRef = db.ref('bookings');
@@ -780,7 +781,17 @@ async function processPostEventEmails(db, now) {
                 continue;
             if (((_b = booking.emails) === null || _b === void 0 ? void 0 : _b.thanks) === true)
                 continue; // Already sent
-            const eventDate = new Date(booking.eventDate).getTime();
+            // Parse event date from the date range string (e.g., "11/09/2025 - 11/09/2025")
+            const eventDateString = (_c = booking.orderDetails) === null || _c === void 0 ? void 0 : _c.eventDate;
+            if (!eventDateString)
+                continue;
+            // Extract the first date from the range
+            const firstDate = eventDateString.split(' - ')[0];
+            const eventDate = new Date(firstDate).getTime();
+            if (isNaN(eventDate)) {
+                console.log(`🎉 SCHEDULER: Invalid event date for booking ${bookingId}: ${eventDateString}`);
+                continue;
+            }
             const timeSinceEvent = now - eventDate;
             // Send thank you email after event (1 day after or testing interval)
             if (timeSinceEvent >= EMAIL_TIMING.POST_EVENT_THANKS) {
@@ -788,10 +799,12 @@ async function processPostEventEmails(db, now) {
                     const emailData = {
                         customerEmail: booking.customerInfo.email,
                         customerName: booking.customerInfo.name || 'Customer',
-                        bookingData: {
-                            bookingId: bookingId,
-                            eventDate: booking.eventDate,
-                            eventDetails: booking.eventDetails || {}
+                        bookingId: bookingId,
+                        eventDate: firstDate,
+                        bookingDetails: {
+                            eventDetails: booking.orderDetails || {},
+                            totalAmount: (_d = booking.paymentDetails) === null || _d === void 0 ? void 0 : _d.totalAmount,
+                            items: ((_e = booking.orderDetails) === null || _e === void 0 ? void 0 : _e.items) || []
                         }
                     };
                     await axios_1.default.post(`${EMAIL_SERVER_BASE_URL}/api/email/post-event-thanks`, emailData, {
@@ -819,7 +832,7 @@ async function processPostEventEmails(db, now) {
     }
 }
 async function processRebookingReminderEmails(db, now) {
-    var _a, _b;
+    var _a, _b, _c;
     try {
         console.log('🔄 SCHEDULER: Checking rebooking reminder emails...');
         const bookingsRef = db.ref('bookings');
@@ -837,7 +850,17 @@ async function processRebookingReminderEmails(db, now) {
                 continue;
             if (((_b = booking.emails) === null || _b === void 0 ? void 0 : _b.rebooking) === true)
                 continue; // Already sent
-            const eventDate = new Date(booking.eventDate).getTime();
+            // Parse event date from the date range string (e.g., "11/09/2025 - 11/09/2025")
+            const eventDateString = (_c = booking.orderDetails) === null || _c === void 0 ? void 0 : _c.eventDate;
+            if (!eventDateString)
+                continue;
+            // Extract the first date from the range
+            const firstDate = eventDateString.split(' - ')[0];
+            const eventDate = new Date(firstDate).getTime();
+            if (isNaN(eventDate)) {
+                console.log(`🔄 SCHEDULER: Invalid event date for booking ${bookingId}: ${eventDateString}`);
+                continue;
+            }
             const timeSinceEvent = now - eventDate;
             // Send rebooking reminder after significant time (9 months or testing interval)
             if (timeSinceEvent >= EMAIL_TIMING.REBOOKING_REMINDER) {
@@ -845,17 +868,10 @@ async function processRebookingReminderEmails(db, now) {
                     const emailData = {
                         customerEmail: booking.customerInfo.email,
                         customerName: booking.customerInfo.name || 'Customer',
-                        bookingData: {
-                            bookingId: bookingId,
-                            eventDate: booking.eventDate,
-                            eventDetails: booking.eventDetails || {},
-                            pastExperience: {
-                                satisfactionLevel: 'excellent', // Could be tracked from feedback
-                                favoriteItems: booking.rentalItems || []
-                            }
-                        }
+                        lastBookingDate: firstDate,
+                        lastBookingId: bookingId
                     };
-                    await axios_1.default.post(`${EMAIL_SERVER_BASE_URL}/api/email/rebooking-reminder`, emailData, {
+                    await axios_1.default.post(`${EMAIL_SERVER_BASE_URL}/api/email/follow-up`, emailData, {
                         headers: {
                             'Content-Type': 'application/json',
                             'X-API-Key': EMAIL_SERVER_API_KEY,

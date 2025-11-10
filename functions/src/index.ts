@@ -405,13 +405,11 @@ export const triggerTestEmail = functions.https.onCall(async (data: {
         return { success: true, message: 'Cart abandonment email sent' };
         
       case 'deposit-reminder':
-        if (!data.bookingId) throw new Error('bookingId required for deposit reminder');
-        await processDepositReminderEmails(db, now, data.bookingId);
+        await processDepositReminderEmails(db, now);
         return { success: true, message: 'Deposit reminder email sent' };
         
       case 'event-confirmation': 
-        if (!data.bookingId) throw new Error('bookingId required for event confirmation');
-        await processEventConfirmationEmails(db, now, data.bookingId);
+        await processEventConfirmationEmails(db, now);
         return { success: true, message: 'Event confirmation email sent' };
         
       case 'post-event-thanks':
@@ -444,7 +442,7 @@ export const triggerTestEmail = functions.https.onCall(async (data: {
  * - Maintains customer engagement through automated touchpoints
  * 
  * Schedule Configuration:
- * - Current: Every 2 minutes (testing/development mode)
+ * - Current: Every 2 minutes (production scheduler)
  * - Production: Should be changed to 'every 1 hours' for optimal performance
  * - Adjustable based on business needs and email volume
  * 
@@ -585,27 +583,25 @@ export const autoCancelPendingOrders = functions.pubsub
 // EMAIL PROCESSING HELPER FUNCTIONS
 // =============================================================================
 
-// Email timing constants for scheduled functions
-const isTestingMode = process.env.NODE_ENV !== 'production';
+// Email timing constants for scheduled functions (production values only)
 const EMAIL_TIMING = {
-  CART_ABANDONMENT: isTestingMode ? 1 * 60 * 1000 : 24 * 60 * 60 * 1000, // 1 min vs 24 hours
-  DEPOSIT_REMINDER: isTestingMode ? 2 * 60 * 1000 : 2 * 24 * 60 * 60 * 1000, // 2 min vs 2 days
-  EVENT_CONFIRMATION: isTestingMode ? 3 * 60 * 1000 : 3 * 24 * 60 * 60 * 1000, // 3 min vs 3 days
-  POST_EVENT_THANKS: isTestingMode ? 4 * 60 * 1000 : 1 * 24 * 60 * 60 * 1000, // 4 min vs 1 day
-  REBOOKING_REMINDER: isTestingMode ? 5 * 60 * 1000 : 9 * 30 * 24 * 60 * 60 * 1000 // 5 min vs 9 months
+  CART_ABANDONMENT: 24 * 60 * 60 * 1000, // 24 hours
+  DEPOSIT_REMINDER: 2 * 24 * 60 * 60 * 1000, // 2 days
+  EVENT_CONFIRMATION: 3 * 24 * 60 * 60 * 1000, // 3 days
+  POST_EVENT_THANKS: 1 * 24 * 60 * 60 * 1000, // 1 day
+  REBOOKING_REMINDER: 9 * 30 * 24 * 60 * 60 * 1000 // 9 months
 };
 
 // Email server configuration for scheduled emails
 const EMAIL_SERVER_BASE_URL = 'http://170.187.145.7:3001';
 const EMAIL_SERVER_API_KEY = 'jumpcsra_secure_api_key_2024';
 
-console.log('📧 EMAIL TIMING CONFIG:', {
-  testingMode: isTestingMode,
-  cartAbandonment: isTestingMode ? '1 minute' : '24 hours',
-  depositReminder: isTestingMode ? '2 minutes' : '7 days',
-  eventConfirmation: isTestingMode ? '3 minutes' : '3 days',
-  postEventThanks: isTestingMode ? '4 minutes' : '1 day',
-  rebookingReminder: isTestingMode ? '5 minutes' : '9 months'
+console.log('📧 EMAIL TIMING CONFIG (Production Mode):',  {
+  cartAbandonment: '24 hours',
+  depositReminder: '2 days',
+  eventConfirmation: '3 days',
+  postEventThanks: '1 day',
+  rebookingReminder: '9 months'
 });
 
 async function processCartAbandonmentEmails(db: admin.database.Database, now: number) {
@@ -679,7 +675,7 @@ async function processCartAbandonmentEmails(db: admin.database.Database, now: nu
   }
 }
 
-async function processDepositReminderEmails(db: admin.database.Database, now: number, specificBookingId?: string) {
+async function processDepositReminderEmails(db: admin.database.Database, now: number) {
   try {
     console.log('💰 SCHEDULER: Checking deposit reminder emails...');
     
@@ -696,9 +692,6 @@ async function processDepositReminderEmails(db: admin.database.Database, now: nu
     
     for (const [bookingId, bookingData] of Object.entries(bookings)) {
       const booking = bookingData as any;
-      
-      // If testing specific booking, only process that one
-      if (specificBookingId && bookingId !== specificBookingId) continue;
       
       // Only process pending bookings with remaining balance (deposit payments)
       const remainingBalance = booking.paymentDetails?.remainingBalance || 0;
@@ -769,7 +762,7 @@ async function processDepositReminderEmails(db: admin.database.Database, now: nu
   }
 }
 
-async function processEventConfirmationEmails(db: admin.database.Database, now: number, specificBookingId?: string) {
+async function processEventConfirmationEmails(db: admin.database.Database, now: number) {
   try {
     console.log('📅 SCHEDULER: Checking event confirmation emails...');
     
@@ -787,37 +780,49 @@ async function processEventConfirmationEmails(db: admin.database.Database, now: 
     for (const [bookingId, bookingData] of Object.entries(bookings)) {
       const booking = bookingData as any;
       
-      // If testing specific booking, only process that one
-      if (specificBookingId && bookingId !== specificBookingId) continue;
-      
-      // Only process confirmed bookings with no remaining balance
+      // Only process confirmed bookings with no remaining balance  
+      const remainingBalance = booking.paymentDetails?.remainingBalance || 0;
       if (booking.status !== 'confirmed') continue;
-      if (booking.remainingBalance > 0) continue; // Still has deposit due
+      if (remainingBalance > 0) continue; // Still has deposit due
       if (!booking.customerInfo?.email) continue;
       if (booking.emails?.eventConfirmation === true) continue; // Already sent
       
-      const eventDate = new Date(booking.eventDate).getTime();
+      // Parse event date from the date range string (e.g., "11/11/2025 - 11/11/2025")
+      const eventDateString = booking.orderDetails?.eventDate;
+      if (!eventDateString) continue;
+      
+      // Extract the first date from the range
+      const firstDate = eventDateString.split(' - ')[0];
+      const eventDate = new Date(firstDate).getTime();
+      
+      if (isNaN(eventDate)) {
+        console.log(`📅 SCHEDULER: Invalid event date for booking ${bookingId}: ${eventDateString}`);
+        continue;
+      }
+      
       const timeUntilEvent = eventDate - now;
       
       console.log(`📅 SCHEDULER: Booking ${bookingId} - Event in ${Math.round(timeUntilEvent / (1000 * 60 * 60))} hours`);
       
-      // Send confirmation based on timing (3 days before event or testing interval)
-      // Skip timing check if testing specific booking
-      if (specificBookingId || (timeUntilEvent <= EMAIL_TIMING.EVENT_CONFIRMATION && timeUntilEvent > 0)) {
+      // Send confirmation if event is within 3 days
+      if (timeUntilEvent <= EMAIL_TIMING.EVENT_CONFIRMATION && timeUntilEvent > 0) {
         try {
           const emailData = {
             customerEmail: booking.customerInfo.email,
             customerName: booking.customerInfo.name || 'Customer',
-            bookingData: {
-              bookingId: bookingId,
-              eventDate: booking.eventDate,
-              eventDetails: booking.eventDetails || {},
-              deliveryAddress: booking.deliveryAddress,
-              setupTime: booking.setupTime
+            bookingId: bookingId,
+            eventDate: firstDate,
+            bookingDetails: {
+              eventDetails: booking.orderDetails || {},
+              deliveryAddress: booking.orderDetails?.deliveryAddress || '',
+              deliveryTime: booking.orderDetails?.deliveryTime || '',
+              duration: booking.orderDetails?.duration || '',
+              surface: booking.orderDetails?.surface || '',
+              items: booking.orderDetails?.items || []
             }
           };
 
-          await axios.post(`${EMAIL_SERVER_BASE_URL}/api/email/event-confirmation`, emailData, {
+          await axios.post(`${EMAIL_SERVER_BASE_URL}/api/email/booking-confirmation`, emailData, {
             headers: {
               'Content-Type': 'application/json',
               'X-API-Key': EMAIL_SERVER_API_KEY,
@@ -865,7 +870,19 @@ async function processPostEventEmails(db: admin.database.Database, now: number) 
       if (!booking.customerInfo?.email) continue;
       if (booking.emails?.thanks === true) continue; // Already sent
       
-      const eventDate = new Date(booking.eventDate).getTime();
+      // Parse event date from the date range string (e.g., "11/09/2025 - 11/09/2025")
+      const eventDateString = booking.orderDetails?.eventDate;
+      if (!eventDateString) continue;
+      
+      // Extract the first date from the range
+      const firstDate = eventDateString.split(' - ')[0];
+      const eventDate = new Date(firstDate).getTime();
+      
+      if (isNaN(eventDate)) {
+        console.log(`🎉 SCHEDULER: Invalid event date for booking ${bookingId}: ${eventDateString}`);
+        continue;
+      }
+      
       const timeSinceEvent = now - eventDate;
       
       // Send thank you email after event (1 day after or testing interval)
@@ -874,10 +891,12 @@ async function processPostEventEmails(db: admin.database.Database, now: number) 
           const emailData = {
             customerEmail: booking.customerInfo.email,
             customerName: booking.customerInfo.name || 'Customer',
-            bookingData: {
-              bookingId: bookingId,
-              eventDate: booking.eventDate,
-              eventDetails: booking.eventDetails || {}
+            bookingId: bookingId,
+            eventDate: firstDate,
+            bookingDetails: {
+              eventDetails: booking.orderDetails || {},
+              totalAmount: booking.paymentDetails?.totalAmount,
+              items: booking.orderDetails?.items || []
             }
           };
 
@@ -929,7 +948,19 @@ async function processRebookingReminderEmails(db: admin.database.Database, now: 
       if (!booking.customerInfo?.email) continue;
       if (booking.emails?.rebooking === true) continue; // Already sent
       
-      const eventDate = new Date(booking.eventDate).getTime();
+      // Parse event date from the date range string (e.g., "11/09/2025 - 11/09/2025")
+      const eventDateString = booking.orderDetails?.eventDate;
+      if (!eventDateString) continue;
+      
+      // Extract the first date from the range
+      const firstDate = eventDateString.split(' - ')[0];
+      const eventDate = new Date(firstDate).getTime();
+      
+      if (isNaN(eventDate)) {
+        console.log(`🔄 SCHEDULER: Invalid event date for booking ${bookingId}: ${eventDateString}`);
+        continue;
+      }
+      
       const timeSinceEvent = now - eventDate;
       
       // Send rebooking reminder after significant time (9 months or testing interval)
@@ -938,18 +969,11 @@ async function processRebookingReminderEmails(db: admin.database.Database, now: 
           const emailData = {
             customerEmail: booking.customerInfo.email,
             customerName: booking.customerInfo.name || 'Customer',
-            bookingData: {
-              bookingId: bookingId,
-              eventDate: booking.eventDate,
-              eventDetails: booking.eventDetails || {},
-              pastExperience: {
-                satisfactionLevel: 'excellent', // Could be tracked from feedback
-                favoriteItems: booking.rentalItems || []
-              }
-            }
+            lastBookingDate: firstDate,
+            lastBookingId: bookingId
           };
 
-          await axios.post(`${EMAIL_SERVER_BASE_URL}/api/email/rebooking-reminder`, emailData, {
+          await axios.post(`${EMAIL_SERVER_BASE_URL}/api/email/follow-up`, emailData, {
             headers: {
               'Content-Type': 'application/json',
               'X-API-Key': EMAIL_SERVER_API_KEY,
