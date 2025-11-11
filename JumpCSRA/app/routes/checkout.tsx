@@ -183,6 +183,7 @@ export default function Checkout() {
   const [bookingLoadedFromUrl, setBookingLoadedFromUrl] = useState<boolean>(false);
   const [paymentType, setPaymentType] = useState<'full' | 'deposit'>('full');
   const [actualAmountPaid, setActualAmountPaid] = useState<number | null>(null);
+  const [isDeferredBooking, setIsDeferredBooking] = useState<boolean>(false);
   
   // Store completed order data for display after cart is cleared
   const [completedOrderCart, setCompletedOrderCart] = useState<CartItem[]>([]);
@@ -977,7 +978,94 @@ export default function Checkout() {
           const booking = await loadBookingData(resumeBookingId);
           
           if (booking && booking.customerID === user.uid) {
+            // Check if booking is already completed or confirmed - can't resume completed bookings
+            // Pending and deferred bookings can be resumed
+            const bookingStatus = booking.status || 'pending';
+            console.log('Resume booking status check:', bookingStatus);
+            
+            if (bookingStatus === 'completed') {
+              console.warn('Cannot resume completed booking:', resumeBookingId, 'Status:', bookingStatus);
+              localStorage.removeItem('resumeBookingId');
+              
+              notifications.show({
+                title: '⚠️ Booking Already Completed',
+                message: `Booking #${resumeBookingId} is already completed. You cannot resume completed bookings.`,
+                color: 'orange',
+                autoClose: 8000,
+              });
+              
+              // Redirect to home page since this booking can't be resumed
+              return;
+            }
+            
+            // Check if booking is in a resumable state (pending, deferred, confirmed)
+            // Note: confirmed bookings can be resumed if they need remaining payment (deposit scenario)
+            if (bookingStatus === 'cancelled') {
+              console.warn('Booking is cancelled and cannot be resumed:', resumeBookingId, 'Status:', bookingStatus);
+              localStorage.removeItem('resumeBookingId');
+              
+              notifications.show({
+                title: '❌ Cannot Resume Cancelled Booking',
+                message: `Booking #${resumeBookingId} has been cancelled and cannot be resumed.`,
+                color: 'red',
+                autoClose: 8000,
+              });
+              
+              return;
+            }
+            
             setPendingBookingId(resumeBookingId);
+            
+            // Special handling for deferred bookings
+            if (bookingStatus === 'deferred') {
+              console.log('Deferred booking resumed - showing phone call option');
+              setIsDeferredBooking(true);
+              
+              notifications.show({
+                title: '⏰ Deferred Booking Resumed',
+                message: `Booking #${resumeBookingId} was deferred due to same-day booking rules. You can delete this booking or call us to complete it manually.`,
+                color: 'yellow',
+                autoClose: 10000,
+              });
+              
+              // Don't automatically proceed to payment for deferred bookings
+              // Let them see the special UI first
+              setCurrentStep('order-summary');
+              setContractSigned(false);
+            } else {
+              setIsDeferredBooking(false);
+              // Set the step to payment since contract should already be signed
+              setCurrentStep('payment');
+              setContractSigned(true);
+            }
+            
+            // Restore cart from booking data if cart is empty
+            if (cart.length === 0 && booking.orderDetails?.items) {
+              console.log('Restoring cart from booking data:', booking.orderDetails.items);
+              
+              // Convert booking items back to cart format
+              const restoredCart = booking.orderDetails.items.map((item, index) => ({
+                id: `${item.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${index}`,
+                name: item.name,
+                price: item.price,
+                quantity: item.quantity,
+                category: 'inflateable', // Default category
+                wetDry: 'Wet/Dry', // Default wet/dry option
+                wet: true,
+                dry: true
+              }));
+              
+              setCart(restoredCart);
+              
+              console.log('Cart restored from booking:', restoredCart);
+              
+              notifications.show({
+                title: '🛒 Cart Restored',
+                message: `Restored ${restoredCart.length} items from your booking.`,
+                color: 'blue',
+                autoClose: 3000,
+              });
+            }
             
             // Set the step to payment since contract should already be signed
             setCurrentStep('payment');
@@ -988,7 +1076,7 @@ export default function Checkout() {
             
             notifications.show({
               title: '📝 Booking Resumed',
-              message: `Successfully loaded your incomplete booking #${resumeBookingId}`,
+              message: `Successfully loaded your incomplete booking #${resumeBookingId} (${bookingStatus})`,
               color: 'green',
               autoClose: 5000,
             });
@@ -997,10 +1085,24 @@ export default function Checkout() {
           } else {
             console.warn('Resume booking not found or not owned by user:', resumeBookingId);
             localStorage.removeItem('resumeBookingId');
+            
+            notifications.show({
+              title: '❌ Booking Not Found',
+              message: 'The booking you tried to resume could not be found or does not belong to you.',
+              color: 'red',
+              autoClose: 8000,
+            });
           }
         } catch (error) {
           console.error('Error resuming booking:', error);
           localStorage.removeItem('resumeBookingId');
+          
+          notifications.show({
+            title: '❌ Resume Error',
+            message: 'An error occurred while trying to resume your booking.',
+            color: 'red',
+            autoClose: 8000,
+          });
         }
       }
     };
@@ -1455,9 +1557,124 @@ export default function Checkout() {
 
   // Calculate the amount that needs to be paid via PayPal after wallet application
   const calculatePayPalAmount = () => {
-    const totalPayment = parseFloat(paymentType === 'deposit' ? calculateDepositAmount() : calculateTotalAmount());
+    const strategy = getDeferredBookingStrategy();
+    
+    let totalPayment;
+    if (strategy.strategy === 'partial') {
+      // For partial processing, only charge for gift cards and memberships (they're always paid in full)
+      totalPayment = calculatePaymentAmountForStrategy();
+    } else {
+      // For normal/deferred processing, use standard payment logic
+      totalPayment = parseFloat(paymentType === 'deposit' ? calculateDepositAmount() : calculateTotalAmount());
+    }
+    
     const walletApplied = calculateWalletApplicableAmount();
     return Math.max(0, totalPayment - walletApplied);
+  };
+
+  // Smart deferred booking logic - analyze cart composition
+  const analyzeCartComposition = () => {
+    const giftCardItems = cart.filter(item => item.isGiftCard);
+    const membershipItems = cart.filter(item => item.isMembership);
+    const rentalItems = cart.filter(item => !item.isGiftCard && !item.isMembership);
+
+    return {
+      hasGiftCards: giftCardItems.length > 0,
+      hasMemberships: membershipItems.length > 0,
+      hasRentals: rentalItems.length > 0,
+      giftCardItems,
+      membershipItems,
+      rentalItems,
+      isOnlyGiftCardsAndMemberships: rentalItems.length === 0,
+      isMixedCart: (giftCardItems.length > 0 || membershipItems.length > 0) && rentalItems.length > 0
+    };
+  };
+
+  // Calculate totals for partial processing
+  const calculatePartialTotals = () => {
+    const { giftCardItems, membershipItems, rentalItems } = analyzeCartComposition();
+    
+    const giftCardTotal = giftCardItems.reduce((sum, item) => {
+      return sum + (item.giftCardValue || item.price) * item.quantity;
+    }, 0);
+
+    const membershipTotal = membershipItems.reduce((sum, item) => {
+      return sum + item.price * item.quantity;
+    }, 0);
+
+    // For rental items, include duration multiplier and wet surcharges
+    const durationMultiplier = cartSettings.duration ? durationMultipliers[cartSettings.duration] || 1.0 : 1.0;
+    const rentalTotal = rentalItems.reduce((sum, item) => {
+      let itemTotal = item.price * item.quantity * durationMultiplier;
+      
+      // Add wet surcharge if applicable (same logic as main calculation)
+      const cartIndex = cart.findIndex(cartItem => cartItem.id === item.id);
+      if (item.wetDry === "Wet/Dry" && cartSettings.wetDrySelections?.[cartIndex] === "Wet") {
+        itemTotal += 50 * item.quantity;
+      }
+      
+      return sum + itemTotal;
+    }, 0);
+
+    return {
+      giftCardTotal,
+      membershipTotal,
+      rentalTotal,
+      processableTotal: giftCardTotal + membershipTotal,
+      totalWithRentals: giftCardTotal + membershipTotal + rentalTotal
+    };
+  };
+
+  // Determine if booking should be processed normally, deferred, or partially processed
+  const getDeferredBookingStrategy = () => {
+    const composition = analyzeCartComposition();
+    const eventDate = calendarDateRange[0];
+    const isWithinTwoDays = eventDate && shouldDeferBooking(eventDate.toISOString());
+
+    // Scenario 1: Only gift cards and/or memberships - always process normally
+    if (composition.isOnlyGiftCardsAndMemberships) {
+      return {
+        strategy: 'normal',
+        reason: 'Gift cards and memberships do not require manual confirmation'
+      };
+    }
+
+    // Scenario 2: Mixed cart within two days - partial processing
+    if (composition.isMixedCart && isWithinTwoDays) {
+      return {
+        strategy: 'partial',
+        reason: 'Process gift cards/memberships immediately, defer rental items due to same-day booking rules',
+        ...calculatePartialTotals()
+      };
+    }
+
+    // Scenario 3: Only rental items within two days - full deferral
+    if (composition.hasRentals && !composition.hasGiftCards && !composition.hasMemberships && isWithinTwoDays) {
+      return {
+        strategy: 'deferred',
+        reason: 'Rental items require manual confirmation for same-day bookings'
+      };
+    }
+
+    // Default: Normal processing
+    return {
+      strategy: 'normal',
+      reason: 'Standard booking flow'
+    };
+  };
+
+  // Calculate payment amount considering partial processing
+  const calculatePaymentAmountForStrategy = () => {
+    const strategy = getDeferredBookingStrategy();
+    
+    if (strategy.strategy === 'partial') {
+      // For partial processing, only charge for gift cards and memberships
+      const partialTotals = calculatePartialTotals();
+      return partialTotals.processableTotal;
+    } else {
+      // For normal/deferred processing, use standard total
+      return parseFloat(calculateTotalAmount());
+    }
   };
 
   // Update wallet applied amount when toggle changes
@@ -1574,10 +1791,18 @@ export default function Checkout() {
     if (payPalAmount <= 0) {
       throw new Error("Order is fully covered by wallet balance");
     }
+
+    const strategy = getDeferredBookingStrategy();
     
-    const baseDescription = paymentType === 'deposit' 
-      ? `Jump CSRA Rental - 50% Deposit (${cart.length} item(s))`
-      : `Jump CSRA Party Rental - Full Payment (${cart.length} item(s))`;
+    let baseDescription;
+    if (strategy.strategy === 'partial') {
+      const composition = analyzeCartComposition();
+      baseDescription = `Jump CSRA Partial Order - Gift Cards/Memberships (${composition.giftCardItems.length + composition.membershipItems.length} item(s))`;
+    } else {
+      baseDescription = paymentType === 'deposit' 
+        ? `Jump CSRA Rental - 50% Deposit (${cart.length} item(s))`
+        : `Jump CSRA Party Rental - Full Payment (${cart.length} item(s))`;
+    }
       
     const description = useWalletFirst 
       ? `${baseDescription} - After Wallet: $${walletAppliedAmount.toFixed(2)}`
@@ -2625,12 +2850,39 @@ export default function Checkout() {
       if (bookingSaved && contractSaved) {
         console.log("Booking and contract saved successfully:", orderID, contractID);
         
-        // Check if booking should be deferred due to event being within 2 days
-        if (!onlyGiftCards && calendarDateRange[0] && shouldDeferBooking(calendarDateRange[0].toISOString())) {
-          console.log("Event is within 2 days, deferring booking:", orderID);
-          const deferred = await deferBooking(orderID, "Event date is within 2 days of contract signing");
+        // Use intelligent deferred booking strategy
+        const deferredStrategy = getDeferredBookingStrategy();
+        console.log("Deferred booking strategy:", deferredStrategy);
+        
+        if (deferredStrategy.strategy === 'partial') {
+          // Partial processing: Complete gift cards/memberships, defer rental items
+          console.log("Partial processing - completing gift cards/memberships, deferring rentals:", orderID);
+          
+          const partialTotals = calculatePartialTotals();
+          
+          // Update booking with partial status and notes
+          const partialDeferred = await deferBooking(
+            orderID, 
+            `Partial booking: Gift cards/memberships processed ($${partialTotals.processableTotal.toFixed(2)}), rental items deferred due to same-day booking rules`
+          );
+          
+          if (partialDeferred) {
+            console.log("Booking partially processed:", orderID);
+            notifications.show({
+              title: '✨ Partial Order Complete',
+              message: `Gift cards and memberships processed! Call (803) 221-0466 to confirm your rental items.`,
+              color: 'blue',
+              autoClose: 10000,
+            });
+          }
+          
+        } else if (deferredStrategy.strategy === 'deferred') {
+          // Full deferral for rental-only carts
+          console.log("Full deferral - all rental items:", orderID);
+          
+          const deferred = await deferBooking(orderID, deferredStrategy.reason);
           if (deferred) {
-            console.log("Booking deferred successfully:", orderID);
+            console.log("Booking fully deferred:", orderID);
             notifications.show({
               title: '📞 Booking Deferred',
               message: 'Since your event is within 2 days, we\'ll contact you to confirm details.',
@@ -2638,6 +2890,10 @@ export default function Checkout() {
               autoClose: 8000,
             });
           }
+          
+        } else {
+          // Normal processing - no deferral needed
+          console.log("Normal processing - no deferral required:", deferredStrategy.reason);
         }
         
         return { orderID, contractID };
@@ -2806,6 +3062,112 @@ export default function Checkout() {
       <h1 className="checkout-title">
         Complete Your Order
       </h1>
+
+      {/* Deferred Booking Special Handling */}
+      {pendingBookingId && isDeferredBooking && (
+        <div style={{
+          backgroundColor: '#fff3cd',
+          border: '2px solid #ffc107',
+          borderRadius: '12px',
+          padding: '2rem',
+          marginBottom: '2rem',
+          textAlign: 'center',
+          boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+        }}>
+          <h2 style={{ color: '#856404', marginBottom: '1rem', fontSize: '1.5rem' }}>
+            ⏰ Same-Day Booking Requires Phone Call
+          </h2>
+          <p style={{ color: '#856404', marginBottom: '1.5rem', fontSize: '1.1rem', lineHeight: '1.5' }}>
+            This booking was deferred because it's for today and requires at least 2 hours advance notice. 
+            To complete your booking, please call us directly.
+          </p>
+          
+          <div style={{
+            backgroundColor: '#fff',
+            border: '2px solid #28a745',
+            borderRadius: '8px',
+            padding: '1.5rem',
+            marginBottom: '2rem',
+            fontSize: '1.2rem'
+          }}>
+            <strong style={{ color: '#155724', fontSize: '1.4rem' }}>📞 Call us at: (803) 221-0466</strong>
+            <br />
+            <span style={{ color: '#155724', fontSize: '1rem' }}>
+              Our team will help you complete your same-day booking
+            </span>
+          </div>
+          
+          <div style={{ 
+            display: 'flex', 
+            gap: '1rem', 
+            justifyContent: 'center', 
+            flexWrap: 'wrap',
+            marginTop: '1.5rem'
+          }}>
+            <button
+              onClick={async () => {
+                if (pendingBookingId && confirm('Are you sure you want to delete this booking? This action cannot be undone.')) {
+                  try {
+                    // Delete the booking
+                    await updateBookingStatus(pendingBookingId, 'cancelled');
+                    
+                    // Clear the booking state
+                    setPendingBookingId('');
+                    setIsDeferredBooking(false);
+                    localStorage.removeItem('resumeBookingId');
+                    
+                    notifications.show({
+                      title: '✅ Booking Deleted',
+                      message: 'Your deferred booking has been successfully deleted.',
+                      color: 'green',
+                      autoClose: 5000,
+                    });
+                    
+                    // Navigate back to home
+                    navigate('/');
+                  } catch (error) {
+                    console.error('Error deleting booking:', error);
+                    notifications.show({
+                      title: '❌ Delete Failed',
+                      message: 'Failed to delete booking. Please try again.',
+                      color: 'red',
+                      autoClose: 5000,
+                    });
+                  }
+                }
+              }}
+              style={{
+                backgroundColor: '#dc3545',
+                color: 'white',
+                border: 'none',
+                padding: '1rem 2rem',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: 'bold'
+              }}
+            >
+              🗑️ Delete This Booking
+            </button>
+            
+            <button
+              onClick={() => navigate('/')}
+              style={{
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                padding: '1rem 2rem',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: 'bold'
+              }}
+            >
+              📝 Start New Booking
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Progress Indicator */}
       <div className="progress-indicator">
@@ -3732,6 +4094,91 @@ export default function Checkout() {
         }}>
           <h2 style={{ marginBottom: '1rem', color: '#333' }}>Payment</h2>
           
+          {/* Empty Cart Check for Resumed Bookings */}
+          {cart.length === 0 && pendingBookingId && (
+            <div style={{
+              backgroundColor: '#fff3cd',
+              border: '1px solid #ffeaa7',
+              borderRadius: '8px',
+              padding: '1rem',
+              marginBottom: '1rem',
+              textAlign: 'center'
+            }}>
+              <h3 style={{ color: '#856404', marginBottom: '0.5rem' }}>⚠️ Cart is Empty</h3>
+              <p style={{ color: '#856404', marginBottom: '1rem' }}>
+                Your cart is empty, but you have a booking in progress. This might happen if your session expired or the booking data couldn't be restored.
+              </p>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => {
+                    // Clear the booking and redirect to home
+                    setPendingBookingId('');
+                    setCurrentStep('order-summary');
+                    localStorage.removeItem('resumeBookingId');
+                    navigate('/');
+                  }}
+                  style={{
+                    backgroundColor: '#6c757d',
+                    color: 'white',
+                    border: 'none',
+                    padding: '0.75rem 1.5rem',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Start New Booking
+                </button>
+                <button
+                  onClick={async () => {
+                    // Try to reload booking data
+                    if (pendingBookingId) {
+                      try {
+                        const booking = await loadBookingData(pendingBookingId);
+                        if (booking?.orderDetails?.items) {
+                          const restoredCart = booking.orderDetails.items.map((item, index) => ({
+                            id: `${item.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${index}`,
+                            name: item.name,
+                            price: item.price,
+                            quantity: item.quantity,
+                            category: 'inflateable',
+                            wetDry: 'Wet/Dry',
+                            wet: true,
+                            dry: true
+                          }));
+                          setCart(restoredCart);
+                          notifications.show({
+                            title: '✅ Cart Restored',
+                            message: 'Successfully restored your cart items.',
+                            color: 'green',
+                            autoClose: 3000,
+                          });
+                        }
+                      } catch (error) {
+                        console.error('Error reloading booking:', error);
+                        notifications.show({
+                          title: '❌ Restore Failed',
+                          message: 'Could not restore cart items from booking.',
+                          color: 'red',
+                          autoClose: 5000,
+                        });
+                      }
+                    }
+                  }}
+                  style={{
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    padding: '0.75rem 1.5rem',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Try to Restore Cart
+                </button>
+              </div>
+            </div>
+          )}
+          
           {/* Call Requirement Notice */}
           {requiresPhoneCall && (
             <div style={{ 
@@ -3774,7 +4221,7 @@ export default function Checkout() {
                 marginBottom: '1.5rem'
               }}>
                 Your booking is scheduled within the next 2 days and requires manual verification. 
-                Your booking has been saved as pending. Please call us to confirm availability.
+                Your booking has been saved as deferred. Please call us to confirm availability.
                 After confirmation, we will send you a payment link via email.
               </p>
               
@@ -3873,6 +4320,49 @@ export default function Checkout() {
               </div>
             </div>
           )}
+
+          {/* Partial Processing Notification */}
+          {(() => {
+            const strategy = getDeferredBookingStrategy();
+            if (strategy.strategy === 'partial') {
+              const composition = analyzeCartComposition();
+              const partialTotals = calculatePartialTotals();
+              return (
+                <div style={{
+                  backgroundColor: '#e3f2fd',
+                  border: '2px solid #2196f3',
+                  borderRadius: '8px',
+                  padding: '1.5rem',
+                  marginBottom: '2rem',
+                  textAlign: 'center'
+                }}>
+                  <h3 style={{ color: '#1565c0', marginBottom: '1rem', fontSize: '1.2rem' }}>
+                    🔄 Partial Order Processing
+                  </h3>
+                  <div style={{ color: '#1976d2', marginBottom: '1rem' }}>
+                    <strong>Today's Payment:</strong> ${partialTotals.processableTotal.toFixed(2)}
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: '#1565c0', marginBottom: '0.5rem' }}>
+                    ✅ <strong>Processing Now:</strong> {composition.giftCardItems.length} gift card(s) + {composition.membershipItems.length} membership(s)
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: '#1565c0', marginBottom: '1rem' }}>
+                    📞 <strong>Requires Call:</strong> {composition.rentalItems.length} rental item(s) - ${partialTotals.rentalTotal.toFixed(2)}
+                  </div>
+                  <div style={{ 
+                    backgroundColor: '#fff3e0',
+                    padding: '0.8rem',
+                    borderRadius: '4px',
+                    fontSize: '0.85rem',
+                    color: '#f57c00'
+                  }}>
+                    Your gift cards and memberships will be processed immediately. 
+                    For rental items, please call <strong>(803) 221-0466</strong> to complete booking.
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           {/* Wallet Section */}
           {!requiresPhoneCall && userWallet && userWallet.balance > 0 && (
@@ -3982,15 +4472,18 @@ export default function Checkout() {
                 </div>
               )}
               
-              {/* Payment Type Selection */}
-              <div style={{ 
-                marginBottom: '2rem', 
-                padding: '1rem', 
-                backgroundColor: '#f8f9fa', 
-                borderRadius: '4px',
-                border: '1px solid #dee2e6'
-              }}>
-                <h4 style={{ margin: '0 0 1rem 0', color: '#333' }}>Choose Payment Option:</h4>
+              {/* Hide payment options if booking is deferred */}
+              {!isDeferredBooking && (
+                <div>
+                  {/* Payment Type Selection */}
+                  <div style={{ 
+                    marginBottom: '2rem', 
+                    padding: '1rem', 
+                    backgroundColor: '#f8f9fa', 
+                    borderRadius: '4px',
+                    border: '1px solid #dee2e6'
+                  }}>
+                    <h4 style={{ margin: '0 0 1rem 0', color: '#333' }}>Choose Payment Option:</h4>
                 
                 <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
                   <label style={{ 
@@ -4035,8 +4528,14 @@ export default function Checkout() {
                     </div>
                   </label>
                   
-                  {/* Only show deposit option if there are inflateables */}
-                  {hasInflatables() && (
+                  {/* Only show deposit option if there are inflateables and it's not partial processing */}
+                  {(() => {
+                    const strategy = getDeferredBookingStrategy();
+                    const hasInflatablesInCart = hasInflatables();
+                    
+                    // Don't show deposit option for partial processing (gift cards/memberships are always paid in full)
+                    return hasInflatablesInCart && strategy.strategy !== 'partial';
+                  })() && (
                     <label style={{ 
                       display: 'flex', 
                       alignItems: 'center', 
@@ -4134,15 +4633,50 @@ export default function Checkout() {
               )}
             </div>
           )}
+        </div>
+      )}
+        
+        {/* Show message for deferred bookings */}
+        {isDeferredBooking && (
+            <div style={{
+              backgroundColor: '#fff3cd',
+              border: '2px solid #ffc107',
+              borderRadius: '8px',
+              padding: '2rem',
+              marginBottom: '2rem',
+              textAlign: 'center'
+            }}>
+              <h3 style={{ color: '#856404', marginBottom: '1rem' }}>
+                ⏰ Payment Not Available for Deferred Bookings
+              </h3>
+              <p style={{ color: '#856404', marginBottom: '1rem' }}>
+                This booking was deferred due to same-day booking rules. You must call us to complete the payment.
+              </p>
+              <div style={{
+                backgroundColor: '#fff',
+                border: '2px solid #28a745',
+                borderRadius: '8px',
+                padding: '1rem',
+                marginBottom: '1rem'
+              }}>
+                <strong style={{ color: '#155724', fontSize: '1.2rem' }}>📞 Call: (803) 221-0466</strong>
+              </div>
+              <p style={{ color: '#856404', fontSize: '0.9rem', fontStyle: 'italic' }}>
+                Our team will process your payment over the phone and confirm your booking.
+              </p>
+            </div>
+          )}
           
           <div className="checkout-navigation-buttons">
-            <button
-              id="btn-back-contract"
-              onClick={goToPreviousStep}
-              disabled={processingPayment}
-            >
-              Back to Contract
-            </button>
+            {!isDeferredBooking && (
+              <button
+                id="btn-back-contract"
+                onClick={goToPreviousStep}
+                disabled={processingPayment}
+              >
+                Back to Contract
+              </button>
+            )}
           </div>
         </div>
       )}

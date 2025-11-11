@@ -8,6 +8,8 @@ import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { getUnavailableInflateables } from '../utils/bookingUtils';
 import { useDiscounts, getDiscountDescription, type DiscountCalculation } from '../hooks/useDiscounts';
 import { checkItemAvailability, type ItemAvailability } from '../utils/availabilityUtils';
+import { getIncompleteBookingsForUser, saveBookingData, loadBookingData } from '../utils/databaseUtils';
+import type { BookingData } from '../utils/databaseUtils';
 import '../styles/cart.css';
 
 export type CartItem = {
@@ -48,6 +50,249 @@ export type CartSidebarProps = {
     giftCardValues: {[idx: number]: number};
     setGiftCardValues: (values: {[idx: number]: number}) => void;
   };
+};
+
+// Utility functions for comparing cart with resumable bookings
+interface CartComparison {
+  itemsMatch: boolean;
+  settingsMatch: boolean;
+  hasChanges: boolean;
+  changedItems?: string[];
+  changedSettings?: string[];
+}
+
+// Compare cart items with booking items
+const compareCartItems = (cartItems: CartItem[], bookingItems: any[], wetDrySelections: {[idx: number]: string}): { match: boolean; changes: string[] } => {
+  const changes: string[] = [];
+  
+  // Check if same number of items
+  if (cartItems.length !== bookingItems.length) {
+    changes.push(`Different number of items: cart has ${cartItems.length}, booking has ${bookingItems.length}`);
+    return { match: false, changes };
+  }
+  
+  // Sort both arrays by name for comparison
+  const sortedCartItems = [...cartItems].sort((a, b) => a.name.localeCompare(b.name));
+  const sortedBookingItems = [...bookingItems].sort((a, b) => a.name.localeCompare(b.name));
+  
+  for (let i = 0; i < sortedCartItems.length; i++) {
+    const cartItem = sortedCartItems[i];
+    const bookingItem = sortedBookingItems[i];
+    
+    // Check name match
+    if (cartItem.name !== bookingItem.name) {
+      changes.push(`Item ${i}: "${cartItem.name}" vs "${bookingItem.name}"`);
+      continue;
+    }
+    
+    // Check quantity
+    if (cartItem.quantity !== bookingItem.quantity) {
+      changes.push(`${cartItem.name}: quantity ${cartItem.quantity} vs ${bookingItem.quantity}`);
+    }
+    
+    // Check price (for gift cards and other variable pricing)
+    const cartPrice = cartItem.isGiftCard ? (cartItem.giftCardValue || cartItem.price) : cartItem.price;
+    if (Math.abs(cartPrice - bookingItem.price) > 0.01) {
+      changes.push(`${cartItem.name}: price $${cartPrice} vs $${bookingItem.price}`);
+    }
+  }
+  
+  return { match: changes.length === 0, changes };
+};
+
+// Compare cart settings with booking settings
+const compareCartSettings = (
+  cartSettings: {
+    duration: string;
+    surface: string;
+    deliveryTime: string;
+    location: string;
+  },
+  booking: BookingData
+): { match: boolean; changes: string[] } => {
+  const changes: string[] = [];
+  
+  if (cartSettings.duration !== booking.orderDetails.duration) {
+    changes.push(`Duration: "${cartSettings.duration}" vs "${booking.orderDetails.duration}"`);
+  }
+  
+  if (cartSettings.surface !== booking.orderDetails.surface) {
+    changes.push(`Surface: "${cartSettings.surface}" vs "${booking.orderDetails.surface}"`);
+  }
+  
+  if (cartSettings.deliveryTime !== booking.orderDetails.deliveryTime) {
+    changes.push(`Delivery time: "${cartSettings.deliveryTime}" vs "${booking.orderDetails.deliveryTime}"`);
+  }
+  
+  // Extract location from delivery address (simplified check)
+  const bookingLocation = booking.orderDetails.deliveryAddress || '';
+  if (cartSettings.location !== bookingLocation) {
+    changes.push(`Location: "${cartSettings.location}" vs "${bookingLocation}"`);
+  }
+  
+  return { match: changes.length === 0, changes };
+};
+
+// Find best matching resumable booking
+const findMatchingBooking = async (
+  userId: string,
+  cartItems: CartItem[],
+  cartSettings: {
+    duration: string;
+    surface: string;
+    deliveryTime: string;
+    location: string;
+  },
+  wetDrySelections: {[idx: number]: string}
+): Promise<{ booking: BookingData | null; comparison: CartComparison | null }> => {
+  try {
+    const incompleteBookings = await getIncompleteBookingsForUser(userId);
+    console.log('🔍 [DEBUG] Found incomplete bookings:', incompleteBookings.length);
+    
+    if (incompleteBookings.length === 0) {
+      return { booking: null, comparison: null };
+    }
+    
+    // Find exact matches first, then partial matches
+    for (const booking of incompleteBookings) {
+      const itemComparison = compareCartItems(cartItems, booking.orderDetails.items, wetDrySelections);
+      const settingsComparison = compareCartSettings(cartSettings, booking);
+      
+      const comparison: CartComparison = {
+        itemsMatch: itemComparison.match,
+        settingsMatch: settingsComparison.match,
+        hasChanges: !itemComparison.match || !settingsComparison.match,
+        changedItems: itemComparison.changes,
+        changedSettings: settingsComparison.changes
+      };
+      
+      console.log(`🔍 [DEBUG] Booking ${booking.orderID} comparison:`, comparison);
+      
+      // Return first exact match
+      if (!comparison.hasChanges) {
+        console.log(`✅ [DEBUG] Found exact match: ${booking.orderID}`);
+        return { booking, comparison };
+      }
+      
+      // Return first partial match (for now - could be improved to rank matches)
+      if (comparison.itemsMatch && !comparison.settingsMatch) {
+        console.log(`⚠️ [DEBUG] Found partial match (settings changed): ${booking.orderID}`);
+        return { booking, comparison };
+      }
+    }
+    
+    console.log('❌ [DEBUG] No matching bookings found');
+    return { booking: null, comparison: null };
+  } catch (error) {
+    console.error('❌ Error finding matching booking:', error);
+    return { booking: null, comparison: null };
+  }
+};
+
+// Update existing booking with current cart data
+const updateExistingBooking = async (
+  existingBooking: BookingData,
+  cartItems: CartItem[],
+  cartSettings: {
+    duration: string;
+    surface: string;
+    deliveryTime: string;
+    location: string;
+  },
+  wetDrySelections: {[idx: number]: string},
+  calendarDateRange: [Date | null, Date | null]
+): Promise<BookingData | null> => {
+  try {
+    console.log('🔄 [DEBUG] Updating existing booking:', existingBooking.orderID);
+    
+    // Calculate the new total amount with current cart and settings
+    const durationMultipliers: Record<string, number> = {
+      "4hours": 0.9,
+      "24hours": 1.0,
+      "48hours": 1.5,
+    };
+    
+    const surfacePrices: Record<string, number> = {
+      "grass-stakes": 0,
+      "grass-sandbags": 50,
+      "concrete": 50,
+      "indoor": 40,
+    };
+    
+    const timePrices: Record<string, number> = {
+      "8am": 50,
+      "9am": 40,
+      "10am": 30,
+      "11am": 20,
+      "12pm": 10,
+      "": 0,
+    };
+    
+    const durationMultiplier = durationMultipliers[cartSettings.duration] || 1.0;
+    const surfaceAdj = surfacePrices[cartSettings.surface] || 0;
+    const timeAdj = timePrices[cartSettings.deliveryTime] || 0;
+    
+    // Calculate cart total
+    let cartTotal = 0;
+    const updatedItems = cartItems.map((item, index) => {
+      let itemTotal;
+      
+      if (item.isGiftCard) {
+        itemTotal = (item.giftCardValue || item.price) * item.quantity;
+      } else {
+        itemTotal = item.price * item.quantity * durationMultiplier;
+        
+        // Add wet surcharge if applicable
+        if (item.wetDry === "Wet/Dry" && wetDrySelections[index] === "Wet") {
+          itemTotal += 50 * item.quantity;
+        }
+      }
+      
+      cartTotal += itemTotal;
+      
+      return {
+        name: item.name,
+        quantity: item.quantity,
+        price: item.isGiftCard ? (item.giftCardValue || item.price) : item.price
+      };
+    });
+    
+    const newTotalAmount = cartTotal + surfaceAdj + timeAdj;
+    
+    console.log('💰 [DEBUG] New total amount calculated:', newTotalAmount);
+    
+    // Update the booking data
+    const updatedBooking: BookingData = {
+      ...existingBooking,
+      orderDetails: {
+        ...existingBooking.orderDetails,
+        eventDate: calendarDateRange[0]?.toISOString() || existingBooking.orderDetails.eventDate,
+        duration: cartSettings.duration,
+        surface: cartSettings.surface,
+        deliveryTime: cartSettings.deliveryTime,
+        deliveryAddress: cartSettings.location,
+        items: updatedItems,
+        totalAmount: newTotalAmount
+      },
+      paymentDetails: {
+        ...existingBooking.paymentDetails,
+        totalAmount: newTotalAmount,
+        // Recalculate deposit amount if this was a deposit booking
+        depositAmount: existingBooking.paymentDetails.paymentType === 'deposit' 
+          ? newTotalAmount * 0.5 // Simplified - adjust based on actual logic
+          : newTotalAmount
+      }
+    };
+    
+    // Save the updated booking
+    await saveBookingData(updatedBooking);
+    
+    console.log('✅ [DEBUG] Booking updated successfully');
+    return updatedBooking;
+  } catch (error) {
+    console.error('❌ [DEBUG] Error updating existing booking:', error);
+    return null;
+  }
 };
 
 export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, discountLogic, cartSettings }: CartSidebarProps) {
@@ -1112,6 +1357,96 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
               
               if (cart.length > 0 && eventFieldsValid && areWetDrySelectionsComplete()) {
                 if (user) {
+                  console.log('🔍 [DEBUG] Checking for matching resumable bookings...');
+                  
+                  // Check for matching resumable bookings
+                  const currentCartSettings = {
+                    duration: cartSettings?.duration || duration,
+                    surface: cartSettings?.surface || surface,
+                    deliveryTime: cartSettings?.deliveryTime || deliveryTime,
+                    location: cartSettings?.location || location
+                  };
+                  
+                  const matchResult = await findMatchingBooking(
+                    user.uid, 
+                    cart, 
+                    currentCartSettings, 
+                    cartSettings?.wetDrySelections || localWetDrySelections
+                  );
+                  
+                  if (matchResult.booking && matchResult.comparison) {
+                    console.log('✅ [DEBUG] Found matching booking:', matchResult.booking.orderID);
+                    
+                    if (!matchResult.comparison.hasChanges) {
+                      // Exact match - resume the booking directly
+                      console.log('➡️ [DEBUG] Exact match - resuming booking directly');
+                      localStorage.setItem('resumeBookingId', matchResult.booking.orderID);
+                      onClose(); // Close cart sidebar
+                      navigate('/checkout');
+                      return;
+                    } else {
+                      // Partial match - show confirmation dialog
+                      console.log('⚠️ [DEBUG] Partial match - showing update confirmation');
+                      const changeDescription = [
+                        ...(matchResult.comparison.changedItems || []),
+                        ...(matchResult.comparison.changedSettings || [])
+                      ].join('\n• ');
+                      
+                      const confirmMessage = matchResult.comparison.itemsMatch
+                        ? `We found a similar booking (${matchResult.booking.orderID}) with different settings:\n\n• ${changeDescription}\n\nWould you like to update that booking with your current selections instead of creating a new one?`
+                        : `We found a booking (${matchResult.booking.orderID}) with similar items but some changes:\n\n• ${changeDescription}\n\nWould you like to update that booking instead of creating a new one?`;
+                      
+                      const userConfirmed = confirm(confirmMessage);
+                      
+                      if (userConfirmed) {
+                        console.log('✅ [DEBUG] User confirmed update - updating existing booking');
+                        
+                        // Show loading state
+                        const proceedButton = document.getElementById('proceedButton') as HTMLButtonElement;
+                        if (proceedButton) {
+                          proceedButton.disabled = true;
+                          proceedButton.textContent = 'Updating Booking...';
+                        }
+                        
+                        try {
+                          const updatedBooking = await updateExistingBooking(
+                            matchResult.booking, 
+                            cart, 
+                            currentCartSettings, 
+                            cartSettings?.wetDrySelections || localWetDrySelections,
+                            calendarDateRange
+                          );
+                          
+                          if (updatedBooking) {
+                            console.log('✅ [DEBUG] Booking updated successfully, resuming...');
+                            localStorage.setItem('resumeBookingId', matchResult.booking.orderID);
+                            onClose(); // Close cart sidebar
+                            navigate('/checkout');
+                            return;
+                          } else {
+                            throw new Error('Failed to update booking');
+                          }
+                        } catch (error) {
+                          console.error('❌ Error updating booking:', error);
+                          alert('Failed to update existing booking. Creating a new booking instead.');
+                        } finally {
+                          // Restore button state
+                          if (proceedButton) {
+                            proceedButton.disabled = false;
+                            proceedButton.textContent = 'Proceed to Purchase';
+                          }
+                        }
+                      } else {
+                        console.log('❌ [DEBUG] User declined update - proceeding with new booking');
+                      }
+                    }
+                  } else {
+                    console.log('ℹ️ [DEBUG] No matching bookings found - proceeding with new booking');
+                  }
+                  
+                  // No match found or user declined update - proceed with normal flow
+                  console.log('➡️ [DEBUG] No match or user declined - creating new booking');
+                  
                   // Save cart to Firestore for abandonment tracking before proceeding
                   await saveCartToFirestore(user);
                   // User is logged in, proceed to checkout
