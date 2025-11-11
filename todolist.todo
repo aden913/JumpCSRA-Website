@@ -507,7 +507,30 @@
         "children": [
           {
             "key": 1762023399287,
-            "children": [],
+            "children": [
+              {
+                "key": 1762821168343,
+                "children": [],
+                "todo": {
+                  "content": "quote =",
+                  "id": 1762821168343,
+                  "level": "default",
+                  "done": false,
+                  "start": 1762821168343
+                }
+              },
+              {
+                "key": 1762821190340,
+                "children": [],
+                "todo": {
+                  "content": "reserved =",
+                  "id": 1762821190340,
+                  "level": "default",
+                  "done": false,
+                  "start": 1762821190340
+                }
+              }
+            ],
             "todo": {
               "content": "add or substitute quote, reserved, paid, complete, and cancelled",
               "id": 1762023399287,
@@ -560,25 +583,16 @@
         }
       },
       {
-        "key": 1762187048611,
-        "children": [],
-        "todo": {
-          "content": "",
-          "id": 1762187048611,
-          "level": "default",
-          "done": false,
-          "start": 1762187048611
-        }
-      },
-      {
         "key": 1762187048727,
         "children": [],
         "todo": {
           "content": "verifyy navigation when needing to sign in from profile",
           "id": 1762187048727,
           "level": "default",
-          "done": false,
-          "start": 1762187048727
+          "done": true,
+          "start": 1762187048727,
+          "focus": false,
+          "end": 1762821127985
         }
       }
     ],
@@ -611,7 +625,8 @@
       1761757610378,
       1761757659665,
       1761757698803,
-      1761757731623
+      1761757731623,
+      1762023399287
     ],
     "schema": "https://github.com/Saber2pr/vsc-ext-todolist/blob/master/src/api/type.ts#L3",
     "add_mode": "bottom",
@@ -624,6 +639,6 @@
     "showEndTime": false,
     "simpleMode": false,
     "lang": "en",
-    "version": "1762820773955"
+    "version": "1762821203001"
   }
 }

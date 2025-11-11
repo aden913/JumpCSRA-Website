@@ -1160,7 +1160,7 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            zIndex: 2000
+            zIndex: 20000
           }}
         >
           <div 

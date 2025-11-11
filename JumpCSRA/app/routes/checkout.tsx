@@ -182,6 +182,7 @@ export default function Checkout() {
   const [loadingBookingFromUrl, setLoadingBookingFromUrl] = useState<boolean>(false);
   const [bookingLoadedFromUrl, setBookingLoadedFromUrl] = useState<boolean>(false);
   const [paymentType, setPaymentType] = useState<'full' | 'deposit'>('full');
+  const [actualAmountPaid, setActualAmountPaid] = useState<number | null>(null);
   
   // Store completed order data for display after cart is cleared
   const [completedOrderCart, setCompletedOrderCart] = useState<CartItem[]>([]);
@@ -1139,13 +1140,48 @@ export default function Checkout() {
 
   // Calculate cart total including last-minute additions
   const durationMultiplier = cartSettings.duration ? durationMultipliers[cartSettings.duration] || 1.0 : 1.0;
-  const cartTotal = cart.reduce((sum, item) => {
+  console.log('🔍 [DEBUG] Checkout cartTotal calculation starting...');
+  console.log('🔍 [DEBUG] Checkout durationMultiplier =', durationMultiplier);
+  console.log('🔍 [DEBUG] Checkout cart items =', cart.map(item => `${item.name}: $${item.price} x ${item.quantity}`));
+  
+  // Check if cart contains a membership (for discount calculation)
+  const hasMembership = cart.some(item => item.isMembership);
+  console.log('🔍 [DEBUG] Checkout hasMembership =', hasMembership);
+  
+  const cartTotal = cart.reduce((sum, item, index) => {
+    let itemTotal: number;
     if (item.isGiftCard) {
-      return sum + (item.giftCardValue || item.price) * item.quantity;
+      itemTotal = (item.giftCardValue || item.price) * item.quantity;
+      console.log(`🔍 [DEBUG] Checkout Gift Card "${item.name}": $${itemTotal.toFixed(2)}`);
+    } else if (item.isMembership) {
+      // Membership items don't get duration multiplier or other discounts
+      itemTotal = item.price * item.quantity;
+      console.log(`🔍 [DEBUG] Checkout Membership "${item.name}": $${itemTotal.toFixed(2)}`);
     } else {
-      return sum + item.price * item.quantity * durationMultiplier;
+      // Regular items with duration multiplier
+      itemTotal = item.price * item.quantity * durationMultiplier;
+      
+      // Add wet surcharge if applicable (same logic as CartSidebar)
+      const supportsWetDry = item.wetDry === "Wet/Dry";
+      if (supportsWetDry && cartSettings.wetDrySelections?.[index] === "Wet") {
+        const wetSurcharge = 50 * item.quantity;
+        itemTotal += wetSurcharge;
+        console.log(`🔍 [DEBUG] Checkout Wet surcharge for "${item.name}": +$${wetSurcharge.toFixed(2)}`);
+      }
+      
+      // Apply 25% membership discount to non-membership items if membership is in cart
+      if (hasMembership && !item.excludeFromDiscounts) {
+        const originalItemTotal = itemTotal;
+        itemTotal = itemTotal * 0.75; // 25% discount
+        console.log(`🔍 [DEBUG] Checkout Membership discount for "${item.name}": $${originalItemTotal.toFixed(2)} -> $${itemTotal.toFixed(2)}`);
+      }
+      
+      console.log(`🔍 [DEBUG] Checkout Regular Item "${item.name}": $${item.price} x ${item.quantity} x ${durationMultiplier} = $${itemTotal.toFixed(2)}`);
     }
+    return sum + itemTotal;
   }, 0);
+  
+  console.log('🔍 [DEBUG] Checkout cartTotal after all adjustments =', cartTotal);
 
   // Calculate last-minute additions total
   const lastMinuteTotal = Object.entries(lastMinuteAdditions).reduce((sum, [itemName, quantity]) => {
@@ -1163,6 +1199,16 @@ export default function Checkout() {
   const timeAdj = cartSettings.deliveryTime ? timePrices[cartSettings.deliveryTime] || 0 : 0;
   const subtotal = cartTotal + lastMinuteTotal + surfaceAdj + timeAdj;
   const total = subtotal + deliveryCost;
+
+  // Add debugging for total calculation
+  console.log('🔍 [DEBUG] Total Calculation Breakdown:');
+  console.log('🔍 [DEBUG] cartTotal =', cartTotal);
+  console.log('🔍 [DEBUG] lastMinuteTotal =', lastMinuteTotal);
+  console.log('🔍 [DEBUG] surfaceAdj =', surfaceAdj);
+  console.log('🔍 [DEBUG] timeAdj =', timeAdj);
+  console.log('🔍 [DEBUG] deliveryCost =', deliveryCost);
+  console.log('🔍 [DEBUG] subtotal =', subtotal);
+  console.log('🔍 [DEBUG] final total =', total);
 
   // Load inflateables data function (similar to CartSidebar)
   const loadInflateablesData = async (): Promise<any[]> => {
@@ -1308,8 +1354,14 @@ export default function Checkout() {
 
   // Calculate total payment amount
   const calculateTotalAmount = () => {
+    console.log('🔍 [DEBUG] calculateTotalAmount: Starting calculation...');
+    console.log('🔍 [DEBUG] calculateTotalAmount: total variable =', total);
+    
     // Use the comprehensive total calculation that's already implemented above
-    return total.toFixed(2);
+    const result = total.toFixed(2);
+    console.log('🔍 [DEBUG] calculateTotalAmount: final result =', result);
+    
+    return result;
   };
 
   // Calculate gift card total (always paid in full)
@@ -1338,12 +1390,46 @@ export default function Checkout() {
 
   // Calculate 50% deposit amount (only for inflatables)
   const calculateDepositAmount = () => {
+    console.log('🔍 [DEBUG] calculateDepositAmount: Starting calculation...');
+    
     const giftCardTotal = calculateGiftCardTotal();
     const inflatableTotal = calculateInflatableTotal();
     const depositOnInflatables = inflatableTotal * 0.5;
     
+    console.log('🔍 [DEBUG] calculateDepositAmount: giftCardTotal =', giftCardTotal);
+    console.log('🔍 [DEBUG] calculateDepositAmount: inflatableTotal =', inflatableTotal);
+    console.log('🔍 [DEBUG] calculateDepositAmount: depositOnInflatables =', depositOnInflatables);
+    
     // Total deposit payment = full gift card amount + 50% of inflatables
-    return (giftCardTotal + depositOnInflatables).toFixed(2);
+    const result = (giftCardTotal + depositOnInflatables).toFixed(2);
+    console.log('🔍 [DEBUG] calculateDepositAmount: final result =', result);
+    
+    return result;
+  };
+
+  // Calculate the actual amount paid based on payment type
+  const calculateActualAmountPaid = () => {
+    console.log('🔍 [DEBUG] calculateActualAmountPaid: Starting calculation...');
+    console.log('🔍 [DEBUG] calculateActualAmountPaid: paymentType =', paymentType);
+    console.log('🔍 [DEBUG] calculateActualAmountPaid: actualAmountPaid state =', actualAmountPaid);
+    
+    // If we have the actual amount paid from the payment success, use that
+    if (actualAmountPaid !== null) {
+      console.log('🔍 [DEBUG] calculateActualAmountPaid: Using actual paid amount =', actualAmountPaid.toFixed(2));
+      return actualAmountPaid.toFixed(2);
+    }
+    
+    // Fallback to calculated amounts if actual amount not yet available
+    const depositAmount = calculateDepositAmount();
+    const totalAmount = calculateTotalAmount();
+    
+    console.log('🔍 [DEBUG] calculateActualAmountPaid: depositAmount =', depositAmount);
+    console.log('🔍 [DEBUG] calculateActualAmountPaid: totalAmount =', totalAmount);
+    
+    const result = paymentType === 'deposit' ? depositAmount : totalAmount;
+    console.log('🔍 [DEBUG] calculateActualAmountPaid: final result (fallback) =', result);
+    
+    return result;
   };
 
   // Check if deposit option should be available
@@ -1842,6 +1928,10 @@ export default function Checkout() {
       
       // Calculate total paid amount (PayPal + Wallet)
       const totalPaidAmount = payPalAmount + walletAppliedAmount;
+      
+      // Store the actual amount paid for display purposes
+      setActualAmountPaid(totalPaidAmount);
+      console.log('🔍 [DEBUG] Payment Success: Actual amount paid stored =', totalPaidAmount);
       
       if (pendingBookingId) {
         // Load existing booking to get total amount and current status
@@ -3919,7 +4009,10 @@ export default function Checkout() {
                       name="paymentType"
                       value="full"
                       checked={paymentType === 'full'}
-                      onChange={() => setPaymentType('full')}
+                      onChange={() => {
+                        console.log('🔍 [DEBUG] Payment type changed to: full');
+                        setPaymentType('full');
+                      }}
                       style={{ margin: 0 }}
                     />
                     <div>
@@ -3960,7 +4053,10 @@ export default function Checkout() {
                         name="paymentType"
                         value="deposit"
                         checked={paymentType === 'deposit'}
-                        onChange={() => setPaymentType('deposit')}
+                        onChange={() => {
+                          console.log('🔍 [DEBUG] Payment type changed to: deposit');
+                          setPaymentType('deposit');
+                        }}
                         style={{ margin: 0 }}
                       />
                       <div>
@@ -4074,7 +4170,12 @@ export default function Checkout() {
               <strong>Payment ID:</strong> {paymentId}
             </p>
             <p style={{ margin: '0.5rem 0', color: '#666' }}>
-              <strong>Total Paid:</strong> ${calculateTotalAmount()}
+              <strong>Total Paid:</strong> ${(() => {
+                console.log('🔍 [DEBUG] Displaying Total Paid amount...');
+                const result = calculateActualAmountPaid();
+                console.log('🔍 [DEBUG] Total Paid result:', result);
+                return result;
+              })()}
             </p>
           </div>
           <p style={{ color: '#666' }}>
