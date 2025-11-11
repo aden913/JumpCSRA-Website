@@ -15,6 +15,27 @@ import { useCategories } from "./hooks/useCategories";
 import type { CartItem } from "./components/CartSidebar";
 import { loadBookingData, loadContractData, loadContractByOrderID, getUserWallet, getUserPaymentInfo, addWalletTransaction, addSavedPaymentMethod, deleteAllUserData } from "./utils/databaseUtils";
 import type { BookingData, ContractData, UserWallet, UserPaymentInfo, SavedPaymentMethod } from "./utils/databaseUtils";
+
+// Helper function to clear all localStorage data on sign out
+const clearAllLocalStorage = () => {
+  // Cart-related data
+  localStorage.removeItem('cart');
+  localStorage.removeItem('cart_duration');
+  localStorage.removeItem('cart_surface');
+  localStorage.removeItem('cart_deliveryTime');
+  localStorage.removeItem('cart_location');
+  localStorage.removeItem('cart_wetDrySelections');
+  localStorage.removeItem('cart_giftCardValues');
+  localStorage.removeItem('orderMessage');
+  
+  // User session data
+  localStorage.removeItem('pendingEmail');
+  localStorage.removeItem('calendarDateRange');
+  localStorage.removeItem('resumeBookingId');
+  localStorage.removeItem('pendingUserData');
+  
+  console.log('🧹 All localStorage data cleared on sign out');
+};
 import { redeemGiftCardToWallet, validateGiftCard, getGiftCardDetails } from "./hooks/useDiscounts";
 import { WalletFundingModal } from "./components/WalletFundingModal";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
@@ -1005,6 +1026,7 @@ export default function Profile() {
       );
 
       // Sign out and redirect
+      clearAllLocalStorage(); // Clear all localStorage data before signing out
       await auth.signOut();
       navigate("/");
       
@@ -1401,6 +1423,8 @@ export default function Profile() {
                 style={{ background: "#1976d2", color: "#fff", padding: "0.75rem 2rem", borderRadius: "6px", border: "none", fontWeight: "bold" }}
                 onClick={async () => {
                   try {
+                    // Clear all localStorage data before signing out
+                    clearAllLocalStorage();
                     await auth.signOut();
                     navigate("/");
                   } catch (err: any) {
