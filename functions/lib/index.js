@@ -4,7 +4,7 @@
  * Refactored and modularized for better maintainability
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.autoCompleteBookings = exports.processScheduledEmails = exports.triggerTestEmail = exports.processPayPalBookingRefund = exports.testPayPalDebug = exports.createPayPalInvoice = exports.sendAccountDeletionEmail = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.sendOrderConfirmationEmail = exports.testFunction = void 0;
+exports.processMembershipBilling = exports.autoCompleteBookings = exports.processScheduledEmails = exports.triggerTestEmail = exports.processPayPalBookingRefund = exports.testPayPalDebug = exports.createPayPalInvoice = exports.sendAccountDeletionEmail = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.sendOrderConfirmationEmail = exports.testFunction = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const axios_1 = require("axios");
@@ -50,7 +50,6 @@ if (!admin.apps.length) {
  * Error Handling: Preserves original error types from email server for debugging
  */
 exports.sendOrderConfirmationEmail = functions.https.onCall(async (data, context) => {
-    console.log('📧 ORDER CONFIRMATION - Cloud Function called, auth status:', !!context.auth);
     try {
         const result = await (0, emailService_1.sendOrderConfirmationEmail)(data);
         return result; // Return the actual email server response
@@ -90,7 +89,6 @@ exports.sendOrderConfirmationEmail = functions.https.onCall(async (data, context
  * Security: Authentication prevents abuse and unauthorized gift card creation
  */
 exports.sendGiftCardEmail = functions.https.onCall(async (data, context) => {
-    console.log('🎁 GIFT CARD - Cloud Function called, auth status:', !!context.auth);
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to send gift card emails.');
     }
@@ -137,7 +135,6 @@ exports.sendGiftCardEmailOnCreate = functions.firestore
     const giftCardData = snap.data();
     // Only send email for purchased gift cards (not promotional ones)
     if ((giftCardData === null || giftCardData === void 0 ? void 0 : giftCardData.isPurchased) && (giftCardData === null || giftCardData === void 0 ? void 0 : giftCardData.recipientEmail)) {
-        console.log('🎁 Auto-sending gift card email for:', giftCardData.recipientEmail);
         const emailData = {
             recipientEmail: giftCardData.recipientEmail,
             recipientName: giftCardData.recipientName || 'Valued Customer',
@@ -151,7 +148,6 @@ exports.sendGiftCardEmailOnCreate = functions.firestore
         };
         try {
             await (0, emailService_1.sendGiftCardEmail)(emailData);
-            console.log('✅ Auto gift card email sent successfully');
         }
         catch (error) {
             console.error('❌ Failed to auto-send gift card email:', error);
@@ -191,7 +187,6 @@ exports.sendGiftCardEmailOnCreate = functions.firestore
  * Compliance: Supports audit trails for account deletion processes
  */
 exports.sendAccountDeletionEmail = functions.https.onCall(async (data, context) => {
-    console.log('🗑️ ACCOUNT DELETION - Cloud Function called');
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to send account deletion emails.');
     }
@@ -250,7 +245,6 @@ exports.sendAccountDeletionEmail = functions.https.onCall(async (data, context) 
  * Error Handling: Preserves PayPal API errors for debugging payment issues
  */
 exports.createPayPalInvoice = functions.https.onCall(async (data, context) => {
-    console.log('💰 PAYPAL INVOICE - Cloud Function called, auth status:', !!context.auth);
     try {
         const invoice = await (0, paypalService_1.createPayPalInvoice)(data);
         return {
@@ -300,7 +294,6 @@ exports.createPayPalInvoice = functions.https.onCall(async (data, context) => {
  * Security: No sensitive data exposed in test responses
  */
 exports.testPayPalDebug = functions.https.onCall(async (data, context) => {
-    console.log('🧪 PAYPAL TEST - Cloud Function called');
     try {
         const result = await (0, paypalService_1.testPayPalConnection)();
         return result;
@@ -311,7 +304,6 @@ exports.testPayPalDebug = functions.https.onCall(async (data, context) => {
     }
 });
 exports.processPayPalBookingRefund = functions.https.onCall(async (data, context) => {
-    console.log('💰 PAYPAL REFUND - Cloud Function called, auth status:', !!context.auth);
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -321,7 +313,6 @@ exports.processPayPalBookingRefund = functions.https.onCall(async (data, context
             throw new functions.https.HttpsError('invalid-argument', 'Invalid refund parameters');
         }
         const result = await (0, paypalService_1.processPayPalRefund)(captureId, amount, reason);
-        console.log('✅ PAYPAL REFUND - Refund processed successfully:', result.refundId);
         return result;
     }
     catch (error) {
@@ -368,7 +359,6 @@ exports.processPayPalBookingRefund = functions.https.onCall(async (data, context
  * Development Use: Essential for testing email automation before production deployment
  */
 exports.triggerTestEmail = functions.https.onCall(async (data, context) => {
-    console.log('🧪 EMAIL TEST - Manual trigger called:', data.type);
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Authentication required for email testing.');
     }
@@ -440,7 +430,6 @@ exports.triggerTestEmail = functions.https.onCall(async (data, context) => {
 exports.processScheduledEmails = functions.pubsub
     .schedule('every 2 minutes') // For production, change to 'every 1 hours'
     .onRun(async (context) => {
-    console.log('📧 SCHEDULER: Starting scheduled email processing...');
     const db = admin.database();
     const now = Date.now();
     try {
@@ -452,7 +441,6 @@ exports.processScheduledEmails = functions.pubsub
             processPostEventEmails(db, now),
             processRebookingReminderEmails(db, now)
         ]);
-        console.log('✅ SCHEDULER: All scheduled emails processed successfully');
     }
     catch (error) {
         console.error('❌ SCHEDULER: Error processing scheduled emails:', error);
@@ -503,7 +491,6 @@ exports.processScheduledEmails = functions.pubsub
 exports.autoCompleteBookings = functions.pubsub
     .schedule('every 1 hours')
     .onRun(async (context) => {
-    console.log('🔄 AUTO-COMPLETE: Starting booking completion check...');
     const db = admin.database();
     const now = Date.now();
     const today = new Date();
@@ -512,7 +499,6 @@ exports.autoCompleteBookings = functions.pubsub
         const bookingsRef = db.ref('bookings');
         const snapshot = await bookingsRef.once('value');
         if (!snapshot.exists()) {
-            console.log('📋 AUTO-COMPLETE: No bookings found');
             return;
         }
         const updates = {};
@@ -530,7 +516,6 @@ exports.autoCompleteBookings = functions.pubsub
                     eventDateObj.setHours(23, 59, 59, 999); // End of event day
                     // If event date has passed, mark as complete
                     if (eventDateObj < today) {
-                        console.log(`✅ AUTO-COMPLETE: Completing past event ${child.key} (Event: ${eventDate})`);
                         updates[`${child.key}/status`] = 'complete';
                         updates[`${child.key}/completedAt`] = now;
                         updates[`${child.key}/completionReason`] = 'Auto-completed after event date';
@@ -538,20 +523,291 @@ exports.autoCompleteBookings = functions.pubsub
                     }
                 }
                 else {
-                    console.log(`⚠️ AUTO-COMPLETE: Booking ${child.key} missing event date`);
                 }
             }
         });
         if (completedCount > 0) {
             await bookingsRef.update(updates);
-            console.log(`✅ AUTO-COMPLETE: Completed ${completedCount} past events`);
         }
         else {
-            console.log('📋 AUTO-COMPLETE: No bookings needed completion');
         }
     }
     catch (error) {
         console.error('❌ AUTO-COMPLETE: Error processing bookings:', error);
+    }
+});
+/**
+ * Daily Membership Billing Processor (Cloud Scheduler)
+ *
+ * Purpose: Process recurring membership billing every 30 days
+ * Features:
+ * - Checks all users with active memberships
+ * - Bills users whose 30-day period has elapsed
+ * - Handles payment failures with email notifications
+ * - Processes membership cancellations
+ * - Creates billing history records
+ *
+ * Schedule: Runs daily at 9:00 AM UTC
+ */
+exports.processMembershipBilling = functions.pubsub
+    .schedule('0 9 * * *') // Daily at 9 AM UTC
+    .onRun(async (context) => {
+    var _a, _b, _c, _d;
+    const firestore = admin.firestore();
+    const now = new Date();
+    try {
+        // Get all users with membership data
+        const usersSnapshot = await firestore.collection('users').get();
+        for (const userDoc of usersSnapshot.docs) {
+            const userId = userDoc.id;
+            try {
+                // Get membership subcollection
+                const membershipDoc = await firestore
+                    .collection('users')
+                    .doc(userId)
+                    .collection('membership')
+                    .doc('status')
+                    .get();
+                if (!membershipDoc.exists)
+                    continue;
+                const membership = membershipDoc.data();
+                if (!(membership === null || membership === void 0 ? void 0 : membership.dateStarted))
+                    continue;
+                const dateStarted = new Date(membership.dateStarted);
+                const daysSinceStart = Math.floor((now.getTime() - dateStarted.getTime()) / (1000 * 60 * 60 * 24));
+                // Check if 30 days have passed since last billing
+                if (daysSinceStart >= 30 && daysSinceStart % 30 === 0) {
+                    // Determine membership type and cost
+                    const membershipType = membership.weekday ? 'weekday' : 'weekend';
+                    const amount = membershipType === 'weekday' ? 199 : 249;
+                    // Check if membership is cancelled
+                    if (membership.cancelled) {
+                        // Cancel the membership instead of billing
+                        await firestore
+                            .collection('users')
+                            .doc(userId)
+                            .collection('membership')
+                            .doc('status')
+                            .update({
+                            weekday: false,
+                            weekend: false,
+                            dateStarted: admin.firestore.FieldValue.delete(),
+                            cancelled: false,
+                            updatedAt: now.toISOString()
+                        });
+                        // Send cancellation confirmation email
+                        const userData = userDoc.data();
+                        if (userData === null || userData === void 0 ? void 0 : userData.email) {
+                            try {
+                                await (0, emailService_1.sendOrderConfirmationEmail)({
+                                    recipientEmail: userData.email,
+                                    recipientName: userData.name || 'Valued Customer',
+                                    orderID: `CANCEL-${userId}-${Date.now()}`,
+                                    orderDate: now.toISOString(),
+                                    eventDate: now.toISOString(),
+                                    deliveryAddress: 'N/A',
+                                    rentalItems: [{
+                                            name: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Cancelled`,
+                                            price: 0,
+                                            quantity: 1
+                                        }],
+                                    lastMinuteAdditions: [],
+                                    subtotal: 0,
+                                    surfaceAdjustment: 0,
+                                    timeAdjustment: 0,
+                                    deliveryCost: 0,
+                                    totalAmount: 0,
+                                    paymentType: 'Membership Cancellation',
+                                    amountPaid: 0,
+                                    remainingBalance: 0
+                                });
+                            }
+                            catch (emailError) {
+                                console.error(`Failed to send cancellation email to ${userData.email}:`, emailError);
+                            }
+                        }
+                        continue;
+                    }
+                    // Get payment info
+                    const paymentDoc = await firestore
+                        .collection('users')
+                        .doc(userId)
+                        .collection('paymentInfo')
+                        .doc('data')
+                        .get();
+                    if (!paymentDoc.exists || !((_a = paymentDoc.data()) === null || _a === void 0 ? void 0 : _a.paypalVaultId)) {
+                        // No payment method, send email and cancel membership
+                        const userData = userDoc.data();
+                        if (userData === null || userData === void 0 ? void 0 : userData.email) {
+                            try {
+                                await (0, emailService_1.sendOrderConfirmationEmail)({
+                                    recipientEmail: userData.email,
+                                    recipientName: userData.name || 'Valued Customer',
+                                    orderID: `FAIL-${userId}-${Date.now()}`,
+                                    orderDate: now.toISOString(),
+                                    eventDate: now.toISOString(),
+                                    deliveryAddress: 'Payment Failed - Membership Cancelled',
+                                    rentalItems: [{
+                                            name: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Payment Failed`,
+                                            price: amount,
+                                            quantity: 1
+                                        }],
+                                    lastMinuteAdditions: [],
+                                    subtotal: amount,
+                                    surfaceAdjustment: 0,
+                                    timeAdjustment: 0,
+                                    deliveryCost: 0,
+                                    totalAmount: amount,
+                                    paymentType: 'Membership Billing',
+                                    amountPaid: 0,
+                                    remainingBalance: amount
+                                });
+                            }
+                            catch (emailError) {
+                                console.error(`Failed to send payment failure email to ${userData.email}:`, emailError);
+                            }
+                        }
+                        // Cancel membership
+                        await firestore
+                            .collection('users')
+                            .doc(userId)
+                            .collection('membership')
+                            .doc('status')
+                            .update({
+                            weekday: false,
+                            weekend: false,
+                            dateStarted: admin.firestore.FieldValue.delete(),
+                            updatedAt: now.toISOString()
+                        });
+                        continue;
+                    }
+                    const paymentData = paymentDoc.data(); // We know it exists from the check above
+                    // Create payment record
+                    const paymentId = `mb-${userId}-${Date.now()}`;
+                    const nextBillingDate = new Date(now);
+                    nextBillingDate.setDate(nextBillingDate.getDate() + 30);
+                    try {
+                        // Attempt to charge the payment method
+                        const chargeResult = await (0, paypalService_1.chargeVaultedPayment)({
+                            customerId: paymentData.paypalVaultId,
+                            paymentTokenId: ((_b = paymentData.savedPaymentMethods[0]) === null || _b === void 0 ? void 0 : _b.paypalVaultId) || '',
+                            amount: amount,
+                            currency: 'USD',
+                            description: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Monthly Billing`,
+                            reference_id: paymentId
+                        });
+                        // Save successful payment record
+                        await firestore.collection('membershipPayments').doc(paymentId).set({
+                            id: paymentId,
+                            userId: userId,
+                            membershipType: membershipType,
+                            amount: amount,
+                            paymentDate: now.toISOString(),
+                            nextBillingDate: nextBillingDate.toISOString(),
+                            paymentMethodId: (_c = paymentData.savedPaymentMethods[0]) === null || _c === void 0 ? void 0 : _c.id,
+                            paypalTransactionId: chargeResult.id,
+                            status: 'completed',
+                            createdAt: now.toISOString()
+                        });
+                        // Send successful billing email
+                        const userData = userDoc.data();
+                        if (userData === null || userData === void 0 ? void 0 : userData.email) {
+                            try {
+                                await (0, emailService_1.sendOrderConfirmationEmail)({
+                                    recipientEmail: userData.email,
+                                    recipientName: userData.name || 'Valued Customer',
+                                    orderID: paymentId,
+                                    orderDate: now.toISOString(),
+                                    eventDate: now.toISOString(),
+                                    deliveryAddress: 'Digital Service',
+                                    rentalItems: [{
+                                            name: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Monthly Billing`,
+                                            price: amount,
+                                            quantity: 1
+                                        }],
+                                    lastMinuteAdditions: [],
+                                    subtotal: amount,
+                                    surfaceAdjustment: 0,
+                                    timeAdjustment: 0,
+                                    deliveryCost: 0,
+                                    totalAmount: amount,
+                                    paymentType: 'Membership Billing',
+                                    amountPaid: amount,
+                                    remainingBalance: 0
+                                });
+                            }
+                            catch (emailError) {
+                                console.error(`Failed to send billing success email to ${userData.email}:`, emailError);
+                            }
+                        }
+                    }
+                    catch (chargeError) {
+                        // Payment failed - save failed record and send email
+                        await firestore.collection('membershipPayments').doc(paymentId).set({
+                            id: paymentId,
+                            userId: userId,
+                            membershipType: membershipType,
+                            amount: amount,
+                            paymentDate: now.toISOString(),
+                            nextBillingDate: nextBillingDate.toISOString(),
+                            paymentMethodId: (_d = paymentData === null || paymentData === void 0 ? void 0 : paymentData.savedPaymentMethods[0]) === null || _d === void 0 ? void 0 : _d.id,
+                            status: 'failed',
+                            failureReason: (chargeError === null || chargeError === void 0 ? void 0 : chargeError.message) || 'Unknown payment error',
+                            createdAt: now.toISOString()
+                        });
+                        // Send payment failure email and cancel membership
+                        const userData = userDoc.data();
+                        if (userData === null || userData === void 0 ? void 0 : userData.email) {
+                            try {
+                                await (0, emailService_1.sendOrderConfirmationEmail)({
+                                    recipientEmail: userData.email,
+                                    recipientName: userData.name || 'Valued Customer',
+                                    orderID: paymentId,
+                                    orderDate: now.toISOString(),
+                                    eventDate: now.toISOString(),
+                                    deliveryAddress: 'Payment Failed - Membership Cancelled',
+                                    rentalItems: [{
+                                            name: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Payment Failed`,
+                                            price: amount,
+                                            quantity: 1
+                                        }],
+                                    lastMinuteAdditions: [],
+                                    subtotal: amount,
+                                    surfaceAdjustment: 0,
+                                    timeAdjustment: 0,
+                                    deliveryCost: 0,
+                                    totalAmount: amount,
+                                    paymentType: 'Membership Billing',
+                                    amountPaid: 0,
+                                    remainingBalance: amount
+                                });
+                            }
+                            catch (emailError) {
+                                console.error(`Failed to send payment failure email to ${userData.email}:`, emailError);
+                            }
+                        }
+                        // Cancel membership after payment failure
+                        await firestore
+                            .collection('users')
+                            .doc(userId)
+                            .collection('membership')
+                            .doc('status')
+                            .update({
+                            weekday: false,
+                            weekend: false,
+                            dateStarted: admin.firestore.FieldValue.delete(),
+                            updatedAt: now.toISOString()
+                        });
+                    }
+                }
+            }
+            catch (userError) {
+                console.error(`Error processing membership billing for user ${userId}:`, userError);
+            }
+        }
+    }
+    catch (error) {
+        console.error('❌ MEMBERSHIP BILLING: Error processing membership billing:', error);
     }
 });
 // =============================================================================
@@ -568,21 +824,12 @@ const EMAIL_TIMING = {
 // Email server configuration for scheduled emails
 const EMAIL_SERVER_BASE_URL = 'http://170.187.145.7:3001';
 const EMAIL_SERVER_API_KEY = 'jumpcsra_secure_api_key_2024';
-console.log('📧 EMAIL TIMING CONFIG (Production Mode):', {
-    cartAbandonment: '24 hours',
-    depositReminder: '2 days',
-    eventConfirmation: '3 days',
-    postEventThanks: '1 day',
-    rebookingReminder: '9 months'
-});
 async function processCartAbandonmentEmails(db, now) {
     var _a;
     try {
-        console.log('🛒 SCHEDULER: Checking cart abandonment emails...');
         const cartsRef = db.ref('carts');
         const snapshot = await cartsRef.once('value');
         if (!snapshot.exists()) {
-            console.log('🛒 SCHEDULER: No carts found');
             return;
         }
         const carts = snapshot.val();
@@ -623,7 +870,6 @@ async function processCartAbandonmentEmails(db, now) {
                         });
                         await emailRef.set({ sentAt: now, type: 'cart-abandonment' });
                         emailsSent++;
-                        console.log(`✅ SCHEDULER: Sent cart abandonment email to ${cart.email}`);
                     }
                     catch (emailError) {
                         console.error(`❌ SCHEDULER: Failed to send cart abandonment email to ${cart.email}:`, emailError);
@@ -631,7 +877,6 @@ async function processCartAbandonmentEmails(db, now) {
                 }
             }
         }
-        console.log(`🛒 SCHEDULER: Sent ${emailsSent} cart abandonment emails`);
     }
     catch (error) {
         console.error('❌ SCHEDULER: Error processing cart abandonment emails:', error);
@@ -640,11 +885,9 @@ async function processCartAbandonmentEmails(db, now) {
 async function processDepositReminderEmails(db, now) {
     var _a, _b, _c, _d;
     try {
-        console.log('💰 SCHEDULER: Checking deposit reminder emails...');
         const bookingsRef = db.ref('bookings');
         const snapshot = await bookingsRef.once('value');
         if (!snapshot.exists()) {
-            console.log('💰 SCHEDULER: No bookings found');
             return;
         }
         const bookings = snapshot.val();
@@ -669,11 +912,9 @@ async function processDepositReminderEmails(db, now) {
             const firstDate = eventDateString.split(' - ')[0];
             const eventDate = new Date(firstDate).getTime();
             if (isNaN(eventDate)) {
-                console.log(`💰 SCHEDULER: Invalid event date for booking ${bookingId}: ${eventDateString}`);
                 continue;
             }
             const timeUntilEvent = eventDate - now;
-            console.log(`💰 SCHEDULER: Booking ${bookingId} - Event in ${Math.round(timeUntilEvent / (1000 * 60 * 60))} hours`);
             // Send reminder if event is within 2 days (or 2 min in testing mode)
             if (timeUntilEvent <= EMAIL_TIMING.DEPOSIT_REMINDER && timeUntilEvent > 0) {
                 try {
@@ -688,7 +929,6 @@ async function processDepositReminderEmails(db, now) {
                             eventDetails: booking.orderDetails || {}
                         }
                     };
-                    console.log(`💰 SCHEDULER: Sending deposit reminder to ${booking.customerInfo.email} for booking ${bookingId}`);
                     await axios_1.default.post(`${EMAIL_SERVER_BASE_URL}/api/email/deposit-reminder`, emailData, {
                         headers: {
                             'Content-Type': 'application/json',
@@ -700,17 +940,14 @@ async function processDepositReminderEmails(db, now) {
                     // Update the email tracking flag
                     await db.ref(`bookings/${bookingId}/emails/depositReminder`).set(true);
                     emailsSent++;
-                    console.log(`✅ SCHEDULER: Sent deposit reminder email to ${booking.customerInfo.email} for booking ${bookingId}`);
                 }
                 catch (emailError) {
                     console.error(`❌ SCHEDULER: Failed to send deposit reminder email to ${booking.customerInfo.email}:`, emailError);
                 }
             }
             else {
-                console.log(`💰 SCHEDULER: Booking ${bookingId} doesn't meet timing criteria (${Math.round(timeUntilEvent / (1000 * 60 * 60))} hours until event)`);
             }
         }
-        console.log(`💰 SCHEDULER: Sent ${emailsSent} deposit reminder emails`);
     }
     catch (error) {
         console.error('❌ SCHEDULER: Error processing deposit reminder emails:', error);
@@ -719,11 +956,9 @@ async function processDepositReminderEmails(db, now) {
 async function processEventConfirmationEmails(db, now) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _j;
     try {
-        console.log('📅 SCHEDULER: Checking event confirmation emails...');
         const bookingsRef = db.ref('bookings');
         const snapshot = await bookingsRef.once('value');
         if (!snapshot.exists()) {
-            console.log('📅 SCHEDULER: No bookings found');
             return;
         }
         const bookings = snapshot.val();
@@ -748,11 +983,9 @@ async function processEventConfirmationEmails(db, now) {
             const firstDate = eventDateString.split(' - ')[0];
             const eventDate = new Date(firstDate).getTime();
             if (isNaN(eventDate)) {
-                console.log(`📅 SCHEDULER: Invalid event date for booking ${bookingId}: ${eventDateString}`);
                 continue;
             }
             const timeUntilEvent = eventDate - now;
-            console.log(`📅 SCHEDULER: Booking ${bookingId} - Event in ${Math.round(timeUntilEvent / (1000 * 60 * 60))} hours`);
             // Send confirmation if event is within 3 days
             if (timeUntilEvent <= EMAIL_TIMING.EVENT_CONFIRMATION && timeUntilEvent > 0) {
                 try {
@@ -781,14 +1014,12 @@ async function processEventConfirmationEmails(db, now) {
                     // Update the email tracking flag
                     await db.ref(`bookings/${bookingId}/emails/eventConfirmation`).set(true);
                     emailsSent++;
-                    console.log(`✅ SCHEDULER: Sent event confirmation email to ${booking.customerInfo.email}`);
                 }
                 catch (emailError) {
                     console.error(`❌ SCHEDULER: Failed to send event confirmation email to ${booking.customerInfo.email}:`, emailError);
                 }
             }
         }
-        console.log(`📅 SCHEDULER: Sent ${emailsSent} event confirmation emails`);
     }
     catch (error) {
         console.error('❌ SCHEDULER: Error processing event confirmation emails:', error);
@@ -797,11 +1028,9 @@ async function processEventConfirmationEmails(db, now) {
 async function processPostEventEmails(db, now) {
     var _a, _b, _c, _d, _e;
     try {
-        console.log('🎉 SCHEDULER: Checking post-event thank you emails...');
         const bookingsRef = db.ref('bookings');
         const snapshot = await bookingsRef.once('value');
         if (!snapshot.exists()) {
-            console.log('🎉 SCHEDULER: No bookings found');
             return;
         }
         const bookings = snapshot.val();
@@ -821,7 +1050,6 @@ async function processPostEventEmails(db, now) {
             const firstDate = eventDateString.split(' - ')[0];
             const eventDate = new Date(firstDate).getTime();
             if (isNaN(eventDate)) {
-                console.log(`🎉 SCHEDULER: Invalid event date for booking ${bookingId}: ${eventDateString}`);
                 continue;
             }
             const timeSinceEvent = now - eventDate;
@@ -850,14 +1078,12 @@ async function processPostEventEmails(db, now) {
                     // Update the email tracking flag
                     await db.ref(`bookings/${bookingId}/emails/thanks`).set(true);
                     emailsSent++;
-                    console.log(`✅ SCHEDULER: Sent post-event thank you email to ${booking.customerInfo.email}`);
                 }
                 catch (emailError) {
                     console.error(`❌ SCHEDULER: Failed to send post-event thank you email to ${booking.customerInfo.email}:`, emailError);
                 }
             }
         }
-        console.log(`🎉 SCHEDULER: Sent ${emailsSent} post-event thank you emails`);
     }
     catch (error) {
         console.error('❌ SCHEDULER: Error processing post-event thank you emails:', error);
@@ -866,11 +1092,9 @@ async function processPostEventEmails(db, now) {
 async function processRebookingReminderEmails(db, now) {
     var _a, _b, _c;
     try {
-        console.log('🔄 SCHEDULER: Checking rebooking reminder emails...');
         const bookingsRef = db.ref('bookings');
         const snapshot = await bookingsRef.once('value');
         if (!snapshot.exists()) {
-            console.log('🔄 SCHEDULER: No bookings found');
             return;
         }
         const bookings = snapshot.val();
@@ -890,7 +1114,6 @@ async function processRebookingReminderEmails(db, now) {
             const firstDate = eventDateString.split(' - ')[0];
             const eventDate = new Date(firstDate).getTime();
             if (isNaN(eventDate)) {
-                console.log(`🔄 SCHEDULER: Invalid event date for booking ${bookingId}: ${eventDateString}`);
                 continue;
             }
             const timeSinceEvent = now - eventDate;
@@ -914,14 +1137,12 @@ async function processRebookingReminderEmails(db, now) {
                     // Update the email tracking flag
                     await db.ref(`bookings/${bookingId}/emails/rebooking`).set(true);
                     emailsSent++;
-                    console.log(`✅ SCHEDULER: Sent rebooking reminder email to ${booking.customerInfo.email}`);
                 }
                 catch (emailError) {
                     console.error(`❌ SCHEDULER: Failed to send rebooking reminder email to ${booking.customerInfo.email}:`, emailError);
                 }
             }
         }
-        console.log(`🔄 SCHEDULER: Sent ${emailsSent} rebooking reminder emails`);
     }
     catch (error) {
         console.error('❌ SCHEDULER: Error processing rebooking reminder emails:', error);

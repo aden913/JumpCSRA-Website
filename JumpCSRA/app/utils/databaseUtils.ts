@@ -1,6 +1,6 @@
 // Utility functions for handling database sync issues
 
-import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getDatabase, ref, set, get, child, push } from "firebase/database";
 
@@ -110,6 +110,7 @@ export interface SavedPaymentMethod {
 export interface UserPaymentInfo {
   userId: string;
   savedPaymentMethods: SavedPaymentMethod[];
+  paypalVaultId?: string; // PayPal vault customer ID for recurring billing
   billingAddress: {
     firstName: string;
     lastName: string;
@@ -688,7 +689,8 @@ export const updateWalletBalance = async (userId: string, newBalance: number): P
 export const saveUserPaymentInfo = async (paymentInfo: UserPaymentInfo): Promise<boolean> => {
   try {
     const firestore = getFirestore();
-    const paymentRef = doc(firestore, 'paymentInfo', paymentInfo.userId);
+    // Store in users collection instead of root paymentInfo collection
+    const paymentRef = doc(firestore, 'users', paymentInfo.userId, 'paymentInfo', 'data');
     
     const dataToSave = {
       ...paymentInfo,
@@ -706,7 +708,8 @@ export const saveUserPaymentInfo = async (paymentInfo: UserPaymentInfo): Promise
 export const getUserPaymentInfo = async (userId: string): Promise<UserPaymentInfo | null> => {
   try {
     const firestore = getFirestore();
-    const paymentRef = doc(firestore, 'paymentInfo', userId);
+    // Get from users collection instead of root paymentInfo collection
+    const paymentRef = doc(firestore, 'users', userId, 'paymentInfo', 'data');
     const paymentSnap = await getDoc(paymentRef);
     
     if (paymentSnap.exists()) {
@@ -974,8 +977,24 @@ export async function deleteAllUserData(userId: string): Promise<{
 export interface UserMembership {
   weekday: boolean;
   weekend: boolean;
+  dateStarted?: string; // ISO date when membership started
+  cancelled?: boolean; // If true, cancel at next billing cycle
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface MembershipPayment {
+  id: string;
+  userId: string;
+  membershipType: 'weekday' | 'weekend';
+  amount: number;
+  paymentDate: string;
+  nextBillingDate: string;
+  paymentMethodId?: string;
+  paypalTransactionId?: string;
+  status: 'pending' | 'completed' | 'failed' | 'cancelled';
+  failureReason?: string;
+  createdAt: string;
 }
 
 // Membership utility functions
@@ -1016,6 +1035,17 @@ export const updateUserMembership = async (
     // Update the specific membership type
     currentMembership[membershipType] = isActive;
     currentMembership.updatedAt = new Date().toISOString();
+    
+    // Set dateStarted when activating a membership for the first time
+    if (isActive && !currentMembership.dateStarted) {
+      currentMembership.dateStarted = new Date().toISOString();
+    }
+    
+    // Clear dateStarted if deactivating all memberships
+    if (!isActive && !currentMembership.weekday && !currentMembership.weekend) {
+      delete currentMembership.dateStarted;
+      delete currentMembership.cancelled;
+    }
     
     await setDoc(membershipRef, currentMembership);
     
@@ -1058,4 +1088,79 @@ export const applyMembershipDiscount = (
   
   // Apply 25% discount
   return cartTotal * 0.75;
+};
+
+// Membership Payment Functions
+export const saveMembershipPayment = async (payment: MembershipPayment): Promise<boolean> => {
+  try {
+    const firestore = getFirestore();
+    const paymentRef = doc(firestore, 'membershipPayments', payment.id);
+    
+    await setDoc(paymentRef, {
+      ...payment,
+      createdAt: new Date().toISOString()
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Error saving membership payment:', error);
+    return false;
+  }
+};
+
+export const getUsersMembershipPayments = async (userId: string): Promise<MembershipPayment[]> => {
+  try {
+    const firestore = getFirestore();
+    const paymentsRef = collection(firestore, 'membershipPayments');
+    const q = query(
+      paymentsRef, 
+      where('userId', '==', userId), 
+      orderBy('paymentDate', 'desc')
+    );
+    
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => doc.data() as MembershipPayment);
+  } catch (error) {
+    console.error('Error getting membership payments:', error);
+    return [];
+  }
+};
+
+export const updateMembershipDateStarted = async (userId: string, membershipType: 'weekday' | 'weekend'): Promise<boolean> => {
+  try {
+    const firestore = getFirestore();
+    const membershipRef = doc(firestore, 'users', userId, 'membership', 'status');
+    
+    const updateData: Partial<UserMembership> = {
+      dateStarted: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    
+    // Set the membership type
+    updateData[membershipType] = true;
+    
+    await setDoc(membershipRef, updateData, { merge: true });
+    return true;
+  } catch (error) {
+    console.error('Error updating membership dateStarted:', error);
+    return false;
+  }
+};
+
+export const cancelMembership = async (userId: string): Promise<boolean> => {
+  try {
+    const firestore = getFirestore();
+    const membershipRef = doc(firestore, 'users', userId, 'membership', 'status');
+    
+    const updateData: Partial<UserMembership> = {
+      cancelled: true,
+      updatedAt: new Date().toISOString()
+    };
+    
+    await setDoc(membershipRef, updateData, { merge: true });
+    return true;
+  } catch (error) {
+    console.error('Error cancelling membership:', error);
+    return false;
+  }
 };

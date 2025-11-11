@@ -398,3 +398,121 @@ export const processPayPalRefund = async (captureId: string, amount: number, rea
     throw error;
   }
 };
+
+/**
+ * Create a PayPal vault customer for recurring billing
+ */
+export const createVaultCustomer = async (customerData: {
+  firstName: string;
+  lastName: string;
+  email: string;
+}): Promise<string> => {
+  try {
+    const accessToken = await getPayPalAccessToken();
+    
+    const customerPayload = {
+      "merchant_id": PAYPAL_CLIENT_ID,
+      "external_customer_id": customerData.email,
+      "given_name": customerData.firstName,
+      "surname": customerData.lastName,
+      "email_address": customerData.email
+    };
+    
+    const response = await fetch(`${PAYPAL_BASE_URL}/v3/vault/customers`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'PayPal-Request-Id': `customer-${Date.now()}`
+      },
+      body: JSON.stringify(customerPayload)
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(`Failed to create vault customer: ${result.message || 'Unknown error'}`);
+    }
+    
+    return result.id; // Return customer ID
+  } catch (error: any) {
+    console.error('❌ Error creating vault customer:', error);
+    throw error;
+  }
+};
+
+/**
+ * Charge a vaulted payment method for membership billing
+ */
+export const chargeVaultedPayment = async (data: {
+  customerId: string;
+  paymentTokenId: string;
+  amount: number;
+  currency: string;
+  description: string;
+  reference_id: string;
+}): Promise<any> => {
+  try {
+    const accessToken = await getPayPalAccessToken();
+    
+    const paymentPayload = {
+      "intent": "CAPTURE",
+      "purchase_units": [{
+        "reference_id": data.reference_id,
+        "description": data.description,
+        "amount": {
+          "currency_code": data.currency,
+          "value": data.amount.toFixed(2)
+        }
+      }],
+      "payment_source": {
+        "stored_payment_source": {
+          "payment_initiator": "MERCHANT",
+          "payment_type": "RECURRING",
+          "usage": "SUBSEQUENT",
+          "previous_network_transaction_reference": {
+            "id": data.paymentTokenId,
+            "network": "VISA" // This should be dynamic based on card type
+          }
+        }
+      }
+    };
+    
+    const response = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'PayPal-Request-Id': `charge-${Date.now()}`
+      },
+      body: JSON.stringify(paymentPayload)
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(`Failed to charge vaulted payment: ${result.message || 'Unknown error'}`);
+    }
+    
+    // Capture the payment
+    const captureResponse = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders/${result.id}/capture`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'PayPal-Request-Id': `capture-${Date.now()}`
+      }
+    });
+    
+    const captureResult = await captureResponse.json();
+    
+    if (!captureResponse.ok) {
+      throw new Error(`Failed to capture payment: ${captureResult.message || 'Unknown error'}`);
+    }
+    
+    return captureResult;
+  } catch (error: any) {
+    console.error('❌ Error charging vaulted payment:', error);
+    throw error;
+  }
+};

@@ -16,7 +16,8 @@ import {
 import { 
   createPayPalInvoice as createInvoice,
   testPayPalConnection,
-  processPayPalRefund
+  processPayPalRefund,
+  chargeVaultedPayment
 } from './services/paypalService';
 
 // Import types
@@ -607,6 +608,295 @@ export const autoCompleteBookings = functions.pubsub
     }
   });
 
+/**
+ * Daily Membership Billing Processor (Cloud Scheduler)
+ * 
+ * Purpose: Process recurring membership billing every 30 days
+ * Features:
+ * - Checks all users with active memberships
+ * - Bills users whose 30-day period has elapsed
+ * - Handles payment failures with email notifications
+ * - Processes membership cancellations
+ * - Creates billing history records
+ * 
+ * Schedule: Runs daily at 9:00 AM UTC
+ */
+export const processMembershipBilling = functions.pubsub
+  .schedule('0 9 * * *') // Daily at 9 AM UTC
+  .onRun(async (context) => {
+    const firestore = admin.firestore();
+    const now = new Date();
+    
+    try {
+      // Get all users with membership data
+      const usersSnapshot = await firestore.collection('users').get();
+      
+      for (const userDoc of usersSnapshot.docs) {
+        const userId = userDoc.id;
+        
+        try {
+          // Get membership subcollection
+          const membershipDoc = await firestore
+            .collection('users')
+            .doc(userId)
+            .collection('membership')
+            .doc('status')
+            .get();
+            
+          if (!membershipDoc.exists) continue;
+          
+          const membership = membershipDoc.data();
+          if (!membership?.dateStarted) continue;
+          
+          const dateStarted = new Date(membership.dateStarted);
+          const daysSinceStart = Math.floor((now.getTime() - dateStarted.getTime()) / (1000 * 60 * 60 * 24));
+          
+          // Check if 30 days have passed since last billing
+          if (daysSinceStart >= 30 && daysSinceStart % 30 === 0) {
+            
+            // Determine membership type and cost
+            const membershipType = membership.weekday ? 'weekday' : 'weekend';
+            const amount = membershipType === 'weekday' ? 199 : 249;
+            
+            // Check if membership is cancelled
+            if (membership.cancelled) {
+              // Cancel the membership instead of billing
+              await firestore
+                .collection('users')
+                .doc(userId)
+                .collection('membership')
+                .doc('status')
+                .update({
+                  weekday: false,
+                  weekend: false,
+                  dateStarted: admin.firestore.FieldValue.delete(),
+                  cancelled: false,
+                  updatedAt: now.toISOString()
+                });
+              
+              // Send cancellation confirmation email
+              const userData = userDoc.data();
+              if (userData?.email) {
+                try {
+                  await sendOrderEmail({
+                    recipientEmail: userData.email,
+                    recipientName: userData.name || 'Valued Customer',
+                    orderID: `CANCEL-${userId}-${Date.now()}`,
+                    orderDate: now.toISOString(),
+                    eventDate: now.toISOString(),
+                    deliveryAddress: 'N/A',
+                    rentalItems: [{
+                      name: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Cancelled`,
+                      price: 0,
+                      quantity: 1
+                    }],
+                    lastMinuteAdditions: [],
+                    subtotal: 0,
+                    surfaceAdjustment: 0,
+                    timeAdjustment: 0,
+                    deliveryCost: 0,
+                    totalAmount: 0,
+                    paymentType: 'Membership Cancellation',
+                    amountPaid: 0,
+                    remainingBalance: 0
+                  });
+                } catch (emailError) {
+                  console.error(`Failed to send cancellation email to ${userData.email}:`, emailError);
+                }
+              }
+              
+              continue;
+            }
+            
+            // Get payment info
+            const paymentDoc = await firestore
+              .collection('users')
+              .doc(userId)
+              .collection('paymentInfo')
+              .doc('data')
+              .get();
+              
+            if (!paymentDoc.exists || !paymentDoc.data()?.paypalVaultId) {
+              // No payment method, send email and cancel membership
+              const userData = userDoc.data();
+              if (userData?.email) {
+                try {
+                  await sendOrderEmail({
+                    recipientEmail: userData.email,
+                    recipientName: userData.name || 'Valued Customer',
+                    orderID: `FAIL-${userId}-${Date.now()}`,
+                    orderDate: now.toISOString(),
+                    eventDate: now.toISOString(),
+                    deliveryAddress: 'Payment Failed - Membership Cancelled',
+                    rentalItems: [{
+                      name: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Payment Failed`,
+                      price: amount,
+                      quantity: 1
+                    }],
+                    lastMinuteAdditions: [],
+                    subtotal: amount,
+                    surfaceAdjustment: 0,
+                    timeAdjustment: 0,
+                    deliveryCost: 0,
+                    totalAmount: amount,
+                    paymentType: 'Membership Billing',
+                    amountPaid: 0,
+                    remainingBalance: amount
+                  });
+                } catch (emailError) {
+                  console.error(`Failed to send payment failure email to ${userData.email}:`, emailError);
+                }
+              }
+              
+              // Cancel membership
+              await firestore
+                .collection('users')
+                .doc(userId)
+                .collection('membership')
+                .doc('status')
+                .update({
+                  weekday: false,
+                  weekend: false,
+                  dateStarted: admin.firestore.FieldValue.delete(),
+                  updatedAt: now.toISOString()
+                });
+              
+              continue;
+            }
+            
+            const paymentData = paymentDoc.data()!; // We know it exists from the check above
+            
+            // Create payment record
+            const paymentId = `mb-${userId}-${Date.now()}`;
+            const nextBillingDate = new Date(now);
+            nextBillingDate.setDate(nextBillingDate.getDate() + 30);
+            
+            try {
+              // Attempt to charge the payment method
+              const chargeResult = await chargeVaultedPayment({
+                customerId: paymentData.paypalVaultId!,
+                paymentTokenId: paymentData.savedPaymentMethods[0]?.paypalVaultId || '',
+                amount: amount,
+                currency: 'USD',
+                description: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Monthly Billing`,
+                reference_id: paymentId
+              });
+              
+              // Save successful payment record
+              await firestore.collection('membershipPayments').doc(paymentId).set({
+                id: paymentId,
+                userId: userId,
+                membershipType: membershipType,
+                amount: amount,
+                paymentDate: now.toISOString(),
+                nextBillingDate: nextBillingDate.toISOString(),
+                paymentMethodId: paymentData.savedPaymentMethods[0]?.id,
+                paypalTransactionId: chargeResult.id,
+                status: 'completed',
+                createdAt: now.toISOString()
+              });
+              
+              // Send successful billing email
+              const userData = userDoc.data();
+              if (userData?.email) {
+                try {
+                  await sendOrderEmail({
+                    recipientEmail: userData.email,
+                    recipientName: userData.name || 'Valued Customer',
+                    orderID: paymentId,
+                    orderDate: now.toISOString(),
+                    eventDate: now.toISOString(),
+                    deliveryAddress: 'Digital Service',
+                    rentalItems: [{
+                      name: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Monthly Billing`,
+                      price: amount,
+                      quantity: 1
+                    }],
+                    lastMinuteAdditions: [],
+                    subtotal: amount,
+                    surfaceAdjustment: 0,
+                    timeAdjustment: 0,
+                    deliveryCost: 0,
+                    totalAmount: amount,
+                    paymentType: 'Membership Billing',
+                    amountPaid: amount,
+                    remainingBalance: 0
+                  });
+                } catch (emailError) {
+                  console.error(`Failed to send billing success email to ${userData.email}:`, emailError);
+                }
+              }
+              
+            } catch (chargeError: any) {
+              // Payment failed - save failed record and send email
+              await firestore.collection('membershipPayments').doc(paymentId).set({
+                id: paymentId,
+                userId: userId,
+                membershipType: membershipType,
+                amount: amount,
+                paymentDate: now.toISOString(),
+                nextBillingDate: nextBillingDate.toISOString(),
+                paymentMethodId: paymentData?.savedPaymentMethods[0]?.id,
+                status: 'failed',
+                failureReason: chargeError?.message || 'Unknown payment error',
+                createdAt: now.toISOString()
+              });
+              
+              // Send payment failure email and cancel membership
+              const userData = userDoc.data();
+              if (userData?.email) {
+                try {
+                  await sendOrderEmail({
+                    recipientEmail: userData.email,
+                    recipientName: userData.name || 'Valued Customer',
+                    orderID: paymentId,
+                    orderDate: now.toISOString(),
+                    eventDate: now.toISOString(),
+                    deliveryAddress: 'Payment Failed - Membership Cancelled',
+                    rentalItems: [{
+                      name: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Payment Failed`,
+                      price: amount,
+                      quantity: 1
+                    }],
+                    lastMinuteAdditions: [],
+                    subtotal: amount,
+                    surfaceAdjustment: 0,
+                    timeAdjustment: 0,
+                    deliveryCost: 0,
+                    totalAmount: amount,
+                    paymentType: 'Membership Billing',
+                    amountPaid: 0,
+                    remainingBalance: amount
+                  });
+                } catch (emailError) {
+                  console.error(`Failed to send payment failure email to ${userData.email}:`, emailError);
+                }
+              }
+              
+              // Cancel membership after payment failure
+              await firestore
+                .collection('users')
+                .doc(userId)
+                .collection('membership')
+                .doc('status')
+                .update({
+                  weekday: false,
+                  weekend: false,
+                  dateStarted: admin.firestore.FieldValue.delete(),
+                  updatedAt: now.toISOString()
+                });
+            }
+          }
+        } catch (userError) {
+          console.error(`Error processing membership billing for user ${userId}:`, userError);
+        }
+      }
+      
+    } catch (error) {
+      console.error('❌ MEMBERSHIP BILLING: Error processing membership billing:', error);
+    }
+  });
+
 // =============================================================================
 // EMAIL PROCESSING HELPER FUNCTIONS
 // =============================================================================
@@ -623,13 +913,6 @@ const EMAIL_TIMING = {
 // Email server configuration for scheduled emails
 const EMAIL_SERVER_BASE_URL = 'http://170.187.145.7:3001';
 const EMAIL_SERVER_API_KEY = 'jumpcsra_secure_api_key_2024';
-
-  cartAbandonment: '24 hours',
-  depositReminder: '2 days',
-  eventConfirmation: '3 days',
-  postEventThanks: '1 day',
-  rebookingReminder: '9 months'
-});
 
 async function processCartAbandonmentEmails(db: admin.database.Database, now: number) {
   try {
