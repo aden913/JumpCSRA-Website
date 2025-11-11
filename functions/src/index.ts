@@ -491,30 +491,31 @@ export const processScheduledEmails = functions.pubsub
   });
 
 /**
- * Automatic Pending Order Cleanup Function (Cloud Scheduler)
+ * Automatic Booking Completion Function (Cloud Scheduler)
  * 
- * Purpose: Automatically cancels pending orders that remain unpaid after 24 hours
+ * Purpose: Automatically marks confirmed bookings as "complete" once their event date has passed
  * 
  * Functionality:
- * - Maintains database hygiene by cleaning up stale pending orders
- * - Prevents indefinite reservation of inventory/time slots
- * - Provides clear order lifecycle management
- * - Reduces administrative overhead for manual order cleanup
- * - Supports business rules for payment deadlines
+ * - Maintains accurate booking status lifecycle management
+ * - Identifies past events that are still marked as confirmed/paid
+ * - Updates booking status to 'complete' for proper record keeping
+ * - Enables proper analytics and reporting on completed events
+ * - Supports business operations for follow-up activities
  * 
- * Schedule: Runs every hour to ensure timely cleanup
+ * Schedule: Runs every hour to ensure timely status updates
  * 
  * Processing Logic:
- * - Queries database for orders with 'pending' status
- * - Identifies orders older than 24 hours (configurable threshold)
- * - Updates order status to 'auto-canceled' with timestamp
- * - Records cancellation reason for audit purposes
- * - Batch processes multiple orders for efficiency
+ * - Queries database for confirmed bookings (status: 'confirmed' or 'paid')
+ * - Checks if event date has passed (eventDate < current date)
+ * - Updates booking status to 'complete' with completion timestamp
+ * - Records completion reason for audit purposes
+ * - Batch processes multiple bookings for efficiency
  * 
  * Business Rules:
- * - 24-hour grace period for payment completion
- * - Preserves order data for record keeping
- * - Marks cancellation reason as automatic system action
+ * - Only processes confirmed/paid bookings (skips pending, canceled)
+ * - Uses event date from orderDetails.eventDate field
+ * - Preserves all original booking data
+ * - Marks completion as automatic system action
  * - Maintains audit trail with timestamps
  * 
  * Database Operations:
@@ -524,58 +525,70 @@ export const processScheduledEmails = functions.pubsub
  * - Comprehensive logging for monitoring
  * 
  * Benefits:
- * - Automatic inventory/slot release for rebooking
- * - Reduced manual administration
- * - Clear customer expectations for payment deadlines
- * - Improved system performance through data cleanup
+ * - Accurate booking lifecycle tracking
+ * - Enables post-event email automation
+ * - Improved reporting and analytics
+ * - Automated business process management
  * 
- * Configuration: 24-hour threshold can be adjusted based on business requirements
+ * Configuration: Checks event dates against current date for completion
  */
-export const autoCancelPendingOrders = functions.pubsub
+export const autoCompleteBookings = functions.pubsub
   .schedule('every 1 hours')
   .onRun(async (context) => {
-    console.log('🔄 AUTO-CANCEL: Starting pending order cleanup...');
+    console.log('🔄 AUTO-COMPLETE: Starting booking completion check...');
     
     const db = admin.database();
     const now = Date.now();
-    const cutoffTime = now - (24 * 60 * 60 * 1000); // 24 hours ago
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
     
     try {
-      const pendingOrdersRef = db.ref('bookings');
-      const snapshot = await pendingOrdersRef
-        .orderByChild('status')
-        .equalTo('pending')
-        .once('value');
+      const bookingsRef = db.ref('bookings');
+      const snapshot = await bookingsRef.once('value');
       
       if (!snapshot.exists()) {
-        console.log('📋 AUTO-CANCEL: No pending orders found');
+        console.log('📋 AUTO-COMPLETE: No bookings found');
         return;
       }
       
       const updates: { [key: string]: any } = {};
-      let canceledCount = 0;
+      let completedCount = 0;
       
       snapshot.forEach((child) => {
         const booking = child.val();
-        const bookingTime = booking.createdAt || booking.timestamp || now;
+        const bookingStatus = booking.status || 'pending';
         
-        if (bookingTime < cutoffTime) {
-          console.log(`⏰ AUTO-CANCEL: Canceling old pending order ${child.key}`);
-          updates[`${child.key}/status`] = 'auto-canceled';
-          updates[`${child.key}/canceledAt`] = now;
-          updates[`${child.key}/cancelReason`] = 'Auto-canceled after 24 hours';
-          canceledCount++;
+        // Only process confirmed or paid bookings
+        if (bookingStatus === 'confirmed' || bookingStatus === 'paid') {
+          // Access event date from the correct location in the data structure
+          const eventDate = booking.orderDetails?.eventDate || booking.eventDate;
+          
+          if (eventDate) {
+            const eventDateObj = new Date(eventDate);
+            eventDateObj.setHours(23, 59, 59, 999); // End of event day
+            
+            // If event date has passed, mark as complete
+            if (eventDateObj < today) {
+              console.log(`✅ AUTO-COMPLETE: Completing past event ${child.key} (Event: ${eventDate})`);
+              updates[`${child.key}/status`] = 'complete';
+              updates[`${child.key}/completedAt`] = now;
+              updates[`${child.key}/completionReason`] = 'Auto-completed after event date';
+              completedCount++;
+            }
+          } else {
+            console.log(`⚠️ AUTO-COMPLETE: Booking ${child.key} missing event date`);
+          }
         }
       });
       
-      if (canceledCount > 0) {
-        await pendingOrdersRef.update(updates);
-        console.log(`✅ AUTO-CANCEL: Canceled ${canceledCount} pending orders`);
+      if (completedCount > 0) {
+        await bookingsRef.update(updates);
+        console.log(`✅ AUTO-COMPLETE: Completed ${completedCount} past events`);
       } else {
-        console.log('📋 AUTO-CANCEL: No orders needed cancellation');
+        console.log('📋 AUTO-COMPLETE: No bookings needed completion');
       }
     } catch (error) {
-      console.error('❌ AUTO-CANCEL: Error processing pending orders:', error);
+      console.error('❌ AUTO-COMPLETE: Error processing bookings:', error);
     }
   });
 
