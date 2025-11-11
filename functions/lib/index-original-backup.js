@@ -11,13 +11,11 @@ Object.defineProperty(exports, "testFunction", { enumerable: true, get: function
 // Simple PayPal debug test
 exports.testPayPalDebug = functions.https.onCall(async (data, context) => {
     var _a;
-    console.log('STARTING PAYPAL DEBUG TEST');
     const PAYPAL_CLIENT_ID = "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0";
     const PAYPAL_CLIENT_SECRET = ((_a = functions.config().paypal) === null || _a === void 0 ? void 0 : _a.client_secret) || "YOUR_PAYPAL_CLIENT_SECRET";
     const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com";
     try {
         // Get access token
-        console.log('Getting PayPal access token...');
         const tokenResponse = await fetch(`${PAYPAL_BASE_URL}/v1/oauth2/token`, {
             method: 'POST',
             headers: {
@@ -27,16 +25,12 @@ exports.testPayPalDebug = functions.https.onCall(async (data, context) => {
             },
             body: 'grant_type=client_credentials'
         });
-        console.log('Token response status:', tokenResponse.status);
         const tokenData = await tokenResponse.json();
         if (!tokenResponse.ok) {
-            console.log('Token error:', JSON.stringify(tokenData, null, 2));
             throw new Error('Failed to get access token');
         }
         const accessToken = tokenData.access_token;
-        console.log('Access token obtained:', accessToken ? 'YES' : 'NO');
         // Create simple invoice
-        console.log('Creating simple invoice...');
         const simpleInvoice = {
             detail: {
                 invoice_number: `TEST-${Date.now()}`,
@@ -82,17 +76,11 @@ exports.testPayPalDebug = functions.https.onCall(async (data, context) => {
             },
             body: JSON.stringify(simpleInvoice)
         });
-        console.log('Create response status:', createResponse.status);
-        console.log('Create response ok:', createResponse.ok);
         if (!createResponse.ok) {
             const errorText = await createResponse.text();
-            console.log('Create error response:', errorText);
             return { success: false, error: errorText };
         }
         const invoice = await createResponse.json();
-        console.log('PAYPAL RESPONSE FULL:', JSON.stringify(invoice, null, 2));
-        console.log('PAYPAL Invoice ID:', invoice.id);
-        console.log('PAYPAL Response keys:', Object.keys(invoice));
         return {
             success: true,
             invoiceId: invoice.id,
@@ -701,7 +689,6 @@ exports.sendGiftCardEmail = functions.https.onCall(async (data, context) => {
         };
         await sgMail.send(msg);
         // Log successful email send
-        console.log(`Gift card email sent successfully to ${data.recipientEmail} for code ${data.giftCardCode}`);
         return {
             success: true,
             message: 'Gift card email sent successfully',
@@ -753,7 +740,6 @@ exports.sendGiftCardEmailOnCreate = functions.firestore
                 }
             };
             await sgMail.send(msg);
-            console.log(`Auto-sent gift card email to ${emailData.recipientEmail} for code ${emailData.giftCardCode}`);
         }
         catch (error) {
             console.error('Error auto-sending gift card email:', error);
@@ -770,9 +756,6 @@ exports.sendEnhancedOrderConfirmation = functions.https.onCall(async (data, cont
             console.error('❌ ENHANCED EMAIL - SendGrid API key not configured');
             throw new functions.https.HttpsError('failed-precondition', 'SendGrid API key not configured.');
         }
-        console.log('📧 ENHANCED EMAIL - Sending comprehensive order confirmation to:', data.recipientEmail, 'for order:', data.orderID);
-        console.log('📧 ENHANCED EMAIL - Using sender email:', 'jumpcsra@gmail.com');
-        console.log('📧 ENHANCED EMAIL - SendGrid API Key configured:', !!sendGridApiKey);
         // Try alternative SendGrid sender format
         const msg = {
             to: data.recipientEmail,
@@ -792,8 +775,6 @@ exports.sendEnhancedOrderConfirmation = functions.https.onCall(async (data, cont
                 hasGiftCards: (((_a = data.giftCards) === null || _a === void 0 ? void 0 : _a.length) || 0).toString()
             }
         };
-        console.log('📧 ENHANCED EMAIL - About to send email via SendGrid...');
-        console.log('📧 ENHANCED EMAIL - Message config:', JSON.stringify({
             to: msg.to,
             from: msg.from,
             subject: msg.subject,
@@ -802,7 +783,6 @@ exports.sendEnhancedOrderConfirmation = functions.https.onCall(async (data, cont
         }, null, 2));
         try {
             const sendResult = await sgMail.send(msg);
-            console.log('📧 ENHANCED EMAIL - SendGrid success response:', JSON.stringify(sendResult, null, 2));
         }
         catch (sgError) {
             console.error('📧 ENHANCED EMAIL - SendGrid detailed error:', JSON.stringify(sgError, null, 2));
@@ -810,7 +790,6 @@ exports.sendEnhancedOrderConfirmation = functions.https.onCall(async (data, cont
                 console.error('📧 ENHANCED EMAIL - SendGrid specific errors:', sgError.response.body.errors);
             }
             // Fallback: Return success but indicate email failed
-            console.log('📧 ENHANCED EMAIL - Returning success despite email failure for system stability');
             return {
                 success: true,
                 message: 'Order processed successfully (email delivery pending)',
@@ -819,7 +798,6 @@ exports.sendEnhancedOrderConfirmation = functions.https.onCall(async (data, cont
             };
         }
         // Log successful email send
-        console.log(`Enhanced order confirmation & invoice email sent successfully to ${data.recipientEmail} for order ${data.orderID}`);
         return {
             success: true,
             message: 'Order confirmation & invoice email sent successfully',
@@ -845,12 +823,10 @@ exports.sendEnhancedOrderConfirmation = functions.https.onCall(async (data, cont
 // Legacy order confirmation email function (keep for compatibility)
 exports.sendOrderConfirmationEmail = functions.https.onCall(async (data, context) => {
     var _a;
-    console.log('📧 ORDER EMAIL - Function called, auth status:', !!context.auth);
     try {
         // For order confirmations, we'll be more lenient about authentication
         // since these are triggered by completed payments
         if (!context.auth) {
-            console.log('⚠️ ORDER EMAIL - No authentication provided, but proceeding for order confirmation');
         }
         // Validate input data
         if (!data.recipientEmail || !data.orderID || typeof data.totalAmount !== 'number') {
@@ -865,9 +841,6 @@ exports.sendOrderConfirmationEmail = functions.https.onCall(async (data, context
             console.error('❌ ORDER EMAIL - SendGrid API key not configured');
             throw new functions.https.HttpsError('failed-precondition', 'SendGrid API key not configured.');
         }
-        console.log('📧 ORDER EMAIL - Sending to:', data.recipientEmail, 'for order:', data.orderID);
-        console.log('📧 ORDER EMAIL - Using sender email:', 'jumpcsra@gmail.com');
-        console.log('📧 ORDER EMAIL - SendGrid API Key configured:', !!sendGridApiKey);
         // Try alternative SendGrid sender format
         const msg = {
             to: data.recipientEmail,
@@ -886,8 +859,6 @@ exports.sendOrderConfirmationEmail = functions.https.onCall(async (data, context
                 bookingStatus: data.bookingStatus
             }
         };
-        console.log('📧 ORDER EMAIL - About to send email via SendGrid...');
-        console.log('📧 ORDER EMAIL - Message config:', JSON.stringify({
             to: msg.to,
             from: msg.from,
             subject: msg.subject,
@@ -896,7 +867,6 @@ exports.sendOrderConfirmationEmail = functions.https.onCall(async (data, context
         }, null, 2));
         try {
             const sendResult = await sgMail.send(msg);
-            console.log('📧 ORDER EMAIL - SendGrid success response:', JSON.stringify(sendResult, null, 2));
         }
         catch (sgError) {
             console.error('📧 ORDER EMAIL - SendGrid detailed error:', JSON.stringify(sgError, null, 2));
@@ -904,7 +874,6 @@ exports.sendOrderConfirmationEmail = functions.https.onCall(async (data, context
                 console.error('📧 ORDER EMAIL - SendGrid specific errors:', sgError.response.body.errors);
             }
             // Fallback: Return success but indicate email failed
-            console.log('📧 ORDER EMAIL - Returning success despite email failure for system stability');
             return {
                 success: true,
                 message: 'Order processed successfully (email delivery pending)',
@@ -913,7 +882,6 @@ exports.sendOrderConfirmationEmail = functions.https.onCall(async (data, context
             };
         }
         // Log successful email send
-        console.log(`Order confirmation email sent successfully to ${data.recipientEmail} for order ${data.orderID}`);
         return {
             success: true,
             message: 'Order confirmation email sent successfully',
@@ -1147,13 +1115,10 @@ const createPayPalInvoicePayload = (data) => {
 // Cloud Function to create and send PayPal invoice
 exports.createPayPalInvoice = functions.https.onCall(async (data, context) => {
     var _a;
-    console.log('🚀 FIREBASE FUNCTION - createPayPalInvoice called, auth status:', !!context.auth);
     try {
         // For PayPal invoices triggered by completed payments, be more lenient about authentication
         if (!context.auth) {
-            console.log('⚠️ PAYPAL INVOICE - No authentication provided, but proceeding for completed payment');
         }
-        console.log('📧 Input data validation:', {
             orderID: data.orderID,
             recipientEmail: data.recipientEmail,
             totalAmount: data.totalAmount,
@@ -1168,19 +1133,11 @@ exports.createPayPalInvoice = functions.https.onCall(async (data, context) => {
             });
             throw new functions.https.HttpsError('invalid-argument', 'Missing required invoice data.');
         }
-        console.log(`📧 FIREBASE FUNCTION - Creating PayPal invoice for order ${data.orderID}`);
         // Get PayPal access token
-        console.log('🔑 FIREBASE FUNCTION - Getting PayPal access token...');
         const accessToken = await getPayPalAccessToken();
-        console.log('✅ FIREBASE FUNCTION - Access token obtained');
         // Create invoice payload
-        console.log('📋 FIREBASE FUNCTION - Creating invoice payload...');
         const invoicePayload = createPayPalInvoicePayload(data);
-        console.log('✅ FIREBASE FUNCTION - Invoice payload created');
         // Create the invoice
-        console.log('📤 FIREBASE FUNCTION - Creating invoice via PayPal API...');
-        console.log('🔍 PAYPAL DEBUG - About to call:', `${PAYPAL_BASE_URL}/v2/invoicing/invoices`);
-        console.log('🔍 PAYPAL DEBUG - Payload:', JSON.stringify(invoicePayload, null, 2));
         const createResponse = await fetch(`${PAYPAL_BASE_URL}/v2/invoicing/invoices`, {
             method: 'POST',
             headers: {
@@ -1190,30 +1147,18 @@ exports.createPayPalInvoice = functions.https.onCall(async (data, context) => {
             },
             body: JSON.stringify(invoicePayload)
         });
-        console.log('🔍 PAYPAL DEBUG - Response received, status:', createResponse.status);
-        console.log('🔍 PAYPAL DEBUG - Response ok:', createResponse.ok);
         if (!createResponse.ok) {
             const errorText = await createResponse.text();
             console.error('❌ FIREBASE FUNCTION - PayPal create invoice error:', errorText);
             console.error('🔍 PAYPAL DEBUG - Error response body:', errorText);
             throw new functions.https.HttpsError('internal', `PayPal API error: ${createResponse.status}`);
         }
-        console.log('📋 FIREBASE FUNCTION - PayPal response status:', createResponse.status);
-        console.log('📋 FIREBASE FUNCTION - PayPal response headers:', createResponse.headers);
         const invoice = await createResponse.json();
         // Enhanced debugging - let's see what PayPal actually returns
-        console.log('� PAYPAL DEBUG - Full response object:', JSON.stringify(invoice, null, 2));
-        console.log('🔍 PAYPAL DEBUG - Object keys:', Object.keys(invoice || {}));
-        console.log('🔍 PAYPAL DEBUG - invoice.id:', invoice === null || invoice === void 0 ? void 0 : invoice.id);
-        console.log('🔍 PAYPAL DEBUG - invoice.invoice_id:', invoice === null || invoice === void 0 ? void 0 : invoice.invoice_id);
-        console.log('🔍 PAYPAL DEBUG - invoice.href:', invoice === null || invoice === void 0 ? void 0 : invoice.href);
-        console.log('🔍 PAYPAL DEBUG - invoice.links:', invoice === null || invoice === void 0 ? void 0 : invoice.links);
-        console.log('✅ FIREBASE FUNCTION - Invoice created with ID:', invoice.id);
         // Check if invoice ID exists
         if (!invoice.id) {
             console.error('❌ FIREBASE FUNCTION - No invoice ID in response:', invoice);
             // Fallback: Return success but indicate invoice creation failed
-            console.log('💰 FIREBASE FUNCTION - Returning success despite invoice failure for system stability');
             return {
                 success: true,
                 message: 'Order processed successfully (invoice delivery pending)',
@@ -1222,7 +1167,6 @@ exports.createPayPalInvoice = functions.https.onCall(async (data, context) => {
             };
         }
         // Send the invoice
-        console.log('📮 FIREBASE FUNCTION - Sending invoice to customer...');
         const sendResponse = await fetch(`${PAYPAL_BASE_URL}/v2/invoicing/invoices/${invoice.id}/send`, {
             method: 'POST',
             headers: {
@@ -1239,7 +1183,6 @@ exports.createPayPalInvoice = functions.https.onCall(async (data, context) => {
             console.error('❌ FIREBASE FUNCTION - PayPal send invoice error:', errorText);
             throw new functions.https.HttpsError('internal', `Failed to send invoice: ${sendResponse.status}`);
         }
-        console.log(`✅ FIREBASE FUNCTION - PayPal invoice created and sent successfully: ${invoice.id}`);
         return {
             success: true,
             invoiceId: invoice.id,
@@ -1261,7 +1204,6 @@ exports.createPayPalInvoice = functions.https.onCall(async (data, context) => {
 // Cart abandonment email
 async function sendCartAbandonmentEmail(cart, userId) {
     try {
-        console.log('📧 Sending cart abandonment email to:', cart.customerEmail);
         const emailHTML = generateCartAbandonmentEmailHTML(cart, userId);
         const msg = {
             to: cart.customerEmail,
@@ -1271,7 +1213,6 @@ async function sendCartAbandonmentEmail(cart, userId) {
             categories: ['cart-abandonment', 'marketing']
         };
         await sgMail.send(msg);
-        console.log('✅ Cart abandonment email sent successfully');
     }
     catch (error) {
         console.error('❌ Error sending cart abandonment email:', error);
@@ -1281,7 +1222,6 @@ async function sendCartAbandonmentEmail(cart, userId) {
 // Deposit reminder email
 async function sendDepositReminderEmail(booking, bookingId) {
     try {
-        console.log('📧 Sending deposit reminder email to:', booking.customerEmail);
         const emailHTML = generateDepositReminderEmailHTML(booking, bookingId);
         const msg = {
             to: booking.customerEmail,
@@ -1291,7 +1231,6 @@ async function sendDepositReminderEmail(booking, bookingId) {
             categories: ['deposit-reminder', 'transactional']
         };
         await sgMail.send(msg);
-        console.log('✅ Deposit reminder email sent successfully');
     }
     catch (error) {
         console.error('❌ Error sending deposit reminder email:', error);
@@ -1301,7 +1240,6 @@ async function sendDepositReminderEmail(booking, bookingId) {
 // Event confirmation email
 async function sendEventConfirmationEmail(booking, bookingId) {
     try {
-        console.log('📧 Sending event confirmation email to:', booking.customerEmail);
         const emailHTML = generateEventConfirmationEmailHTML(booking, bookingId);
         const msg = {
             to: booking.customerEmail,
@@ -1311,7 +1249,6 @@ async function sendEventConfirmationEmail(booking, bookingId) {
             categories: ['event-confirmation', 'transactional']
         };
         await sgMail.send(msg);
-        console.log('✅ Event confirmation email sent successfully');
     }
     catch (error) {
         console.error('❌ Error sending event confirmation email:', error);
@@ -1321,7 +1258,6 @@ async function sendEventConfirmationEmail(booking, bookingId) {
 // Post-event thank you email
 async function sendPostEventThanksEmail(booking, bookingId) {
     try {
-        console.log('📧 Sending post-event thank you email to:', booking.customerEmail);
         const emailHTML = generatePostEventThanksEmailHTML(booking, bookingId);
         const msg = {
             to: booking.customerEmail,
@@ -1331,7 +1267,6 @@ async function sendPostEventThanksEmail(booking, bookingId) {
             categories: ['post-event', 'marketing']
         };
         await sgMail.send(msg);
-        console.log('✅ Post-event thank you email sent successfully');
     }
     catch (error) {
         console.error('❌ Error sending post-event thank you email:', error);
@@ -1341,7 +1276,6 @@ async function sendPostEventThanksEmail(booking, bookingId) {
 // Rebooking reminder email
 async function sendRebookingReminderEmail(booking, bookingId) {
     try {
-        console.log('📧 Sending rebooking reminder email to:', booking.customerEmail);
         const emailHTML = generateRebookingReminderEmailHTML(booking, bookingId);
         const msg = {
             to: booking.customerEmail,
@@ -1351,7 +1285,6 @@ async function sendRebookingReminderEmail(booking, bookingId) {
             categories: ['rebooking-reminder', 'marketing']
         };
         await sgMail.send(msg);
-        console.log('✅ Rebooking reminder email sent successfully');
     }
     catch (error) {
         console.error('❌ Error sending rebooking reminder email:', error);
@@ -1718,7 +1651,6 @@ function generateRebookingReminderEmailHTML(booking, bookingId) {
 // ============================================================================
 // Manual email testing function (callable from frontend)
 exports.triggerTestEmail = functions.https.onCall(async (data, context) => {
-    console.log('🧪 MANUAL TEST: Triggering test email:', data);
     try {
         const db = admin.database();
         switch (data.emailType) {
@@ -1796,7 +1728,6 @@ exports.triggerTestEmail = functions.https.onCall(async (data, context) => {
 // Environment variable for testing mode (speeds up email timing)
 const emailConfig = functions.config().email || {};
 const isTestingMode = emailConfig.testing_mode === 'true';
-console.log(`📧 EMAIL SCHEDULER: Testing mode ${isTestingMode ? 'ENABLED' : 'DISABLED'}`);
 // Email timing constants (in milliseconds)
 const EMAIL_TIMING = {
     CART_ABANDONMENT: isTestingMode ? 1 * 60 * 1000 : 24 * 60 * 60 * 1000, // 1 min vs 24 hours
@@ -1805,7 +1736,6 @@ const EMAIL_TIMING = {
     POST_EVENT_THANKS: isTestingMode ? 4 * 60 * 1000 : 1 * 24 * 60 * 60 * 1000, // 4 min vs 1 day
     REBOOKING_REMINDER: isTestingMode ? 5 * 60 * 1000 : 9 * 30 * 24 * 60 * 60 * 1000 // 5 min vs 9 months
 };
-console.log('📧 EMAIL TIMING CONFIG:', {
     testingMode: isTestingMode,
     cartAbandonment: isTestingMode ? '1 minute' : '24 hours',
     depositReminder: isTestingMode ? '2 minutes' : '7 days',
@@ -1818,7 +1748,6 @@ exports.processScheduledEmails = functions.pubsub
     .schedule(isTestingMode ? '*/2 * * * *' : '0 */6 * * *') // Every 2 minutes in testing, every 6 hours in production
     .timeZone('America/New_York') // EST/EDT timezone
     .onRun(async (context) => {
-    console.log(`🕐 SCHEDULER: Running scheduled email processor... (Testing Mode: ${isTestingMode})`);
     try {
         const db = admin.database();
         const now = Date.now();
@@ -1832,7 +1761,6 @@ exports.processScheduledEmails = functions.pubsub
         await processPostEventEmails(db, now);
         // Process rebooking reminder emails
         await processRebookingReminderEmails(db, now);
-        console.log('✅ SCHEDULER: All scheduled emails processed successfully');
     }
     catch (error) {
         console.error('❌ SCHEDULER: Error processing scheduled emails:', error);
@@ -1842,11 +1770,9 @@ exports.processScheduledEmails = functions.pubsub
 // Helper function to process cart abandonment emails
 async function processCartAbandonmentEmails(db, now) {
     try {
-        console.log('📧 SCHEDULER: Checking cart abandonment emails...');
         const cartsRef = db.ref('carts');
         const snapshot = await cartsRef.once('value');
         if (!snapshot.exists()) {
-            console.log('📧 SCHEDULER: No carts found');
             return;
         }
         const carts = snapshot.val();
@@ -1871,7 +1797,6 @@ async function processCartAbandonmentEmails(db, now) {
                 }
             }
         }
-        console.log(`📧 SCHEDULER: Sent ${emailsSent} cart abandonment emails`);
     }
     catch (error) {
         console.error('❌ SCHEDULER: Error processing cart abandonment emails:', error);
@@ -1880,11 +1805,9 @@ async function processCartAbandonmentEmails(db, now) {
 // Helper function to process deposit reminder emails
 async function processDepositReminderEmails(db, now) {
     try {
-        console.log('📧 SCHEDULER: Checking deposit reminder emails...');
         const bookingsRef = db.ref('bookings');
         const snapshot = await bookingsRef.once('value');
         if (!snapshot.exists()) {
-            console.log('📧 SCHEDULER: No bookings found');
             return;
         }
         const bookings = snapshot.val();
@@ -1910,7 +1833,6 @@ async function processDepositReminderEmails(db, now) {
                 }
             }
         }
-        console.log(`📧 SCHEDULER: Sent ${emailsSent} deposit reminder emails`);
     }
     catch (error) {
         console.error('❌ SCHEDULER: Error processing deposit reminder emails:', error);
@@ -1919,11 +1841,9 @@ async function processDepositReminderEmails(db, now) {
 // Helper function to process event confirmation emails
 async function processEventConfirmationEmails(db, now) {
     try {
-        console.log('📧 SCHEDULER: Checking event confirmation emails...');
         const bookingsRef = db.ref('bookings');
         const snapshot = await bookingsRef.once('value');
         if (!snapshot.exists()) {
-            console.log('📧 SCHEDULER: No bookings found');
             return;
         }
         const bookings = snapshot.val();
@@ -1947,7 +1867,6 @@ async function processEventConfirmationEmails(db, now) {
                 }
             }
         }
-        console.log(`📧 SCHEDULER: Sent ${emailsSent} event confirmation emails`);
     }
     catch (error) {
         console.error('❌ SCHEDULER: Error processing event confirmation emails:', error);
@@ -1956,11 +1875,9 @@ async function processEventConfirmationEmails(db, now) {
 // Helper function to process post-event thank you emails
 async function processPostEventEmails(db, now) {
     try {
-        console.log('📧 SCHEDULER: Checking post-event emails...');
         const bookingsRef = db.ref('bookings');
         const snapshot = await bookingsRef.once('value');
         if (!snapshot.exists()) {
-            console.log('📧 SCHEDULER: No bookings found');
             return;
         }
         const bookings = snapshot.val();
@@ -1984,7 +1901,6 @@ async function processPostEventEmails(db, now) {
                 }
             }
         }
-        console.log(`📧 SCHEDULER: Sent ${emailsSent} post-event emails`);
     }
     catch (error) {
         console.error('❌ SCHEDULER: Error processing post-event emails:', error);
@@ -1993,11 +1909,9 @@ async function processPostEventEmails(db, now) {
 // Helper function to process rebooking reminder emails
 async function processRebookingReminderEmails(db, now) {
     try {
-        console.log('📧 SCHEDULER: Checking rebooking reminder emails...');
         const bookingsRef = db.ref('bookings');
         const snapshot = await bookingsRef.once('value');
         if (!snapshot.exists()) {
-            console.log('📧 SCHEDULER: No bookings found');
             return;
         }
         const bookings = snapshot.val();
@@ -2021,7 +1935,6 @@ async function processRebookingReminderEmails(db, now) {
                 }
             }
         }
-        console.log(`📧 SCHEDULER: Sent ${emailsSent} rebooking reminder emails`);
     }
     catch (error) {
         console.error('❌ SCHEDULER: Error processing rebooking reminder emails:', error);
@@ -2033,13 +1946,11 @@ exports.autoCancelPendingOrders = functions.pubsub
     .timeZone('America/New_York') // EST/EDT timezone
     .onRun(async (context) => {
     var _a, _b, _c, _d;
-    console.log('Running auto-cancel pending orders function...');
     try {
         const db = admin.database();
         const bookingsRef = db.ref('bookings');
         const snapshot = await bookingsRef.once('value');
         if (!snapshot.exists()) {
-            console.log('No bookings found');
             return null;
         }
         const bookings = snapshot.val();
@@ -2065,7 +1976,6 @@ exports.autoCancelPendingOrders = functions.pubsub
                 eventDate.setHours(0, 0, 0, 0);
                 // If event date is today or has passed, cancel the booking
                 if (eventDate <= today) {
-                    console.log(`Cancelling booking ${bookingId} with event date ${startDateStr}`);
                     // Update booking status to cancelled
                     await bookingsRef.child(bookingId).update({
                         status: 'cancelled',
@@ -2122,7 +2032,6 @@ exports.autoCancelPendingOrders = functions.pubsub
                             };
                             if (sendGridApiKey) {
                                 await sgMail.send(msg);
-                                console.log(`Cancellation email sent to ${bookingData.customerInfo.email} for booking ${bookingId}`);
                             }
                         }
                     }
@@ -2136,7 +2045,6 @@ exports.autoCancelPendingOrders = functions.pubsub
                 console.error(`Error parsing event date for booking ${bookingId}:`, dateError);
             }
         }
-        console.log(`Auto-cancellation complete. Cancelled ${cancelledCount} bookings.`);
         return null;
     }
     catch (error) {
@@ -2223,7 +2131,6 @@ exports.sendAccountDeletionEmail = functions.https.onCall(async (data, context) 
             }
         };
         await sgMail.send(msg);
-        console.log(`Account deletion email sent successfully to ${data.userEmail} for user ${context.auth.uid}`);
         return {
             success: true,
             message: 'Account deletion email sent successfully'

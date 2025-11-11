@@ -12,7 +12,6 @@ const EMAIL_SERVER_BASE_URL = 'http://170.187.145.7:3001';
  * Send order confirmation email via external email server
  */
 const sendOrderConfirmationEmail = async (data) => {
-    console.log('📧 ENHANCED EMAIL - Sending order confirmation via email server...');
     // Validate required fields
     if (!data.recipientEmail || !data.recipientName || !data.orderID) {
         console.error('❌ ENHANCED EMAIL - Missing required fields:', {
@@ -22,8 +21,6 @@ const sendOrderConfirmationEmail = async (data) => {
         });
         throw new functions.https.HttpsError('invalid-argument', 'Missing required email fields.');
     }
-    console.log('📧 ENHANCED EMAIL - Calling email server at:', EMAIL_SERVER_BASE_URL);
-    console.log('📧 ENHANCED EMAIL - Recipient:', data.recipientEmail);
     try {
         const response = await fetch(`${EMAIL_SERVER_BASE_URL}/send-enhanced-order-confirmation`, {
             method: 'POST',
@@ -38,8 +35,6 @@ const sendOrderConfirmationEmail = async (data) => {
             throw new Error(`Email server error: ${response.status} - ${errorText}`);
         }
         const result = await response.json();
-        console.log('✅ ENHANCED EMAIL - Email server response:', result);
-        console.log('✅ ENHANCED EMAIL - Order confirmation email sent successfully via email server');
     }
     catch (error) {
         console.error('❌ ENHANCED EMAIL - Error calling email server:', error);
@@ -51,7 +46,6 @@ exports.sendOrderConfirmationEmail = sendOrderConfirmationEmail;
  * Send gift card email
  */
 const sendGiftCardEmail = async (data) => {
-    console.log('🎁 Sending gift card email to:', data.recipientEmail);
     // Validate input data
     if (!data.recipientEmail || !data.giftCardCode || !data.giftCardBalance) {
         throw new functions.https.HttpsError('invalid-argument', 'Missing required gift card email data.');
@@ -80,7 +74,6 @@ const sendGiftCardEmail = async (data) => {
             }
         };
         await sgMail.send(msg);
-        console.log('✅ Gift card email sent successfully');
     }
     catch (error) {
         console.error('❌ Error sending gift card email:', error);
@@ -92,7 +85,6 @@ exports.sendGiftCardEmail = sendGiftCardEmail;
  * Send account deletion confirmation email
  */
 const sendAccountDeletionEmail = async (data) => {
-    console.log('🗑️ Sending account deletion email to:', data.email);
     if (!sendGridApiKey) {
         throw new functions.https.HttpsError('failed-precondition', 'SendGrid API key not configured.');
     }
@@ -118,7 +110,6 @@ const sendAccountDeletionEmail = async (data) => {
             }
         };
         await sgMail.send(msg);
-        console.log('✅ Account deletion email sent successfully');
     }
     catch (error) {
         console.error('❌ Error sending account deletion email:', error);

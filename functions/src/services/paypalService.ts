@@ -22,7 +22,6 @@ const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"; // Use https://api-m
  */
 export const getPayPalAccessToken = async (): Promise<string> => {
   try {
-    console.log('🔑 Getting PayPal access token...');
     const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64');
     
     const response = await fetch(`${PAYPAL_BASE_URL}/v1/oauth2/token`, {
@@ -41,7 +40,6 @@ export const getPayPalAccessToken = async (): Promise<string> => {
     }
     
     const data: PayPalAccessTokenResponse = await response.json();
-    console.log('✅ PayPal access token obtained');
     return data.access_token;
   } catch (error) {
     console.error('❌ Error getting PayPal access token:', error);
@@ -207,7 +205,6 @@ export const createPayPalInvoicePayload = (data: PayPalInvoiceData): PayPalInvoi
  * Create PayPal invoice
  */
 export const createPayPalInvoice = async (data: PayPalInvoiceData): Promise<PayPalInvoiceResponse> => {
-  console.log('📧 Creating PayPal invoice for order:', data.orderID);
   
   // Validate input data
   if (!data.recipientEmail || !data.orderID || typeof data.totalAmount !== 'number') {
@@ -225,10 +222,8 @@ export const createPayPalInvoice = async (data: PayPalInvoiceData): Promise<PayP
     
     // Create invoice payload
     const invoicePayload = createPayPalInvoicePayload(data);
-    console.log('📋 Invoice payload created for order:', data.orderID);
     
     // Create the invoice
-    console.log('📤 Creating invoice via PayPal API...');
     const createResponse = await fetch(`${PAYPAL_BASE_URL}/v2/invoicing/invoices`, {
       method: 'POST',
       headers: {
@@ -239,7 +234,6 @@ export const createPayPalInvoice = async (data: PayPalInvoiceData): Promise<PayP
       body: JSON.stringify(invoicePayload)
     });
     
-    console.log('📋 PayPal response status:', createResponse.status);
     
     if (!createResponse.ok) {
       const errorData: PayPalErrorResponse = await createResponse.json();
@@ -248,7 +242,6 @@ export const createPayPalInvoice = async (data: PayPalInvoiceData): Promise<PayP
     }
     
     const invoice: PayPalInvoiceResponse = await createResponse.json();
-    console.log('✅ Invoice created with ID:', invoice.id);
     
     if (!invoice.id) {
       console.error('❌ No invoice ID in PayPal response:', invoice);
@@ -256,7 +249,6 @@ export const createPayPalInvoice = async (data: PayPalInvoiceData): Promise<PayP
     }
     
     // Send the invoice
-    console.log('📤 Sending PayPal invoice...');
     const sendResponse = await fetch(`${PAYPAL_BASE_URL}/v2/invoicing/invoices/${invoice.id}/send`, {
       method: 'POST',
       headers: {
@@ -272,9 +264,7 @@ export const createPayPalInvoice = async (data: PayPalInvoiceData): Promise<PayP
     if (!sendResponse.ok) {
       const sendErrorData = await sendResponse.json();
       console.error('❌ PayPal send invoice error:', sendErrorData);
-      console.log('⚠️ Invoice created but send failed - invoice can be sent manually');
     } else {
-      console.log('✅ PayPal invoice sent successfully');
     }
     
     return invoice;
@@ -288,7 +278,6 @@ export const createPayPalInvoice = async (data: PayPalInvoiceData): Promise<PayP
  * Test PayPal connection and create a simple test invoice
  */
 export const testPayPalConnection = async (): Promise<any> => {
-  console.log('🧪 Testing PayPal connection...');
   
   try {
     // Get access token
@@ -345,7 +334,6 @@ export const testPayPalConnection = async (): Promise<any> => {
     }
     
     const result = await response.json();
-    console.log('✅ PayPal connection test successful');
     
     return {
       success: true,
@@ -367,7 +355,6 @@ export const testPayPalConnection = async (): Promise<any> => {
  */
 export const processPayPalRefund = async (captureId: string, amount: number, reason: string = 'Customer cancellation'): Promise<any> => {
   try {
-    console.log('💰 Processing PayPal refund...', { captureId, amount, reason });
     
     const accessToken = await getPayPalAccessToken();
     
@@ -397,7 +384,6 @@ export const processPayPalRefund = async (captureId: string, amount: number, rea
       throw new Error(`PayPal refund failed: ${result.message || 'Unknown error'}`);
     }
     
-    console.log('✅ PayPal refund processed successfully:', result);
     return {
       success: true,
       refundId: result.id,

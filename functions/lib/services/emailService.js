@@ -14,7 +14,6 @@ const EMAIL_SERVER_API_KEY = 'jumpcsra_secure_api_key_2024';
  * Send order confirmation email via external email server
  */
 const sendOrderConfirmationEmail = async (data) => {
-    console.log('📧 ENHANCED EMAIL - Sending order confirmation via email server...');
     // Validate required fields
     if (!data.recipientEmail || !data.recipientName || !data.orderID) {
         console.error('❌ ENHANCED EMAIL - Missing required fields:', {
@@ -24,8 +23,6 @@ const sendOrderConfirmationEmail = async (data) => {
         });
         throw new functions.https.HttpsError('invalid-argument', 'Missing required email fields.');
     }
-    console.log('📧 ENHANCED EMAIL - Calling email server at:', EMAIL_SERVER_BASE_URL);
-    console.log('📧 ENHANCED EMAIL - Recipient:', data.recipientEmail);
     try {
         // Transform data to match what your email server expects
         const transformedData = {
@@ -47,8 +44,6 @@ const sendOrderConfirmationEmail = async (data) => {
                 setupTime: data.deliveryTime
             }
         };
-        console.log('📧 ENHANCED EMAIL - Sending data to email server:', JSON.stringify(transformedData, null, 2));
-        console.log('📧 ENHANCED EMAIL - Original rentalItems:', JSON.stringify(data.rentalItems, null, 2));
         const response = await axios_1.default.post(`${EMAIL_SERVER_BASE_URL}/api/email/payment-confirmation`, transformedData, {
             headers: {
                 'Content-Type': 'application/json',
@@ -62,8 +57,6 @@ const sendOrderConfirmationEmail = async (data) => {
             throw new Error(`Email server error: ${response.status} - ${response.statusText}`);
         }
         const result = response.data;
-        console.log('✅ ENHANCED EMAIL - Email server response:', result);
-        console.log('✅ ENHANCED EMAIL - Order confirmation email sent successfully via email server');
         // Return the actual response from the email server
         return result;
     }
@@ -77,7 +70,6 @@ exports.sendOrderConfirmationEmail = sendOrderConfirmationEmail;
  * Send gift card email via external email server
  */
 const sendGiftCardEmail = async (data) => {
-    console.log('🎁 Sending gift card email via email server to:', data.recipientEmail);
     // Validate input data
     if (!data.recipientEmail || !data.giftCardCode || !data.giftCardBalance) {
         throw new functions.https.HttpsError('invalid-argument', 'Missing required gift card email data.');
@@ -108,8 +100,6 @@ const sendGiftCardEmail = async (data) => {
             throw new Error(`Email server error: ${response.status} - ${response.statusText}`);
         }
         const result = response.data;
-        console.log('✅ Gift card email server response:', result);
-        console.log('✅ Gift card email sent successfully via email server');
         // Return the actual response from the email server
         return result;
     }
@@ -123,7 +113,6 @@ exports.sendGiftCardEmail = sendGiftCardEmail;
  * Send account deletion confirmation email via external email server
  */
 const sendAccountDeletionEmail = async (data) => {
-    console.log('🗑️ Sending account deletion email via email server to:', data.email);
     if (!data.email || !data.deletionDate) {
         throw new functions.https.HttpsError('invalid-argument', 'Missing required account deletion email data.');
     }
@@ -150,8 +139,6 @@ const sendAccountDeletionEmail = async (data) => {
             throw new Error(`Email server error: ${response.status} - ${response.statusText}`);
         }
         const result = response.data;
-        console.log('✅ Account deletion email server response:', result);
-        console.log('✅ Account deletion email sent successfully via email server');
         // Return the actual response from the email server
         return result;
     }

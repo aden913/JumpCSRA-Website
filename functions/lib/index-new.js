@@ -24,7 +24,6 @@ if (!admin.apps.length) {
  * Send enhanced order confirmation email
  */
 exports.sendEnhancedOrderConfirmation = functions.https.onCall(async (data, context) => {
-    console.log('📧 ENHANCED EMAIL - Cloud Function called, auth status:', !!context.auth);
     try {
         await (0, emailService_1.sendOrderConfirmationEmail)(data);
         return { success: true, message: 'Enhanced order confirmation email sent successfully' };
@@ -38,7 +37,6 @@ exports.sendEnhancedOrderConfirmation = functions.https.onCall(async (data, cont
  * Send order confirmation email (legacy function name)
  */
 exports.sendOrderConfirmationEmail = functions.https.onCall(async (data, context) => {
-    console.log('📧 ORDER EMAIL - Cloud Function called');
     try {
         await (0, emailService_1.sendOrderConfirmationEmail)(data);
         return { success: true, message: 'Order confirmation email sent successfully' };
@@ -52,7 +50,6 @@ exports.sendOrderConfirmationEmail = functions.https.onCall(async (data, context
  * Send gift card email
  */
 exports.sendGiftCardEmail = functions.https.onCall(async (data, context) => {
-    console.log('🎁 GIFT CARD - Cloud Function called, auth status:', !!context.auth);
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to send gift card emails.');
     }
@@ -74,7 +71,6 @@ exports.sendGiftCardEmailOnCreate = functions.firestore
     const giftCardData = snap.data();
     // Only send email for purchased gift cards (not promotional ones)
     if ((giftCardData === null || giftCardData === void 0 ? void 0 : giftCardData.isPurchased) && (giftCardData === null || giftCardData === void 0 ? void 0 : giftCardData.recipientEmail)) {
-        console.log('🎁 Auto-sending gift card email for:', giftCardData.recipientEmail);
         const emailData = {
             recipientEmail: giftCardData.recipientEmail,
             recipientName: giftCardData.recipientName || 'Valued Customer',
@@ -88,7 +84,6 @@ exports.sendGiftCardEmailOnCreate = functions.firestore
         };
         try {
             await (0, emailService_1.sendGiftCardEmail)(emailData);
-            console.log('✅ Auto gift card email sent successfully');
         }
         catch (error) {
             console.error('❌ Failed to auto-send gift card email:', error);
@@ -99,7 +94,6 @@ exports.sendGiftCardEmailOnCreate = functions.firestore
  * Send account deletion confirmation email
  */
 exports.sendAccountDeletionEmail = functions.https.onCall(async (data, context) => {
-    console.log('🗑️ ACCOUNT DELETION - Cloud Function called');
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to send account deletion emails.');
     }
@@ -125,7 +119,6 @@ exports.sendAccountDeletionEmail = functions.https.onCall(async (data, context) 
  * Create and send PayPal invoice
  */
 exports.createPayPalInvoice = functions.https.onCall(async (data, context) => {
-    console.log('💰 PAYPAL INVOICE - Cloud Function called, auth status:', !!context.auth);
     try {
         const invoice = await (0, paypalService_1.createPayPalInvoice)(data);
         return {
@@ -144,7 +137,6 @@ exports.createPayPalInvoice = functions.https.onCall(async (data, context) => {
  * Test PayPal connection and API functionality
  */
 exports.testPayPalDebug = functions.https.onCall(async (data, context) => {
-    console.log('🧪 PAYPAL TEST - Cloud Function called');
     try {
         const result = await (0, paypalService_1.testPayPalConnection)();
         return result;
@@ -161,7 +153,6 @@ exports.testPayPalDebug = functions.https.onCall(async (data, context) => {
  * Manual trigger for testing different email types
  */
 exports.triggerTestEmail = functions.https.onCall(async (data, context) => {
-    console.log('🧪 EMAIL TEST - Manual trigger called:', data.type);
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Authentication required for email testing.');
     }
@@ -205,7 +196,6 @@ exports.triggerTestEmail = functions.https.onCall(async (data, context) => {
 exports.processScheduledEmails = functions.pubsub
     .schedule('every 2 minutes') // For production, change to 'every 1 hours'
     .onRun(async (context) => {
-    console.log('📧 SCHEDULER: Starting scheduled email processing...');
     const db = admin.database();
     const now = Date.now();
     try {
@@ -217,7 +207,6 @@ exports.processScheduledEmails = functions.pubsub
             processPostEventEmails(db, now),
             processRebookingReminderEmails(db, now)
         ]);
-        console.log('✅ SCHEDULER: All scheduled emails processed successfully');
     }
     catch (error) {
         console.error('❌ SCHEDULER: Error processing scheduled emails:', error);
@@ -229,7 +218,6 @@ exports.processScheduledEmails = functions.pubsub
 exports.autoCancelPendingOrders = functions.pubsub
     .schedule('every 1 hours')
     .onRun(async (context) => {
-    console.log('🔄 AUTO-CANCEL: Starting pending order cleanup...');
     const db = admin.database();
     const now = Date.now();
     const cutoffTime = now - (24 * 60 * 60 * 1000); // 24 hours ago
@@ -240,7 +228,6 @@ exports.autoCancelPendingOrders = functions.pubsub
             .equalTo('pending')
             .once('value');
         if (!snapshot.exists()) {
-            console.log('📋 AUTO-CANCEL: No pending orders found');
             return;
         }
         const updates = {};
@@ -249,7 +236,6 @@ exports.autoCancelPendingOrders = functions.pubsub
             const booking = child.val();
             const bookingTime = booking.createdAt || booking.timestamp || now;
             if (bookingTime < cutoffTime) {
-                console.log(`⏰ AUTO-CANCEL: Canceling old pending order ${child.key}`);
                 updates[`${child.key}/status`] = 'auto-canceled';
                 updates[`${child.key}/canceledAt`] = now;
                 updates[`${child.key}/cancelReason`] = 'Auto-canceled after 24 hours';
@@ -258,10 +244,8 @@ exports.autoCancelPendingOrders = functions.pubsub
         });
         if (canceledCount > 0) {
             await pendingOrdersRef.update(updates);
-            console.log(`✅ AUTO-CANCEL: Canceled ${canceledCount} pending orders`);
         }
         else {
-            console.log('📋 AUTO-CANCEL: No orders needed cancellation');
         }
     }
     catch (error) {
@@ -275,23 +259,18 @@ exports.autoCancelPendingOrders = functions.pubsub
 // For now, they're placeholders that would need to be implemented
 // based on the original scheduler functions from the large index.ts file
 async function processCartAbandonmentEmails(db, now) {
-    console.log('🛒 SCHEDULER: Processing cart abandonment emails...');
     // Implementation would go here
 }
 async function processDepositReminderEmails(db, now) {
-    console.log('💰 SCHEDULER: Processing deposit reminder emails...');
     // Implementation would go here
 }
 async function processEventConfirmationEmails(db, now) {
-    console.log('📅 SCHEDULER: Processing event confirmation emails...');
     // Implementation would go here
 }
 async function processPostEventEmails(db, now) {
-    console.log('🎉 SCHEDULER: Processing post-event thank you emails...');
     // Implementation would go here
 }
 async function processRebookingReminderEmails(db, now) {
-    console.log('🔄 SCHEDULER: Processing rebooking reminder emails...');
     // Implementation would go here
 }
 //# sourceMappingURL=index-new.js.map

@@ -18,22 +18,13 @@ export async function getUnavailableInflateables(startDate: Date, endDate: Date)
   
   if (snapshot.exists()) {
     const bookings = snapshot.val();
-    console.log(`📋 [DEBUG] bookingUtils: Found ${Object.keys(bookings).length} bookings in database`);
     
     Object.entries(bookings).forEach(([bookingId, booking]: [string, any]) => {
-      console.log(`🔍 [DEBUG] bookingUtils: Processing booking ${bookingId}:`, {
-        status: booking.status,
-        startDate: booking.startDate,
-        endDate: booking.endDate,
-        hasInflateableIDs: !!booking.inflateableIDs
-      });
-      
       // Only consider bookings that occupy inventory (deferred, pending, confirmed)
       // Completed bookings don't occupy inventory since the event is finished
       if (booking.status === "deferred" || booking.status === "pending" || booking.status === "confirmed") {
         // Validate dates before processing
         if (!booking.startDate || !booking.endDate) {
-          console.warn(`⚠️ [DEBUG] bookingUtils: Booking ${bookingId} missing dates, skipping`);
           return; // Skip this booking
         }
         
@@ -42,7 +33,6 @@ export async function getUnavailableInflateables(startDate: Date, endDate: Date)
         
         // Check if dates are valid
         if (isNaN(bookingStart.getTime()) || isNaN(bookingEnd.getTime())) {
-          console.warn(`⚠️ [DEBUG] bookingUtils: Booking ${bookingId} has invalid dates (${booking.startDate}, ${booking.endDate}), skipping`);
           return; // Skip this booking
         }
         
@@ -66,7 +56,7 @@ export async function getUnavailableInflateables(startDate: Date, endDate: Date)
       }
     });
   } else {
-    console.log('No bookings found in database');
+    // No bookings found in database
   }
   
   return unavailable;

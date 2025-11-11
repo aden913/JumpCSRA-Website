@@ -8,7 +8,7 @@ import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { getUnavailableInflateables } from '../utils/bookingUtils';
 import { useDiscounts, getDiscountDescription, type DiscountCalculation } from '../hooks/useDiscounts';
 import { checkItemAvailability, type ItemAvailability } from '../utils/availabilityUtils';
-import { getIncompleteBookingsForUser, saveBookingData, loadBookingData } from '../utils/databaseUtils';
+import { getIncompleteBookingsForUser, saveBookingData, loadBookingData, isUserMember } from '../utils/databaseUtils';
 import type { BookingData } from '../utils/databaseUtils';
 import '../styles/cart.css';
 
@@ -147,7 +147,6 @@ const findMatchingBooking = async (
 ): Promise<{ booking: BookingData | null; comparison: CartComparison | null }> => {
   try {
     const incompleteBookings = await getIncompleteBookingsForUser(userId);
-    console.log('🔍 [DEBUG] Found incomplete bookings:', incompleteBookings.length);
     
     if (incompleteBookings.length === 0) {
       return { booking: null, comparison: null };
@@ -166,22 +165,17 @@ const findMatchingBooking = async (
         changedSettings: settingsComparison.changes
       };
       
-      console.log(`🔍 [DEBUG] Booking ${booking.orderID} comparison:`, comparison);
-      
       // Return first exact match
       if (!comparison.hasChanges) {
-        console.log(`✅ [DEBUG] Found exact match: ${booking.orderID}`);
         return { booking, comparison };
       }
       
       // Return first partial match (for now - could be improved to rank matches)
       if (comparison.itemsMatch && !comparison.settingsMatch) {
-        console.log(`⚠️ [DEBUG] Found partial match (settings changed): ${booking.orderID}`);
         return { booking, comparison };
       }
     }
     
-    console.log('❌ [DEBUG] No matching bookings found');
     return { booking: null, comparison: null };
   } catch (error) {
     console.error('❌ Error finding matching booking:', error);
@@ -203,7 +197,6 @@ const updateExistingBooking = async (
   calendarDateRange: [Date | null, Date | null]
 ): Promise<BookingData | null> => {
   try {
-    console.log('🔄 [DEBUG] Updating existing booking:', existingBooking.orderID);
     
     // Calculate the new total amount with current cart and settings
     const durationMultipliers: Record<string, number> = {
@@ -259,8 +252,6 @@ const updateExistingBooking = async (
     
     const newTotalAmount = cartTotal + surfaceAdj + timeAdj;
     
-    console.log('💰 [DEBUG] New total amount calculated:', newTotalAmount);
-    
     // Update the booking data
     const updatedBooking: BookingData = {
       ...existingBooking,
@@ -287,7 +278,6 @@ const updateExistingBooking = async (
     // Save the updated booking
     await saveBookingData(updatedBooking);
     
-    console.log('✅ [DEBUG] Booking updated successfully');
     return updatedBooking;
   } catch (error) {
     console.error('❌ [DEBUG] Error updating existing booking:', error);
@@ -299,6 +289,7 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [userIsMember, setUserIsMember] = useState<boolean>(false);
   
   // Check if booking is for today and filter delivery times accordingly
   const getAvailableDeliveryTimes = () => {
@@ -346,6 +337,20 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
     });
     return () => unsubscribe();
   }, []);
+
+  // Check user membership status when user changes
+  useEffect(() => {
+    const checkMembershipStatus = async () => {
+      if (user) {
+        const isMember = await isUserMember(user.uid);
+        setUserIsMember(isMember);
+      } else {
+        setUserIsMember(false);
+      }
+    };
+    
+    checkMembershipStatus();
+  }, [user]);
   
   useEffect(() => {
     if (open && cart.length > 0) {
@@ -579,7 +584,6 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
   // Load inflateables data function - now from Firebase instead of JSON
   const loadInflateablesData = async (): Promise<any[]> => {
     try {
-      console.log('🛒 [DEBUG] CartSidebar: Loading inflateables data from Firebase...');
       // Load from Firebase Realtime Database instead of JSON file
       if (!getApps().length) {
         initializeApp(firebaseConfig);
@@ -594,24 +598,19 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
       }
       
       const inflateablesData = snapshot.val();
-      console.log('📊 [DEBUG] CartSidebar: Raw Firebase inflateables data:', inflateablesData);
       
       // Handle both array and object formats
       let result;
       if (Array.isArray(inflateablesData)) {
         result = inflateablesData;
-        console.log('📋 [DEBUG] CartSidebar: Data is array format, length:', result.length);
       } else if (inflateablesData && typeof inflateablesData === 'object') {
         result = Object.values(inflateablesData);
-        console.log('📋 [DEBUG] CartSidebar: Data is object format, converted to array, length:', result.length);
       } else {
         result = [];
-        console.log('⚠️ [DEBUG] CartSidebar: Data format not recognized, returning empty array');
       }
       
       // Log some sample items with quantities
       const itemsWithQuantity = result.filter(item => item.quantity && item.quantity > 1);
-      console.log('🔢 [DEBUG] CartSidebar: Items with quantity > 1:', itemsWithQuantity.map(item => `${item.name}: ${item.quantity}`));
       
       return result;
     } catch (error) {
@@ -622,14 +621,9 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
 
   // Check availability when duration or date changes
   useEffect(() => {
-    console.log('🚀 [DEBUG] CartSidebar: useEffect triggered');
-    console.log(`📊 [DEBUG] CartSidebar: Dependencies - calendarDateRange[0]: ${calendarDateRange[0]}, duration: ${duration}, cart.length: ${cart.length}`);
     
     const checkAvailability = async () => {
       if (calendarDateRange[0] && duration && cart.length > 0) {
-        console.log('🔍 [DEBUG] CartSidebar: Starting availability check...');
-        console.log(`📅 [DEBUG] CartSidebar: Date range: ${calendarDateRange[0].toISOString().split('T')[0]} for ${duration}`);
-        console.log(`🛒 [DEBUG] CartSidebar: Cart items to check:`, cart.map(item => `${item.name} (qty: ${item.quantity})`));
         
         setLoadingAvailability(true);
         const startDate = calendarDateRange[0];
@@ -639,22 +633,17 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
           // Get old unavailable items for binary check
           const unavailable = await getUnavailableInflateables(startDate, endDate);
           setUnavailableItems(unavailable);
-          console.log('🚫 [DEBUG] CartSidebar: Unavailable items:', Array.from(unavailable));
           
           // Get detailed availability for all items in cart
           const inflateables = await loadInflateablesData();
           const availabilityMap = new Map<string, ItemAvailability>();
           
-          console.log('🔄 [DEBUG] CartSidebar: Starting individual item availability checks...');
           
           const promises = cart.map(async (item) => {
             const inflateable = inflateables.find(inf => inf.name === item.name);
-            console.log(`🔍 [DEBUG] CartSidebar: Looking for "${item.name}" in inflateables data...`);
-            console.log(`📋 [DEBUG] CartSidebar: Found inflateable:`, inflateable);
             
             if (inflateable) {
               const totalQuantity = inflateable.quantity || 1;
-              console.log(`🔢 [DEBUG] CartSidebar: Using total quantity ${totalQuantity} for "${item.name}"`);
               
               const availability = await checkItemAvailability(
                 item.name,
@@ -663,16 +652,12 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                 endDate
               );
               
-              console.log(`📊 [DEBUG] CartSidebar: Availability result for "${item.name}":`, availability);
               availabilityMap.set(item.name, availability);
             } else {
-              console.log(`⚠️ [DEBUG] CartSidebar: No inflateable data found for "${item.name}"`);
             }
           });
           
           await Promise.all(promises);
-          console.log('✅ [DEBUG] CartSidebar: All availability checks completed');
-          console.log('📊 [DEBUG] CartSidebar: Final availability map:', Object.fromEntries(availabilityMap));
           
           setItemAvailability(availabilityMap);
         } catch (error) {
@@ -681,8 +666,6 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
           setLoadingAvailability(false);
         }
       } else {
-        console.log('⚠️ [DEBUG] CartSidebar: Skipping availability check - conditions not met');
-        console.log(`📊 [DEBUG] CartSidebar: calendarDateRange[0]: ${!!calendarDateRange[0]}, duration: ${!!duration}, cart.length: ${cart.length}`);
         setUnavailableItems(new Set());
         setItemAvailability(new Map());
       }
@@ -753,6 +736,9 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
   // Check if cart contains a membership
   const hasMembership = cart.some(item => item.isMembership);
   
+  // User gets membership discount if they are a member OR if they're purchasing a membership
+  const shouldApplyMembershipDiscount = userIsMember || hasMembership;
+  
   const cartTotal = displayCart.reduce((sum, item, displayIdx) => {
     // Skip unavailable items
     if (unavailableItems.has(item.id)) {
@@ -780,8 +766,8 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
         itemTotal += 50 * item.quantity; // $50 surcharge for wet items
       }
 
-      // Apply 25% membership discount to non-membership items if membership is in cart
-      if (hasMembership && !item.excludeFromDiscounts) {
+      // Apply 25% membership discount to non-membership items if user is a member or purchasing membership
+      if (shouldApplyMembershipDiscount && !item.excludeFromDiscounts) {
         itemTotal = itemTotal * 0.75; // 25% discount
       }
     }
@@ -889,17 +875,12 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
     const item = cart[index];
     const availability = itemAvailability.get(item.name);
     
-    console.log(`🔄 [DEBUG] CartSidebar: updateQuantity for "${item.name}" to ${newQuantity}`);
-    console.log(`📊 [DEBUG] CartSidebar: Current availability for "${item.name}":`, availability);
     
     if (availability && newQuantity > availability.availableQuantity) {
-      console.log(`⚠️ [DEBUG] CartSidebar: Quantity ${newQuantity} exceeds available ${availability.availableQuantity} for "${item.name}"`);
       alert(`Only ${availability.availableQuantity} of ${item.name} available for your selected dates.`);
       return;
     }
     
-    console.log(`✅ [DEBUG] CartSidebar: Quantity update allowed for "${item.name}": ${newQuantity}`);
-    console.log(`💾 [DEBUG] CartSidebar: Persisting quantity change to localStorage`);
     const newCart = [...cart];
     newCart[index].quantity = newQuantity;
     setCart(newCart); // This automatically saves to localStorage via useCart hook
@@ -910,13 +891,11 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
     if (calendarDateRange[0] && cart.length > 0) {
       if (initialCalendarLoadRef.current) {
         // This is the initial calendar load from localStorage - don't reset quantities
-        console.log(`� [DEBUG] CartSidebar: Initial calendar date load detected, preserving quantities`);
         initialCalendarLoadRef.current = false;
         return;
       }
       
       // This is a user-initiated date change - reset quantities
-      console.log(`🔄 [DEBUG] CartSidebar: User changed dates, resetting all quantities to 1`);
       const resetCart = cart.map(item => ({ ...item, quantity: 1 }));
       setCart(resetCart); // This automatically saves to localStorage via useCart hook
     }
@@ -925,23 +904,18 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
   // Generate quantity options based on availability
   const getQuantityOptions = (itemName: string, currentQuantity: number): number[] => {
     const availability = itemAvailability.get(itemName);
-    console.log(`🔢 [DEBUG] CartSidebar: getQuantityOptions for "${itemName}"`);
-    console.log(`📊 [DEBUG] CartSidebar: Availability data:`, availability);
     
     if (!availability) {
-      console.log(`⚠️ [DEBUG] CartSidebar: No availability data for "${itemName}", defaulting to [1]`);
       return [1]; // Default to 1 if no availability data
     }
     
     const maxQuantity = Math.max(1, availability.availableQuantity);
     const options = Array.from({ length: maxQuantity }, (_, i) => i + 1);
-    console.log(`✅ [DEBUG] CartSidebar: Generated quantity options for "${itemName}": [${options.join(', ')}] (max: ${maxQuantity})`);
     
     return options;
   };
 
   const removeFromCart = (index: number) => {
-    console.log(`🗑️ [DEBUG] CartSidebar: Removing item at index ${index} from cart`);
     const newCart = [...cart];
     newCart.splice(index, 1);
     setCart(newCart); // This automatically saves to localStorage via useCart hook
@@ -981,7 +955,6 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
       };
 
       await setDoc(doc(firestore, 'carts', user.uid), cartData);
-      console.log('✅ Cart saved to Firestore for abandonment tracking');
     } catch (error) {
       console.error('❌ Error saving cart to Firestore:', error);
     }
@@ -1348,9 +1321,14 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
 
         {/* Total price display */}
         <div className="cart-total" style={{ fontWeight: 'bold', fontSize: '1.2rem', marginBottom: '1rem', textAlign: 'center' }}>
-          {hasMembership && (
+          {shouldApplyMembershipDiscount && (
             <div style={{ fontSize: '0.9rem', color: '#4CAF50', marginBottom: '0.5rem' }}>
               🎉 Membership Discount: 25% off other items!
+              {userIsMember && !hasMembership && (
+                <div style={{ fontSize: '0.8rem', color: '#2e7d32', fontStyle: 'italic' }}>
+                  Active member discount applied
+                </div>
+              )}
             </div>
           )}
           {discountCalculation.discountAmount > 0 ? (
@@ -1383,7 +1361,6 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
               
               if (cart.length > 0 && eventFieldsValid && areWetDrySelectionsComplete()) {
                 if (user) {
-                  console.log('🔍 [DEBUG] Checking for matching resumable bookings...');
                   
                   // Check for matching resumable bookings
                   const currentCartSettings = {
@@ -1401,18 +1378,15 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                   );
                   
                   if (matchResult.booking && matchResult.comparison) {
-                    console.log('✅ [DEBUG] Found matching booking:', matchResult.booking.orderID);
                     
                     if (!matchResult.comparison.hasChanges) {
                       // Exact match - resume the booking directly
-                      console.log('➡️ [DEBUG] Exact match - resuming booking directly');
                       localStorage.setItem('resumeBookingId', matchResult.booking.orderID);
                       onClose(); // Close cart sidebar
                       navigate('/checkout');
                       return;
                     } else {
                       // Partial match - show confirmation dialog
-                      console.log('⚠️ [DEBUG] Partial match - showing update confirmation');
                       const changeDescription = [
                         ...(matchResult.comparison.changedItems || []),
                         ...(matchResult.comparison.changedSettings || [])
@@ -1425,7 +1399,6 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                       const userConfirmed = confirm(confirmMessage);
                       
                       if (userConfirmed) {
-                        console.log('✅ [DEBUG] User confirmed update - updating existing booking');
                         
                         // Show loading state
                         const proceedButton = document.getElementById('proceedButton') as HTMLButtonElement;
@@ -1444,7 +1417,6 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                           );
                           
                           if (updatedBooking) {
-                            console.log('✅ [DEBUG] Booking updated successfully, resuming...');
                             localStorage.setItem('resumeBookingId', matchResult.booking.orderID);
                             onClose(); // Close cart sidebar
                             navigate('/checkout');
@@ -1463,15 +1435,12 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                           }
                         }
                       } else {
-                        console.log('❌ [DEBUG] User declined update - proceeding with new booking');
                       }
                     }
                   } else {
-                    console.log('ℹ️ [DEBUG] No matching bookings found - proceeding with new booking');
                   }
                   
                   // No match found or user declined update - proceed with normal flow
-                  console.log('➡️ [DEBUG] No match or user declined - creating new booking');
                   
                   // Save cart to Firestore for abandonment tracking before proceeding
                   await saveCartToFirestore(user);

@@ -13,8 +13,8 @@ import "./styles/profile.css";
 import { useInflateables } from "./hooks/useInflateables";
 import { useCategories } from "./hooks/useCategories";
 import type { CartItem } from "./components/CartSidebar";
-import { loadBookingData, loadContractData, loadContractByOrderID, getUserWallet, getUserPaymentInfo, addWalletTransaction, addSavedPaymentMethod, deleteAllUserData, updateBookingStatus } from "./utils/databaseUtils";
-import type { BookingData, ContractData, UserWallet, UserPaymentInfo, SavedPaymentMethod } from "./utils/databaseUtils";
+import { loadBookingData, loadContractData, loadContractByOrderID, getUserWallet, getUserPaymentInfo, addWalletTransaction, addSavedPaymentMethod, deleteAllUserData, updateBookingStatus, getUserMembership } from "./utils/databaseUtils";
+import type { BookingData, ContractData, UserWallet, UserPaymentInfo, SavedPaymentMethod, UserMembership } from "./utils/databaseUtils";
 
 // Helper function to clear all localStorage data on sign out
 const clearAllLocalStorage = () => {
@@ -34,7 +34,6 @@ const clearAllLocalStorage = () => {
   localStorage.removeItem('resumeBookingId');
   localStorage.removeItem('pendingUserData');
   
-  console.log('🧹 All localStorage data cleared on sign out');
 };
 import { redeemGiftCardToWallet, validateGiftCard, getGiftCardDetails } from "./hooks/useDiscounts";
 import { WalletFundingModal } from "./components/WalletFundingModal";
@@ -78,6 +77,7 @@ export default function Profile() {
   // Payment Information tab state
   const [userWallet, setUserWallet] = useState<UserWallet | null>(null);
   const [userPaymentInfo, setUserPaymentInfo] = useState<UserPaymentInfo | null>(null);
+  const [userMembership, setUserMembership] = useState<UserMembership | null>(null);
   const [showPasswordVerification, setShowPasswordVerification] = useState(false);
   const [verificationPassword, setVerificationPassword] = useState("");
   const [passwordVerified, setPasswordVerified] = useState(false);
@@ -236,7 +236,6 @@ export default function Profile() {
             reason: 'Booking cancellation'
           });
           
-          console.log('✅ PayPal refund processed successfully');
         } catch (refundError) {
           console.error('❌ PayPal refund failed:', refundError);
           // Continue with cancellation even if refund fails - user can contact support
@@ -321,7 +320,6 @@ export default function Profile() {
       setBookings(newBookings);
       setLegacyBookings(legacyBookings);
       
-      console.log(`📋 Loaded ${newBookings.length} new bookings and ${legacyBookings.length} legacy bookings`);
       
     } catch (error) {
       console.error('Error loading bookings:', error);
@@ -588,7 +586,6 @@ export default function Profile() {
   useEffect(() => {
     if (addressInputRef.current && profile.address && !isSelectingGooglePlace) {
       addressInputRef.current.value = profile.address;
-      console.log('🔄 PROFILE - Synced input field with profile address:', profile.address);
     }
   }, [profile.address, isSelectingGooglePlace]);
 
@@ -617,10 +614,17 @@ export default function Profile() {
     }
   }, []);
 
-  // Load user bookings when user changes or Past Events tab is accessed
+  // Load user bookings when user changes or Bookings tab is accessed
   useEffect(() => {
     if (user && activeTab === 1) {
       loadUserBookings(user.uid);
+    }
+  }, [user, activeTab]);
+
+  // Load user membership when user changes or Membership tab is accessed
+  useEffect(() => {
+    if (user && activeTab === 2) {
+      loadMembershipData();
     }
   }, [user, activeTab]);
 
@@ -655,10 +659,6 @@ export default function Profile() {
     if (place.formatted_address && place.geometry?.location && place.place_id) {
       const googleAddress = place.formatted_address;
       
-      console.log('🎯 PROFILE - GOOGLE PLACES SELECTION:');
-      console.log('  - Formatted address from Google:', googleAddress);
-      console.log('  - Current input field value:', addressInputRef.current?.value);
-      console.log('  - Current profile address state:', profile.address);
       
       // Set flag to prevent manual input from overriding this selection
       setIsSelectingGooglePlace(true);
@@ -677,8 +677,6 @@ export default function Profile() {
         addressInputRef.current.value = googleAddress;
       }
       
-      console.log('  - Updated profile address to:', googleAddress);
-      console.log('  - Updated input field to:', googleAddress);
       
       // Clear the flag after a short delay
       setTimeout(() => {
@@ -689,20 +687,13 @@ export default function Profile() {
 
   // Handle manual address input change
   const handleAddressChange = (value: string) => {
-    console.log('📝 PROFILE - MANUAL ADDRESS CHANGE:');
-    console.log('  - Typed value:', value);
-    console.log('  - Previous profile address:', profile.address);
-    console.log('  - Current input field value:', addressInputRef.current?.value);
-    console.log('  - Is currently selecting Google Place?:', isSelectingGooglePlace);
     
     // Don't override if we're currently selecting a Google Place
     if (isSelectingGooglePlace) {
-      console.log('  - BLOCKED: Google Place selection in progress, ignoring manual change');
       return;
     }
     
     setProfile(prev => ({ ...prev, address: value }));
-    console.log('  - Updated profile address to:', value);
     // No validation here - we'll only validate on save
   };
 
@@ -801,10 +792,20 @@ export default function Profile() {
     }
   };
 
+  // Load membership data
+  const loadMembershipData = async () => {
+    if (!user) return;
+    
+    try {
+      const membershipData = await getUserMembership(user.uid);
+      setUserMembership(membershipData);
+    } catch (error) {
+      console.error('Error loading membership data:', error);
+    }
+  };
+
   // Gift Card Balance Checker Function
   const handleGiftCardLookup = async () => {
-    console.log('[GiftCardBalanceCheck] Lookup started');
-    console.log('[GiftCardBalanceCheck] Input code:', giftCardCode);
     if (!giftCardCode.trim()) {
       console.warn('[GiftCardBalanceCheck] No code entered');
       setGiftCardError("Please enter a gift card code");
@@ -817,11 +818,8 @@ export default function Profile() {
 
     try {
       const trimmedCode = giftCardCode.trim();
-      console.log('[GiftCardBalanceCheck] Querying getGiftCardDetails with code:', trimmedCode);
       const result = await getGiftCardDetails(trimmedCode);
-      console.log('[GiftCardBalanceCheck] Lookup result:', result);
       if (result.success && result.giftCard) {
-        console.log('[GiftCardBalanceCheck] Gift card found:', result.giftCard);
         setGiftCardLookupResult(result.giftCard);
       } else {
         console.warn('[GiftCardBalanceCheck] Lookup failed:', result.message);
@@ -832,7 +830,6 @@ export default function Profile() {
       setGiftCardError("Error looking up gift card. Please try again.");
     } finally {
       setLoadingGiftCardLookup(false);
-      console.log('[GiftCardBalanceCheck] Lookup finished');
     }
   };
 
@@ -988,15 +985,10 @@ export default function Profile() {
     setStoringPaymentMethod(true);
     try {
       const details = await actions.order.capture();
-      console.log('🔍 PayPal capture details (full response):', JSON.stringify(details, null, 2));
-      console.log('🔍 Payment source:', details.payment_source);
-      console.log('🔍 Payment source PayPal:', details.payment_source?.paypal);
-      console.log('🔍 Payment source Card:', details.payment_source?.card);
       
       // Refund the verification amount immediately
       try {
         // Note: In production, you'd call your backend to process the refund
-        console.log('Processing refund for verification payment:', details.id);
       } catch (refundError) {
         console.error('Error processing refund:', refundError);
         // Continue with saving payment method even if refund fails
@@ -1048,8 +1040,6 @@ export default function Profile() {
         };
       }
       
-      console.log('Extracted vault ID:', vaultId);
-      console.log('Payment method info:', paymentMethodInfo);
       
       if (vaultId && paymentMethodInfo) {
         const success = await addSavedPaymentMethod(user.uid, paymentMethodInfo);
@@ -1143,7 +1133,6 @@ export default function Profile() {
           deletionDate: new Date().toISOString()
         });
         
-        console.log('Account deletion email sent successfully');
       } catch (emailError) {
         console.error('Failed to send deletion email:', emailError);
         // Continue with deletion even if email fails
@@ -1162,7 +1151,6 @@ export default function Profile() {
       await user.delete();
 
       // Clear all localStorage data
-      console.log('Clearing localStorage...');
       localStorage.clear();
 
       // Show success message
@@ -1909,8 +1897,33 @@ export default function Profile() {
             <div className="membership-content">
               <div className="membership-status">
                 <h4>Membership Status</h4>
-                <p>You are not currently a member.</p>
-                <p>Join our membership program to get monthly inflatables delivered to your home with exclusive benefits!</p>
+                {userMembership ? (
+                  <div>
+                    {userMembership.weekday && (
+                      <div style={{ color: '#4CAF50', marginBottom: '0.5rem' }}>
+                        ✅ <strong>Weekday Member</strong> - You have an active weekday membership!
+                      </div>
+                    )}
+                    {userMembership.weekend && (
+                      <div style={{ color: '#4CAF50', marginBottom: '0.5rem' }}>
+                        ✅ <strong>Weekend Member</strong> - You have an active weekend membership!
+                      </div>
+                    )}
+                    {!userMembership.weekday && !userMembership.weekend && (
+                      <p>You are not currently a member, but membership data was found.</p>
+                    )}
+                    {(userMembership.weekday || userMembership.weekend) && (
+                      <p style={{ color: '#2e7d32', fontStyle: 'italic' }}>
+                        Enjoy 25% off all rental items with your active membership!
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <p>You are not currently a member.</p>
+                    <p>Join our membership program to get monthly inflatables delivered to your home with exclusive benefits!</p>
+                  </div>
+                )}
               </div>
               
               <div className="membership-benefits">
@@ -2567,7 +2580,6 @@ export default function Profile() {
         onClose={() => setShowWalletModal(false)}
         userId={user.uid}
         onSuccess={(amount, method) => {
-          console.log(`Successfully added $${amount} to wallet via ${method}`);
           
           // Show success notification
           const methodText = method === 'gift_card' ? 'gift card' : 'PayPal';

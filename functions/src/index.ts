@@ -68,7 +68,6 @@ if (!admin.apps.length) {
  * Error Handling: Preserves original error types from email server for debugging
  */
 export const sendOrderConfirmationEmail = functions.https.onCall(async (data: OrderConfirmationEmailData, context) => {
-  console.log('📧 ORDER CONFIRMATION - Cloud Function called, auth status:', !!context.auth);
   
   try {
     const result = await sendOrderEmail(data);
@@ -109,7 +108,6 @@ export const sendOrderConfirmationEmail = functions.https.onCall(async (data: Or
  * Security: Authentication prevents abuse and unauthorized gift card creation
  */
 export const sendGiftCardEmail = functions.https.onCall(async (data: GiftCardEmailData, context) => {
-  console.log('🎁 GIFT CARD - Cloud Function called, auth status:', !!context.auth);
   
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to send gift card emails.');
@@ -159,7 +157,6 @@ export const sendGiftCardEmailOnCreate = functions.firestore
     
     // Only send email for purchased gift cards (not promotional ones)
     if (giftCardData?.isPurchased && giftCardData?.recipientEmail) {
-      console.log('🎁 Auto-sending gift card email for:', giftCardData.recipientEmail);
       
       const emailData: GiftCardEmailData = {
         recipientEmail: giftCardData.recipientEmail,
@@ -175,7 +172,6 @@ export const sendGiftCardEmailOnCreate = functions.firestore
       
       try {
         await sendGiftEmail(emailData);
-        console.log('✅ Auto gift card email sent successfully');
       } catch (error) {
         console.error('❌ Failed to auto-send gift card email:', error);
       }
@@ -219,7 +215,6 @@ export const sendAccountDeletionEmail = functions.https.onCall(async (data: {
   name?: string;
   reason?: string;
 }, context) => {
-  console.log('🗑️ ACCOUNT DELETION - Cloud Function called');
   
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to send account deletion emails.');
@@ -282,7 +277,6 @@ export const sendAccountDeletionEmail = functions.https.onCall(async (data: {
  * Error Handling: Preserves PayPal API errors for debugging payment issues
  */
 export const createPayPalInvoice = functions.https.onCall(async (data: PayPalInvoiceData, context) => {
-  console.log('💰 PAYPAL INVOICE - Cloud Function called, auth status:', !!context.auth);
   
   try {
     const invoice = await createInvoice(data);
@@ -334,7 +328,6 @@ export const createPayPalInvoice = functions.https.onCall(async (data: PayPalInv
  * Security: No sensitive data exposed in test responses
  */
 export const testPayPalDebug = functions.https.onCall(async (data, context) => {
-  console.log('🧪 PAYPAL TEST - Cloud Function called');
   
   try {
     const result = await testPayPalConnection();
@@ -355,7 +348,6 @@ interface PayPalRefundData {
 }
 
 export const processPayPalBookingRefund = functions.https.onCall(async (data: PayPalRefundData, context) => {
-  console.log('💰 PAYPAL REFUND - Cloud Function called, auth status:', !!context.auth);
 
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
@@ -369,7 +361,6 @@ export const processPayPalBookingRefund = functions.https.onCall(async (data: Pa
     }
 
     const result = await processPayPalRefund(captureId, amount, reason);
-    console.log('✅ PAYPAL REFUND - Refund processed successfully:', result.refundId);
     return result;
   } catch (error: any) {
     console.error('❌ PAYPAL REFUND - Cloud Function error:', error);
@@ -422,7 +413,6 @@ export const triggerTestEmail = functions.https.onCall(async (data: {
   name: string;
   bookingId?: string;
 }, context) => {
-  console.log('🧪 EMAIL TEST - Manual trigger called:', data.type);
   
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Authentication required for email testing.');
@@ -502,7 +492,6 @@ export const triggerTestEmail = functions.https.onCall(async (data: {
 export const processScheduledEmails = functions.pubsub
   .schedule('every 2 minutes') // For production, change to 'every 1 hours'
   .onRun(async (context) => {
-    console.log('📧 SCHEDULER: Starting scheduled email processing...');
     
     const db = admin.database();
     const now = Date.now();
@@ -517,7 +506,6 @@ export const processScheduledEmails = functions.pubsub
         processRebookingReminderEmails(db, now)
       ]);
       
-      console.log('✅ SCHEDULER: All scheduled emails processed successfully');
     } catch (error) {
       console.error('❌ SCHEDULER: Error processing scheduled emails:', error);
     }
@@ -568,7 +556,6 @@ export const processScheduledEmails = functions.pubsub
 export const autoCompleteBookings = functions.pubsub
   .schedule('every 1 hours')
   .onRun(async (context) => {
-    console.log('🔄 AUTO-COMPLETE: Starting booking completion check...');
     
     const db = admin.database();
     const now = Date.now();
@@ -580,7 +567,6 @@ export const autoCompleteBookings = functions.pubsub
       const snapshot = await bookingsRef.once('value');
       
       if (!snapshot.exists()) {
-        console.log('📋 AUTO-COMPLETE: No bookings found');
         return;
       }
       
@@ -602,23 +588,19 @@ export const autoCompleteBookings = functions.pubsub
             
             // If event date has passed, mark as complete
             if (eventDateObj < today) {
-              console.log(`✅ AUTO-COMPLETE: Completing past event ${child.key} (Event: ${eventDate})`);
               updates[`${child.key}/status`] = 'complete';
               updates[`${child.key}/completedAt`] = now;
               updates[`${child.key}/completionReason`] = 'Auto-completed after event date';
               completedCount++;
             }
           } else {
-            console.log(`⚠️ AUTO-COMPLETE: Booking ${child.key} missing event date`);
           }
         }
       });
       
       if (completedCount > 0) {
         await bookingsRef.update(updates);
-        console.log(`✅ AUTO-COMPLETE: Completed ${completedCount} past events`);
       } else {
-        console.log('📋 AUTO-COMPLETE: No bookings needed completion');
       }
     } catch (error) {
       console.error('❌ AUTO-COMPLETE: Error processing bookings:', error);
@@ -642,7 +624,6 @@ const EMAIL_TIMING = {
 const EMAIL_SERVER_BASE_URL = 'http://170.187.145.7:3001';
 const EMAIL_SERVER_API_KEY = 'jumpcsra_secure_api_key_2024';
 
-console.log('📧 EMAIL TIMING CONFIG (Production Mode):',  {
   cartAbandonment: '24 hours',
   depositReminder: '2 days',
   eventConfirmation: '3 days',
@@ -652,13 +633,11 @@ console.log('📧 EMAIL TIMING CONFIG (Production Mode):',  {
 
 async function processCartAbandonmentEmails(db: admin.database.Database, now: number) {
   try {
-    console.log('🛒 SCHEDULER: Checking cart abandonment emails...');
     
     const cartsRef = db.ref('carts');
     const snapshot = await cartsRef.once('value');
     
     if (!snapshot.exists()) {
-      console.log('🛒 SCHEDULER: No carts found');
       return;
     }
     
@@ -706,7 +685,6 @@ async function processCartAbandonmentEmails(db: admin.database.Database, now: nu
 
             await emailRef.set({ sentAt: now, type: 'cart-abandonment' });
             emailsSent++;
-            console.log(`✅ SCHEDULER: Sent cart abandonment email to ${cart.email}`);
           } catch (emailError) {
             console.error(`❌ SCHEDULER: Failed to send cart abandonment email to ${cart.email}:`, emailError);
           }
@@ -714,7 +692,6 @@ async function processCartAbandonmentEmails(db: admin.database.Database, now: nu
       }
     }
     
-    console.log(`🛒 SCHEDULER: Sent ${emailsSent} cart abandonment emails`);
     
   } catch (error) {
     console.error('❌ SCHEDULER: Error processing cart abandonment emails:', error);
@@ -723,13 +700,11 @@ async function processCartAbandonmentEmails(db: admin.database.Database, now: nu
 
 async function processDepositReminderEmails(db: admin.database.Database, now: number) {
   try {
-    console.log('💰 SCHEDULER: Checking deposit reminder emails...');
     
     const bookingsRef = db.ref('bookings');
     const snapshot = await bookingsRef.once('value');
     
     if (!snapshot.exists()) {
-      console.log('💰 SCHEDULER: No bookings found');
       return;
     }
     
@@ -755,13 +730,11 @@ async function processDepositReminderEmails(db: admin.database.Database, now: nu
       const eventDate = new Date(firstDate).getTime();
       
       if (isNaN(eventDate)) {
-        console.log(`💰 SCHEDULER: Invalid event date for booking ${bookingId}: ${eventDateString}`);
         continue;
       }
       
       const timeUntilEvent = eventDate - now;
       
-      console.log(`💰 SCHEDULER: Booking ${bookingId} - Event in ${Math.round(timeUntilEvent / (1000 * 60 * 60))} hours`);
       
       // Send reminder if event is within 2 days (or 2 min in testing mode)
       if (timeUntilEvent <= EMAIL_TIMING.DEPOSIT_REMINDER && timeUntilEvent > 0) {
@@ -778,7 +751,6 @@ async function processDepositReminderEmails(db: admin.database.Database, now: nu
             }
           };
 
-          console.log(`💰 SCHEDULER: Sending deposit reminder to ${booking.customerInfo.email} for booking ${bookingId}`);
           
           await axios.post(`${EMAIL_SERVER_BASE_URL}/api/email/deposit-reminder`, emailData, {
             headers: {
@@ -792,16 +764,13 @@ async function processDepositReminderEmails(db: admin.database.Database, now: nu
           // Update the email tracking flag
           await db.ref(`bookings/${bookingId}/emails/depositReminder`).set(true);
           emailsSent++;
-          console.log(`✅ SCHEDULER: Sent deposit reminder email to ${booking.customerInfo.email} for booking ${bookingId}`);
         } catch (emailError) {
           console.error(`❌ SCHEDULER: Failed to send deposit reminder email to ${booking.customerInfo.email}:`, emailError);
         }
       } else {
-        console.log(`💰 SCHEDULER: Booking ${bookingId} doesn't meet timing criteria (${Math.round(timeUntilEvent / (1000 * 60 * 60))} hours until event)`);
       }
     }
     
-    console.log(`💰 SCHEDULER: Sent ${emailsSent} deposit reminder emails`);
     
   } catch (error) {
     console.error('❌ SCHEDULER: Error processing deposit reminder emails:', error);
@@ -810,13 +779,11 @@ async function processDepositReminderEmails(db: admin.database.Database, now: nu
 
 async function processEventConfirmationEmails(db: admin.database.Database, now: number) {
   try {
-    console.log('📅 SCHEDULER: Checking event confirmation emails...');
     
     const bookingsRef = db.ref('bookings');
     const snapshot = await bookingsRef.once('value');
     
     if (!snapshot.exists()) {
-      console.log('📅 SCHEDULER: No bookings found');
       return;
     }
     
@@ -842,13 +809,11 @@ async function processEventConfirmationEmails(db: admin.database.Database, now: 
       const eventDate = new Date(firstDate).getTime();
       
       if (isNaN(eventDate)) {
-        console.log(`📅 SCHEDULER: Invalid event date for booking ${bookingId}: ${eventDateString}`);
         continue;
       }
       
       const timeUntilEvent = eventDate - now;
       
-      console.log(`📅 SCHEDULER: Booking ${bookingId} - Event in ${Math.round(timeUntilEvent / (1000 * 60 * 60))} hours`);
       
       // Send confirmation if event is within 3 days
       if (timeUntilEvent <= EMAIL_TIMING.EVENT_CONFIRMATION && timeUntilEvent > 0) {
@@ -880,14 +845,12 @@ async function processEventConfirmationEmails(db: admin.database.Database, now: 
           // Update the email tracking flag
           await db.ref(`bookings/${bookingId}/emails/eventConfirmation`).set(true);
           emailsSent++;
-          console.log(`✅ SCHEDULER: Sent event confirmation email to ${booking.customerInfo.email}`);
         } catch (emailError) {
           console.error(`❌ SCHEDULER: Failed to send event confirmation email to ${booking.customerInfo.email}:`, emailError);
         }
       }
     }
     
-    console.log(`📅 SCHEDULER: Sent ${emailsSent} event confirmation emails`);
     
   } catch (error) {
     console.error('❌ SCHEDULER: Error processing event confirmation emails:', error);
@@ -896,13 +859,11 @@ async function processEventConfirmationEmails(db: admin.database.Database, now: 
 
 async function processPostEventEmails(db: admin.database.Database, now: number) {
   try {
-    console.log('🎉 SCHEDULER: Checking post-event thank you emails...');
     
     const bookingsRef = db.ref('bookings');
     const snapshot = await bookingsRef.once('value');
     
     if (!snapshot.exists()) {
-      console.log('🎉 SCHEDULER: No bookings found');
       return;
     }
     
@@ -925,7 +886,6 @@ async function processPostEventEmails(db: admin.database.Database, now: number) 
       const eventDate = new Date(firstDate).getTime();
       
       if (isNaN(eventDate)) {
-        console.log(`🎉 SCHEDULER: Invalid event date for booking ${bookingId}: ${eventDateString}`);
         continue;
       }
       
@@ -958,14 +918,12 @@ async function processPostEventEmails(db: admin.database.Database, now: number) 
           // Update the email tracking flag
           await db.ref(`bookings/${bookingId}/emails/thanks`).set(true);
           emailsSent++;
-          console.log(`✅ SCHEDULER: Sent post-event thank you email to ${booking.customerInfo.email}`);
         } catch (emailError) {
           console.error(`❌ SCHEDULER: Failed to send post-event thank you email to ${booking.customerInfo.email}:`, emailError);
         }
       }
     }
     
-    console.log(`🎉 SCHEDULER: Sent ${emailsSent} post-event thank you emails`);
     
   } catch (error) {
     console.error('❌ SCHEDULER: Error processing post-event thank you emails:', error);
@@ -974,13 +932,11 @@ async function processPostEventEmails(db: admin.database.Database, now: number) 
 
 async function processRebookingReminderEmails(db: admin.database.Database, now: number) {
   try {
-    console.log('🔄 SCHEDULER: Checking rebooking reminder emails...');
     
     const bookingsRef = db.ref('bookings');
     const snapshot = await bookingsRef.once('value');
     
     if (!snapshot.exists()) {
-      console.log('🔄 SCHEDULER: No bookings found');
       return;
     }
     
@@ -1003,7 +959,6 @@ async function processRebookingReminderEmails(db: admin.database.Database, now: 
       const eventDate = new Date(firstDate).getTime();
       
       if (isNaN(eventDate)) {
-        console.log(`🔄 SCHEDULER: Invalid event date for booking ${bookingId}: ${eventDateString}`);
         continue;
       }
       
@@ -1031,14 +986,12 @@ async function processRebookingReminderEmails(db: admin.database.Database, now: 
           // Update the email tracking flag
           await db.ref(`bookings/${bookingId}/emails/rebooking`).set(true);
           emailsSent++;
-          console.log(`✅ SCHEDULER: Sent rebooking reminder email to ${booking.customerInfo.email}`);
         } catch (emailError) {
           console.error(`❌ SCHEDULER: Failed to send rebooking reminder email to ${booking.customerInfo.email}:`, emailError);
         }
       }
     }
     
-    console.log(`🔄 SCHEDULER: Sent ${emailsSent} rebooking reminder emails`);
     
   } catch (error) {
     console.error('❌ SCHEDULER: Error processing rebooking reminder emails:', error);

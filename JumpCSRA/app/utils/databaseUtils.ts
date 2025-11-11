@@ -143,7 +143,6 @@ export const saveBookingData = async (bookingData: BookingData): Promise<boolean
     };
     
     await set(bookingsRef, dataToSave);
-    console.log('Booking data saved successfully with email tracking:', bookingData.orderID);
     return true;
   } catch (error) {
     console.error('Error saving booking data:', error);
@@ -158,10 +157,8 @@ export const loadBookingData = async (orderID: string): Promise<BookingData | nu
     const snapshot = await get(bookingRef);
     
     if (snapshot.exists()) {
-      console.log('Booking data loaded successfully:', orderID);
       return snapshot.val() as BookingData;
     } else {
-      console.log('No booking data found for orderID:', orderID);
       return null;
     }
   } catch (error) {
@@ -179,7 +176,6 @@ export const updateBookingStatus = async (orderID: string, status: 'deferred' | 
     await set(statusRef, status);
     await set(updatedAtRef, new Date().toISOString());
     
-    console.log('Booking status updated:', orderID, status);
     return true;
   } catch (error) {
     console.error('Error updating booking status:', error);
@@ -194,7 +190,6 @@ export const saveContractData = async (contractData: ContractData): Promise<bool
     const contractsRef = ref(database, `contracts/${contractData.contractID}`);
     
     await set(contractsRef, contractData);
-    console.log('Contract data saved successfully:', contractData.contractID);
     return true;
   } catch (error) {
     console.error('Error saving contract data:', error);
@@ -209,10 +204,8 @@ export const loadContractData = async (contractID: string): Promise<ContractData
     const snapshot = await get(contractRef);
     
     if (snapshot.exists()) {
-      console.log('Contract data loaded successfully:', contractID);
       return snapshot.val() as ContractData;
     } else {
-      console.log('No contract data found for contractID:', contractID);
       return null;
     }
   } catch (error) {
@@ -232,13 +225,11 @@ export const loadContractByOrderID = async (orderID: string): Promise<ContractDa
       // Find contract with matching orderID
       for (const contractID in contracts) {
         if (contracts[contractID].orderID === orderID) {
-          console.log('Contract found for orderID:', orderID);
           return contracts[contractID] as ContractData;
         }
       }
     }
     
-    console.log('No contract found for orderID:', orderID);
     return null;
   } catch (error) {
     console.error('Error loading contract by orderID:', error);
@@ -252,7 +243,6 @@ export const updateContractStatus = async (contractID: string, contractStatus: '
     const statusRef = ref(database, `contracts/${contractID}/contractStatus`);
     
     await set(statusRef, contractStatus);
-    console.log('Contract status updated:', contractID, contractStatus);
     return true;
   } catch (error) {
     console.error('Error updating contract status:', error);
@@ -288,7 +278,6 @@ export const checkPendingUserSync = async () => {
       return false;
     }
     
-    console.log('Found pending user data, attempting to sync to Firestore...');
     
     const db = getFirestore();
     const userRef = doc(db, "users", user.uid);
@@ -316,7 +305,6 @@ export const checkPendingUserSync = async () => {
       { merge: true }
     );
     
-    console.log('Successfully synced pending user data to Firestore');
     localStorage.removeItem('pendingUserData');
     
     return true;
@@ -324,7 +312,6 @@ export const checkPendingUserSync = async () => {
     console.error('Failed to sync pending user data:', error);
     
     if (error.code === 'permission-denied') {
-      console.log('Database access still denied, keeping data in localStorage');
     }
     
     return false;
@@ -346,7 +333,6 @@ export const testDatabaseAccess = async () => {
     
     // Test read access
     await getDoc(userRef);
-    console.log('Database read access: OK');
     
     // Test write access
     await setDoc(
@@ -354,7 +340,6 @@ export const testDatabaseAccess = async () => {
       { testTimestamp: new Date().toISOString() },
       { merge: true }
     );
-    console.log('Database write access: OK');
     
     return { success: true, message: 'Full database access available' };
     
@@ -436,7 +421,6 @@ export const determineInitialBookingStatus = (eventDate: string, isContractSigne
 
 export const updateBookingStatusBasedOnPayment = async (orderID: string, depositAmount: number, totalAmount: number): Promise<boolean> => {
   try {
-    console.log(`🔄 Starting booking status update for ${orderID}: $${depositAmount}/$${totalAmount}`);
     
     // Load existing booking to get event date and other details
     const bookingData = await loadBookingData(orderID);
@@ -445,7 +429,6 @@ export const updateBookingStatusBasedOnPayment = async (orderID: string, deposit
       return false;
     }
     
-    console.log(`📋 Current booking status: ${bookingData.status}`);
     
     // Parse event date from orderDetails.eventDate (format: "MM/DD/YYYY - MM/DD/YYYY")
     const eventDateString = bookingData.orderDetails.eventDate.split(' - ')[0];
@@ -456,54 +439,42 @@ export const updateBookingStatusBasedOnPayment = async (orderID: string, deposit
       item.name.toLowerCase().includes('giftcard')
     );
     
-    console.log(`🎁 Gift card only order: ${isGiftCardOnly}`);
-    console.log(`💰 Payment check - Deposit: $${depositAmount}, Total: $${totalAmount}, Full payment: ${depositAmount >= totalAmount}`);
     
     let newStatus: 'deferred' | 'pending' | 'confirmed';
     
     // Gift card only orders are always confirmed when payment is complete
     if (isGiftCardOnly && depositAmount >= totalAmount) {
       newStatus = 'confirmed';
-      console.log(`✅ Gift card only order with full payment → confirmed`);
     } else if (bookingData.status === 'deferred') {
       // If booking was deferred, it should move to pending or confirmed based on payment
       if (depositAmount >= totalAmount) {
         newStatus = 'confirmed'; // Full payment
-        console.log(`✅ Deferred booking with full payment → confirmed`);
       } else if (depositAmount > 0) {
         newStatus = 'pending'; // Deposit payment
-        console.log(`⏳ Deferred booking with deposit → pending`);
       } else {
         newStatus = 'deferred'; // No payment yet
-        console.log(`⏸️ Deferred booking with no payment → deferred`);
       }
     } else {
       // For non-deferred bookings, determine status based on payment
       if (depositAmount >= totalAmount) {
         newStatus = 'confirmed'; // Full payment
-        console.log(`✅ Regular booking with full payment → confirmed`);
       } else if (depositAmount > 0) {
         newStatus = 'pending'; // Deposit payment  
-        console.log(`⏳ Regular booking with deposit → pending`);
       } else {
         // This shouldn't happen - bookings should have payment when this is called
         newStatus = bookingData.status as 'pending' | 'confirmed';
-        console.log(`⚠️ No payment detected, keeping current status: ${newStatus}`);
       }
     }
     
-    console.log(`🎯 Status transition: ${bookingData.status} → ${newStatus}`);
     
     // Update booking status and payment details
     const database = getDatabase();
     
-    console.log(`📝 Updating database for ${orderID}...`);
     await set(ref(database, `bookings/${orderID}/status`), newStatus);
     await set(ref(database, `bookings/${orderID}/paymentDetails/depositAmount`), depositAmount);
     await set(ref(database, `bookings/${orderID}/paymentDetails/remainingBalance`), totalAmount - depositAmount);
     await set(ref(database, `bookings/${orderID}/updatedAt`), new Date().toISOString());
     
-    console.log(`✅ Booking ${orderID} status successfully updated to ${newStatus} based on payment: $${depositAmount}/$${totalAmount}`);
     return true;
   } catch (error) {
     console.error('❌ Error updating booking status based on payment:', error);
@@ -526,7 +497,6 @@ export const checkAndMarkCompletedBookings = async (): Promise<number> => {
     const snapshot = await get(bookingsRef);
     
     if (!snapshot.exists()) {
-      console.log('No bookings found to check for completion');
       return 0;
     }
     
@@ -543,12 +513,10 @@ export const checkAndMarkCompletedBookings = async (): Promise<number> => {
         if (isBookingPastEventDate(eventDateString)) {
           await updateBookingStatus(orderID, 'completed');
           updatedCount++;
-          console.log(`Marked booking ${orderID} as completed (event date passed)`);
         }
       }
     }
     
-    console.log(`Checked bookings for completion: ${updatedCount} bookings marked as completed`);
     return updatedCount;
   } catch (error) {
     console.error('Error checking and marking completed bookings:', error);
@@ -570,11 +538,9 @@ export const getUserData = async () => {
     const userDoc = await getDoc(userRef);
     
     if (userDoc.exists()) {
-      console.log('Retrieved user data from Firestore');
       return userDoc.data();
     }
   } catch (error: any) {
-    console.log('Firestore access failed, checking localStorage...');
   }
   
   // Fallback to localStorage
@@ -583,7 +549,6 @@ export const getUserData = async () => {
     try {
       const userData = JSON.parse(pendingData);
       if (userData.uid === user.uid) {
-        console.log('Retrieved user data from localStorage fallback');
         
         // Extract firstName and lastName from displayName
         const displayName = userData.displayName || "";
@@ -624,7 +589,6 @@ export const createUserWallet = async (userId: string): Promise<boolean> => {
     };
     
     await setDoc(walletRef, newWallet);
-    console.log('User wallet created successfully:', userId);
     return true;
   } catch (error) {
     console.error('Error creating user wallet:', error);
@@ -688,7 +652,6 @@ export const addWalletTransaction = async (
     };
     
     await setDoc(walletRef, updatedWallet);
-    console.log('Wallet transaction added successfully:', newTransaction.id);
     return true;
   } catch (error) {
     console.error('Error adding wallet transaction:', error);
@@ -714,7 +677,6 @@ export const updateWalletBalance = async (userId: string, newBalance: number): P
     };
     
     await setDoc(walletRef, updatedWallet);
-    console.log('Wallet balance updated successfully:', userId, newBalance);
     return true;
   } catch (error) {
     console.error('Error updating wallet balance:', error);
@@ -734,7 +696,6 @@ export const saveUserPaymentInfo = async (paymentInfo: UserPaymentInfo): Promise
     };
     
     await setDoc(paymentRef, dataToSave);
-    console.log('User payment info saved successfully:', paymentInfo.userId);
     return true;
   } catch (error) {
     console.error('Error saving user payment info:', error);
@@ -839,7 +800,6 @@ export async function getIncompleteBookingsForUser(userId: string): Promise<Book
     // Sort by creation date (most recent first)
     incompleteBookings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     
-    console.log(`Found ${incompleteBookings.length} incomplete bookings for user ${userId}`);
     return incompleteBookings;
   } catch (error) {
     console.error('Error getting incomplete bookings for user:', error);
@@ -881,7 +841,6 @@ export async function deferBooking(bookingId: string, reason?: string): Promise<
     
     const success = await saveBookingData(booking);
     if (success) {
-      console.log(`Booking ${bookingId} deferred successfully`);
     }
     
     return success;
@@ -913,7 +872,6 @@ export async function deleteAllUserData(userId: string): Promise<{
     }
     
     // Delete from Realtime Database
-    console.log('Deleting Realtime Database data...');
     
     // Delete user wallet data
     const walletRef = ref(db, `userWallets/${userId}`);
@@ -968,7 +926,6 @@ export async function deleteAllUserData(userId: string): Promise<{
     }
     
     // Delete from Firestore collections
-    console.log('Deleting Firestore collections...');
     
     try {
       // Delete from paymentInfo collection
@@ -982,7 +939,6 @@ export async function deleteAllUserData(userId: string): Promise<{
       
       const paymentInfoDeletions = paymentInfoSnapshot.docs.map(doc => deleteDoc(doc.ref));
       await Promise.all(paymentInfoDeletions);
-      console.log(`Deleted ${paymentInfoSnapshot.docs.length} paymentInfo documents`);
       
       // Delete from wallets collection
       const walletsQuery = query(
@@ -993,14 +949,12 @@ export async function deleteAllUserData(userId: string): Promise<{
       
       const walletsDeletions = walletsSnapshot.docs.map(doc => deleteDoc(doc.ref));
       await Promise.all(walletsDeletions);
-      console.log(`Deleted ${walletsSnapshot.docs.length} wallets documents`);
       
     } catch (firestoreError) {
       console.error('Error deleting Firestore collections:', firestoreError);
       // Continue with deletion even if Firestore deletion partially fails
     }
     
-    console.log(`Successfully deleted all data for user ${userId}, wallet balance was $${walletBalance}`);
     
     return {
       success: true,
@@ -1015,3 +969,93 @@ export async function deleteAllUserData(userId: string): Promise<{
     };
   }
 }
+
+// Membership interfaces
+export interface UserMembership {
+  weekday: boolean;
+  weekend: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Membership utility functions
+export const getUserMembership = async (userId: string): Promise<UserMembership | null> => {
+  try {
+    const firestore = getFirestore();
+    const membershipRef = doc(firestore, 'users', userId, 'membership', 'status');
+    const membershipSnap = await getDoc(membershipRef);
+    
+    if (!membershipSnap.exists()) {
+      return null;
+    }
+    
+    return membershipSnap.data() as UserMembership;
+  } catch (error) {
+    console.error('Error getting user membership:', error);
+    return null;
+  }
+};
+
+export const updateUserMembership = async (
+  userId: string, 
+  membershipType: 'weekday' | 'weekend', 
+  isActive: boolean
+): Promise<boolean> => {
+  try {
+    const firestore = getFirestore();
+    const membershipRef = doc(firestore, 'users', userId, 'membership', 'status');
+    
+    // Get existing membership or create new one
+    const existingMembership = await getUserMembership(userId);
+    const currentMembership: UserMembership = existingMembership || {
+      weekday: false,
+      weekend: false,
+      createdAt: new Date().toISOString()
+    };
+    
+    // Update the specific membership type
+    currentMembership[membershipType] = isActive;
+    currentMembership.updatedAt = new Date().toISOString();
+    
+    await setDoc(membershipRef, currentMembership);
+    
+    return true;
+  } catch (error) {
+    console.error('Error updating user membership:', error);
+    return false;
+  }
+};
+
+export const isUserMember = async (userId: string, membershipType?: 'weekday' | 'weekend'): Promise<boolean> => {
+  try {
+    const membership = await getUserMembership(userId);
+    
+    if (!membership) {
+      return false;
+    }
+    
+    if (membershipType) {
+      return membership[membershipType];
+    }
+    
+    // If no specific type provided, check if user has any membership
+    return membership.weekday || membership.weekend;
+  } catch (error) {
+    console.error('Error checking user membership:', error);
+    return false;
+  }
+};
+
+// Helper function to apply membership discount to cart total
+export const applyMembershipDiscount = (
+  cartTotal: number, 
+  hasMembership: boolean, 
+  excludeGiftCardsAndMemberships: boolean = true
+): number => {
+  if (!hasMembership) {
+    return cartTotal;
+  }
+  
+  // Apply 25% discount
+  return cartTotal * 0.75;
+};

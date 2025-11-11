@@ -87,7 +87,6 @@ export function useDiscounts() {
           createdAt: new Date().toISOString(),
           lastUpdated: new Date().toISOString(),
         });
-        console.log('✅ Created user document with usedDiscounts array');
       } else {
         // Ensure usedDiscounts array exists in existing document
         const userData = userDoc.data();
@@ -270,11 +269,9 @@ export function useDiscounts() {
       };
     }
 
-    console.log('🔍 Checking user authentication and usage...');
     
     // Check if user can use this discount
     const isAuthenticated = isUserAuthenticated();
-    console.log('👤 User authenticated:', isAuthenticated);
     
     if (!isAuthenticated) {
 
@@ -290,11 +287,8 @@ export function useDiscounts() {
     }
 
     const hasUsed = await hasUserUsedDiscount(activeDiscount);
-    console.log('🔄 Has user used this discount before:', hasUsed);
     
     if (hasUsed) {
-      console.log('❌ User has already used this discount');
-      console.log('🔄 ========== DISCOUNT CALCULATION END ==========\n');
       return {
         discountAmount: 0,
         appliedDiscount: activeDiscount,
@@ -306,29 +300,23 @@ export function useDiscounts() {
       };
     }
 
-    console.log('✅ User can use discount - proceeding with calculation...');
-    console.log('\n🎯 Calculating discount for type:', activeDiscount);
 
     let result: DiscountCalculation;
     
     switch (activeDiscount) {
       case 'sunday10':
-        console.log('📅 Calculating Sunday 10% discount...');
         result = calculateSunday10Discount(cart, cartTotal, calendarDateRange);
         break;
       
       case 'freeGame':
-        console.log('🎮 Calculating free game discount...');
         result = calculateFreeGameDiscount(cart, cartTotal);
         break;
       
       case 'bogoGiftCard':
-        console.log('🎁 Calculating BOGO gift card discount...');
         result = calculateBogoGiftCardDiscount(cart, cartTotal);
         break;
       
       default:
-        console.log('❓ Unknown discount type');
         result = {
           discountAmount: 0,
           appliedDiscount: null,
@@ -339,14 +327,12 @@ export function useDiscounts() {
         };
     }
     
-    console.log('\n📊 Final discount result:', {
       discountAmount: result.discountAmount,
       appliedDiscount: result.appliedDiscount,
       hasValidDiscount: result.hasValidDiscount,
       addedGiftCards: result.addedGiftCards.length,
       userCanUse: result.userCanUse
     });
-    console.log('🔄 ========== DISCOUNT CALCULATION END ==========\n');
     
     return result;
   };
@@ -396,17 +382,13 @@ function calculateSunday10Discount(
   cartTotal: number, 
   calendarDateRange: [Date | null, Date | null]
 ): DiscountCalculation {
-  console.log('🎯 CALCULATING SUNDAY 10% DISCOUNT:');
-  console.log('Calendar Date Range:', calendarDateRange);
   
   const [startDate, endDate] = calendarDateRange;
   
   // Check if the date range includes a Sunday
   const includesSunday = checkIfRangeIncludesSunday(startDate, endDate);
-  console.log('Sunday qualification result:', includesSunday);
   
   if (!includesSunday) {
-    console.log('❌ Sunday discount not qualified - no Sunday detected');
     return {
       discountAmount: 0,
       appliedDiscount: 'sunday10',
@@ -427,7 +409,6 @@ function calculateSunday10Discount(
   }, 0);
 
   const discountAmount = discountableTotal * 0.1; // 10% off non-gift card items
-  console.log('✅ Sunday discount qualified! Discount amount:', discountAmount, 'on discountable total:', discountableTotal);
   
   return {
     discountAmount,
@@ -480,9 +461,6 @@ function calculateBogoGiftCardDiscount(
   cart: CartItem[], 
   cartTotal: number
 ): DiscountCalculation {
-  console.log('\n🎁 ========== BOGO GIFT CARD CALCULATION ==========');
-  console.log('📊 Input cart items:', cart.length);
-  console.log('💰 Cart total:', cartTotal);
   
   // Check if there are any gift cards in cart
   const giftCards = cart.filter(item => {
@@ -491,21 +469,15 @@ function calculateBogoGiftCardDiscount(
       (item.category && item.category.toLowerCase().includes('gift')) ||
       item.isGiftCard
     );
-    console.log(`  - ${item.name}: isGiftCard=${isGift}, category=${item.category}`);
     if (isGift && item.giftCardValue) {
-      console.log(`    💳 Gift Card Value: $${item.giftCardValue}`);
     }
     return isGift;
   });
   
-  console.log('🎯 Found', giftCards.length, 'gift cards in cart:');
   giftCards.forEach((card, index) => {
-    console.log(`  ${index + 1}. ${card.name} - Price: $${card.price}, Value: $${card.giftCardValue || card.price}`);
   });
   
   if (giftCards.length === 0) {
-    console.log('⚠️ No gift cards found - BOGO not applicable');
-    console.log('🎁 ================================================\n');
     return {
       discountAmount: 0,
       appliedDiscount: 'bogoGiftCard',
@@ -527,28 +499,21 @@ function calculateBogoGiftCardDiscount(
       return result;
     };
     const code = `${generateSegment()}-${generateSegment()}-${generateSegment()}`;
-    console.log('🎫 Generated gift card code:', code);
     return code;
   };
 
-  console.log('\n🔄 Finding highest value gift card for BOGO...');
   
   // Find the highest value gift card to give one free (not one for each)
   const highestValueGiftCard = giftCards.reduce((highest, current) => {
     const currentValue = current.giftCardValue || current.price;
     const highestValue = highest.giftCardValue || highest.price;
     
-    console.log(`  - Comparing: $${currentValue} vs current highest $${highestValue}`);
     
     return currentValue > highestValue ? current : highest;
   });
   
   const highestValue = highestValueGiftCard.giftCardValue || highestValueGiftCard.price;
   
-  console.log(`\n� Highest value gift card selected:`);
-  console.log(`  - Name: ${highestValueGiftCard.name}`);
-  console.log(`  - Price: $${highestValueGiftCard.price}`);
-  console.log(`  - Gift Card Value: $${highestValue}`);
   
   // Generate ONE free gift card matching the highest value
   const freeCard = {
@@ -564,7 +529,6 @@ function calculateBogoGiftCardDiscount(
     isPromotionalGift: true,
   };
   
-  console.log(`✅ Generated ONE free card:`, {
     id: freeCard.id,
     name: freeCard.name,
     value: freeCard.giftCardValue,
@@ -576,12 +540,6 @@ function calculateBogoGiftCardDiscount(
   
   const totalFreeValue = freeGiftCards.reduce((sum, card) => sum + (card.giftCardValue || 0), 0);
   
-  console.log('\n📊 BOGO Summary:');
-  console.log(`  - Total paid gift cards in cart: ${giftCards.length}`);
-  console.log(`  - Static free cards provided: 2 (both $50 and $100 options)`);
-  console.log(`  - CartSidebar will filter and display appropriate free card`);
-  console.log(`  - Has valid discount: ${freeGiftCards.length > 0}`);
-  console.log('🎁 ================================================\n');
   
   return {
     discountAmount: 0, // The "discount" is the free items added
@@ -595,27 +553,19 @@ function calculateBogoGiftCardDiscount(
 
 // Helper function to check if date range includes a Sunday
 function checkIfRangeIncludesSunday(startDate: Date | null, endDate: Date | null): boolean {
-  console.log('🔍 SUNDAY DETECTION DEBUG:');
-  console.log('Start Date:', startDate);
-  console.log('End Date:', endDate);
   
   if (!startDate || !endDate) {
-    console.log('❌ Missing dates - no Sunday qualification');
     return false;
   }
   
   const startDay = startDate.getDay(); // 0=Sunday, 1=Monday, ... 6=Saturday
-  console.log('Start Day of Week:', startDay, '(0=Sunday, 6=Saturday)');
   
   // Check if start date is Saturday and duration is 48+ hours
   if (startDay === 6) { // Saturday is day 6
     const durationHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-    console.log('📅 Saturday detected! Duration:', durationHours, 'hours');
     if (durationHours >= 48) {
-      console.log('✅ Saturday + 48+ hours = Sunday qualification!');
       return true; // Saturday + 48 hours extends into Sunday
     } else {
-      console.log('❌ Saturday but less than 48 hours duration');
     }
   }
   
@@ -623,18 +573,14 @@ function checkIfRangeIncludesSunday(startDate: Date | null, endDate: Date | null
   const current = new Date(startDate);
   const end = new Date(endDate);
   
-  console.log('🔄 Checking each day in range for Sunday...');
   while (current <= end) {
     const dayOfWeek = current.getDay();
-    console.log('Checking date:', current.toDateString(), 'Day:', dayOfWeek);
     if (dayOfWeek === 0) { // Sunday is day 0
-      console.log('✅ Found Sunday in date range!');
       return true;
     }
     current.setDate(current.getDate() + 1);
   }
   
-  console.log('❌ No Sunday found in date range');
   return false;
 }
 
@@ -885,7 +831,6 @@ export async function cleanupEmptyGiftCards(): Promise<number> {
     
     // This would typically be run as a server-side function
     // For now, we'll just return 0 as this should be handled by backend
-    console.log('Gift card cleanup should be handled by a server-side scheduled function');
     return 0;
   } catch (error) {
     console.error('Error during gift card cleanup:', error);
