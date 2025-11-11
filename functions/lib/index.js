@@ -4,7 +4,7 @@
  * Refactored and modularized for better maintainability
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.autoCompleteBookings = exports.processScheduledEmails = exports.triggerTestEmail = exports.testPayPalDebug = exports.createPayPalInvoice = exports.sendAccountDeletionEmail = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.sendOrderConfirmationEmail = exports.testFunction = void 0;
+exports.autoCompleteBookings = exports.processScheduledEmails = exports.triggerTestEmail = exports.processPayPalBookingRefund = exports.testPayPalDebug = exports.createPayPalInvoice = exports.sendAccountDeletionEmail = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.sendOrderConfirmationEmail = exports.testFunction = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const axios_1 = require("axios");
@@ -308,6 +308,25 @@ exports.testPayPalDebug = functions.https.onCall(async (data, context) => {
     catch (error) {
         console.error('❌ PAYPAL TEST - Cloud Function error:', error);
         throw new functions.https.HttpsError('internal', `PayPal test failed: ${error.message}`);
+    }
+});
+exports.processPayPalBookingRefund = functions.https.onCall(async (data, context) => {
+    console.log('💰 PAYPAL REFUND - Cloud Function called, auth status:', !!context.auth);
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+    try {
+        const { captureId, amount, reason = 'Booking cancellation' } = data;
+        if (!captureId || !amount || amount <= 0) {
+            throw new functions.https.HttpsError('invalid-argument', 'Invalid refund parameters');
+        }
+        const result = await (0, paypalService_1.processPayPalRefund)(captureId, amount, reason);
+        console.log('✅ PAYPAL REFUND - Refund processed successfully:', result.refundId);
+        return result;
+    }
+    catch (error) {
+        console.error('❌ PAYPAL REFUND - Cloud Function error:', error);
+        throw new functions.https.HttpsError('internal', `PayPal refund failed: ${error.message}`);
     }
 });
 // =============================================================================

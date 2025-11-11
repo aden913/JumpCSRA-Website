@@ -15,7 +15,8 @@ import {
 } from './services/emailService';
 import { 
   createPayPalInvoice as createInvoice,
-  testPayPalConnection
+  testPayPalConnection,
+  processPayPalRefund
 } from './services/paypalService';
 
 // Import types
@@ -341,6 +342,38 @@ export const testPayPalDebug = functions.https.onCall(async (data, context) => {
   } catch (error: any) {
     console.error('❌ PAYPAL TEST - Cloud Function error:', error);
     throw new functions.https.HttpsError('internal', `PayPal test failed: ${error.message}`);
+  }
+});
+
+/**
+ * PayPal Refund Processing Function
+ */
+interface PayPalRefundData {
+  captureId: string;
+  amount: number;
+  reason?: string;
+}
+
+export const processPayPalBookingRefund = functions.https.onCall(async (data: PayPalRefundData, context) => {
+  console.log('💰 PAYPAL REFUND - Cloud Function called, auth status:', !!context.auth);
+
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+  }
+
+  try {
+    const { captureId, amount, reason = 'Booking cancellation' } = data;
+    
+    if (!captureId || !amount || amount <= 0) {
+      throw new functions.https.HttpsError('invalid-argument', 'Invalid refund parameters');
+    }
+
+    const result = await processPayPalRefund(captureId, amount, reason);
+    console.log('✅ PAYPAL REFUND - Refund processed successfully:', result.refundId);
+    return result;
+  } catch (error: any) {
+    console.error('❌ PAYPAL REFUND - Cloud Function error:', error);
+    throw new functions.https.HttpsError('internal', `PayPal refund failed: ${error.message}`);
   }
 });
 

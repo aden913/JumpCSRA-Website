@@ -361,3 +361,54 @@ export const testPayPalConnection = async (): Promise<any> => {
     };
   }
 };
+
+/**
+ * Process a PayPal refund for a capture
+ */
+export const processPayPalRefund = async (captureId: string, amount: number, reason: string = 'Customer cancellation'): Promise<any> => {
+  try {
+    console.log('💰 Processing PayPal refund...', { captureId, amount, reason });
+    
+    const accessToken = await getPayPalAccessToken();
+    
+    const refundPayload = {
+      amount: {
+        value: amount.toFixed(2),
+        currency_code: 'USD'
+      },
+      note_to_payer: reason,
+      invoice_id: `REFUND-${Date.now()}`
+    };
+    
+    const response = await fetch(`${PAYPAL_BASE_URL}/v2/payments/captures/${captureId}/refund`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'PayPal-Request-Id': `refund-${Date.now()}`
+      },
+      body: JSON.stringify(refundPayload)
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      console.error('❌ PayPal refund failed:', result);
+      throw new Error(`PayPal refund failed: ${result.message || 'Unknown error'}`);
+    }
+    
+    console.log('✅ PayPal refund processed successfully:', result);
+    return {
+      success: true,
+      refundId: result.id,
+      status: result.status,
+      amount: result.amount,
+      createTime: result.create_time,
+      updateTime: result.update_time
+    };
+    
+  } catch (error: any) {
+    console.error('❌ Error processing PayPal refund:', error);
+    throw error;
+  }
+};

@@ -5,7 +5,7 @@
  */
 var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.testPayPalConnection = exports.createPayPalInvoice = exports.createPayPalInvoicePayload = exports.getPayPalAccessToken = void 0;
+exports.processPayPalRefund = exports.testPayPalConnection = exports.createPayPalInvoice = exports.createPayPalInvoicePayload = exports.getPayPalAccessToken = void 0;
 const functions = require("firebase-functions");
 // PayPal configuration
 const PAYPAL_CLIENT_ID = "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0";
@@ -328,4 +328,49 @@ const testPayPalConnection = async () => {
     }
 };
 exports.testPayPalConnection = testPayPalConnection;
+/**
+ * Process a PayPal refund for a capture
+ */
+const processPayPalRefund = async (captureId, amount, reason = 'Customer cancellation') => {
+    try {
+        console.log('💰 Processing PayPal refund...', { captureId, amount, reason });
+        const accessToken = await (0, exports.getPayPalAccessToken)();
+        const refundPayload = {
+            amount: {
+                value: amount.toFixed(2),
+                currency_code: 'USD'
+            },
+            note_to_payer: reason,
+            invoice_id: `REFUND-${Date.now()}`
+        };
+        const response = await fetch(`${PAYPAL_BASE_URL}/v2/payments/captures/${captureId}/refund`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+                'PayPal-Request-Id': `refund-${Date.now()}`
+            },
+            body: JSON.stringify(refundPayload)
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            console.error('❌ PayPal refund failed:', result);
+            throw new Error(`PayPal refund failed: ${result.message || 'Unknown error'}`);
+        }
+        console.log('✅ PayPal refund processed successfully:', result);
+        return {
+            success: true,
+            refundId: result.id,
+            status: result.status,
+            amount: result.amount,
+            createTime: result.create_time,
+            updateTime: result.update_time
+        };
+    }
+    catch (error) {
+        console.error('❌ Error processing PayPal refund:', error);
+        throw error;
+    }
+};
+exports.processPayPalRefund = processPayPalRefund;
 //# sourceMappingURL=paypalService.js.map

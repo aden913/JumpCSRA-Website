@@ -252,11 +252,11 @@ export default function Checkout() {
 
   // Checkout step management functions
   const getStepOrder = (): CheckoutStep[] => {
-    const hasInflateables = cart.some(item => !item.isGiftCard);
+    const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
     
     if (!hasInflateables) {
-      // Gift card only: skip delivery and contract entirely
-      return ['order-summary', 'quick-add-totals', 'payment'];
+      // Gift cards and/or memberships only: skip delivery, contract, and quick-add entirely
+      return ['order-summary', 'payment'];
     } else {
       // Has inflateables: include delivery and contract but put quick-add before delivery
       return ['order-summary', 'quick-add-totals', 'delivery', 'contract', 'payment'];
@@ -281,27 +281,27 @@ export default function Checkout() {
       if (canProceedFromCurrentStep()) {
         const nextStep = currentStepOrder[currentIndex + 1];
         
-        // Special handling for gift card-only orders moving to payment
+        // Special handling for gift card-only and membership-only orders moving to payment
         if (nextStep === 'payment' && !pendingBookingId) {
-          const onlyGiftCards = cart.every(item => item.isGiftCard);
-          if (onlyGiftCards) {
-            console.log('🎁 Gift card-only order moving to payment - creating booking first');
+          const onlyGiftCardsAndMemberships = cart.every(item => item.isGiftCard || item.isMembership);
+          if (onlyGiftCardsAndMemberships) {
+            console.log('🎁 Gift card/membership-only order moving to payment - creating booking first');
             try {
-              // Always set status to confirmed for gift card-only orders
+              // Always set status to confirmed for gift card/membership-only orders
               const initialStatus = 'confirmed';
-              console.log(`Creating gift card booking - Status: ${initialStatus}`);
+              console.log(`Creating gift card/membership booking - Status: ${initialStatus}`);
               const result = await saveBookingAndContract(initialStatus);
               if (result) {
                 const { orderID } = result;
                 setPendingBookingId(orderID);
                 setContractSigned(true);
-                console.log('✅ Gift card booking created successfully:', orderID);
+                console.log('✅ Gift card/membership booking created successfully:', orderID);
               } else {
                 alert("Error creating booking. Please try again.");
                 return;
               }
             } catch (error) {
-              console.error("Error creating gift card booking:", error);
+              console.error("Error creating gift card/membership booking:", error);
               alert("Error creating booking. Please try again.");
               return;
             }
@@ -325,7 +325,7 @@ export default function Checkout() {
 
   // Validation functions for step progression
   const canProceedFromCurrentStep = () => {
-    const hasInflateables = cart.some(item => !item.isGiftCard);
+    const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
     
     switch (currentStep) {
       case 'order-summary':
@@ -345,11 +345,11 @@ export default function Checkout() {
   };
 
   const getNextStepButtonText = () => {
-    const hasInflateables = cart.some(item => !item.isGiftCard);
+    const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
     
     switch (currentStep) {
       case 'order-summary':
-        return hasInflateables ? 'Continue to Quick Add' : 'Continue to Quick Add';
+        return hasInflateables ? 'Continue to Quick Add' : 'Proceed to Payment';
       case 'quick-add-totals':
         return hasInflateables ? 'Continue to Delivery' : 'Proceed to Payment';
       case 'delivery':
@@ -360,7 +360,7 @@ export default function Checkout() {
   };
 
   const canShowNextButton = () => {
-    const hasInflateables = cart.some(item => !item.isGiftCard);
+    const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
     
     const result = (() => {
       switch (currentStep) {
@@ -398,11 +398,11 @@ export default function Checkout() {
     
     // If current step is not in the new step order, adjust to a valid step
     if (!currentStepOrder.includes(currentStep)) {
-      // If we're on delivery or contract but cart only has gift cards, skip to payment
+      // If we're on delivery or contract but cart only has gift cards/memberships, skip to payment
       if (currentStep === 'delivery' || currentStep === 'contract') {
-        const hasInflateables = cart.some(item => !item.isGiftCard);
+        const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
         if (!hasInflateables) {
-          console.log('Gift card-only cart detected, skipping to payment from', currentStep);
+          console.log('Gift card/membership-only cart detected, skipping to payment from', currentStep);
           setCurrentStep('payment');
           setVisitedSteps(prev => new Set([...prev, 'payment']));
         }
@@ -717,8 +717,8 @@ export default function Checkout() {
       const eventDateString = calendarDateRange[0]?.toLocaleDateString() || '';
       const isWithinTwoDays = isCurrentBookingWithinTwoDays();
       
-      // Check if cart only contains gift cards
-      const onlyGiftCards = cart.every(item => item.isGiftCard);
+      // Check if cart only contains gift cards and/or memberships
+      const onlyGiftCards = cart.every(item => item.isGiftCard || item.isMembership);
       
       // Determine initial status - deferred if within 2 days AND has inflateables, otherwise proceed to payment
       const needsPhoneCall = isWithinTwoDays && !onlyGiftCards;
@@ -1536,7 +1536,7 @@ export default function Checkout() {
 
   // Check if deposit option should be available
   const hasInflatables = () => {
-    return cart.some(item => !item.isGiftCard);
+    return cart.some(item => !item.isGiftCard && !item.isMembership);
   };
 
   // Calculate remaining balance after deposit
@@ -2734,12 +2734,12 @@ export default function Checkout() {
     paypalTransactionId?: string
   ): Promise<{orderID: string, contractID: string} | null> => {
 
-    const onlyGiftCards = cart.every(item => item.isGiftCard);
+    const onlyGiftCards = cart.every(item => item.isGiftCard || item.isMembership);
     if (!user) {
       console.error("Missing user for booking creation");
       return null;
     }
-    // If only gift cards, skip contract validation
+    // If only gift cards/memberships, skip contract validation
     if (!onlyGiftCards && (!allSectionsInitialed() || !typedSignature.trim() || !customerInitials.trim())) {
       console.error("Missing required contract data");
       return null;
@@ -3247,7 +3247,7 @@ export default function Checkout() {
 
         {/* Event Details - only show when cart has inflateables */}
         {(() => {
-          const hasInflateables = cart.some(item => !item.isGiftCard);
+          const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
           return hasInflateables ? (
             <div className="event-details">
               <h3>Event Details:</h3>

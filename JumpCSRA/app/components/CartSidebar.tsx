@@ -531,6 +531,32 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
     }
   }, [giftCardValues, isLoaded]);
 
+  // Clear surface and delivery time selections when cart contains only gift cards/memberships
+  useEffect(() => {
+    if (isLoaded && cart.length > 0) {
+      const hasInflateables = cart.some(item => !isGiftCard(item) && !item.isMembership);
+      
+      if (!hasInflateables) {
+        // Cart contains only gift cards and/or memberships - clear additional cost settings
+        // This prevents surface fees ($50) and delivery time fees ($10-$50) from persisting
+        if (surface) {
+          setSurface("");
+          if (cartSettings?.setSurface) {
+            cartSettings.setSurface("");
+          }
+        }
+        if (deliveryTime) {
+          setDeliveryTime("");
+          if (cartSettings?.setDeliveryTime) {
+            cartSettings.setDeliveryTime("");
+          }
+        }
+        // Note: We keep duration and location as they might be needed for gift card delivery
+        // but they don't add extra costs for gift cards/memberships
+      }
+    }
+  }, [cart, isLoaded, surface, deliveryTime, cartSettings]);
+
   // Calculate end date based on duration
   const calculateEndDate = (startDate: Date, durationOption: string): Date => {
     const endDate = new Date(startDate);
@@ -709,8 +735,8 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
         return true;
       }
       
-      // Skip gift cards and party essentials - they don't need wet/dry selection
-      if (isGiftCard(item) || isPartyEssential(item)) {
+      // Skip gift cards, memberships, and party essentials - they don't need wet/dry selection
+      if (isGiftCard(item) || item.isMembership || isPartyEssential(item)) {
         return true;
       }
       
@@ -1033,7 +1059,7 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                       isFreeItem ? '0.00 (FREE)' :
                       isGiftCard(item) ? (giftCardValues[originalIdx] || 50).toFixed(2) :
                       (item.price * durationMultiplier).toFixed(2)
-                    } {!isGiftCard(item) && `(${item.wetDry})`}
+                    } {!isGiftCard(item) && !item.isMembership && `(${item.wetDry})`}
                   </span>
                   
                   {/* Gift Card Value Selection */}
@@ -1056,7 +1082,7 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                   )}
                   
                   {/* Wet/Dry Selection for regular items */}
-                  {!isGiftCard(item) && supportsWetDry(item) && (
+                  {!isGiftCard(item) && !item.isMembership && supportsWetDry(item) && (
                     <select
                       className="wet-dry-select"
                       value={wetDrySelections[originalIdx] || ""}
@@ -1075,7 +1101,7 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
                   )}
                   
                   {/* Quantity Selection for non-gift card items only */}
-                  {!isGiftCard(item) && (() => {
+                  {!isGiftCard(item) && !item.isMembership && (() => {
                     const availability = itemAvailability.get(item.name);
                     const maxQuantity = availability ? availability.availableQuantity : 1;
                     
@@ -1127,7 +1153,7 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
         </div>
         {/* Dropdowns for order requirements - only show when cart has inflateables */}
         {(() => {
-          const hasInflateables = cart.some(item => !isGiftCard(item));
+          const hasInflateables = cart.some(item => !isGiftCard(item) && !item.isMembership);
           return hasInflateables ? (
             <div className="cart-dropdowns" style={{ margin: '1rem 0' }}>
               <label style={{ display: 'block', marginBottom: '0.5rem' }}>
@@ -1344,7 +1370,7 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
           <button
             id="proceedButton"
             disabled={(() => {
-              const hasInflateables = cart.some(item => !isGiftCard(item));
+              const hasInflateables = cart.some(item => !isGiftCard(item) && !item.isMembership);
               return (
                 cart.length === 0 || 
                 (hasInflateables && (!duration || !surface || !deliveryTime || !location)) ||
@@ -1352,7 +1378,7 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
               );
             })()}
             onClick={async () => {
-              const hasInflateables = cart.some(item => !isGiftCard(item));
+              const hasInflateables = cart.some(item => !isGiftCard(item) && !item.isMembership);
               const eventFieldsValid = !hasInflateables || (duration && surface && deliveryTime && location);
               
               if (cart.length > 0 && eventFieldsValid && areWetDrySelectionsComplete()) {

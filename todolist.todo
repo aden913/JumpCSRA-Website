@@ -594,6 +594,17 @@
           "focus": false,
           "end": 1762821127985
         }
+      },
+      {
+        "key": 1762882869740,
+        "children": [],
+        "todo": {
+          "content": "test the deferred logic that when items e4xist that don't need to be deferred that it is able to be paid for still",
+          "id": 1762882869740,
+          "level": "default",
+          "done": false,
+          "start": 1762882869740
+        }
       }
     ],
     "expandKeys": [
@@ -639,6 +650,6 @@
     "showEndTime": false,
     "simpleMode": false,
     "lang": "en",
-    "version": "1762821203001"
+    "version": "1762882900940"
   }
 }

@@ -13,7 +13,7 @@ import "./styles/profile.css";
 import { useInflateables } from "./hooks/useInflateables";
 import { useCategories } from "./hooks/useCategories";
 import type { CartItem } from "./components/CartSidebar";
-import { loadBookingData, loadContractData, loadContractByOrderID, getUserWallet, getUserPaymentInfo, addWalletTransaction, addSavedPaymentMethod, deleteAllUserData } from "./utils/databaseUtils";
+import { loadBookingData, loadContractData, loadContractByOrderID, getUserWallet, getUserPaymentInfo, addWalletTransaction, addSavedPaymentMethod, deleteAllUserData, updateBookingStatus } from "./utils/databaseUtils";
 import type { BookingData, ContractData, UserWallet, UserPaymentInfo, SavedPaymentMethod } from "./utils/databaseUtils";
 
 // Helper function to clear all localStorage data on sign out
@@ -40,7 +40,7 @@ import { redeemGiftCardToWallet, validateGiftCard, getGiftCardDetails } from "./
 import { WalletFundingModal } from "./components/WalletFundingModal";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 
-const TABS = ["Profile Information", "Past Events", "Membership", "Payment Information"];
+const TABS = ["Profile Information", "Bookings", "Membership", "Payment Information"];
 
 export default function Profile() {
   const [canEditEmail, setCanEditEmail] = useState(false);
@@ -123,6 +123,152 @@ export default function Profile() {
         return '#dc3545'; // Red
       default:
         return '#6c757d'; // Default gray
+    }
+  };
+
+  // Helper function to calculate days until event
+  const calculateDaysUntilEvent = (eventDateStr: string): number => {
+    const eventDate = new Date(eventDateStr);
+    const today = new Date();
+    const timeDiff = eventDate.getTime() - today.getTime();
+    return Math.ceil(timeDiff / (1000 * 3600 * 24));
+  };
+
+  // Helper function to determine cancellation policy outcome
+  const getCancellationPolicyOutcome = (booking: BookingData) => {
+    const eventDate = booking.orderDetails?.eventDate;
+    if (!eventDate) {
+      return {
+        daysUntil: 0,
+        refundType: 'none',
+        refundAmount: 0,
+        walletAmount: 0,
+        policyText: 'Event date not found'
+      };
+    }
+
+    const daysUntil = calculateDaysUntilEvent(eventDate);
+    
+    // Calculate total amount paid based on payment type
+    let totalPaid = 0;
+    if (booking.paymentDetails?.paymentStatus === 'completed') {
+      if (booking.paymentDetails.paymentType === 'full') {
+        totalPaid = booking.paymentDetails.totalAmount;
+      } else if (booking.paymentDetails.paymentType === 'deposit') {
+        totalPaid = booking.paymentDetails.depositAmount;
+      }
+    }
+
+    if (daysUntil >= 14) {
+      // 14+ days: Full refund
+      return {
+        daysUntil,
+        refundType: 'full_refund',
+        refundAmount: totalPaid,
+        walletAmount: 0,
+        policyText: 'You will receive a full refund to your original payment method.'
+      };
+    } else if (daysUntil >= 6 && daysUntil <= 13) {
+      // 6-13 days: 100% to wallet as gift card
+      return {
+        daysUntil,
+        refundType: 'wallet_full',
+        refundAmount: 0,
+        walletAmount: totalPaid,
+        policyText: 'You will receive 100% as wallet credit (gift card) for any future rental—no expiration date.'
+      };
+    } else {
+      // <6 days: 50% to wallet, 50% non-refundable
+      const walletAmount = totalPaid * 0.5;
+      return {
+        daysUntil,
+        refundType: 'wallet_partial',
+        refundAmount: 0,
+        walletAmount,
+        policyText: `You will receive 50% ($${walletAmount.toFixed(2)}) as wallet credit. The remaining 50% is non-refundable.`
+      };
+    }
+  };
+
+  // Handle booking cancellation
+  const handleCancelBooking = async (booking: BookingData) => {
+    const outcome = getCancellationPolicyOutcome(booking);
+    
+    if (outcome.refundAmount === 0 && outcome.walletAmount === 0) {
+      alert('Cannot cancel this booking: No payment to process or event date not found.');
+      return;
+    }
+
+    setBookingToCancel(booking);
+    setShowCancelConfirmation(true);
+  };
+
+  // Process the actual cancellation
+  const processCancellation = async () => {
+    if (!bookingToCancel || !user) {
+      return;
+    }
+
+    setCancellingBooking(true);
+    
+    try {
+      const outcome = getCancellationPolicyOutcome(bookingToCancel);
+      
+      // Update booking status to cancelled
+      const cancelled = await updateBookingStatus(bookingToCancel.orderID, 'cancelled');
+      if (!cancelled) {
+        throw new Error('Failed to update booking status');
+      }
+
+      // Process refund if needed
+      if (outcome.refundAmount > 0 && bookingToCancel.paymentDetails?.paypalTransactionId) {
+        try {
+          // Call cloud function for PayPal refund
+          const { httpsCallable } = await import('firebase/functions');
+          const { getFunctions } = await import('firebase/functions');
+          
+          const functions = getFunctions();
+          const processRefund = httpsCallable(functions, 'processPayPalBookingRefund');
+          
+          await processRefund({
+            captureId: bookingToCancel.paymentDetails.paypalTransactionId,
+            amount: outcome.refundAmount,
+            reason: 'Booking cancellation'
+          });
+          
+          console.log('✅ PayPal refund processed successfully');
+        } catch (refundError) {
+          console.error('❌ PayPal refund failed:', refundError);
+          // Continue with cancellation even if refund fails - user can contact support
+          alert('Booking cancelled, but refund processing failed. Please contact support for manual refund processing.');
+        }
+      }
+
+      // Add wallet credit if needed
+      if (outcome.walletAmount > 0) {
+        await addWalletTransaction(user.uid, {
+          amount: outcome.walletAmount,
+          type: 'deposit',
+          description: `Booking cancellation refund - Order ${bookingToCancel.orderID}`,
+          orderID: bookingToCancel.orderID
+        });
+      }
+
+      // Show success message
+      alert(`Booking cancelled successfully! ${outcome.policyText}`);
+      
+      // Refresh bookings
+      await loadUserBookings(user.uid);
+      
+      // Close modal
+      setShowCancelConfirmation(false);
+      setBookingToCancel(null);
+
+    } catch (error) {
+      console.error('Error cancelling booking:', error);
+      alert('Error cancelling booking. Please try again or contact support.');
+    } finally {
+      setCancellingBooking(false);
     }
   };
   
@@ -246,6 +392,11 @@ export default function Profile() {
   const [sortBy, setSortBy] = useState<'date' | 'price' | 'status'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterStatus, setFilterStatus] = useState<'all' | 'deferred' | 'pending' | 'confirmed' | 'completed' | 'cancelled'>('all');
+
+  // Booking cancellation state
+  const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
+  const [bookingToCancel, setBookingToCancel] = useState<BookingData | null>(null);
+  const [cancellingBooking, setCancellingBooking] = useState(false);
 
   // Toggle booking card expanded state
   const toggleBookingExpansion = (bookingId: string) => {
@@ -1447,7 +1598,7 @@ export default function Profile() {
           </div>
         ) : activeTab === 1 ? (
           <div className="profile-events">
-            <h3>Past Events & Bookings</h3>
+            <h3>Bookings</h3>
             
             {/* Filter and Sort Controls */}
             <div className="booking-filters">
@@ -1596,6 +1747,25 @@ export default function Profile() {
                                 onClick={() => navigate(`/checkout?booking=${booking.orderID}`)}
                               >
                                 Complete Payment (${booking.paymentDetails.remainingBalance})
+                              </button>
+                            )}
+
+                            {/* Cancel button for deferred, confirmed, or pending bookings */}
+                            {(booking.status === 'deferred' || booking.status === 'confirmed' || booking.status === 'pending') && (
+                              <button 
+                                className="btn-cancel-booking"
+                                onClick={() => handleCancelBooking(booking)}
+                                style={{
+                                  backgroundColor: '#dc3545',
+                                  color: 'white',
+                                  border: 'none',
+                                  padding: '0.5rem 1rem',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontSize: '0.9rem'
+                                }}
+                              >
+                                Cancel Booking
                               </button>
                             )}
                           </div>
@@ -2333,6 +2503,12 @@ export default function Profile() {
                               <small> on {new Date(section.initialedAt).toLocaleDateString()}</small>
                             )}
                           </span>
+                        ) : section.isFinePrint || 
+                           section.title === 'Hold Harmless Provision' || 
+                           section.title === 'Merger Clause' ? (
+                          <span className="fine-print-section">
+                            📄 Standard Terms
+                          </span>
                         ) : (
                           <span className="not-initialed">Not Initialed</span>
                         )}
@@ -2777,6 +2953,109 @@ export default function Profile() {
             • We never store your actual card details<br />
             • The $0.50 verification charge is immediately refunded<br />
             • You can remove stored methods anytime from this page
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Booking Cancellation Confirmation Modal */}
+    {showCancelConfirmation && bookingToCancel && (
+      <div className="modal-overlay" onClick={() => setShowCancelConfirmation(false)}>
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div style={{ padding: '2rem' }}>
+            <h2 style={{ color: '#dc3545', marginBottom: '1rem' }}>⚠️ Cancel Booking</h2>
+            
+            <div className="booking-cancel-details">
+              <div style={{ marginBottom: '1.5rem' }}>
+                <h3>Booking Details:</h3>
+                <p><strong>Order ID:</strong> {bookingToCancel.orderID}</p>
+                <p><strong>Event Date:</strong> {bookingToCancel.orderDetails?.eventDate}</p>
+                <p><strong>Status:</strong> {formatStatus(bookingToCancel.status)}</p>
+              </div>
+
+              {(() => {
+                const outcome = getCancellationPolicyOutcome(bookingToCancel);
+                return (
+                  <div style={{ 
+                    backgroundColor: '#f8f9fa', 
+                    padding: '1.5rem', 
+                    borderRadius: '8px',
+                    border: '1px solid #dee2e6',
+                    marginBottom: '1.5rem'
+                  }}>
+                    <h4 style={{ color: '#495057', marginBottom: '1rem' }}>Cancellation Policy Details:</h4>
+                    <p><strong>Days until event:</strong> {outcome.daysUntil}</p>
+                    
+                    {outcome.refundAmount > 0 && (
+                      <p style={{ color: '#28a745' }}>
+                        <strong>PayPal Refund:</strong> ${outcome.refundAmount.toFixed(2)}
+                      </p>
+                    )}
+                    
+                    {outcome.walletAmount > 0 && (
+                      <p style={{ color: '#007bff' }}>
+                        <strong>Wallet Credit:</strong> ${outcome.walletAmount.toFixed(2)}
+                      </p>
+                    )}
+                    
+                    <div style={{ 
+                      marginTop: '1rem',
+                      padding: '1rem',
+                      backgroundColor: outcome.refundAmount > 0 ? '#d4edda' : outcome.walletAmount > 0 ? '#d1ecf1' : '#f8d7da',
+                      borderRadius: '4px',
+                      fontSize: '0.95rem'
+                    }}>
+                      {outcome.policyText}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div style={{ 
+                backgroundColor: '#fff3cd',
+                padding: '1rem',
+                borderRadius: '4px',
+                border: '1px solid #ffc107',
+                marginBottom: '1.5rem'
+              }}>
+                <strong>⚠️ Warning:</strong> This action cannot be undone. Are you sure you want to cancel this booking?
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowCancelConfirmation(false)}
+                disabled={cancellingBooking}
+                style={{
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '4px',
+                  cursor: cancellingBooking ? 'not-allowed' : 'pointer',
+                  fontSize: '1rem',
+                  opacity: cancellingBooking ? 0.6 : 1
+                }}
+              >
+                Keep Booking
+              </button>
+              <button
+                onClick={processCancellation}
+                disabled={cancellingBooking}
+                style={{
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '4px',
+                  cursor: cancellingBooking ? 'not-allowed' : 'pointer',
+                  fontSize: '1rem',
+                  opacity: cancellingBooking ? 0.6 : 1
+                }}
+              >
+                {cancellingBooking ? 'Cancelling...' : 'Cancel Booking'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
