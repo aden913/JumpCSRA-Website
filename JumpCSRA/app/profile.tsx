@@ -1899,20 +1899,15 @@ export default function Profile() {
                 <h4>Membership Status</h4>
                 {userMembership ? (
                   <div>
-                    {userMembership.weekday && (
+                    {userMembership.jumpClub && (
                       <div style={{ color: '#4CAF50', marginBottom: '0.5rem' }}>
-                        ✅ <strong>Weekday Member</strong> - You have an active weekday membership!
+                        ✅ <strong>Jump Club Member</strong> - You have an active Jump Club membership!
                       </div>
                     )}
-                    {userMembership.weekend && (
-                      <div style={{ color: '#4CAF50', marginBottom: '0.5rem' }}>
-                        ✅ <strong>Weekend Member</strong> - You have an active weekend membership!
-                      </div>
-                    )}
-                    {!userMembership.weekday && !userMembership.weekend && (
+                    {!userMembership.jumpClub && (
                       <p>You are not currently a member, but membership data was found.</p>
                     )}
-                    {(userMembership.weekday || userMembership.weekend) && (
+                    {userMembership.jumpClub && (
                       <p style={{ color: '#2e7d32', fontStyle: 'italic' }}>
                         Enjoy 25% off all rental items with your active membership!
                       </p>

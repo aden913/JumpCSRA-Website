@@ -1,0 +1,394 @@
+/* MembershipCheckout.css */
+.membership-checkout {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.checkout-progress {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 3rem;
+  position: relative;
+}
+
+.checkout-progress::before {
+  content: '';
+  position: absolute;
+  top: 20px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #e0e0e0;
+  z-index: 1;
+}
+
+.progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+}
+
+.progress-step span {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.progress-step.active span {
+  background: #ff6b6b;
+  color: white;
+}
+
+.progress-step.completed span {
+  background: #4CAF50;
+  color: white;
+}
+
+.progress-step label {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.step-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.step-header h2 {
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.membership-price {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.membership-price .price {
+  font-size: 3rem;
+  font-weight: bold;
+  color: #ff6b6b;
+}
+
+.membership-price .period {
+  font-size: 1.2rem;
+  color: #666;
+}
+
+.already-member {
+  text-align: center;
+  padding: 2rem;
+  background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%);
+  border-radius: 12px;
+  margin: 2rem 0;
+}
+
+.member-status h3 {
+  color: #2e7d32;
+  margin-bottom: 1rem;
+}
+
+.benefits-list {
+  margin: 2rem 0;
+}
+
+.benefits-list h3 {
+  margin-bottom: 1.5rem;
+  color: #333;
+}
+
+.benefit-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.benefit-icon {
+  font-size: 2rem;
+  min-width: 3rem;
+  text-align: center;
+}
+
+.benefit-content h4 {
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.benefit-content p {
+  color: #666;
+  line-height: 1.5;
+}
+
+.terms-content {
+  margin: 2rem 0;
+}
+
+.terms-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.terms-section h3 {
+  color: #333;
+  margin-bottom: 1rem;
+  font-size: 1.1rem;
+}
+
+.terms-section p {
+  color: #666;
+  line-height: 1.6;
+}
+
+.agreement-checkbox {
+  margin-top: 2rem;
+  padding: 1rem;
+  background: #fff3cd;
+  border-radius: 8px;
+}
+
+.agreement-checkbox label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  cursor: pointer;
+}
+
+.agreement-checkbox input[type="checkbox"] {
+  margin-top: 0.25rem;
+  transform: scale(1.2);
+}
+
+.payment-summary {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+.summary-item, .summary-total {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.summary-total {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: #333;
+  border-top: 2px solid #ddd;
+  padding-top: 0.5rem;
+  margin-top: 1rem;
+}
+
+.payment-info {
+  margin: 2rem 0;
+  padding: 1rem;
+  background: #e3f2fd;
+  border-radius: 8px;
+}
+
+.payment-info h3 {
+  color: #1565c0;
+  margin-bottom: 0.5rem;
+}
+
+.paypal-container {
+  margin: 2rem 0;
+}
+
+.processing-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.processing-content {
+  background: white;
+  padding: 3rem;
+  border-radius: 12px;
+  text-align: center;
+  max-width: 400px;
+}
+
+.success-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.success-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.success-header h2 {
+  color: #4CAF50;
+  margin-bottom: 0.5rem;
+}
+
+.order-details {
+  background: #f8f9fa;
+  padding: 2rem;
+  border-radius: 8px;
+  margin: 2rem 0;
+}
+
+.order-details h3 {
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.next-steps {
+  margin: 2rem 0;
+}
+
+.next-steps h3 {
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.step-item span {
+  background: #ff6b6b;
+  color: white;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.9rem;
+  min-width: 2rem;
+}
+
+.step-actions, .success-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+}
+
+.cta-button, .secondary-button {
+  padding: 1rem 2rem;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex: 1;
+  min-width: 150px;
+}
+
+.cta-button {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+  color: white;
+}
+
+.cta-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+}
+
+.secondary-button {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.secondary-button:hover {
+  background: #d0d0d0;
+}
+
+.cta-button:disabled, .secondary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.loading-spinner {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #ff6b6b;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.membership-checkout-loading, .membership-checkout-error {
+  text-align: center;
+  padding: 3rem;
+}
+
+@media (max-width: 768px) {
+  .membership-checkout {
+    margin: 1rem;
+    padding: 1rem;
+  }
+
+  .checkout-progress {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .checkout-progress::before {
+    display: none;
+  }
+
+  .step-actions, .success-actions {
+    flex-direction: column;
+  }
+
+  .benefit-item {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .membership-price .price {
+    font-size: 2rem;
+  }
+}

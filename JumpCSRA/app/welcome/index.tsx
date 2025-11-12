@@ -663,25 +663,19 @@ export function Welcome() {
               </div>
 
               <div className="membership-cta">
-                <h3>Become a Member</h3>
+                <h3>Join the Jump Club</h3>
                 <p>Get our best inflatables delivered to your house.<br />
                 We will bring your kids a new inflatable each month.</p>
               </div>
 
               <div className="membership-buttons">
                 <button 
-                  className="membership-btn weekday-btn"
-                  onClick={() => logic.addMembershipToCart('weekday')}
+                  className="membership-btn jump-club-btn"
+                  onClick={() => window.location.href = '/checkout?membership=jump-club'}
+                  style={{ background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%)', width: '100%', marginBottom: '1rem' }}
                 >
-                  Weekday Membership<br />
-                  <span className="price">$199/month</span>
-                </button>
-                <button 
-                  className="membership-btn weekend-btn"
-                  onClick={() => logic.addMembershipToCart('weekend')}
-                >
-                  Weekend Membership<br />
-                  <span className="price">$249/month</span>
+                  Jump Club Membership<br />
+                  <span className="price">$149/month</span>
                 </button>
               </div>
 

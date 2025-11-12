@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { flushSync } from "react-dom";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { LocalStorageDebugger } from "../components/LocalStorageDebugger";
 import { RouterNav } from "../components/RouterNav";
 import { SearchBar } from "../components/SearchBar";
 import { GooglePlacesAutocomplete } from "../components/GooglePlacesAutocomplete";
+import MembershipCheckout from "../components/MembershipCheckout";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, firestore } from "../components/FirebaseConfig";
 import { doc, setDoc, getDoc } from "firebase/firestore";
@@ -116,12 +117,16 @@ export function meta() {
 
 export default function Checkout() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
   const inflateables = useInflateables();
   const categories = useCategories(inflateables);
+  
+  // Check if this is a membership checkout
+  const isMembershipCheckout = searchParams.get('membership') === 'jump-club';
   
   // Cart sidebar options - use persistent cart settings
   const cartSettings = useCartSettings();
@@ -3033,11 +3038,27 @@ export default function Checkout() {
       <MantineProvider>
         <Notifications position="top-right" />
         <LocalStorageDebugger />
-        <RouterNav
-          categories={categories}
-          onCategoryChange={() => {}} // No-op on checkout page since we don't filter products here
-          hideCartIcon={true} // Hide cart icon on checkout page
-          hideNavbarDropdown={true} // Hide the navbar category dropdown
+        
+        {/* Conditional rendering for membership checkout */}
+        {isMembershipCheckout ? (
+          <>
+            <RouterNav
+              categories={categories}
+              onCategoryChange={() => {}} 
+              hideCartIcon={true}
+              hideNavbarDropdown={true}
+            />
+            <div className="membership-checkout-wrapper">
+              <MembershipCheckout onSuccess={() => navigate('/profile')} />
+            </div>
+          </>
+        ) : (
+          <>
+            <RouterNav
+              categories={categories}
+              onCategoryChange={() => {}} // No-op on checkout page since we don't filter products here
+              hideCartIcon={true} // Hide cart icon on checkout page
+              hideNavbarDropdown={true} // Hide the navbar category dropdown
           walletBalance={userWallet?.balance || 0}
           searchBarComponent={
             <SearchBar
@@ -4837,6 +4858,8 @@ export default function Checkout() {
         </button>
       </div>
       </div>
+          </>
+        )}
       </MantineProvider>
     </>
   );

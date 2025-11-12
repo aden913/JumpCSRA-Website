@@ -6,8 +6,12 @@ import { useCategories } from '../hooks/useCategories';
 import { useProductDetails } from '../hooks/useProductDetails';
 import { useCartSettings } from '../hooks/useCartSettings';
 import { notifications } from '@mantine/notifications';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '../components/FirebaseConfig';
+import { getUserMembership } from '../utils/databaseUtils';
 import type { CartItem } from '../components/CartSidebar';
+import type { UserMembership } from '../utils/databaseUtils';
 
 function filterOptions(inflateables: any[], selectedCategory: string): any[] {
   if (selectedCategory.toLowerCase() === 'all') return inflateables;
@@ -32,6 +36,31 @@ export function useWelcomeLogic() {
   } = useCartSidebar();
   const [cart, setCart] = useCart();
   const carouselRef = useRef<HTMLDivElement>(null);
+
+  // User authentication and membership state
+  const [user, setUser] = useState<User | null>(null);
+  const [userMembership, setUserMembership] = useState<UserMembership | null>(null);
+
+  // Monitor auth state and load membership
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
+      
+      if (firebaseUser) {
+        try {
+          const membership = await getUserMembership(firebaseUser.uid);
+          setUserMembership(membership);
+        } catch (error) {
+          console.error('Error fetching user membership:', error);
+          setUserMembership(null);
+        }
+      } else {
+        setUserMembership(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Cart settings (duration, surface, delivery time, location, wet/dry selections)
   const cartSettings = useCartSettings();
@@ -129,11 +158,11 @@ export function useWelcomeLogic() {
     }
   }
 
-  const addMembershipToCart = (membershipType: 'weekday' | 'weekend') => {
-    const price = membershipType === 'weekday' ? 199 : 249;
+  const addMembershipToCart = (membershipType: 'jump-club') => {
+    const price = 149; // Fixed Jump Club price
     const membershipItem: CartItem = {
       id: `membership-${membershipType}`,
-      name: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership`,
+      name: `Jump Club Membership`,
       price,
       wetDry: 'N/A',
       quantity: 1,
@@ -142,6 +171,22 @@ export function useWelcomeLogic() {
       isMembership: true,
       membershipType
     };
+
+    // Check if user is already subscribed to Jump Club membership
+    if (user && userMembership) {
+      const isAlreadySubscribed = userMembership.jumpClub;
+      
+      if (isAlreadySubscribed && !userMembership.cancelled) {
+        notifications.show({
+          title: 'Already a Member!',
+          message: `You already have an active Jump Club Membership. You can manage your membership in your profile.`,
+          color: 'blue',
+          autoClose: 5000,
+        });
+        setMembershipOpen(false);
+        return;
+      }
+    }
 
     // Check if membership already in cart
     const hasExistingMembership = cart.some((item: CartItem) => item.isMembership);
@@ -199,5 +244,7 @@ export function useWelcomeLogic() {
     handleCalendarClose,
     addMembershipToCart,
     cartSettings,
+    user,
+    userMembership,
   };
 }

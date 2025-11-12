@@ -975,8 +975,7 @@ export async function deleteAllUserData(userId: string): Promise<{
 
 // Membership interfaces
 export interface UserMembership {
-  weekday: boolean;
-  weekend: boolean;
+  jumpClub: boolean;
   dateStarted?: string; // ISO date when membership started
   cancelled?: boolean; // If true, cancel at next billing cycle
   createdAt?: string;
@@ -986,7 +985,7 @@ export interface UserMembership {
 export interface MembershipPayment {
   id: string;
   userId: string;
-  membershipType: 'weekday' | 'weekend';
+  membershipType: 'jump-club';
   amount: number;
   paymentDate: string;
   nextBillingDate: string;
@@ -1017,7 +1016,7 @@ export const getUserMembership = async (userId: string): Promise<UserMembership 
 
 export const updateUserMembership = async (
   userId: string, 
-  membershipType: 'weekday' | 'weekend', 
+  membershipType: 'jump-club', 
   isActive: boolean
 ): Promise<boolean> => {
   try {
@@ -1027,13 +1026,12 @@ export const updateUserMembership = async (
     // Get existing membership or create new one
     const existingMembership = await getUserMembership(userId);
     const currentMembership: UserMembership = existingMembership || {
-      weekday: false,
-      weekend: false,
+      jumpClub: false,
       createdAt: new Date().toISOString()
     };
     
     // Update the specific membership type
-    currentMembership[membershipType] = isActive;
+    currentMembership.jumpClub = isActive;
     currentMembership.updatedAt = new Date().toISOString();
     
     // Set dateStarted when activating a membership for the first time
@@ -1041,8 +1039,8 @@ export const updateUserMembership = async (
       currentMembership.dateStarted = new Date().toISOString();
     }
     
-    // Clear dateStarted if deactivating all memberships
-    if (!isActive && !currentMembership.weekday && !currentMembership.weekend) {
+    // Clear dateStarted if deactivating Jump Club membership
+    if (!isActive && !currentMembership.jumpClub) {
       delete currentMembership.dateStarted;
       delete currentMembership.cancelled;
     }
@@ -1056,7 +1054,7 @@ export const updateUserMembership = async (
   }
 };
 
-export const isUserMember = async (userId: string, membershipType?: 'weekday' | 'weekend'): Promise<boolean> => {
+export const isUserMember = async (userId: string, membershipType?: 'jump-club'): Promise<boolean> => {
   try {
     const membership = await getUserMembership(userId);
     
@@ -1064,12 +1062,8 @@ export const isUserMember = async (userId: string, membershipType?: 'weekday' | 
       return false;
     }
     
-    if (membershipType) {
-      return membership[membershipType];
-    }
-    
-    // If no specific type provided, check if user has any membership
-    return membership.weekday || membership.weekend;
+    // Since we only have one membership type now, just check jumpClub
+    return membership.jumpClub;
   } catch (error) {
     console.error('Error checking user membership:', error);
     return false;
@@ -1126,18 +1120,16 @@ export const getUsersMembershipPayments = async (userId: string): Promise<Member
   }
 };
 
-export const updateMembershipDateStarted = async (userId: string, membershipType: 'weekday' | 'weekend'): Promise<boolean> => {
+export const updateMembershipDateStarted = async (userId: string, membershipType: 'jump-club'): Promise<boolean> => {
   try {
     const firestore = getFirestore();
     const membershipRef = doc(firestore, 'users', userId, 'membership', 'status');
     
     const updateData: Partial<UserMembership> = {
       dateStarted: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      jumpClub: true
     };
-    
-    // Set the membership type
-    updateData[membershipType] = true;
     
     await setDoc(membershipRef, updateData, { merge: true });
     return true;

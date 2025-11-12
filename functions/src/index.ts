@@ -31,6 +31,29 @@ import { PayPalInvoiceData } from './types/paypal';
 // Import existing test function
 export { testFunction } from './test';
 
+// PayPal configuration constants
+const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"; // Use https://api-m.paypal.com for production
+const PAYPAL_CLIENT_ID = "AcxW1Ok9Z8KpBUU9_JD-kQ3hFKvJ2HCCXDEHCsD0S4u7-Y4PcW3nwqLzYcq5aHUVKOhAZ2tJ9MXJixCO"; // Sandbox client ID
+const PAYPAL_CLIENT_SECRET = functions.config().paypal?.client_secret || "YOUR_PAYPAL_CLIENT_SECRET";
+
+/**
+ * Get PayPal access token
+ */
+async function getPayPalAccessToken(): Promise<string> {
+  const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64');
+  
+  const response = await axios.post(`${PAYPAL_BASE_URL}/v1/oauth2/token`, 'grant_type=client_credentials', {
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Accept': 'application/json',
+      'Accept-Language': 'en_US',
+      'Content-Type': 'application/x-www-form-urlencoded'
+    }
+  });
+  
+  return response.data.access_token;
+}
+
 // Initialize Firebase Admin (if not already initialized)
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -654,9 +677,9 @@ export const processMembershipBilling = functions.pubsub
           // Check if 30 days have passed since last billing
           if (daysSinceStart >= 30 && daysSinceStart % 30 === 0) {
             
-            // Determine membership type and cost
-            const membershipType = membership.weekday ? 'weekday' : 'weekend';
-            const amount = membershipType === 'weekday' ? 199 : 249;
+            // Determine membership type and cost - simplified for Jump Club
+            const membershipType = 'jump-club';
+            const amount = 149; // Fixed Jump Club price
             
             // Check if membership is cancelled
             if (membership.cancelled) {
@@ -667,8 +690,7 @@ export const processMembershipBilling = functions.pubsub
                 .collection('membership')
                 .doc('status')
                 .update({
-                  weekday: false,
-                  weekend: false,
+                  jumpClub: false,
                   dateStarted: admin.firestore.FieldValue.delete(),
                   cancelled: false,
                   updatedAt: now.toISOString()
@@ -755,8 +777,7 @@ export const processMembershipBilling = functions.pubsub
                 .collection('membership')
                 .doc('status')
                 .update({
-                  weekday: false,
-                  weekend: false,
+                  jumpClub: false,
                   dateStarted: admin.firestore.FieldValue.delete(),
                   updatedAt: now.toISOString()
                 });
@@ -880,8 +901,7 @@ export const processMembershipBilling = functions.pubsub
                 .collection('membership')
                 .doc('status')
                 .update({
-                  weekday: false,
-                  weekend: false,
+                  jumpClub: false,
                   dateStarted: admin.firestore.FieldValue.delete(),
                   updatedAt: now.toISOString()
                 });
@@ -1278,5 +1298,224 @@ async function processRebookingReminderEmails(db: admin.database.Database, now: 
     
   } catch (error) {
     console.error('❌ SCHEDULER: Error processing rebooking reminder emails:', error);
+  }
+}
+
+// Membership-specific API endpoints
+
+/**
+ * Create membership order with PayPal
+ */
+export const createMembershipOrder = functions.https.onRequest(async (req, res) => {
+  // Set CORS headers
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  try {
+    const { userId, amount, currency = 'USD' } = req.body;
+
+    if (!userId || !amount) {
+      res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields: userId, amount' 
+      });
+      return;
+    }
+
+    // Create PayPal order for membership with vault setup
+    const orderResponse = await createVaultedPayPalOrder({
+      amount: amount.toString(),
+      currency,
+      userId,
+      description: 'Jump Club Membership - Monthly Subscription'
+    });
+
+    console.log('Membership order created:', orderResponse);
+
+    res.status(200).json({
+      success: true,
+      orderId: orderResponse.id
+    });
+
+  } catch (error) {
+    console.error('Error creating membership order:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to create membership order' 
+    });
+  }
+});
+
+/**
+ * Capture membership payment and set up vault
+ */
+export const captureMembershipPayment = functions.https.onRequest(async (req, res) => {
+  // Set CORS headers
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+
+  try {
+    const { orderId, userId } = req.body;
+
+    if (!orderId || !userId) {
+      res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields: orderId, userId' 
+      });
+      return;
+    }
+
+    // Capture the PayPal payment
+    const captureResponse = await captureVaultedPayment(orderId);
+    
+    if (!captureResponse.success) {
+      res.status(400).json({
+        success: false,
+        error: 'Payment capture failed'
+      });
+      return;
+    }
+
+    // Check if we got vault information
+    if (!captureResponse.vaultId) {
+      console.error('Payment captured but no vault ID received for user:', userId);
+      res.status(500).json({
+        success: false,
+        error: 'Payment processed but recurring billing setup incomplete. Please contact support.'
+      });
+      return;
+    }
+
+    // Store payment info in user's record
+    const firestore = admin.firestore();
+    await firestore.collection('users').doc(userId).set({
+      paymentInfo: {
+        paypalVaultId: captureResponse.vaultId,
+        lastPaymentDate: admin.firestore.Timestamp.now(),
+        paymentMethod: 'paypal',
+        status: 'active'
+      }
+    }, { merge: true });
+
+    // Record membership payment
+    const paymentRecord = {
+      id: `membership-${Date.now()}`,
+      userId,
+      membershipType: 'jump-club',
+      amount: 149,
+      paymentDate: admin.firestore.Timestamp.now(),
+      nextBillingDate: admin.firestore.Timestamp.fromDate(
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
+      ),
+      paymentMethodId: captureResponse.vaultId,
+      paypalTransactionId: captureResponse.transactionId,
+      status: 'completed'
+    };
+
+    await firestore.collection('membershipPayments').doc(paymentRecord.id).set(paymentRecord);
+
+    console.log('Membership payment completed successfully for user:', userId);
+
+    res.status(200).json({
+      success: true,
+      transactionId: captureResponse.transactionId,
+      vaultId: captureResponse.vaultId
+    });
+
+  } catch (error) {
+    console.error('Error capturing membership payment:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to process membership payment' 
+    });
+  }
+});
+
+// Helper function to create PayPal order with vault setup
+async function createVaultedPayPalOrder(orderData: any) {
+  const { amount, currency, userId, description } = orderData;
+  
+  const paypalOrder = {
+    intent: 'CAPTURE',
+    purchase_units: [{
+      amount: {
+        currency_code: currency,
+        value: amount
+      },
+      description: description,
+      custom_id: `membership-${userId}-${Date.now()}`
+    }],
+    payment_source: {
+      paypal: {
+        attributes: {
+          vault: {
+            store_in_vault: 'ON_SUCCESS',
+            usage_type: 'MERCHANT',
+            customer_type: 'CONSUMER'
+          }
+        }
+      }
+    }
+  };
+
+  const response = await axios.post(
+    `${PAYPAL_BASE_URL}/v2/checkout/orders`,
+    paypalOrder,
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${await getPayPalAccessToken()}`,
+      },
+    }
+  );
+
+  return response.data;
+}
+
+// Helper function to capture vaulted payment
+async function captureVaultedPayment(orderId: string) {
+  try {
+    const response = await axios.post(
+      `${PAYPAL_BASE_URL}/v2/checkout/orders/${orderId}/capture`,
+      {},
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await getPayPalAccessToken()}`,
+        },
+      }
+    );
+
+    const captureData = response.data;
+    
+    // Extract vault information
+    const paymentSource = captureData.payment_source?.paypal;
+    const vaultId = paymentSource?.attributes?.vault?.id;
+    const transactionId = captureData.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+
+    return {
+      success: true,
+      vaultId,
+      transactionId,
+      captureData
+    };
+  } catch (error: any) {
+    console.error('Error capturing vaulted payment:', error);
+    return {
+      success: false,
+      error: error.response?.data || error.message
+    };
   }
 }

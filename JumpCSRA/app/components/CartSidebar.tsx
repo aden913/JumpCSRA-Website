@@ -26,7 +26,7 @@ export type CartItem = {
   giftCardValue?: number; // For gift cards: 50 or 100
   excludeFromDiscounts?: boolean;
   isMembership?: boolean; // For membership items
-  membershipType?: 'weekday' | 'weekend'; // Type of membership
+  membershipType?: 'jump-club'; // Type of membership
 };
 
 export type CartSidebarProps = {
@@ -147,6 +147,7 @@ const findMatchingBooking = async (
 ): Promise<{ booking: BookingData | null; comparison: CartComparison | null }> => {
   try {
     const incompleteBookings = await getIncompleteBookingsForUser(userId);
+    console.log('🔍 [DEBUG] Found incomplete bookings:', incompleteBookings.length);
     
     if (incompleteBookings.length === 0) {
       return { booking: null, comparison: null };
@@ -165,17 +166,22 @@ const findMatchingBooking = async (
         changedSettings: settingsComparison.changes
       };
       
+      console.log(`🔍 [DEBUG] Booking ${booking.orderID} comparison:`, comparison);
+      
       // Return first exact match
       if (!comparison.hasChanges) {
+        console.log(`✅ [DEBUG] Found exact match: ${booking.orderID}`);
         return { booking, comparison };
       }
       
       // Return first partial match (for now - could be improved to rank matches)
       if (comparison.itemsMatch && !comparison.settingsMatch) {
+        console.log(`⚠️ [DEBUG] Found partial match (settings changed): ${booking.orderID}`);
         return { booking, comparison };
       }
     }
     
+    console.log('❌ [DEBUG] No matching bookings found');
     return { booking: null, comparison: null };
   } catch (error) {
     console.error('❌ Error finding matching booking:', error);
@@ -197,6 +203,7 @@ const updateExistingBooking = async (
   calendarDateRange: [Date | null, Date | null]
 ): Promise<BookingData | null> => {
   try {
+    console.log('🔄 [DEBUG] Updating existing booking:', existingBooking.orderID);
     
     // Calculate the new total amount with current cart and settings
     const durationMultipliers: Record<string, number> = {
@@ -252,6 +259,8 @@ const updateExistingBooking = async (
     
     const newTotalAmount = cartTotal + surfaceAdj + timeAdj;
     
+    console.log('💰 [DEBUG] New total amount calculated:', newTotalAmount);
+    
     // Update the booking data
     const updatedBooking: BookingData = {
       ...existingBooking,
@@ -278,6 +287,7 @@ const updateExistingBooking = async (
     // Save the updated booking
     await saveBookingData(updatedBooking);
     
+    console.log('✅ [DEBUG] Booking updated successfully');
     return updatedBooking;
   } catch (error) {
     console.error('❌ [DEBUG] Error updating existing booking:', error);
@@ -344,6 +354,7 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
       if (user) {
         const isMember = await isUserMember(user.uid);
         setUserIsMember(isMember);
+        console.log(`🎖️ User membership status: ${isMember}`);
       } else {
         setUserIsMember(false);
       }
