@@ -17,7 +17,7 @@ var test_1 = require("./test");
 Object.defineProperty(exports, "testFunction", { enumerable: true, get: function () { return test_1.testFunction; } });
 // PayPal configuration constants
 const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"; // Use https://api-m.paypal.com for production
-const PAYPAL_CLIENT_ID = "AcxW1Ok9Z8KpBUU9_JD-kQ3hFKvJ2HCCXDEHCsD0S4u7-Y4PcW3nwqLzYcq5aHUVKOhAZ2tJ9MXJixCO"; // Sandbox client ID
+const PAYPAL_CLIENT_ID = "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0"; // Working sandbox client ID
 const PAYPAL_CLIENT_SECRET = ((_a = functions.config().paypal) === null || _a === void 0 ? void 0 : _a.client_secret) || "YOUR_PAYPAL_CLIENT_SECRET";
 /**
  * Get PayPal access token

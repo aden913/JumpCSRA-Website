@@ -20,6 +20,7 @@ const MembershipCheckout: React.FC<MembershipCheckoutProps> = ({ onSuccess }) =>
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderId, setOrderId] = useState<string>('');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -42,11 +43,10 @@ const MembershipCheckout: React.FC<MembershipCheckoutProps> = ({ onSuccess }) =>
   const isAlreadyMember = userMembership?.jumpClub && !userMembership?.cancelled;
 
   const paypalOptions = {
-    clientId: "AcxW1Ok9Z8KpBUU9_JD-kQ3hFKvJ2HCCXDEHCsD0S4u7-Y4PcW3nwqLzYcq5aHUVKOhAZ2tJ9MXJixCO", // Sandbox client ID
+    clientId: "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0", // Working sandbox client ID
     currency: "USD",
     intent: "capture" as const,
-    vault: true,
-    components: "buttons",
+    vault: true
   };
 
   const createOrder = async () => {
@@ -55,7 +55,7 @@ const MembershipCheckout: React.FC<MembershipCheckoutProps> = ({ onSuccess }) =>
     }
 
     try {
-      const response = await fetch('/api/create-membership-order', {
+      const response = await fetch('https://us-central1-pppro-b060e.cloudfunctions.net/createMembershipOrder', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -88,7 +88,7 @@ const MembershipCheckout: React.FC<MembershipCheckoutProps> = ({ onSuccess }) =>
       }
 
       // Capture the payment and set up vault
-      const response = await fetch('/api/capture-membership-payment', {
+      const response = await fetch('https://us-central1-pppro-b060e.cloudfunctions.net/captureMembershipPayment', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -236,13 +236,6 @@ const MembershipCheckout: React.FC<MembershipCheckoutProps> = ({ onSuccess }) =>
                   </div>
                 </div>
                 <div className="benefit-item">
-                  <div className="benefit-icon">🎯</div>
-                  <div className="benefit-content">
-                    <h4>Priority Booking</h4>
-                    <p>Get first access to popular inflatables and preferred scheduling for events.</p>
-                  </div>
-                </div>
-                <div className="benefit-item">
                   <div className="benefit-icon">📅</div>
                   <div className="benefit-content">
                     <h4>Flexible Scheduling</h4>
@@ -277,11 +270,6 @@ const MembershipCheckout: React.FC<MembershipCheckoutProps> = ({ onSuccess }) =>
             </div>
 
             <div className="terms-section">
-              <h3>💳 Payment Method Storage</h3>
-              <p>We securely store your payment information with PayPal for automatic monthly billing. Your payment details are never stored on our servers.</p>
-            </div>
-
-            <div className="terms-section">
               <h3>❌ Cancellation Policy</h3>
               <p>You can cancel your membership at any time from your profile page. Cancellation takes effect at the end of your current billing cycle.</p>
             </div>
@@ -291,14 +279,14 @@ const MembershipCheckout: React.FC<MembershipCheckoutProps> = ({ onSuccess }) =>
               <p>If a monthly payment fails, we'll retry up to 3 times. After 3 failed attempts, your membership will be automatically cancelled.</p>
             </div>
 
-            <div className="terms-section">
-              <h3>📦 Monthly Delivery</h3>
-              <p>Your monthly inflatable will be delivered within the first week of each billing cycle. Scheduling is subject to availability and weather conditions.</p>
-            </div>
-
             <div className="agreement-checkbox">
               <label>
-                <input type="checkbox" required />
+                <input 
+                  type="checkbox" 
+                  checked={agreedToTerms}
+                  onChange={(e) => setAgreedToTerms(e.target.checked)}
+                  required 
+                />
                 I agree to the Terms & Conditions and understand that this is a recurring monthly subscription
               </label>
             </div>
@@ -314,6 +302,11 @@ const MembershipCheckout: React.FC<MembershipCheckoutProps> = ({ onSuccess }) =>
             <button 
               onClick={() => setCurrentStep('payment')}
               className="cta-button"
+              disabled={!agreedToTerms}
+              style={{
+                opacity: agreedToTerms ? 1 : 0.5,
+                cursor: agreedToTerms ? 'pointer' : 'not-allowed'
+              }}
             >
               Proceed to Payment
             </button>
