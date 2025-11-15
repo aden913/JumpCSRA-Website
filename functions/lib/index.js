@@ -3,9 +3,9 @@
  * JumpCSRA Cloud Functions
  * Refactored and modularized for better maintainability
  */
-var _a;
+var _a, _b, _c, _d;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.captureMembershipPayment = exports.createMembershipOrder = exports.processMembershipBilling = exports.autoCompleteBookings = exports.processScheduledEmails = exports.triggerTestEmail = exports.processPayPalBookingRefund = exports.testPayPalDebug = exports.createPayPalInvoice = exports.sendAccountDeletionEmail = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.sendOrderConfirmationEmail = exports.testFunction = void 0;
+exports.paypalSubscriptionWebhook = exports.getMembershipSubscription = exports.captureMembershipPayment = exports.createMembershipOrder = exports.cancelMembershipSubscription = exports.activateMembershipSubscription = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.processMembershipBilling = exports.autoCompleteBookings = exports.processScheduledEmails = exports.triggerTestEmail = exports.processPayPalBookingRefund = exports.testPayPalDebug = exports.createPayPalInvoice = exports.sendAccountDeletionEmail = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.sendOrderConfirmationEmail = exports.testFunction = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const axios_1 = require("axios");
@@ -572,261 +572,244 @@ exports.autoCompleteBookings = functions.pubsub
 exports.processMembershipBilling = functions.pubsub
     .schedule('0 9 * * *') // Daily at 9 AM UTC
     .onRun(async (context) => {
-    var _a, _b, _c, _d;
-    const firestore = admin.firestore();
-    const now = new Date();
+    var _a, _b;
+    console.log('Starting daily subscription status sync...');
+    const db = admin.firestore();
+    let processedCount = 0;
+    let errorCount = 0;
     try {
-        // Get all users with membership data
-        const usersSnapshot = await firestore.collection('users').get();
-        for (const userDoc of usersSnapshot.docs) {
-            const userId = userDoc.id;
+        // Get PayPal access token once for all requests
+        const accessToken = await getPayPalAccessToken();
+        // Get all user subscriptions from our database
+        const subscriptionsSnapshot = await db.collection('userSubscriptions').get();
+        for (const subDoc of subscriptionsSnapshot.docs) {
+            const userId = subDoc.id;
+            const localSubscription = subDoc.data();
+            // Skip if no PayPal subscription ID
+            if (!localSubscription.subscriptionId) {
+                console.log(`No subscription ID for user ${userId}, skipping...`);
+                continue;
+            }
             try {
-                // Get membership subcollection
-                const membershipDoc = await firestore
-                    .collection('users')
-                    .doc(userId)
-                    .collection('membership')
-                    .doc('status')
-                    .get();
-                if (!membershipDoc.exists)
-                    continue;
-                const membership = membershipDoc.data();
-                if (!(membership === null || membership === void 0 ? void 0 : membership.dateStarted))
-                    continue;
-                const dateStarted = new Date(membership.dateStarted);
-                const daysSinceStart = Math.floor((now.getTime() - dateStarted.getTime()) / (1000 * 60 * 60 * 24));
-                // Check if 30 days have passed since last billing
-                if (daysSinceStart >= 30 && daysSinceStart % 30 === 0) {
-                    // Determine membership type and cost - simplified for Jump Club
-                    const membershipType = 'jump-club';
-                    const amount = 149; // Fixed Jump Club price
-                    // Check if membership is cancelled
-                    if (membership.cancelled) {
-                        // Cancel the membership instead of billing
-                        await firestore
-                            .collection('users')
-                            .doc(userId)
-                            .collection('membership')
-                            .doc('status')
-                            .update({
-                            jumpClub: false,
-                            dateStarted: admin.firestore.FieldValue.delete(),
-                            cancelled: false,
-                            updatedAt: now.toISOString()
-                        });
-                        // Send cancellation confirmation email
-                        const userData = userDoc.data();
-                        if (userData === null || userData === void 0 ? void 0 : userData.email) {
-                            try {
-                                await (0, emailService_1.sendOrderConfirmationEmail)({
-                                    recipientEmail: userData.email,
-                                    recipientName: userData.name || 'Valued Customer',
-                                    orderID: `CANCEL-${userId}-${Date.now()}`,
-                                    orderDate: now.toISOString(),
-                                    eventDate: now.toISOString(),
-                                    deliveryAddress: 'N/A',
-                                    rentalItems: [{
-                                            name: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Cancelled`,
-                                            price: 0,
-                                            quantity: 1
-                                        }],
-                                    lastMinuteAdditions: [],
-                                    subtotal: 0,
-                                    surfaceAdjustment: 0,
-                                    timeAdjustment: 0,
-                                    deliveryCost: 0,
-                                    totalAmount: 0,
-                                    paymentType: 'Membership Cancellation',
-                                    amountPaid: 0,
-                                    remainingBalance: 0
-                                });
-                            }
-                            catch (emailError) {
-                                console.error(`Failed to send cancellation email to ${userData.email}:`, emailError);
-                            }
-                        }
-                        continue;
+                // Get current status from PayPal
+                const paypalResponse = await axios_1.default.get(`${PAYPAL_BASE_URL}/v1/billing/subscriptions/${localSubscription.subscriptionId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Accept': 'application/json'
                     }
-                    // Get payment info
-                    const paymentDoc = await firestore
-                        .collection('users')
+                });
+                const paypalStatus = paypalResponse.data.status;
+                const localStatus = localSubscription.status;
+                // Check if status has changed
+                if (paypalStatus !== localStatus) {
+                    console.log(`Status mismatch for user ${userId}: Local=${localStatus}, PayPal=${paypalStatus}`);
+                    // Update our database to match PayPal
+                    await subDoc.ref.update({
+                        status: paypalStatus,
+                        lastSyncedAt: new Date(),
+                        lastPayPalSync: paypalResponse.data,
+                        syncReason: 'daily-status-check'
+                    });
+                    // Update user membership status based on PayPal status
+                    const membershipUpdate = {
+                        updatedAt: new Date().toISOString(),
+                        lastSyncedAt: new Date().toISOString()
+                    };
+                    if (paypalStatus === 'ACTIVE') {
+                        membershipUpdate.jumpClub = true;
+                        membershipUpdate.cancelled = false;
+                    }
+                    else if (['CANCELLED', 'SUSPENDED', 'EXPIRED'].includes(paypalStatus)) {
+                        membershipUpdate.jumpClub = false;
+                        membershipUpdate.cancelled = true;
+                        if (paypalStatus === 'CANCELLED') {
+                            membershipUpdate.dateCancelled = new Date().toISOString();
+                        }
+                    }
+                    // Update user membership status
+                    await db.collection('users')
                         .doc(userId)
-                        .collection('paymentInfo')
-                        .doc('data')
-                        .get();
-                    if (!paymentDoc.exists || !((_a = paymentDoc.data()) === null || _a === void 0 ? void 0 : _a.paypalVaultId)) {
-                        // No payment method, send email and cancel membership
-                        const userData = userDoc.data();
-                        if (userData === null || userData === void 0 ? void 0 : userData.email) {
-                            try {
-                                await (0, emailService_1.sendOrderConfirmationEmail)({
-                                    recipientEmail: userData.email,
-                                    recipientName: userData.name || 'Valued Customer',
-                                    orderID: `FAIL-${userId}-${Date.now()}`,
-                                    orderDate: now.toISOString(),
-                                    eventDate: now.toISOString(),
-                                    deliveryAddress: 'Payment Failed - Membership Cancelled',
-                                    rentalItems: [{
-                                            name: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Payment Failed`,
-                                            price: amount,
-                                            quantity: 1
-                                        }],
-                                    lastMinuteAdditions: [],
-                                    subtotal: amount,
-                                    surfaceAdjustment: 0,
-                                    timeAdjustment: 0,
-                                    deliveryCost: 0,
-                                    totalAmount: amount,
-                                    paymentType: 'Membership Billing',
-                                    amountPaid: 0,
-                                    remainingBalance: amount
-                                });
-                            }
-                            catch (emailError) {
-                                console.error(`Failed to send payment failure email to ${userData.email}:`, emailError);
-                            }
-                        }
-                        // Cancel membership
-                        await firestore
-                            .collection('users')
-                            .doc(userId)
-                            .collection('membership')
-                            .doc('status')
-                            .update({
-                            jumpClub: false,
-                            dateStarted: admin.firestore.FieldValue.delete(),
-                            updatedAt: now.toISOString()
-                        });
-                        continue;
-                    }
-                    const paymentData = paymentDoc.data(); // We know it exists from the check above
-                    // Create payment record
-                    const paymentId = `mb-${userId}-${Date.now()}`;
-                    const nextBillingDate = new Date(now);
-                    nextBillingDate.setDate(nextBillingDate.getDate() + 30);
-                    try {
-                        // Attempt to charge the payment method
-                        const chargeResult = await (0, paypalService_1.chargeVaultedPayment)({
-                            customerId: paymentData.paypalVaultId,
-                            paymentTokenId: ((_b = paymentData.savedPaymentMethods[0]) === null || _b === void 0 ? void 0 : _b.paypalVaultId) || '',
-                            amount: amount,
-                            currency: 'USD',
-                            description: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Monthly Billing`,
-                            reference_id: paymentId
-                        });
-                        // Save successful payment record
-                        await firestore.collection('membershipPayments').doc(paymentId).set({
-                            id: paymentId,
-                            userId: userId,
-                            membershipType: membershipType,
-                            amount: amount,
-                            paymentDate: now.toISOString(),
-                            nextBillingDate: nextBillingDate.toISOString(),
-                            paymentMethodId: (_c = paymentData.savedPaymentMethods[0]) === null || _c === void 0 ? void 0 : _c.id,
-                            paypalTransactionId: chargeResult.id,
-                            status: 'completed',
-                            createdAt: now.toISOString()
-                        });
-                        // Send successful billing email
-                        const userData = userDoc.data();
-                        if (userData === null || userData === void 0 ? void 0 : userData.email) {
-                            try {
-                                await (0, emailService_1.sendOrderConfirmationEmail)({
-                                    recipientEmail: userData.email,
-                                    recipientName: userData.name || 'Valued Customer',
-                                    orderID: paymentId,
-                                    orderDate: now.toISOString(),
-                                    eventDate: now.toISOString(),
-                                    deliveryAddress: 'Digital Service',
-                                    rentalItems: [{
-                                            name: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Monthly Billing`,
-                                            price: amount,
-                                            quantity: 1
-                                        }],
-                                    lastMinuteAdditions: [],
-                                    subtotal: amount,
-                                    surfaceAdjustment: 0,
-                                    timeAdjustment: 0,
-                                    deliveryCost: 0,
-                                    totalAmount: amount,
-                                    paymentType: 'Membership Billing',
-                                    amountPaid: amount,
-                                    remainingBalance: 0
-                                });
-                            }
-                            catch (emailError) {
-                                console.error(`Failed to send billing success email to ${userData.email}:`, emailError);
-                            }
-                        }
-                    }
-                    catch (chargeError) {
-                        // Payment failed - save failed record and send email
-                        await firestore.collection('membershipPayments').doc(paymentId).set({
-                            id: paymentId,
-                            userId: userId,
-                            membershipType: membershipType,
-                            amount: amount,
-                            paymentDate: now.toISOString(),
-                            nextBillingDate: nextBillingDate.toISOString(),
-                            paymentMethodId: (_d = paymentData === null || paymentData === void 0 ? void 0 : paymentData.savedPaymentMethods[0]) === null || _d === void 0 ? void 0 : _d.id,
-                            status: 'failed',
-                            failureReason: (chargeError === null || chargeError === void 0 ? void 0 : chargeError.message) || 'Unknown payment error',
-                            createdAt: now.toISOString()
-                        });
-                        // Send payment failure email and cancel membership
-                        const userData = userDoc.data();
-                        if (userData === null || userData === void 0 ? void 0 : userData.email) {
-                            try {
-                                await (0, emailService_1.sendOrderConfirmationEmail)({
-                                    recipientEmail: userData.email,
-                                    recipientName: userData.name || 'Valued Customer',
-                                    orderID: paymentId,
-                                    orderDate: now.toISOString(),
-                                    eventDate: now.toISOString(),
-                                    deliveryAddress: 'Payment Failed - Membership Cancelled',
-                                    rentalItems: [{
-                                            name: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Payment Failed`,
-                                            price: amount,
-                                            quantity: 1
-                                        }],
-                                    lastMinuteAdditions: [],
-                                    subtotal: amount,
-                                    surfaceAdjustment: 0,
-                                    timeAdjustment: 0,
-                                    deliveryCost: 0,
-                                    totalAmount: amount,
-                                    paymentType: 'Membership Billing',
-                                    amountPaid: 0,
-                                    remainingBalance: amount
-                                });
-                            }
-                            catch (emailError) {
-                                console.error(`Failed to send payment failure email to ${userData.email}:`, emailError);
-                            }
-                        }
-                        // Cancel membership after payment failure
-                        await firestore
-                            .collection('users')
-                            .doc(userId)
-                            .collection('membership')
-                            .doc('status')
-                            .update({
-                            jumpClub: false,
-                            dateStarted: admin.firestore.FieldValue.delete(),
-                            updatedAt: now.toISOString()
-                        });
-                    }
+                        .collection('membership')
+                        .doc('status')
+                        .update(membershipUpdate);
+                    console.log(`Updated user ${userId} membership status to match PayPal: ${paypalStatus}`);
+                }
+                processedCount++;
+            }
+            catch (error) {
+                console.error(`Error syncing subscription for user ${userId}:`, ((_a = error.response) === null || _a === void 0 ? void 0 : _a.data) || error.message);
+                errorCount++;
+                // If subscription not found in PayPal, mark as cancelled locally
+                if (((_b = error.response) === null || _b === void 0 ? void 0 : _b.status) === 404) {
+                    await subDoc.ref.update({
+                        status: 'CANCELLED',
+                        lastSyncedAt: new Date(),
+                        syncReason: 'not-found-in-paypal'
+                    });
+                    await db.collection('users')
+                        .doc(userId)
+                        .collection('membership')
+                        .doc('status')
+                        .update({
+                        jumpClub: false,
+                        cancelled: true,
+                        dateCancelled: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    });
+                    console.log(`Marked user ${userId} subscription as cancelled (not found in PayPal)`);
                 }
             }
-            catch (userError) {
-                console.error(`Error processing membership billing for user ${userId}:`, userError);
-            }
+            // Small delay to avoid rate limits
+            await new Promise(resolve => setTimeout(resolve, 100));
         }
+        console.log(`Daily sync completed: ${processedCount} processed, ${errorCount} errors`);
     }
     catch (error) {
-        console.error('❌ MEMBERSHIP BILLING: Error processing membership billing:', error);
+        console.error('Error in daily subscription sync:', error);
     }
 });
+try { }
+catch (emailError) {
+    console.error(`Failed to send payment failure email to ${userData.email}:`, emailError);
+}
+// Cancel membership
+await firestore
+    .collection('users')
+    .doc(userId)
+    .collection('membership')
+    .doc('status')
+    .update({
+    jumpClub: false,
+    dateStarted: admin.firestore.FieldValue.delete(),
+    updatedAt: now.toISOString()
+});
+continue;
+const paymentData = paymentDoc.data(); // We know it exists from the check above
+// Create payment record
+const paymentId = `mb-${userId}-${Date.now()}`;
+const nextBillingDate = new Date(now);
+nextBillingDate.setDate(nextBillingDate.getDate() + 30);
+try {
+    // Attempt to charge the payment method
+    const chargeResult = await (0, paypalService_1.chargeVaultedPayment)({
+        customerId: paymentData.paypalVaultId,
+        paymentTokenId: ((_b = paymentData.savedPaymentMethods[0]) === null || _b === void 0 ? void 0 : _b.paypalVaultId) || '',
+        amount: amount,
+        currency: 'USD',
+        description: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Monthly Billing`,
+        reference_id: paymentId
+    });
+    // Save successful payment record
+    await firestore.collection('membershipPayments').doc(paymentId).set({
+        id: paymentId,
+        userId: userId,
+        membershipType: membershipType,
+        amount: amount,
+        paymentDate: now.toISOString(),
+        nextBillingDate: nextBillingDate.toISOString(),
+        paymentMethodId: (_c = paymentData.savedPaymentMethods[0]) === null || _c === void 0 ? void 0 : _c.id,
+        paypalTransactionId: chargeResult.id,
+        status: 'completed',
+        createdAt: now.toISOString()
+    });
+    // Send successful billing email
+    const userData = userDoc.data();
+    if (userData === null || userData === void 0 ? void 0 : userData.email) {
+        try {
+            await (0, emailService_1.sendOrderConfirmationEmail)({
+                recipientEmail: userData.email,
+                recipientName: userData.name || 'Valued Customer',
+                orderID: paymentId,
+                orderDate: now.toISOString(),
+                eventDate: now.toISOString(),
+                deliveryAddress: 'Digital Service',
+                rentalItems: [{
+                        name: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Monthly Billing`,
+                        price: amount,
+                        quantity: 1
+                    }],
+                lastMinuteAdditions: [],
+                subtotal: amount,
+                surfaceAdjustment: 0,
+                timeAdjustment: 0,
+                deliveryCost: 0,
+                totalAmount: amount,
+                paymentType: 'Membership Billing',
+                amountPaid: amount,
+                remainingBalance: 0
+            });
+        }
+        catch (emailError) {
+            console.error(`Failed to send billing success email to ${userData.email}:`, emailError);
+        }
+    }
+}
+catch (chargeError) {
+    // Payment failed - save failed record and send email
+    await firestore.collection('membershipPayments').doc(paymentId).set({
+        id: paymentId,
+        userId: userId,
+        membershipType: membershipType,
+        amount: amount,
+        paymentDate: now.toISOString(),
+        nextBillingDate: nextBillingDate.toISOString(),
+        paymentMethodId: (_d = paymentData === null || paymentData === void 0 ? void 0 : paymentData.savedPaymentMethods[0]) === null || _d === void 0 ? void 0 : _d.id,
+        status: 'failed',
+        failureReason: (chargeError === null || chargeError === void 0 ? void 0 : chargeError.message) || 'Unknown payment error',
+        createdAt: now.toISOString()
+    });
+    // Send payment failure email and cancel membership
+    const userData = userDoc.data();
+    if (userData === null || userData === void 0 ? void 0 : userData.email) {
+        try {
+            await (0, emailService_1.sendOrderConfirmationEmail)({
+                recipientEmail: userData.email,
+                recipientName: userData.name || 'Valued Customer',
+                orderID: paymentId,
+                orderDate: now.toISOString(),
+                eventDate: now.toISOString(),
+                deliveryAddress: 'Payment Failed - Membership Cancelled',
+                rentalItems: [{
+                        name: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Payment Failed`,
+                        price: amount,
+                        quantity: 1
+                    }],
+                lastMinuteAdditions: [],
+                subtotal: amount,
+                surfaceAdjustment: 0,
+                timeAdjustment: 0,
+                deliveryCost: 0,
+                totalAmount: amount,
+                paymentType: 'Membership Billing',
+                amountPaid: 0,
+                remainingBalance: amount
+            });
+        }
+        catch (emailError) {
+            console.error(`Failed to send payment failure email to ${userData.email}:`, emailError);
+        }
+    }
+    // Cancel membership after payment failure
+    await firestore
+        .collection('users')
+        .doc(userId)
+        .collection('membership')
+        .doc('status')
+        .update({
+        jumpClub: false,
+        dateStarted: admin.firestore.FieldValue.delete(),
+        updatedAt: now.toISOString()
+    });
+}
+try { }
+catch (userError) {
+    console.error(`Error processing membership billing for user ${userId}:`, userError);
+}
+try { }
+catch (error) {
+    console.error('❌ MEMBERSHIP BILLING: Error processing membership billing:', error);
+}
+;
 // =============================================================================
 // EMAIL PROCESSING HELPER FUNCTIONS
 // =============================================================================
@@ -1167,9 +1150,193 @@ async function processRebookingReminderEmails(db, now) {
 }
 // Membership-specific API endpoints
 /**
- * Create membership order with PayPal
+ * Create PayPal subscription for membership
  */
-exports.createMembershipOrder = functions.https.onRequest(async (req, res) => {
+// STATIC PAYPAL PRODUCT AND PLAN IDs - Created once and reused
+const JUMP_CLUB_PRODUCT_ID = "PROD_JUMP_CLUB_MEMBERSHIP_2024"; // Set this after running setupPayPalPlans
+const JUMP_CLUB_PLAN_ID = "P-JUMP_CLUB_MONTHLY_2024"; // Set this after running setupPayPalPlans
+// One-time setup function to create PayPal product and billing plan
+// Run this function once via Firebase console or admin script
+exports.setupPayPalPlans = functions.https.onRequest(async (req, res) => {
+    // This should only be run by administrators
+    // Add authentication/security as needed
+    var _a;
+    try {
+        console.log('Setting up PayPal product and billing plans...');
+        // Get PayPal access token
+        const accessToken = await getPayPalAccessToken();
+        // Create PayPal product (one-time)
+        const productData = {
+            id: JUMP_CLUB_PRODUCT_ID, // Use consistent ID
+            name: "Jump Club Membership",
+            description: "Monthly subscription to Jump Club with premium inflatable delivery and exclusive member benefits",
+            type: "SERVICE",
+            category: "ENTERTAINMENT"
+        };
+        console.log('Creating PayPal product...');
+        const productResponse = await axios_1.default.post(`${PAYPAL_BASE_URL}/v1/catalogs/products`, productData, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'PayPal-Request-Id': `product-setup-${Date.now()}`
+            }
+        });
+        console.log('Product created:', productResponse.data.id);
+        // Create billing plan (one-time)
+        const planData = {
+            product_id: JUMP_CLUB_PRODUCT_ID,
+            name: "Jump Club Monthly Membership",
+            description: "Monthly subscription to Jump Club with premium inflatable delivery and benefits",
+            status: "ACTIVE",
+            billing_cycles: [
+                {
+                    frequency: {
+                        interval_unit: "MONTH",
+                        interval_count: 1
+                    },
+                    tenure_type: "REGULAR",
+                    sequence: 1,
+                    total_cycles: 0, // 0 means unlimited
+                    pricing_scheme: {
+                        fixed_price: {
+                            value: "149.00",
+                            currency_code: "USD"
+                        }
+                    }
+                }
+            ],
+            payment_preferences: {
+                auto_bill_outstanding: true,
+                setup_fee: {
+                    value: "0",
+                    currency_code: "USD"
+                },
+                setup_fee_failure_action: "CONTINUE",
+                payment_failure_threshold: 3
+            }
+        };
+        console.log('Creating billing plan...');
+        const planResponse = await axios_1.default.post(`${PAYPAL_BASE_URL}/v1/billing/plans`, planData, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'PayPal-Request-Id': `plan-setup-${Date.now()}`
+            }
+        });
+        console.log('Plan created:', planResponse.data.id);
+        // Store the IDs in Firestore for reference
+        const db = admin.firestore();
+        await db.collection('paypalConfig').doc('membershipPlans').set({
+            productId: productResponse.data.id,
+            planId: planResponse.data.id,
+            createdAt: new Date(),
+            status: 'ACTIVE'
+        });
+        res.json({
+            success: true,
+            productId: productResponse.data.id,
+            planId: planResponse.data.id,
+            message: 'PayPal product and billing plan created successfully. Update the constants in your code with these IDs.'
+        });
+    }
+    catch (error) {
+        console.error('Error setting up PayPal plans:', error);
+        res.status(500).json({
+            success: false,
+            error: ((_a = error.response) === null || _a === void 0 ? void 0 : _a.data) || error.message
+        });
+    }
+});
+exports.createMembershipSubscription = functions.https.onCall(async (data, context) => {
+    var _a, _b, _c, _d, _e, _f;
+    try {
+        console.log('Received createMembershipSubscription request with data:', JSON.stringify(data));
+        console.log('Context auth:', ((_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid) || 'No auth context');
+        const { userId, planAmount = 149, currency = 'USD', userEmail, userName } = data;
+        // More detailed validation
+        if (!data) {
+            throw new functions.https.HttpsError('invalid-argument', 'No data provided');
+        }
+        if (!userId) {
+            throw new functions.https.HttpsError('invalid-argument', `Missing userId. Received data keys: ${Object.keys(data).join(', ')}`);
+        }
+        if (!userEmail) {
+            throw new functions.https.HttpsError('invalid-argument', `Missing userEmail. Received data keys: ${Object.keys(data).join(', ')}`);
+        }
+        // Validate amount is a number
+        if (typeof planAmount !== 'number' || isNaN(planAmount) || planAmount <= 0) {
+            throw new functions.https.HttpsError('invalid-argument', `Invalid planAmount: ${planAmount}. Must be a positive number.`);
+        }
+        // Get PayPal access token
+        const accessToken = await getPayPalAccessToken();
+        // Get the stored plan ID from Firestore (created once via setupPayPalPlans)
+        const db = admin.firestore();
+        const configDoc = await db.collection('paypalConfig').doc('membershipPlans').get();
+        if (!configDoc.exists) {
+            throw new functions.https.HttpsError('failed-precondition', 'PayPal billing plan not configured. Run setupPayPalPlans first.');
+        }
+        const config = configDoc.data();
+        const planId = (config === null || config === void 0 ? void 0 : config.planId) || JUMP_CLUB_PLAN_ID; // Fallback to constant
+        if (!planId) {
+            throw new functions.https.HttpsError('failed-precondition', 'No billing plan ID available. Run setupPayPalPlans first.');
+        }
+        console.log('Using existing plan ID:', planId);
+        // Create subscription using the existing plan (no product/plan creation needed)
+        const subscriptionData = {
+            plan_id: planId,
+            start_time: new Date(Date.now() + 60000).toISOString(), // Start in 1 minute
+            subscriber: {
+                name: {
+                    given_name: (userName === null || userName === void 0 ? void 0 : userName.split(' ')[0]) || 'Jump',
+                    surname: (userName === null || userName === void 0 ? void 0 : userName.split(' ').slice(1).join(' ')) || 'Club Member'
+                },
+                email_address: userEmail
+            },
+            application_context: {
+                brand_name: "Jump CSRA Party Rental",
+                locale: "en-US",
+                shipping_preference: "NO_SHIPPING",
+                user_action: "SUBSCRIBE_NOW",
+                payment_method: {
+                    payer_selected: "PAYPAL",
+                    payee_preferred: "IMMEDIATE_PAYMENT_REQUIRED"
+                },
+                return_url: `https://jumpcsra.com/checkout?membership=jump-club&success=true`,
+                cancel_url: `https://jumpcsra.com/checkout?membership=jump-club&cancelled=true`
+            },
+            custom_id: userId // Store user ID for reference
+        };
+        const subscriptionResponse = await axios_1.default.post(`${PAYPAL_BASE_URL}/v1/billing/subscriptions`, subscriptionData, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'PayPal-Request-Id': `sub-${userId}-${Date.now()}`
+            }
+        });
+        console.log('Membership subscription created:', subscriptionResponse.data.id);
+        return {
+            success: true,
+            subscriptionId: subscriptionResponse.data.id,
+            planId: planId,
+            approvalUrl: (_c = (_b = subscriptionResponse.data.links) === null || _b === void 0 ? void 0 : _b.find((link) => link.rel === 'approve')) === null || _c === void 0 ? void 0 : _c.href
+        };
+    }
+    catch (error) {
+        console.error('Error creating membership subscription:', ((_d = error.response) === null || _d === void 0 ? void 0 : _d.data) || error);
+        if (error instanceof functions.https.HttpsError) {
+            throw error;
+        }
+        throw new functions.https.HttpsError('internal', ((_f = (_e = error.response) === null || _e === void 0 ? void 0 : _e.data) === null || _f === void 0 ? void 0 : _f.message) || 'Failed to create membership subscription');
+    }
+});
+/**
+ * Activate membership subscription after PayPal approval
+ */
+exports.activateMembershipSubscription = functions.https.onRequest(async (req, res) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h;
     // Set CORS headers
     res.set('Access-Control-Allow-Origin', '*');
     res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -1179,13 +1346,136 @@ exports.createMembershipOrder = functions.https.onRequest(async (req, res) => {
         return;
     }
     try {
-        const { userId, amount, currency = 'USD' } = req.body;
-        if (!userId || !amount) {
+        const { subscriptionId, userId } = req.body;
+        if (!subscriptionId || !userId) {
             res.status(400).json({
                 success: false,
-                error: 'Missing required fields: userId, amount'
+                error: 'Missing required fields: subscriptionId, userId'
             });
             return;
+        }
+        // Get PayPal access token
+        const accessToken = await getPayPalAccessToken();
+        // Get subscription details to verify it's active
+        const subscriptionResponse = await axios_1.default.get(`${PAYPAL_BASE_URL}/v1/billing/subscriptions/${subscriptionId}`, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Accept': 'application/json'
+            }
+        });
+        const subscription = subscriptionResponse.data;
+        if (subscription.status !== 'ACTIVE') {
+            res.status(400).json({
+                success: false,
+                error: `Subscription status is ${subscription.status}, not ACTIVE`
+            });
+            return;
+        }
+        // Store subscription information in Firestore
+        const db = admin.firestore();
+        await db.collection('userSubscriptions').doc(userId).set({
+            subscriptionId: subscriptionId,
+            planId: subscription.plan_id,
+            status: subscription.status,
+            createdAt: new Date(),
+            nextBillingDate: ((_a = subscription.billing_info) === null || _a === void 0 ? void 0 : _a.next_billing_time) || null,
+            lastPaymentAmount: ((_d = (_c = (_b = subscription.billing_info) === null || _b === void 0 ? void 0 : _b.last_payment) === null || _c === void 0 ? void 0 : _c.amount) === null || _d === void 0 ? void 0 : _d.value) || null,
+            subscriber: subscription.subscriber
+        });
+        console.log('Membership subscription activated for user:', userId);
+        res.status(200).json({
+            success: true,
+            subscriptionId: subscriptionId,
+            status: subscription.status,
+            nextBilling: (_e = subscription.billing_info) === null || _e === void 0 ? void 0 : _e.next_billing_time
+        });
+    }
+    catch (error) {
+        console.error('Error activating membership subscription:', ((_f = error.response) === null || _f === void 0 ? void 0 : _f.data) || error);
+        res.status(500).json({
+            success: false,
+            error: ((_h = (_g = error.response) === null || _g === void 0 ? void 0 : _g.data) === null || _h === void 0 ? void 0 : _h.message) || 'Failed to activate membership subscription'
+        });
+    }
+});
+/**
+ * Cancel membership subscription
+ */
+exports.cancelMembershipSubscription = functions.https.onRequest(async (req, res) => {
+    var _a, _b, _c;
+    // Set CORS headers
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+    try {
+        const { subscriptionId, userId, reason = "User requested cancellation" } = req.body;
+        if (!subscriptionId || !userId) {
+            res.status(400).json({
+                success: false,
+                error: 'Missing required fields: subscriptionId, userId'
+            });
+            return;
+        }
+        // Get PayPal access token
+        const accessToken = await getPayPalAccessToken();
+        // Cancel the subscription
+        const cancelData = {
+            reason: reason
+        };
+        await axios_1.default.post(`${PAYPAL_BASE_URL}/v1/billing/subscriptions/${subscriptionId}/cancel`, cancelData, {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+        // Update subscription status in Firestore
+        const db = admin.firestore();
+        await db.collection('userSubscriptions').doc(userId).update({
+            status: 'CANCELLED',
+            cancelledAt: new Date(),
+            cancellationReason: reason
+        });
+        console.log('Membership subscription cancelled for user:', userId);
+        res.status(200).json({
+            success: true,
+            message: 'Subscription cancelled successfully'
+        });
+    }
+    catch (error) {
+        console.error('Error cancelling membership subscription:', ((_a = error.response) === null || _a === void 0 ? void 0 : _a.data) || error);
+        res.status(500).json({
+            success: false,
+            error: ((_c = (_b = error.response) === null || _b === void 0 ? void 0 : _b.data) === null || _c === void 0 ? void 0 : _c.message) || 'Failed to cancel membership subscription'
+        });
+    }
+});
+/**
+ * Create membership order with PayPal
+ */
+exports.createMembershipOrder = functions.https.onCall(async (data, context) => {
+    var _a;
+    try {
+        console.log('Received createMembershipOrder request with data:', JSON.stringify(data));
+        console.log('Context auth:', ((_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid) || 'No auth context');
+        const { userId, amount, currency = 'USD' } = data;
+        // More detailed validation
+        if (!data) {
+            throw new functions.https.HttpsError('invalid-argument', 'No data provided');
+        }
+        if (!userId) {
+            throw new functions.https.HttpsError('invalid-argument', `Missing userId. Received data keys: ${Object.keys(data).join(', ')}`);
+        }
+        if (!amount) {
+            throw new functions.https.HttpsError('invalid-argument', `Missing amount. Received data keys: ${Object.keys(data).join(', ')}`);
+        }
+        // Validate amount is a number
+        if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) {
+            throw new functions.https.HttpsError('invalid-argument', `Invalid amount: ${amount}. Must be a positive number.`);
         }
         // Create PayPal order for membership with vault setup
         const orderResponse = await createVaultedPayPalOrder({
@@ -1195,57 +1485,37 @@ exports.createMembershipOrder = functions.https.onRequest(async (req, res) => {
             description: 'Jump Club Membership - Monthly Subscription'
         });
         console.log('Membership order created:', orderResponse);
-        res.status(200).json({
+        return {
             success: true,
-            orderId: orderResponse.id
-        });
+            orderID: orderResponse.id
+        };
     }
     catch (error) {
         console.error('Error creating membership order:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to create membership order'
-        });
+        if (error instanceof functions.https.HttpsError) {
+            throw error;
+        }
+        throw new functions.https.HttpsError('internal', 'Failed to create membership order');
     }
 });
 /**
  * Capture membership payment and set up vault
  */
-exports.captureMembershipPayment = functions.https.onRequest(async (req, res) => {
-    // Set CORS headers
-    res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
+exports.captureMembershipPayment = functions.https.onCall(async (data, context) => {
     try {
-        const { orderId, userId } = req.body;
-        if (!orderId || !userId) {
-            res.status(400).json({
-                success: false,
-                error: 'Missing required fields: orderId, userId'
-            });
-            return;
+        const { orderID, userId } = data;
+        if (!orderID || !userId) {
+            throw new functions.https.HttpsError('invalid-argument', 'Missing required fields: orderID, userId');
         }
         // Capture the PayPal payment
-        const captureResponse = await captureVaultedPayment(orderId);
+        const captureResponse = await captureVaultedPayment(orderID);
         if (!captureResponse.success) {
-            res.status(400).json({
-                success: false,
-                error: 'Payment capture failed'
-            });
-            return;
+            throw new functions.https.HttpsError('internal', 'Payment capture failed');
         }
         // Check if we got vault information
         if (!captureResponse.vaultId) {
             console.error('Payment captured but no vault ID received for user:', userId);
-            res.status(500).json({
-                success: false,
-                error: 'Payment processed but recurring billing setup incomplete. Please contact support.'
-            });
-            return;
+            throw new functions.https.HttpsError('internal', 'Payment processed but recurring billing setup incomplete. Please contact support.');
         }
         // Store payment info in user's record
         const firestore = admin.firestore();
@@ -1272,18 +1542,18 @@ exports.captureMembershipPayment = functions.https.onRequest(async (req, res) =>
         };
         await firestore.collection('membershipPayments').doc(paymentRecord.id).set(paymentRecord);
         console.log('Membership payment completed successfully for user:', userId);
-        res.status(200).json({
+        return {
             success: true,
             transactionId: captureResponse.transactionId,
             vaultId: captureResponse.vaultId
-        });
+        };
     }
     catch (error) {
         console.error('Error capturing membership payment:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to process membership payment'
-        });
+        if (error instanceof functions.https.HttpsError) {
+            throw error;
+        }
+        throw new functions.https.HttpsError('internal', 'Failed to process membership payment');
     }
 });
 // Helper function to create PayPal order with vault setup
@@ -1349,4 +1619,210 @@ async function captureVaultedPayment(orderId) {
         };
     }
 }
+/**
+ * Get subscription details for a user
+ */
+exports.getMembershipSubscription = functions.https.onRequest(async (req, res) => {
+    var _a, _b, _c;
+    // Set CORS headers
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+    try {
+        const { userId } = req.query;
+        if (!userId) {
+            res.status(400).json({
+                success: false,
+                error: 'Missing required field: userId'
+            });
+            return;
+        }
+        const db = admin.firestore();
+        const subscriptionDoc = await db.collection('userSubscriptions').doc(userId).get();
+        if (!subscriptionDoc.exists) {
+            res.status(404).json({
+                success: false,
+                error: 'No subscription found for user'
+            });
+            return;
+        }
+        const subscriptionData = subscriptionDoc.data();
+        // Get latest PayPal subscription details
+        if (subscriptionData === null || subscriptionData === void 0 ? void 0 : subscriptionData.subscriptionId) {
+            try {
+                const accessToken = await getPayPalAccessToken();
+                const subscriptionResponse = await axios_1.default.get(`${PAYPAL_BASE_URL}/v1/billing/subscriptions/${subscriptionData.subscriptionId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Accept': 'application/json'
+                    }
+                });
+                const paypalSubscription = subscriptionResponse.data;
+                res.status(200).json({
+                    success: true,
+                    subscription: Object.assign(Object.assign({}, subscriptionData), { currentStatus: paypalSubscription.status, nextBillingDate: (_a = paypalSubscription.billing_info) === null || _a === void 0 ? void 0 : _a.next_billing_time, lastPayment: (_b = paypalSubscription.billing_info) === null || _b === void 0 ? void 0 : _b.last_payment, failedPaymentsCount: ((_c = paypalSubscription.billing_info) === null || _c === void 0 ? void 0 : _c.failed_payments_count) || 0 })
+                });
+            }
+            catch (paypalError) {
+                console.error('Error fetching PayPal subscription details:', paypalError);
+                // Return local data if PayPal call fails
+                res.status(200).json({
+                    success: true,
+                    subscription: subscriptionData,
+                    warning: 'Could not fetch latest PayPal details'
+                });
+            }
+        }
+        else {
+            res.status(200).json({
+                success: true,
+                subscription: subscriptionData
+            });
+        }
+    }
+    catch (error) {
+        console.error('Error getting membership subscription:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get membership subscription details'
+        });
+    }
+});
+/**
+ * PayPal Subscription Webhook Handler
+ * Handles subscription events like payments, cancellations, failures
+ */
+exports.paypalSubscriptionWebhook = functions.https.onRequest(async (req, res) => {
+    try {
+        const event = req.body;
+        console.log('PayPal Webhook Event:', event.event_type);
+        // Verify webhook signature (recommended for production)
+        // You would implement webhook signature verification here
+        const db = admin.firestore();
+        switch (event.event_type) {
+            case 'BILLING.SUBSCRIPTION.ACTIVATED':
+                {
+                    const subscription = event.resource;
+                    const userId = subscription.custom_id;
+                    if (userId) {
+                        await db.collection('userSubscriptions').doc(userId).update({
+                            status: 'ACTIVE',
+                            activatedAt: new Date(),
+                            lastWebhookEvent: event.event_type
+                        });
+                        console.log('Subscription activated via webhook for user:', userId);
+                    }
+                }
+                break;
+            case 'BILLING.SUBSCRIPTION.CANCELLED':
+                {
+                    const subscription = event.resource;
+                    const userId = subscription.custom_id;
+                    if (userId) {
+                        await db.collection('userSubscriptions').doc(userId).update({
+                            status: 'CANCELLED',
+                            cancelledAt: new Date(),
+                            lastWebhookEvent: event.event_type
+                        });
+                        // Also update user membership status
+                        await db.collection('users').doc(userId).update({
+                            'membership.jumpClub': false,
+                            'membership.cancelled': true,
+                            'membership.cancelledDate': new Date()
+                        });
+                        console.log('Subscription cancelled via webhook for user:', userId);
+                    }
+                }
+                break;
+            case 'BILLING.SUBSCRIPTION.SUSPENDED':
+                {
+                    const subscription = event.resource;
+                    const userId = subscription.custom_id;
+                    if (userId) {
+                        await db.collection('userSubscriptions').doc(userId).update({
+                            status: 'SUSPENDED',
+                            suspendedAt: new Date(),
+                            lastWebhookEvent: event.event_type
+                        });
+                        // Suspend user membership
+                        await db.collection('users').doc(userId).update({
+                            'membership.jumpClub': false,
+                            'membership.suspended': true,
+                            'membership.suspendedDate': new Date()
+                        });
+                        console.log('Subscription suspended via webhook for user:', userId);
+                    }
+                }
+                break;
+            case 'PAYMENT.SALE.COMPLETED':
+                {
+                    const payment = event.resource;
+                    const billingAgreementId = payment.billing_agreement_id;
+                    if (billingAgreementId) {
+                        // Find subscription by billing agreement ID
+                        const subscriptions = await db.collection('userSubscriptions')
+                            .where('subscriptionId', '==', billingAgreementId)
+                            .get();
+                        if (!subscriptions.empty) {
+                            const subscriptionDoc = subscriptions.docs[0];
+                            const userId = subscriptionDoc.id;
+                            // Record the payment
+                            await db.collection('subscriptionPayments').add({
+                                userId: userId,
+                                subscriptionId: billingAgreementId,
+                                paymentId: payment.id,
+                                amount: payment.amount.total,
+                                currency: payment.amount.currency,
+                                status: payment.state,
+                                paidAt: new Date(payment.create_time),
+                                recordedAt: new Date()
+                            });
+                            console.log('Payment recorded for subscription:', billingAgreementId);
+                        }
+                    }
+                }
+                break;
+            case 'PAYMENT.SALE.DENIED':
+            case 'BILLING.SUBSCRIPTION.PAYMENT.FAILED':
+                {
+                    const resource = event.resource;
+                    const subscriptionId = resource.billing_agreement_id || resource.id;
+                    if (subscriptionId) {
+                        // Find user by subscription ID
+                        const subscriptions = await db.collection('userSubscriptions')
+                            .where('subscriptionId', '==', subscriptionId)
+                            .get();
+                        if (!subscriptions.empty) {
+                            const subscriptionDoc = subscriptions.docs[0];
+                            const userId = subscriptionDoc.id;
+                            // Record failed payment
+                            await db.collection('subscriptionPayments').add({
+                                userId: userId,
+                                subscriptionId: subscriptionId,
+                                paymentId: resource.id,
+                                status: 'FAILED',
+                                failureReason: resource.reason_code || 'Payment failed',
+                                attemptedAt: new Date(),
+                                recordedAt: new Date()
+                            });
+                            console.log('Failed payment recorded for subscription:', subscriptionId);
+                            // You might want to send email notification or take other action
+                        }
+                    }
+                }
+                break;
+            default:
+                console.log('Unhandled webhook event type:', event.event_type);
+        }
+        res.status(200).send('Webhook processed successfully');
+    }
+    catch (error) {
+        console.error('Error processing PayPal webhook:', error);
+        res.status(500).send('Webhook processing failed');
+    }
+});
 //# sourceMappingURL=index.js.map

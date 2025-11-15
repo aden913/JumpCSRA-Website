@@ -45,104 +45,67 @@ const MembershipCheckout: React.FC<MembershipCheckoutProps> = ({ onSuccess }) =>
   const paypalOptions = {
     clientId: "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0", // Working sandbox client ID
     currency: "USD",
-    intent: "capture" as const,
-    vault: true
+    intent: "capture" as const, // Use capture instead of subscription
+    vault: true // Keep vault for payment method storage
   };
 
-  const createOrder = async () => {
+  const createSubscription = async () => {
+    console.log('createSubscription called, user state:', user);
+
     if (!user) {
+      console.error('No user found');
       throw new Error('User must be logged in');
     }
 
-    try {
-      const response = await fetch('https://us-central1-pppro-b060e.cloudfunctions.net/createMembershipOrder', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: user.uid,
-          amount: 149.00,
-          currency: 'USD'
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create order');
-      }
-
-      const data = await response.json();
-      return data.orderId;
-    } catch (error) {
-      console.error('Error creating order:', error);
-      throw error;
+    if (!user.uid) {
+      console.error('User has no uid:', user);
+      throw new Error('User ID is missing');
     }
-  };
 
-  const handleApprove = async (data: any) => {
+    console.log('Creating subscription for user:', user.uid, 'with amount:', 149.00);
     setIsProcessing(true);
-    
+
     try {
-      if (!user) {
-        throw new Error('User not authenticated');
-      }
-
-      // Capture the payment and set up vault
-      const response = await fetch('https://us-central1-pppro-b060e.cloudfunctions.net/captureMembershipPayment', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          orderId: data.orderID,
-          userId: user.uid,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to process payment');
-      }
-
-      const result = await response.json();
+      // Use Firebase callable function pattern
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
       
-      if (result.success) {
-        // Update membership status
-        await updateUserMembership(user.uid, 'jump-club', true);
-        await updateMembershipDateStarted(user.uid, 'jump-club');
-        
-        setOrderId(data.orderID);
-        setCurrentStep('success');
-        
-        notifications.show({
-          title: 'Welcome to Jump Club!',
-          message: 'Your membership has been activated and payment method saved for recurring billing.',
-          color: 'green',
-          autoClose: 6000,
-        });
-      } else {
-        throw new Error(result.error || 'Payment processing failed');
-      }
-    } catch (error) {
-      console.error('Payment error:', error);
-      notifications.show({
-        title: 'Payment Failed',
-        message: 'There was an issue processing your payment. Please try again.',
-        color: 'red',
-        autoClose: 8000,
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+      const functions = getFunctions();
+      const createMembershipSubscriptionCallable = httpsCallable(functions, 'createMembershipSubscription');
 
-  const handleError = (error: any) => {
-    console.error('PayPal error:', error);
-    notifications.show({
-      title: 'Payment Error',
-      message: 'There was an issue with the payment process. Please try again.',
-      color: 'red',
-      autoClose: 8000,
-    });
+      const subscriptionData = {
+        userId: user.uid,
+        planAmount: 149.00,
+        currency: 'USD',
+        userEmail: user.email,
+        userName: user.displayName || 'Jump Club Member'
+      };
+
+      console.log('Sending subscription data:', subscriptionData);
+
+      const result = await createMembershipSubscriptionCallable(subscriptionData);
+      const data = result.data as any;
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to create subscription');
+      }
+
+      // Redirect to PayPal for subscription approval
+      if (data.approvalUrl) {
+        console.log('Redirecting to PayPal approval URL:', data.approvalUrl);
+        window.location.href = data.approvalUrl;
+      } else {
+        throw new Error('No approval URL received from PayPal');
+      }
+
+    } catch (error) {
+      console.error('Error creating subscription:', error);
+      setIsProcessing(false);
+      notifications.show({
+        title: 'Subscription Error',
+        message: 'There was an error setting up your subscription. Please try again.',
+        color: 'red'
+      });
+    }
   };
 
   if (loading) {
@@ -331,33 +294,26 @@ const MembershipCheckout: React.FC<MembershipCheckoutProps> = ({ onSuccess }) =>
           </div>
 
           <div className="payment-info">
-            <h3>💳 Payment & Recurring Billing Setup</h3>
-            <p>This payment method will be securely saved for your monthly membership charges. You can update or change it anytime in your profile.</p>
+            <h3>💳 Subscription Setup</h3>
+            <p>By subscribing, you agree to pay $149.00 monthly. PayPal will automatically charge your selected payment method each month. You can cancel anytime from your profile.</p>
           </div>
 
-          <div className="paypal-container">
-            <PayPalScriptProvider options={paypalOptions}>
-              <PayPalButtons
-                createOrder={createOrder}
-                onApprove={handleApprove}
-                onError={handleError}
-                disabled={isProcessing}
-                style={{
-                  layout: 'vertical',
-                  color: 'blue',
-                  shape: 'rect',
-                  label: 'paypal',
-                }}
-              />
-            </PayPalScriptProvider>
+          <div className="subscription-container">
+            <button 
+              className="subscription-button"
+              onClick={createSubscription}
+              disabled={isProcessing}
+            >
+              {isProcessing ? 'Creating Subscription...' : 'Subscribe with PayPal'}
+            </button>
           </div>
 
           {isProcessing && (
             <div className="processing-overlay">
               <div className="processing-content">
                 <div className="loading-spinner"></div>
-                <h3>Processing Your Membership...</h3>
-                <p>Setting up your payment method and activating your Jump Club benefits.</p>
+                <h3>Setting Up Your Subscription...</h3>
+                <p>Activating your Jump Club membership and setting up recurring billing.</p>
               </div>
             </div>
           )}
@@ -383,9 +339,9 @@ const MembershipCheckout: React.FC<MembershipCheckoutProps> = ({ onSuccess }) =>
           </div>
 
           <div className="order-details">
-            <h3>Order Confirmation</h3>
+            <h3>Subscription Confirmation</h3>
             <div className="detail-item">
-              <span>Order ID:</span>
+              <span>Subscription ID:</span>
               <span>{orderId}</span>
             </div>
             <div className="detail-item">
@@ -399,6 +355,10 @@ const MembershipCheckout: React.FC<MembershipCheckoutProps> = ({ onSuccess }) =>
             <div className="detail-item">
               <span>Next Billing:</span>
               <span>{new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</span>
+            </div>
+            <div className="detail-item">
+              <span>Status:</span>
+              <span>Active</span>
             </div>
           </div>
 

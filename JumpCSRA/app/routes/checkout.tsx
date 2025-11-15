@@ -1174,9 +1174,6 @@ export default function Checkout() {
   useEffect(() => {
     const checkAvailability = async () => {
       if (calendarDateRange[0] && cartSettings.duration && partyEssentials.length > 0) {
-        console.log('🔍 [DEBUG] Checkout: Starting availability check for party essentials...');
-        console.log(`📅 [DEBUG] Checkout: Date range: ${calendarDateRange[0].toISOString().split('T')[0]} for ${cartSettings.duration}`);
-        
         setLoadingAvailability(true);
         const startDate = calendarDateRange[0];
         const endDate = calculateEndDate(startDate, cartSettings.duration);
@@ -1185,13 +1182,10 @@ export default function Checkout() {
           const inflateablesData = await loadInflateablesData();
           const availabilityMap = new Map<string, ItemAvailability>();
           
-          console.log('🔄 [DEBUG] Checkout: Checking availability for party essentials...');
-          
           const promises = partyEssentials.map(async (item) => {
             const inflateable = inflateablesData.find(inf => inf.name === item.name);
             if (inflateable) {
               const totalQuantity = inflateable.quantity || 1;
-              console.log(`🔍 [DEBUG] Checkout: Checking "${item.name}" with total quantity: ${totalQuantity}`);
               
               const availability = await checkItemAvailability(
                 item.name,
@@ -1201,13 +1195,11 @@ export default function Checkout() {
               );
               
               availabilityMap.set(item.name, availability);
-              console.log(`✅ [DEBUG] Checkout: Availability for "${item.name}": ${availability.availableQuantity}/${availability.totalQuantity}`);
             }
           });
           
           await Promise.all(promises);
           setItemAvailability(availabilityMap);
-          console.log(`🎉 [DEBUG] Checkout: Availability check complete for ${availabilityMap.size} items`);
           
         } catch (error) {
           console.error('❌ [DEBUG] Checkout: Error checking availability:', error);
@@ -1247,23 +1239,17 @@ export default function Checkout() {
 
   // Calculate cart total including last-minute additions
   const durationMultiplier = cartSettings.duration ? durationMultipliers[cartSettings.duration] || 1.0 : 1.0;
-  console.log('🔍 [DEBUG] Checkout cartTotal calculation starting...');
-  console.log('🔍 [DEBUG] Checkout durationMultiplier =', durationMultiplier);
-  console.log('🔍 [DEBUG] Checkout cart items =', cart.map(item => `${item.name}: $${item.price} x ${item.quantity}`));
   
   // Check if cart contains a membership (for discount calculation)
   const hasMembership = cart.some(item => item.isMembership);
-  console.log('🔍 [DEBUG] Checkout hasMembership =', hasMembership);
   
   const cartTotal = cart.reduce((sum, item, index) => {
     let itemTotal: number;
     if (item.isGiftCard) {
       itemTotal = (item.giftCardValue || item.price) * item.quantity;
-      console.log(`🔍 [DEBUG] Checkout Gift Card "${item.name}": $${itemTotal.toFixed(2)}`);
     } else if (item.isMembership) {
       // Membership items don't get duration multiplier or other discounts
       itemTotal = item.price * item.quantity;
-      console.log(`🔍 [DEBUG] Checkout Membership "${item.name}": $${itemTotal.toFixed(2)}`);
     } else {
       // Regular items with duration multiplier
       itemTotal = item.price * item.quantity * durationMultiplier;
@@ -1273,22 +1259,16 @@ export default function Checkout() {
       if (supportsWetDry && cartSettings.wetDrySelections?.[index] === "Wet") {
         const wetSurcharge = 50 * item.quantity;
         itemTotal += wetSurcharge;
-        console.log(`🔍 [DEBUG] Checkout Wet surcharge for "${item.name}": +$${wetSurcharge.toFixed(2)}`);
       }
       
       // Apply 25% membership discount to non-membership items if membership is in cart
       if (hasMembership && !item.excludeFromDiscounts) {
         const originalItemTotal = itemTotal;
         itemTotal = itemTotal * 0.75; // 25% discount
-        console.log(`🔍 [DEBUG] Checkout Membership discount for "${item.name}": $${originalItemTotal.toFixed(2)} -> $${itemTotal.toFixed(2)}`);
       }
-      
-      console.log(`🔍 [DEBUG] Checkout Regular Item "${item.name}": $${item.price} x ${item.quantity} x ${durationMultiplier} = $${itemTotal.toFixed(2)}`);
     }
     return sum + itemTotal;
   }, 0);
-  
-  console.log('🔍 [DEBUG] Checkout cartTotal after all adjustments =', cartTotal);
 
   // Calculate last-minute additions total
   const lastMinuteTotal = Object.entries(lastMinuteAdditions).reduce((sum, [itemName, quantity]) => {
@@ -1307,16 +1287,6 @@ export default function Checkout() {
   const subtotal = cartTotal + lastMinuteTotal + surfaceAdj + timeAdj;
   const total = subtotal + deliveryCost;
 
-  // Add debugging for total calculation
-  console.log('🔍 [DEBUG] Total Calculation Breakdown:');
-  console.log('🔍 [DEBUG] cartTotal =', cartTotal);
-  console.log('🔍 [DEBUG] lastMinuteTotal =', lastMinuteTotal);
-  console.log('🔍 [DEBUG] surfaceAdj =', surfaceAdj);
-  console.log('🔍 [DEBUG] timeAdj =', timeAdj);
-  console.log('🔍 [DEBUG] deliveryCost =', deliveryCost);
-  console.log('🔍 [DEBUG] subtotal =', subtotal);
-  console.log('🔍 [DEBUG] final total =', total);
-
   // Load inflateables data function (similar to CartSidebar)
   const loadInflateablesData = async (): Promise<any[]> => {
     console.log('🔄 [DEBUG] Checkout: Loading inflateables data from Firebase...');
@@ -1328,7 +1298,6 @@ export default function Checkout() {
       const snapshot = await get(inflateablesRef);
       if (snapshot.exists()) {
         const data = snapshot.val();
-        console.log(`✅ [DEBUG] Checkout: Loaded ${Object.keys(data).length} inflateables from Firebase`);
         return Object.values(data);
       } else {
         console.log('⚠️ [DEBUG] Checkout: No inflateables data found in Firebase');
@@ -1357,7 +1326,6 @@ export default function Checkout() {
   const getAvailableQuantityForItem = (itemName: string): number => {
     const availability = itemAvailability.get(itemName);
     if (!availability) {
-      console.log(`⚠️ [DEBUG] Checkout: No availability data for "${itemName}"`);
       return 1; // Default to 1 if no availability data
     }
 
@@ -1371,8 +1339,6 @@ export default function Checkout() {
     
     const availableToAdd = Math.max(0, availability.availableQuantity - totalAlreadySelected);
     
-    console.log(`🔢 [DEBUG] Checkout: Availability for "${itemName}": total=${availability.availableQuantity}, cart=${cartQuantity}, lastMinute=${lastMinuteQuantity}, availableToAdd=${availableToAdd}`);
-    
     return availableToAdd;
   };
 
@@ -1380,8 +1346,6 @@ export default function Checkout() {
   const getQuantityOptions = (itemName: string): number[] => {
     const maxQuantity = Math.max(1, getAvailableQuantityForItem(itemName));
     const options = Array.from({ length: maxQuantity }, (_, i) => i + 1);
-    
-    console.log(`✅ [DEBUG] Checkout: Generated quantity options for "${itemName}": [${options.join(', ')}] (max: ${maxQuantity})`);
     
     return options;
   };
@@ -1392,7 +1356,6 @@ export default function Checkout() {
     const availableQuantity = getAvailableQuantityForItem(itemName);
     
     if (quantity > availableQuantity) {
-      console.log(`⚠️ [DEBUG] Checkout: Attempted to add ${quantity} "${itemName}" but only ${availableQuantity} available`);
       notifications.show({
         title: 'Insufficient Availability',
         message: `Only ${availableQuantity} of ${itemName} available for your selected dates.`,
@@ -1401,7 +1364,6 @@ export default function Checkout() {
       return;
     }
     
-    console.log(`✅ [DEBUG] Checkout: Adding ${quantity} "${itemName}" to last-minute additions (${availableQuantity} available)`);
     setLastMinuteAdditions(prev => ({
       ...prev,
       [itemName]: quantity
@@ -1425,13 +1387,11 @@ export default function Checkout() {
     
     if (availableQuantity === 1) {
       // Only 1 available, add directly without showing popup
-      console.log(`🚀 [DEBUG] Checkout: Auto-adding 1 "${itemName}" (only 1 available)`);
       handleAddLastMinuteItem(itemName, 1);
       return;
     }
     
     // Multiple available, show quantity selection modal
-    console.log(`📝 [DEBUG] Checkout: Showing quantity modal for "${itemName}" (${availableQuantity} available)`);
     
     // Set dropdown to current quantity if item is already added, otherwise default to 1
     const currentQuantity = lastMinuteAdditions[itemName] || 1;
@@ -1461,12 +1421,8 @@ export default function Checkout() {
 
   // Calculate total payment amount
   const calculateTotalAmount = () => {
-    console.log('🔍 [DEBUG] calculateTotalAmount: Starting calculation...');
-    console.log('🔍 [DEBUG] calculateTotalAmount: total variable =', total);
-    
     // Use the comprehensive total calculation that's already implemented above
     const result = total.toFixed(2);
-    console.log('🔍 [DEBUG] calculateTotalAmount: final result =', result);
     
     return result;
   };
@@ -1497,32 +1453,20 @@ export default function Checkout() {
 
   // Calculate 50% deposit amount (only for inflatables)
   const calculateDepositAmount = () => {
-    console.log('🔍 [DEBUG] calculateDepositAmount: Starting calculation...');
-    
     const giftCardTotal = calculateGiftCardTotal();
     const inflatableTotal = calculateInflatableTotal();
     const depositOnInflatables = inflatableTotal * 0.5;
     
-    console.log('🔍 [DEBUG] calculateDepositAmount: giftCardTotal =', giftCardTotal);
-    console.log('🔍 [DEBUG] calculateDepositAmount: inflatableTotal =', inflatableTotal);
-    console.log('🔍 [DEBUG] calculateDepositAmount: depositOnInflatables =', depositOnInflatables);
-    
     // Total deposit payment = full gift card amount + 50% of inflatables
     const result = (giftCardTotal + depositOnInflatables).toFixed(2);
-    console.log('🔍 [DEBUG] calculateDepositAmount: final result =', result);
     
     return result;
   };
 
   // Calculate the actual amount paid based on payment type
   const calculateActualAmountPaid = () => {
-    console.log('🔍 [DEBUG] calculateActualAmountPaid: Starting calculation...');
-    console.log('🔍 [DEBUG] calculateActualAmountPaid: paymentType =', paymentType);
-    console.log('🔍 [DEBUG] calculateActualAmountPaid: actualAmountPaid state =', actualAmountPaid);
-    
     // If we have the actual amount paid from the payment success, use that
     if (actualAmountPaid !== null) {
-      console.log('🔍 [DEBUG] calculateActualAmountPaid: Using actual paid amount =', actualAmountPaid.toFixed(2));
       return actualAmountPaid.toFixed(2);
     }
     
@@ -1530,11 +1474,7 @@ export default function Checkout() {
     const depositAmount = calculateDepositAmount();
     const totalAmount = calculateTotalAmount();
     
-    console.log('🔍 [DEBUG] calculateActualAmountPaid: depositAmount =', depositAmount);
-    console.log('🔍 [DEBUG] calculateActualAmountPaid: totalAmount =', totalAmount);
-    
     const result = paymentType === 'deposit' ? depositAmount : totalAmount;
-    console.log('🔍 [DEBUG] calculateActualAmountPaid: final result (fallback) =', result);
     
     return result;
   };
@@ -2161,7 +2101,6 @@ export default function Checkout() {
       
       // Store the actual amount paid for display purposes
       setActualAmountPaid(totalPaidAmount);
-      console.log('🔍 [DEBUG] Payment Success: Actual amount paid stored =', totalPaidAmount);
       
       if (pendingBookingId) {
         // Load existing booking to get total amount and current status
@@ -3014,8 +2953,8 @@ export default function Checkout() {
     );
   }
 
-  // If cart is empty and no completed order, redirect back to home
-  if (cart.length === 0 && completedOrderCart.length === 0) {
+  // If cart is empty and no completed order and not a membership checkout, redirect back to home
+  if (cart.length === 0 && completedOrderCart.length === 0 && !isMembershipCheckout) {
     return (
       <div style={{ 
         display: 'flex', 
@@ -4524,7 +4463,6 @@ export default function Checkout() {
                       value="full"
                       checked={paymentType === 'full'}
                       onChange={() => {
-                        console.log('🔍 [DEBUG] Payment type changed to: full');
                         setPaymentType('full');
                       }}
                       style={{ margin: 0 }}
@@ -4574,7 +4512,6 @@ export default function Checkout() {
                         value="deposit"
                         checked={paymentType === 'deposit'}
                         onChange={() => {
-                          console.log('🔍 [DEBUG] Payment type changed to: deposit');
                           setPaymentType('deposit');
                         }}
                         style={{ margin: 0 }}
@@ -4726,9 +4663,7 @@ export default function Checkout() {
             </p>
             <p style={{ margin: '0.5rem 0', color: '#666' }}>
               <strong>Total Paid:</strong> ${(() => {
-                console.log('🔍 [DEBUG] Displaying Total Paid amount...');
                 const result = calculateActualAmountPaid();
-                console.log('🔍 [DEBUG] Total Paid result:', result);
                 return result;
               })()}
             </p>
