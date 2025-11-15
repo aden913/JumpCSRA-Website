@@ -78,6 +78,8 @@ export default function Profile() {
   const [userWallet, setUserWallet] = useState<UserWallet | null>(null);
   const [userPaymentInfo, setUserPaymentInfo] = useState<UserPaymentInfo | null>(null);
   const [userMembership, setUserMembership] = useState<UserMembership | null>(null);
+  const [userSubscription, setUserSubscription] = useState<any | null>(null);
+  const [loadingSubscription, setLoadingSubscription] = useState(false);
   const [showPasswordVerification, setShowPasswordVerification] = useState(false);
   const [verificationPassword, setVerificationPassword] = useState("");
   const [passwordVerified, setPasswordVerified] = useState(false);
@@ -796,11 +798,116 @@ export default function Profile() {
   const loadMembershipData = async () => {
     if (!user) return;
     
+    setLoadingSubscription(true);
+    
     try {
       const membershipData = await getUserMembership(user.uid);
       setUserMembership(membershipData);
+      
+      // Load subscription data from Firestore
+      const subscriptionDoc = await getDoc(doc(firestore, 'userSubscriptions', user.uid));
+      if (subscriptionDoc.exists()) {
+        const subscriptionData = subscriptionDoc.data();
+        console.log('📊 Subscription data loaded:', subscriptionData);
+        
+        // If subscription is active, get next billing date from PayPal
+        if ((subscriptionData.status === 'ACTIVE' || subscriptionData.status === 'Active') && subscriptionData.subscriptionId) {
+          try {
+            const { getFunctions, httpsCallable } = await import('firebase/functions');
+            const functions = getFunctions(undefined, 'us-central1');
+            const getSubscriptionDetails = httpsCallable(functions, 'getPayPalSubscriptionDetails');
+            
+            const result = await getSubscriptionDetails({ subscriptionId: subscriptionData.subscriptionId });
+            if (result.data && (result.data as any).success) {
+              subscriptionData.paypalDetails = (result.data as any).subscription;
+            }
+          } catch (error) {
+            console.error('Error loading PayPal subscription details:', error);
+          }
+        }
+        
+        setUserSubscription(subscriptionData);
+      }
     } catch (error) {
       console.error('Error loading membership data:', error);
+    } finally {
+      setLoadingSubscription(false);
+    }
+  };
+
+  // Cancel subscription function
+  const handleCancelSubscription = async () => {
+    if (!user || !userSubscription?.subscriptionId) return;
+    
+    const confirmCancel = confirm(
+      'Are you sure you want to cancel your membership?\n\n' +
+      'Your membership will remain active until the next billing date, then it will be cancelled.\n' +
+      'You can reactivate before the billing date if you change your mind.'
+    );
+    
+    if (!confirmCancel) return;
+    
+    try {
+      setLoadingSubscription(true);
+      
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const functions = getFunctions(undefined, 'us-central1');
+      const cancelSubscription = httpsCallable(functions, 'cancelPayPalSubscription');
+      
+      const result = await cancelSubscription({ 
+        subscriptionId: userSubscription.subscriptionId,
+        reason: 'User requested cancellation'
+      });
+      
+      if (result.data && (result.data as any).success) {
+        alert('Your membership cancellation has been scheduled. You will remain a member until your next billing date.');
+        await loadMembershipData(); // Reload data
+      } else {
+        throw new Error((result.data as any)?.error || 'Failed to cancel subscription');
+      }
+      
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      alert('Failed to cancel subscription. Please try again or contact support.');
+    } finally {
+      setLoadingSubscription(false);
+    }
+  };
+
+  // Reactivate subscription function
+  const handleReactivateSubscription = async () => {
+    if (!user || !userSubscription?.subscriptionId) return;
+    
+    const confirmReactivate = confirm(
+      'Reactivate your membership subscription?\n\n' +
+      'Your membership will continue with the next billing cycle as scheduled.'
+    );
+    
+    if (!confirmReactivate) return;
+    
+    try {
+      setLoadingSubscription(true);
+      
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const functions = getFunctions(undefined, 'us-central1');
+      const reactivateSubscription = httpsCallable(functions, 'reactivatePayPalSubscription');
+      
+      const result = await reactivateSubscription({ 
+        subscriptionId: userSubscription.subscriptionId
+      });
+      
+      if (result.data && (result.data as any).success) {
+        alert('Your membership has been reactivated and will continue as scheduled.');
+        await loadMembershipData(); // Reload data
+      } else {
+        throw new Error((result.data as any)?.error || 'Failed to reactivate subscription');
+      }
+      
+    } catch (error) {
+      console.error('Error reactivating subscription:', error);
+      alert('Failed to reactivate subscription. Please try again or contact support.');
+    } finally {
+      setLoadingSubscription(false);
     }
   };
 
@@ -1894,56 +2001,207 @@ export default function Profile() {
         ) : activeTab === 2 ? (
           <div className="profile-membership">
             <h3>Membership</h3>
-            <div className="membership-content">
-              <div className="membership-status">
-                <h4>Membership Status</h4>
-                {userMembership ? (
-                  <div>
-                    {userMembership.jumpClub && (
-                      <div style={{ color: '#4CAF50', marginBottom: '0.5rem' }}>
-                        ✅ <strong>Jump Club Member</strong> - You have an active Jump Club membership!
+            
+            {loadingSubscription ? (
+              <div className="loading">
+                <p>Loading membership data...</p>
+              </div>
+            ) : (
+              <div className="membership-content">
+                
+                {/* Membership Status Section */}
+                <div className="membership-status-card">
+                  <h4>🎪 Membership Status</h4>
+                  
+                  {userSubscription ? (
+                    <div className="subscription-details">
+                      <div className="status-indicator">
+                        <div className={`status-badge ${userSubscription.status?.toLowerCase()}`}>
+                          {(userSubscription.status === 'ACTIVE' || userSubscription.status === 'Active') && '✅ Active'}
+                          {userSubscription.status === 'PENDING_APPROVAL' && '⏳ Pending Approval'}
+                          {(userSubscription.status === 'CANCELLED' || userSubscription.status === 'Cancelled') && '❌ Cancelled'}
+                          {(userSubscription.status === 'SUSPENDED' || userSubscription.status === 'Suspended') && '⏸️ Suspended'}
+                        </div>
                       </div>
-                    )}
-                    {!userMembership.jumpClub && (
-                      <p>You are not currently a member, but membership data was found.</p>
-                    )}
-                    {userMembership.jumpClub && (
+                      
+                      <div className="subscription-info">
+                        <div className="info-row">
+                          <strong>Plan:</strong> Monthly Membership ($149/month)
+                        </div>
+                        
+                        <div className="info-row">
+                          <strong>Member Since:</strong> {userSubscription.createdAt ? new Date(userSubscription.createdAt.seconds ? userSubscription.createdAt.seconds * 1000 : userSubscription.createdAt).toLocaleDateString() : 'N/A'}
+                        </div>
+                        
+                        {userSubscription.activatedAt && (
+                          <div className="info-row">
+                            <strong>Activated:</strong> {new Date(userSubscription.activatedAt.seconds ? userSubscription.activatedAt.seconds * 1000 : userSubscription.activatedAt).toLocaleDateString()}
+                          </div>
+                        )}
+                        
+                        {userSubscription.paypalDetails?.billing_info?.next_billing_time && (
+                          <div className="info-row">
+                            <strong>Next Billing:</strong> {new Date(userSubscription.paypalDetails.billing_info.next_billing_time).toLocaleDateString()}
+                          </div>
+                        )}
+                        
+                        {(userSubscription.status === 'CANCELLED' || userSubscription.status === 'Cancelled') && userSubscription.cancelledAt && (
+                          <div className="info-row">
+                            <strong>Cancelled:</strong> {new Date(userSubscription.cancelledAt.seconds ? userSubscription.cancelledAt.seconds * 1000 : userSubscription.cancelledAt).toLocaleDateString()}
+                          </div>
+                        )}
+                        
+                        <div className="info-row">
+                          <strong>Subscription ID:</strong> 
+                          <code style={{ fontSize: '0.8rem', backgroundColor: '#f0f0f0', padding: '0.2rem 0.4rem', borderRadius: '3px' }}>
+                            {userSubscription.subscriptionId}
+                          </code>
+                        </div>
+                      </div>
+                      
+                      {/* Subscription Management Actions */}
+                      <div className="subscription-actions">
+                        {(userSubscription.status === 'ACTIVE' || userSubscription.status === 'Active') && (
+                          <>
+                            <div className="membership-benefits-highlight">
+                              <p style={{ color: '#2e7d32', fontWeight: 'bold', textAlign: 'center', margin: '1rem 0' }}>
+                                🎉 You're enjoying 25% off all rentals plus monthly inflatable delivery!
+                              </p>
+                            </div>
+                            
+                            <button 
+                              className="btn-cancel-subscription"
+                              onClick={handleCancelSubscription}
+                              disabled={loadingSubscription}
+                              style={{
+                                backgroundColor: '#ff9800',
+                                color: 'white',
+                                border: 'none',
+                                padding: '0.75rem 1.5rem',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '1rem',
+                                fontWeight: 'bold',
+                                width: '100%'
+                              }}
+                            >
+                              {loadingSubscription ? 'Processing...' : 'Cancel Membership'}
+                            </button>
+                            
+                            <p style={{ fontSize: '0.9rem', color: '#666', textAlign: 'center', marginTop: '0.5rem' }}>
+                              Your membership will remain active until the next billing date
+                            </p>
+                          </>
+                        )}
+                        
+                        {(userSubscription.status === 'CANCELLED' || userSubscription.status === 'Cancelled') && (
+                          <>
+                            <div className="cancelled-notice">
+                              <p style={{ color: '#f44336', fontWeight: 'bold', textAlign: 'center', margin: '1rem 0' }}>
+                                Your membership is scheduled for cancellation.
+                              </p>
+                              {userSubscription.paypalDetails?.billing_info?.next_billing_time && (
+                                <p style={{ textAlign: 'center', marginBottom: '1rem' }}>
+                                  Access remains until: {new Date(userSubscription.paypalDetails.billing_info.next_billing_time).toLocaleDateString()}
+                                </p>
+                              )}
+                            </div>
+                            
+                            <button 
+                              className="btn-reactivate-subscription"
+                              onClick={handleReactivateSubscription}
+                              disabled={loadingSubscription}
+                              style={{
+                                backgroundColor: '#4CAF50',
+                                color: 'white',
+                                border: 'none',
+                                padding: '0.75rem 1.5rem',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '1rem',
+                                fontWeight: 'bold',
+                                width: '100%'
+                              }}
+                            >
+                              {loadingSubscription ? 'Processing...' : 'Reactivate Membership'}
+                            </button>
+                          </>
+                        )}
+                        
+                        {userSubscription.status === 'PENDING_APPROVAL' && (
+                          <div className="pending-notice">
+                            <p style={{ color: '#ff9800', fontWeight: 'bold', textAlign: 'center', margin: '1rem 0' }}>
+                              ⏳ Your membership is pending PayPal approval
+                            </p>
+                            <p style={{ textAlign: 'center', color: '#666' }}>
+                              Please complete the payment process in PayPal to activate your membership.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : userMembership && userMembership.jumpClub ? (
+                    <div className="legacy-membership">
+                      <div style={{ color: '#4CAF50', marginBottom: '0.5rem' }}>
+                        ✅ <strong>Jump Club Member</strong> - You have an active membership!
+                      </div>
                       <p style={{ color: '#2e7d32', fontStyle: 'italic' }}>
                         Enjoy 25% off all rental items with your active membership!
                       </p>
-                    )}
-                  </div>
-                ) : (
-                  <div>
-                    <p>You are not currently a member.</p>
-                    <p>Join our membership program to get monthly inflatables delivered to your home with exclusive benefits!</p>
+                      <p style={{ color: '#666', fontSize: '0.9rem', marginTop: '1rem' }}>
+                        Note: This appears to be a legacy membership. For full subscription management, 
+                        please contact support or upgrade to our new subscription system.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="no-membership">
+                      <p><strong>You are not currently a member.</strong></p>
+                      <p>Join our membership program to get monthly inflatables delivered to your home with exclusive benefits!</p>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Membership Benefits */}
+                <div className="membership-benefits-card">
+                  <h4>🎯 Membership Benefits</h4>
+                  <ul className="benefits-list">
+                    <li>📦 Monthly inflatable delivery to your home</li>
+                    <li>💰 25% off all other reservations</li>
+                    <li>🔧 No setup or takedown hassle</li>
+                    <li>⭐ Priority booking for special events</li>
+                    <li>🆕 Fresh new inflatable each month</li>
+                    <li>📞 Dedicated member support</li>
+                  </ul>
+                </div>
+                
+                {/* Join/Upgrade Action */}
+                {!userSubscription && (
+                  <div className="membership-action-card">
+                    <h4>Ready to Join?</h4>
+                    <p>Start your monthly membership for just $149/month</p>
+                    <button 
+                      className="btn-become-member"
+                      onClick={() => {
+                        navigate('/checkout?membership=jump-club');
+                      }}
+                      style={{
+                        backgroundColor: '#4CAF50',
+                        color: 'white',
+                        border: 'none',
+                        padding: '1rem 2rem',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '1.1rem',
+                        fontWeight: 'bold',
+                        width: '100%'
+                      }}
+                    >
+                      🎪 Become a Member - $149/month
+                    </button>
                   </div>
                 )}
               </div>
-              
-              <div className="membership-benefits">
-                <h4>Membership Benefits</h4>
-                <ul>
-                  <li>Monthly inflatable delivery to your home</li>
-                  <li>25% off all other reservations</li>
-                  <li>No setup or takedown hassle</li>
-                  <li>Priority booking for special events</li>
-                  <li>Fresh new inflatable each month</li>
-                </ul>
-              </div>
-              
-              <div className="membership-action">
-                <button 
-                  className="btn-become-member"
-                  onClick={() => {
-                    navigate('/home');
-                    // We'll add logic to auto-open membership popup later
-                  }}
-                >
-                  Become a Member
-                </button>
-              </div>
-            </div>
+            )}
           </div>
         ) : (
           <div className="profile-payment">

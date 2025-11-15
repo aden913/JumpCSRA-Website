@@ -6,4 +6,5 @@ export default [
   route("home", "routes/home.tsx"),
   route("profile", "profile.tsx"),
   route("checkout", "routes/checkout.tsx"),
+  route("subscription-success", "routes/subscription-success.tsx"),
 ] satisfies RouteConfig;

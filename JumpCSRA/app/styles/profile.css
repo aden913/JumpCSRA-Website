@@ -954,3 +954,197 @@ html, body{ background-color: white;}
     padding: 1rem;
   }
 }
+
+/* Enhanced Membership Interface Styles */
+.membership-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.membership-status-card,
+.membership-benefits-card,
+.membership-action-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.membership-status-card h4,
+.membership-benefits-card h4,
+.membership-action-card h4 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.subscription-details {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.status-indicator {
+  text-align: center;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+.status-badge.active {
+  background-color: #e8f5e8;
+  color: #2e7d32;
+  border: 2px solid #4caf50;
+}
+
+.status-badge.pending_approval {
+  background-color: #fff3e0;
+  color: #f57c00;
+  border: 2px solid #ff9800;
+}
+
+.status-badge.cancelled {
+  background-color: #ffebee;
+  color: #c62828;
+  border: 2px solid #f44336;
+}
+
+.status-badge.suspended {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+  border: 2px solid #9c27b0;
+}
+
+.subscription-info {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-row strong {
+  color: #555;
+  min-width: 120px;
+}
+
+.subscription-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.membership-benefits-highlight {
+  background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
+  border-radius: 8px;
+  padding: 1rem;
+  border: 2px solid #4caf50;
+}
+
+.benefits-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.benefits-list li {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 1rem;
+}
+
+.benefits-list li:last-child {
+  border-bottom: none;
+}
+
+.legacy-membership {
+  background: #f0f7ff;
+  border: 2px solid #2196f3;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+.no-membership {
+  background: #fff9c4;
+  border: 2px solid #fbc02d;
+  border-radius: 8px;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.cancelled-notice,
+.pending-notice {
+  background: #fff3e0;
+  border: 2px solid #ff9800;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.btn-cancel-subscription,
+.btn-reactivate-subscription {
+  transition: all 0.3s ease;
+}
+
+.btn-cancel-subscription:hover {
+  background-color: #f57c00 !important;
+  transform: translateY(-1px);
+}
+
+.btn-reactivate-subscription:hover {
+  background-color: #388e3c !important;
+  transform: translateY(-1px);
+}
+
+.btn-become-member:hover {
+  background-color: #388e3c !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+}
+
+.loading {
+  text-align: center;
+  padding: 2rem;
+  color: #666;
+}
+
+/* Responsive design for membership section */
+@media (max-width: 768px) {
+  .membership-content {
+    gap: 1rem;
+  }
+  
+  .membership-status-card,
+  .membership-benefits-card,
+  .membership-action-card {
+    padding: 1rem;
+  }
+  
+  .info-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+  
+  .info-row strong {
+    min-width: auto;
+  }
+}

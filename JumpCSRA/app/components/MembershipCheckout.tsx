@@ -50,26 +50,37 @@ const MembershipCheckout: React.FC<MembershipCheckoutProps> = ({ onSuccess }) =>
   };
 
   const createSubscription = async () => {
-    console.log('createSubscription called, user state:', user);
+    console.log('🎯 FRONTEND DEBUG: =================================');
+    console.log('🎯 FRONTEND DEBUG: SUBSCRIPTION CREATION START');
+    console.log('🎯 FRONTEND DEBUG: =================================');
+    console.log('🎯 FRONTEND DEBUG: User state:', user);
+    console.log('🎯 FRONTEND DEBUG: User authenticated:', !!user);
+    console.log('🎯 FRONTEND DEBUG: User UID:', user?.uid);
+    console.log('🎯 FRONTEND DEBUG: User email:', user?.email);
+    console.log('🎯 FRONTEND DEBUG: User display name:', user?.displayName);
 
     if (!user) {
-      console.error('No user found');
+      console.error('❌ FRONTEND ERROR: No user found');
       throw new Error('User must be logged in');
     }
 
     if (!user.uid) {
-      console.error('User has no uid:', user);
+      console.error('❌ FRONTEND ERROR: User has no uid:', user);
       throw new Error('User ID is missing');
     }
 
-    console.log('Creating subscription for user:', user.uid, 'with amount:', 149.00);
+    console.log('✅ FRONTEND DEBUG: Creating subscription for user:', user.uid);
+    console.log('✅ FRONTEND DEBUG: Subscription amount: $149.00');
     setIsProcessing(true);
 
     try {
+      console.log('📦 FRONTEND DEBUG: Importing Firebase functions...');
       // Use Firebase callable function pattern
-      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const { getFunctions, httpsCallable, connectFunctionsEmulator } = await import('firebase/functions');
+      const { app } = await import('./FirebaseConfig');
       
-      const functions = getFunctions();
+      console.log('📦 FRONTEND DEBUG: Getting functions instance with region...');
+      const functions = getFunctions(app, 'us-central1'); // Specify region explicitly
       const createMembershipSubscriptionCallable = httpsCallable(functions, 'createMembershipSubscription');
 
       const subscriptionData = {
@@ -80,25 +91,42 @@ const MembershipCheckout: React.FC<MembershipCheckoutProps> = ({ onSuccess }) =>
         userName: user.displayName || 'Jump Club Member'
       };
 
-      console.log('Sending subscription data:', subscriptionData);
+      console.log('📡 FRONTEND DEBUG: Sending subscription data to backend:', JSON.stringify(subscriptionData, null, 2));
+      console.log('📡 FRONTEND DEBUG: Calling createMembershipSubscription function...');
 
       const result = await createMembershipSubscriptionCallable(subscriptionData);
+      console.log('📡 FRONTEND DEBUG: Backend response received:', result);
+      
       const data = result.data as any;
+      console.log('📡 FRONTEND DEBUG: Response data:', JSON.stringify(data, null, 2));
 
       if (!data.success) {
+        console.error('❌ FRONTEND ERROR: Backend returned failure:', data.error);
         throw new Error(data.error || 'Failed to create subscription');
       }
 
+      console.log('✅ FRONTEND SUCCESS: Subscription created successfully');
+      console.log('✅ FRONTEND DEBUG: Subscription ID:', data.subscriptionId);
+      console.log('✅ FRONTEND DEBUG: Approval URL:', data.approvalUrl);
+
       // Redirect to PayPal for subscription approval
       if (data.approvalUrl) {
-        console.log('Redirecting to PayPal approval URL:', data.approvalUrl);
+        console.log('🌐 FRONTEND DEBUG: Redirecting to PayPal approval...');
+        console.log('🌐 FRONTEND DEBUG: Approval URL:', data.approvalUrl);
+        console.log('🎯 FRONTEND DEBUG: =================================');
+        console.log('🎯 FRONTEND DEBUG: REDIRECTING TO PAYPAL');
+        console.log('🎯 FRONTEND DEBUG: =================================');
         window.location.href = data.approvalUrl;
       } else {
+        console.error('❌ FRONTEND ERROR: No approval URL in response');
         throw new Error('No approval URL received from PayPal');
       }
 
     } catch (error) {
-      console.error('Error creating subscription:', error);
+      console.error('🚨 FRONTEND ERROR: Subscription creation failed:', error);
+      console.log('🎯 FRONTEND DEBUG: =================================');
+      console.log('🎯 FRONTEND DEBUG: SUBSCRIPTION CREATION FAILED');
+      console.log('🎯 FRONTEND DEBUG: =================================');
       setIsProcessing(false);
       notifications.show({
         title: 'Subscription Error',

@@ -1,1188 +1,2285 @@
 "use strict";
-/**
- * JumpCSRA Cloud Functions
- * Refactored and modularized for better maintainability
- */
-var _a, _b, _c, _d;
+var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.paypalSubscriptionWebhook = exports.getMembershipSubscription = exports.captureMembershipPayment = exports.createMembershipOrder = exports.cancelMembershipSubscription = exports.activateMembershipSubscription = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.processMembershipBilling = exports.autoCompleteBookings = exports.processScheduledEmails = exports.triggerTestEmail = exports.processPayPalBookingRefund = exports.testPayPalDebug = exports.createPayPalInvoice = exports.sendAccountDeletionEmail = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.sendOrderConfirmationEmail = exports.testFunction = void 0;
+exports.activateSubscription = exports.reactivatePayPalSubscription = exports.cancelPayPalSubscription = exports.getPayPalSubscriptionDetails = exports.paypalSubscriptionWebhook = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.sendAccountDeletionEmail = exports.autoCancelPendingOrders = exports.processScheduledEmails = exports.triggerTestEmail = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.testPayPalDebug = exports.setupPayPalPlansStandalone = exports.testFunction = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
-const axios_1 = require("axios");
-// Import service modules
-const emailService_1 = require("./services/emailService");
-const paypalService_1 = require("./services/paypalService");
-// Import existing test function
+const sgMail = require("@sendgrid/mail");
+// Export test function
 var test_1 = require("./test");
 Object.defineProperty(exports, "testFunction", { enumerable: true, get: function () { return test_1.testFunction; } });
-// PayPal configuration constants
-const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"; // Use https://api-m.paypal.com for production
-const PAYPAL_CLIENT_ID = "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0"; // Working sandbox client ID
-const PAYPAL_CLIENT_SECRET = ((_a = functions.config().paypal) === null || _a === void 0 ? void 0 : _a.client_secret) || "YOUR_PAYPAL_CLIENT_SECRET";
-/**
- * Get PayPal access token
- */
-async function getPayPalAccessToken() {
-    const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64');
-    const response = await axios_1.default.post(`${PAYPAL_BASE_URL}/v1/oauth2/token`, 'grant_type=client_credentials', {
-        headers: {
-            'Authorization': `Basic ${auth}`,
-            'Accept': 'application/json',
-            'Accept-Language': 'en_US',
-            'Content-Type': 'application/x-www-form-urlencoded'
-        }
-    });
-    return response.data.access_token;
-}
-// Initialize Firebase Admin (if not already initialized)
-if (!admin.apps.length) {
-    admin.initializeApp();
-}
-// =============================================================================
-// EMAIL FUNCTIONS
-// =============================================================================
-/**
- * Order Confirmation Email Function
- *
- * Purpose: Sends comprehensive order confirmation emails to customers after successful purchase
- *
- * Functionality:
- * - Validates order data including items, pricing, and customer details
- * - Calls external email server to send professionally formatted confirmation emails
- * - Includes order details, payment information, and booking specifics
- * - Handles both one-time purchases and recurring bookings
- * - Returns actual email server response for proper status tracking
- *
- * Authentication: Not required (allows guest checkouts)
- *
- * Input Data (OrderConfirmationEmailData):
- * - customerEmail: Recipient email address
- * - customerName: Customer's full name
- * - orderID: Unique order identifier
- * - orderItems: Array of purchased items with details
- * - totalAmount: Total order value
- * - paymentMethod: Payment type (PayPal, credit card, etc.)
- * - bookingDate: Event/service date
- * - Additional booking and payment details
- *
- * Response: Returns email server response with delivery status and message ID
- *
- * Error Handling: Preserves original error types from email server for debugging
- */
-exports.sendOrderConfirmationEmail = functions.https.onCall(async (data, context) => {
+// Export standalone PayPal setup function
+var paypal_setup_1 = require("./paypal-setup");
+Object.defineProperty(exports, "setupPayPalPlansStandalone", { enumerable: true, get: function () { return paypal_setup_1.setupPayPalPlansStandalone; } });
+// Simple PayPal debug test
+exports.testPayPalDebug = functions.https.onCall(async (data, context) => {
+    var _a;
+    console.log('STARTING PAYPAL DEBUG TEST');
+    const PAYPAL_CLIENT_ID = "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0";
+    const PAYPAL_CLIENT_SECRET = ((_a = functions.config().paypal) === null || _a === void 0 ? void 0 : _a.client_secret) || "YOUR_PAYPAL_CLIENT_SECRET";
+    const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com";
     try {
-        const result = await (0, emailService_1.sendOrderConfirmationEmail)(data);
-        return result; // Return the actual email server response
+        // Get access token
+        console.log('Getting PayPal access token...');
+        const tokenResponse = await fetch(`${PAYPAL_BASE_URL}/v1/oauth2/token`, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Accept-Language': 'en_US',
+                'Authorization': `Basic ${Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64')}`
+            },
+            body: 'grant_type=client_credentials'
+        });
+        console.log('Token response status:', tokenResponse.status);
+        const tokenData = await tokenResponse.json();
+        if (!tokenResponse.ok) {
+            console.log('Token error:', JSON.stringify(tokenData, null, 2));
+            throw new Error('Failed to get access token');
+        }
+        const accessToken = tokenData.access_token;
+        console.log('Access token obtained:', accessToken ? 'YES' : 'NO');
+        // Create simple invoice
+        console.log('Creating simple invoice...');
+        const simpleInvoice = {
+            detail: {
+                invoice_number: `TEST-${Date.now()}`,
+                invoice_date: new Date().toISOString().split('T')[0],
+                currency_code: "USD"
+            },
+            invoicer: {
+                name: {
+                    given_name: "JumpCSRA",
+                    surname: "Party Rentals"
+                },
+                email_address: "jumpcsra@gmail.com"
+            },
+            primary_recipients: [
+                {
+                    billing_info: {
+                        name: {
+                            given_name: "Test",
+                            surname: "Customer"
+                        },
+                        email_address: "test@example.com"
+                    }
+                }
+            ],
+            items: [
+                {
+                    name: "Test Item",
+                    description: "Test invoice item",
+                    quantity: "1",
+                    unit_amount: {
+                        currency_code: "USD",
+                        value: "100.00"
+                    }
+                }
+            ]
+        };
+        const createResponse = await fetch(`${PAYPAL_BASE_URL}/v2/invoicing/invoices`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+                'PayPal-Request-Id': `TEST-${Date.now()}`
+            },
+            body: JSON.stringify(simpleInvoice)
+        });
+        console.log('Create response status:', createResponse.status);
+        console.log('Create response ok:', createResponse.ok);
+        if (!createResponse.ok) {
+            const errorText = await createResponse.text();
+            console.log('Create error response:', errorText);
+            return { success: false, error: errorText };
+        }
+        const invoice = await createResponse.json();
+        console.log('PAYPAL RESPONSE FULL:', JSON.stringify(invoice, null, 2));
+        console.log('PAYPAL Invoice ID:', invoice.id);
+        console.log('PAYPAL Response keys:', Object.keys(invoice));
+        return {
+            success: true,
+            invoiceId: invoice.id,
+            responseKeys: Object.keys(invoice),
+            hasId: !!invoice.id
+        };
     }
     catch (error) {
-        console.error('❌ ORDER CONFIRMATION - Cloud Function error:', error);
-        throw error; // Re-throw to preserve the original error type
+        console.error('PayPal test error:', error);
+        return { success: false, error: error.message || 'Unknown error' };
     }
 });
-/**
- * Gift Card Email Function
- *
- * Purpose: Sends digital gift cards to recipients with personalized messages and redemption codes
- *
- * Functionality:
- * - Delivers beautifully formatted gift card emails to recipients
- * - Includes unique redemption codes and balance information
- * - Supports personalized messages from sender to recipient
- * - Handles gift card expiration dates and purchase tracking
- * - Integrates with gift card management system for code validation
- *
- * Authentication: Required (prevents unauthorized gift card generation)
- *
- * Input Data (GiftCardEmailData):
- * - recipientEmail: Gift card recipient's email address
- * - recipientName: Recipient's full name
- * - senderName: Gift card purchaser's name
- * - personalMessage: Optional custom message from sender
- * - giftCardCode: Unique redemption code
- * - giftCardBalance: Monetary value of gift card
- * - expirationDate: When gift card expires
- * - purchaseDate: When gift card was purchased
- * - orderID: Associated purchase order
- *
- * Response: Returns email server response with delivery confirmation
- *
- * Security: Authentication prevents abuse and unauthorized gift card creation
- */
+// Initialize Firebase Admin
+admin.initializeApp();
+// Initialize SendGrid with API key from environment variables
+const sendGridApiKey = (_a = functions.config().sendgrid) === null || _a === void 0 ? void 0 : _a.api_key;
+if (sendGridApiKey) {
+    sgMail.setApiKey(sendGridApiKey);
+}
+// PayPal configuration
+const PAYPAL_CLIENT_ID = "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0";
+const PAYPAL_CLIENT_SECRET = ((_b = functions.config().paypal) === null || _b === void 0 ? void 0 : _b.client_secret) || "YOUR_PAYPAL_CLIENT_SECRET";
+const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"; // Use https://api-m.paypal.com for production
+// Enhanced HTML email template with invoice-style formatting
+const generateEnhancedOrderEmailHTML = (data) => {
+    const hasRentals = data.rentalItems.length > 0;
+    const hasGiftCards = data.giftCards.length > 0;
+    // Generate status banner
+    const getStatusBanner = (status, requiresPhoneCall) => {
+        if (requiresPhoneCall) {
+            return `<div class="status-banner status-deferred">📞 Call Required - Since your event is within 2 days, we'll contact you to confirm details.</div>`;
+        }
+        let statusClass = 'status-confirmed';
+        let statusMessage = '✅ Booking Confirmed - Your order is confirmed!';
+        switch (status) {
+            case 'confirmed':
+                statusClass = 'status-confirmed';
+                statusMessage = '✅ Booking Confirmed - Your order is confirmed!';
+                break;
+            case 'pending':
+                statusClass = 'status-pending';
+                statusMessage = '⏳ Booking Pending - We\'ll review and confirm your order soon.';
+                break;
+            case 'requires_call':
+                statusClass = 'status-deferred';
+                statusMessage = '📞 Call Required - Since your event is within 2 days, we\'ll contact you to confirm details.';
+                break;
+            default:
+                statusClass = 'status-pending';
+                statusMessage = '📋 Order Received - Thank you for your order!';
+        }
+        return `<div class="status-banner ${statusClass}">${statusMessage}</div>`;
+    };
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmation & Invoice - JumpCSRA</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5; }
+        .invoice-container { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 0 20px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+        .invoice-header { background: #f8f9fa; padding: 20px; border-bottom: 2px solid #667eea; }
+        .content { padding: 30px; }
+        .section { margin: 25px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #667eea; }
+        .section h3 { margin-top: 0; color: #667eea; }
+        .invoice-details { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .invoice-details div { flex: 1; }
+        .item-list { list-style: none; padding: 0; background: white; border-radius: 5px; }
+        .item-list li { padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .item-list li:last-child { border-bottom: none; }
+        .item-list li:nth-child(even) { background: #fafafa; }
+        .total-section { background: #667eea; color: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .total-row { display: flex; justify-content: space-between; margin: 8px 0; }
+        .total-row.grand-total { font-size: 20px; font-weight: bold; border-top: 2px solid rgba(255,255,255,0.3); padding-top: 10px; margin-top: 15px; }
+        .gift-card { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 20px; margin: 15px 0; border-radius: 10px; text-align: center; }
+        .gift-card.promotional { background: linear-gradient(135deg, #fd7e14 0%, #e63946 100%); }
+        .gift-card-code { font-size: 24px; font-weight: bold; letter-spacing: 2px; margin: 10px 0; padding: 10px; background: rgba(255,255,255,0.2); border-radius: 5px; }
+        .gift-card-balance { font-size: 32px; font-weight: bold; margin: 10px 0; }
+        .status-banner { padding: 15px; border-radius: 5px; text-align: center; font-weight: bold; margin: 20px 0; }
+        .status-confirmed { background: #d4edda; color: #155724; border: 2px solid #c3e6cb; }
+        .status-pending { background: #fff3cd; color: #856404; border: 2px solid #ffeaa7; }
+        .status-deferred { background: #f8d7da; color: #721c24; border: 2px solid #f5c6cb; }
+        .footer { text-align: center; margin-top: 30px; padding: 20px; background: #f8f9fa; color: #666; border-radius: 8px; }
+        .button { background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 15px 0; }
+        .company-info { background: white; padding: 20px; text-align: center; border-top: 1px solid #eee; }
+        @media (max-width: 600px) {
+          .invoice-details { flex-direction: column; }
+          .total-row { font-size: 14px; }
+          .gift-card-code { font-size: 18px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <div class="header">
+            <h1>🎉 Order Confirmation & Invoice</h1>
+            <p>Thank you for your order, ${data.recipientName}!</p>
+        </div>
+        
+        <div class="invoice-header">
+            <div class="invoice-details">
+                <div>
+                    <strong>Invoice #:</strong> JC-${data.orderID}<br>
+                    <strong>Order Date:</strong> ${new Date(data.orderDate).toLocaleDateString()}<br>
+                    <strong>Customer:</strong> ${data.recipientName}
+                </div>
+                <div style="text-align: right;">
+                    <strong>JumpCSRA Party Rentals</strong><br>
+                    jumpcsra@gmail.com<br>
+                    (803) 221-0466
+                </div>
+            </div>
+        </div>
+        
+        <div class="content">
+            ${getStatusBanner(data.bookingStatus, data.requiresPhoneCall || false)}
+            
+            ${hasRentals ? `
+            <div class="section">
+                <h3>🎪 Event Details</h3>
+                ${data.eventDate ? `<p><strong>Event Date:</strong> ${data.eventDate}</p>` : ''}
+                ${data.deliveryAddress ? `<p><strong>Delivery Address:</strong> ${data.deliveryAddress}</p>` : ''}
+                ${data.deliveryTime ? `<p><strong>Delivery Time:</strong> ${data.deliveryTime}</p>` : ''}
+                ${data.duration ? `<p><strong>Duration:</strong> ${data.duration}</p>` : ''}
+                ${data.surface ? `<p><strong>Surface:</strong> ${data.surface}</p>` : ''}
+            </div>
+            
+            <div class="section">
+                <h3>📦 Items Ordered</h3>
+                <ul class="item-list">
+                    ${data.rentalItems.map(item => `
+                        <li>
+                            <span>
+                                <strong>${item.name}</strong>
+                                ${item.duration ? `<br><small>${item.duration}</small>` : ''}
+                                ${item.wetDry ? `<br><small>${item.wetDry}</small>` : ''}
+                                <br><small>Qty: ${item.quantity}</small>
+                            </span>
+                            <span><strong>$${item.price.toFixed(2)}</strong></span>
+                        </li>
+                    `).join('')}
+                    ${data.lastMinuteAdditions.map(item => `
+                        <li>
+                            <span>
+                                <strong>${item.name}</strong>
+                                <br><small>Qty: ${item.quantity}</small>
+                            </span>
+                            <span><strong>$${item.price.toFixed(2)}</strong></span>
+                        </li>
+                    `).join('')}
+                </ul>
+            </div>
+            ` : ''}
+            
+            <div class="section">
+                <h3>💰 Payment Summary</h3>
+                <div class="total-section">
+                    <div class="total-row">
+                        <span>Subtotal:</span>
+                        <span>$${data.subtotal.toFixed(2)}</span>
+                    </div>
+                    ${data.surfaceAdjustment > 0 ? `
+                    <div class="total-row">
+                        <span>Surface Adjustment:</span>
+                        <span>$${data.surfaceAdjustment.toFixed(2)}</span>
+                    </div>` : ''}
+                    ${data.timeAdjustment > 0 ? `
+                    <div class="total-row">
+                        <span>Time Adjustment:</span>
+                        <span>$${data.timeAdjustment.toFixed(2)}</span>
+                    </div>` : ''}
+                    ${data.deliveryCost > 0 ? `
+                    <div class="total-row">
+                        <span>Delivery:</span>
+                        <span>$${data.deliveryCost.toFixed(2)}</span>
+                    </div>` : ''}
+                    <div class="total-row grand-total">
+                        <span>Total Amount:</span>
+                        <span>$${data.totalAmount.toFixed(2)}</span>
+                    </div>
+                </div>
+                
+                <p><strong>Payment Type:</strong> ${data.paymentType === 'deposit' ? '50% Deposit' : 'Full Payment'}</p>
+                <p><strong>Amount Paid:</strong> $${data.amountPaid.toFixed(2)} (${data.paymentMethod})</p>
+                ${data.remainingBalance > 0 ? `<p><strong>Remaining Balance:</strong> $${data.remainingBalance.toFixed(2)} <em>(due before event)</em></p>` : ''}
+            </div>
+            
+            ${hasGiftCards ? `
+            <div class="section">
+                <h3>🎁 Gift Cards Included</h3>
+                ${data.giftCards.map(giftCard => `
+                    <div class="gift-card ${giftCard.isPromotional ? 'promotional' : ''}">
+                        <h4>${giftCard.isPromotional ? '🎉 Promotional Gift Card' : '🎁 Gift Card'}</h4>
+                        <div class="gift-card-balance">$${giftCard.balance.toFixed(2)}</div>
+                        <div class="gift-card-code">${giftCard.code}</div>
+                        <p><strong>Expires:</strong> ${giftCard.expirationDate}</p>
+                        ${giftCard.isPromotional && giftCard.promotionalMessage ? `
+                            <p><em>${giftCard.promotionalMessage}</em></p>
+                        ` : ''}
+                        ${giftCard.recipientEmail && giftCard.recipientEmail !== data.recipientEmail ? `
+                            <p><strong>Gift Recipient:</strong> ${giftCard.recipientEmail}</p>
+                        ` : ''}
+                    </div>
+                `).join('')}
+            </div>
+            ` : ''}
+        </div>
+        
+        <div class="company-info">
+            <h3>JumpCSRA Party Rentals</h3>
+            <p><strong>📧 Questions?</strong> Reply to this email or contact us at jumpcsra@gmail.com</p>
+            <p><strong>📞 Phone:</strong> (803) 221-0466</p>
+            <p><strong>🌐 Website:</strong> jumpcsra.com</p>
+            <p style="margin-top: 20px; font-size: 14px; color: #666;">
+                Thank you for choosing JumpCSRA Party Rentals! We're excited to make your event unforgettable.
+            </p>
+        </div>
+    </div>
+</body>
+</html>`;
+};
+// Order confirmation email HTML generation
+const generateOrderConfirmationEmailHTML = (data) => {
+    const hasRentals = data.rentalItems.length > 0 || data.lastMinuteAdditions.length > 0;
+    const hasGiftCards = data.giftCards.length > 0;
+    const getStatusBanner = (status, requiresPhoneCall) => {
+        let statusClass = 'status-confirmed';
+        let statusMessage = '';
+        switch (status.toLowerCase()) {
+            case 'confirmed':
+                statusClass = 'status-confirmed';
+                statusMessage = '✅ Order Confirmed - Your booking is confirmed and ready!';
+                break;
+            case 'pending':
+                statusClass = 'status-pending';
+                statusMessage = '⏳ Order Pending - We\'re processing your order and will confirm shortly.';
+                break;
+            case 'deferred':
+                statusClass = 'status-deferred';
+                statusMessage = '📞 Call Required - Since your event is within 2 days, we\'ll contact you to confirm details.';
+                break;
+            default:
+                statusClass = 'status-pending';
+                statusMessage = '📋 Order Received - Thank you for your order!';
+        }
+        return `<div class="status-banner ${statusClass}">${statusMessage}</div>`;
+    };
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmation - JumpCSRA</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }
+        .section { margin: 25px 0; padding: 20px; background: white; border-radius: 8px; border-left: 4px solid #667eea; }
+        .section h3 { margin-top: 0; color: #667eea; }
+        .item-list { list-style: none; padding: 0; }
+        .item-list li { padding: 8px 0; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        .item-list li:last-child { border-bottom: none; }
+        .total-row { font-weight: bold; font-size: 18px; background: #667eea; color: white; padding: 15px; border-radius: 5px; text-align: center; margin: 15px 0; }
+        .gift-card { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 20px; margin: 15px 0; border-radius: 10px; text-align: center; }
+        .gift-card.promotional { background: linear-gradient(135deg, #fd7e14 0%, #e63946 100%); }
+        .gift-card-code { font-size: 24px; font-weight: bold; letter-spacing: 2px; margin: 10px 0; }
+        .gift-card-balance { font-size: 32px; font-weight: bold; margin: 10px 0; }
+        .status-banner { padding: 15px; border-radius: 5px; text-align: center; font-weight: bold; margin: 20px 0; }
+        .status-confirmed { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status-pending { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .status-deferred { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .footer { text-align: center; margin-top: 30px; font-size: 14px; color: #666; }
+        .button { background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎉 Order Confirmation</h1>
+        <p>Thank you for your order, ${data.recipientName}!</p>
+        <p><strong>Order #${data.orderID}</strong></p>
+        <p>Placed on ${new Date(data.orderDate).toLocaleDateString()}</p>
+    </div>
+    
+    <div class="content">
+        ${getStatusBanner(data.bookingStatus, data.requiresPhoneCall)}
+        
+        ${hasRentals ? `
+        <div class="section">
+            <h3>🎪 Event Details</h3>
+            ${data.eventDate ? `<p><strong>Event Date:</strong> ${data.eventDate}</p>` : ''}
+            ${data.deliveryAddress ? `<p><strong>Delivery Address:</strong> ${data.deliveryAddress}</p>` : ''}
+            ${data.deliveryTime ? `<p><strong>Delivery Time:</strong> ${data.deliveryTime}</p>` : ''}
+            ${data.duration ? `<p><strong>Duration:</strong> ${data.duration}</p>` : ''}
+            ${data.surface ? `<p><strong>Surface:</strong> ${data.surface}</p>` : ''}
+        </div>
+        
+        <div class="section">
+            <h3>📦 Items Ordered</h3>
+            <ul class="item-list">
+                ${data.rentalItems.map(item => `
+                    <li>
+                        <span>${item.name} ${item.duration ? `(${item.duration})` : ''} ${item.wetDry ? `- ${item.wetDry}` : ''} x${item.quantity}</span>
+                        <span>$${item.price.toFixed(2)}</span>
+                    </li>
+                `).join('')}
+                ${data.lastMinuteAdditions.map(item => `
+                    <li>
+                        <span>${item.name} x${item.quantity}</span>
+                        <span>$${item.price.toFixed(2)}</span>
+                    </li>
+                `).join('')}
+            </ul>
+        </div>
+        ` : ''}
+        
+        <div class="section">
+            <h3>💰 Payment Summary</h3>
+            <ul class="item-list">
+                <li><span>Subtotal:</span><span>$${data.subtotal.toFixed(2)}</span></li>
+                ${data.surfaceAdjustment > 0 ? `<li><span>Surface Adjustment:</span><span>$${data.surfaceAdjustment.toFixed(2)}</span></li>` : ''}
+                ${data.timeAdjustment > 0 ? `<li><span>Time Adjustment:</span><span>$${data.timeAdjustment.toFixed(2)}</span></li>` : ''}
+                ${data.deliveryCost > 0 ? `<li><span>Delivery:</span><span>$${data.deliveryCost.toFixed(2)}</span></li>` : ''}
+            </ul>
+            <div class="total-row">Total: $${data.totalAmount.toFixed(2)}</div>
+            
+            <p><strong>Payment Type:</strong> ${data.paymentType === 'deposit' ? '50% Deposit' : 'Full Payment'}</p>
+            <p><strong>Amount Paid:</strong> $${data.amountPaid.toFixed(2)} (${data.paymentMethod})</p>
+            ${data.remainingBalance > 0 ? `<p><strong>Remaining Balance:</strong> $${data.remainingBalance.toFixed(2)}</p>` : ''}
+        </div>
+        
+        ${hasGiftCards ? `
+        <div class="section">
+            <h3>🎁 Gift Cards</h3>
+            ${data.giftCards.map(giftCard => `
+                <div class="gift-card ${giftCard.isPromotional ? 'promotional' : ''}">
+                    <h4>${giftCard.isPromotional ? '🎉 Promotional Gift Card' : '🎁 Gift Card'}</h4>
+                    <div class="gift-card-code">${giftCard.code}</div>
+                    <div class="gift-card-balance">$${giftCard.balance.toFixed(2)}</div>
+                    <p><strong>Expires:</strong> ${giftCard.expirationDate}</p>
+                    ${giftCard.isPromotional ? `
+                        <div style="background: rgba(255,255,255,0.2); padding: 10px; border-radius: 5px; margin-top: 10px;">
+                            <strong>⚠️ GIFT CARD NOTICE:</strong><br>
+                            ${giftCard.promotionalMessage || 'This promotional gift card must be used by someone else and cannot be used by the purchaser.'}
+                        </div>
+                    ` : ''}
+                    ${giftCard.recipientEmail && giftCard.recipientEmail !== data.recipientEmail ? `
+                        <p><strong>🎁 Recipient:</strong> ${giftCard.recipientEmail}</p>
+                    ` : ''}
+                </div>
+            `).join('')}
+        </div>
+        ` : ''}
+        
+        <div class="section">
+            <h3>📋 What's Next?</h3>
+            ${data.requiresPhoneCall ? `
+                <p><strong>📞 Phone Call Required:</strong> Since your event is within 2 days, we'll contact you to confirm details and arrange delivery.</p>
+            ` : ''}
+            ${data.remainingBalance > 0 ? `
+                <p><strong>💳 Remaining Payment:</strong> The remaining balance of $${data.remainingBalance.toFixed(2)} will be collected before or at the time of delivery.</p>
+            ` : ''}
+            <p><strong>📧 Questions?</strong> Reply to this email or contact us at jumpcsra@gmail.com</p>
+        </div>
+        
+        <div style="text-align: center;">
+            <a href="https://jumpcsra.com" class="button">Visit Our Website</a>
+        </div>
+        
+        <div class="footer">
+            <p>Thank you for choosing JumpCSRA Party Rentals!</p>
+            <p>Making Your Events Unforgettable</p>
+            <p>jumpcsra@gmail.com | jumpcsra.com</p>
+        </div>
+    </div>
+</body>
+</html>`;
+};
+const generateGiftCardEmailHTML = (data) => {
+    const formatDate = (dateString) => {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    };
+    return `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Your JumpCSRA Gift Card</title>
+        <style>
+            body { 
+                font-family: Arial, sans-serif; 
+                line-height: 1.6; 
+                color: #333; 
+                max-width: 600px; 
+                margin: 0 auto; 
+                padding: 20px; 
+            }
+            .header { 
+                background: linear-gradient(135deg, #ff6b6b, #4ecdc4); 
+                color: white; 
+                text-align: center; 
+                padding: 30px; 
+                border-radius: 10px 10px 0 0; 
+            }
+            .content { 
+                background: #f9f9f9; 
+                padding: 30px; 
+                border-radius: 0 0 10px 10px; 
+                border: 1px solid #ddd; 
+            }
+            .gift-card-box { 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                color: white; 
+                padding: 25px; 
+                border-radius: 10px; 
+                text-align: center; 
+                margin: 20px 0; 
+                box-shadow: 0 4px 15px rgba(0,0,0,0.1); 
+            }
+            .gift-card-code { 
+                font-size: 24px; 
+                font-weight: bold; 
+                letter-spacing: 3px; 
+                background: rgba(255,255,255,0.2); 
+                padding: 15px; 
+                border-radius: 8px; 
+                margin: 15px 0; 
+                border: 2px dashed rgba(255,255,255,0.5); 
+            }
+            .balance { 
+                font-size: 28px; 
+                font-weight: bold; 
+                color: #4CAF50; 
+                text-shadow: 2px 2px 4px rgba(0,0,0,0.3); 
+            }
+            .instructions { 
+                background: #e8f5e8; 
+                border-left: 5px solid #4CAF50; 
+                padding: 20px; 
+                margin: 20px 0; 
+                border-radius: 0 5px 5px 0; 
+            }
+            .instruction-item { 
+                margin: 15px 0; 
+                padding-left: 25px; 
+                position: relative; 
+            }
+            .instruction-item:before { 
+                content: "✓"; 
+                position: absolute; 
+                left: 0; 
+                color: #4CAF50; 
+                font-weight: bold; 
+                font-size: 18px; 
+            }
+            .footer { 
+                text-align: center; 
+                margin-top: 30px; 
+                padding-top: 20px; 
+                border-top: 1px solid #ddd; 
+                color: #666; 
+                font-size: 14px; 
+            }
+            .warning { 
+                background: #fff3cd; 
+                border: 1px solid #ffeaa7; 
+                color: #856404; 
+                padding: 15px; 
+                border-radius: 5px; 
+                margin: 20px 0; 
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>🎉 Your JumpCSRA Gift Card!</h1>
+            <p>Thank you for your purchase!</p>
+        </div>
+        
+        <div class="content">
+            <p>Hi ${data.recipientName},</p>
+            
+            <p>Congratulations! Your gift card purchase has been confirmed. Here are your gift card details:</p>
+            
+            <div class="gift-card-box">
+                <h2>🎁 Gift Card Details</h2>
+                <div class="gift-card-code">${data.giftCardCode}</div>
+                <div class="balance">$${data.giftCardBalance.toFixed(2)}</div>
+                <p><strong>Purchased:</strong> ${formatDate(data.purchaseDate)}</p>
+                <p><strong>Expires:</strong> ${formatDate(data.expirationDate)}</p>
+            </div>
+            
+            <div class="instructions">
+                <h3>💡 How to Use Your Gift Card:</h3>
+                
+                <div class="instruction-item">
+                    <strong>During Checkout:</strong> When placing an order on our website, enter your gift card code during the payment process to apply the balance to your order.
+                </div>
+                
+                <div class="instruction-item">
+                    <strong>Add to Wallet:</strong> Visit your profile page → Payment Information tab → enter your gift card code to add the balance to your wallet for easy future use.
+                </div>
+                
+                <div class="instruction-item">
+                    <strong>Check Balance:</strong> Go to your profile → Payment Information tab and use the gift card balance checker to see your current balance and usage history.
+                </div>
+                
+                <div class="instruction-item">
+                    <strong>Call for Assistance:</strong> Contact us at (803) 221-0466 if you need help using your gift card.
+                </div>
+            </div>
+            
+            <div class="warning">
+                <strong>⚠️ Important:</strong> Please save this email! Your gift card code is required to use your gift card. This gift card expires in one year from the purchase date.
+            </div>
+            
+            <p>We can't wait to help make your next event amazing! Visit our website to browse our selection of bounce houses, water slides, and party essentials.</p>
+            
+            <p>Thank you for choosing JumpCSRA!</p>
+        </div>
+        
+        <div class="footer">
+            <p>JumpCSRA Party Rentals</p>
+            <p>Phone: (803) 221-0466</p>
+            <p>This is an automated email. Please do not reply to this message.</p>
+        </div>
+    </body>
+    </html>
+  `;
+};
+const generateGiftCardEmailText = (data) => {
+    const formatDate = (dateString) => {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    };
+    return `
+JumpCSRA Gift Card - Thank You for Your Purchase!
+
+Hi ${data.recipientName},
+
+Congratulations! Your gift card purchase has been confirmed.
+
+GIFT CARD DETAILS:
+Code: ${data.giftCardCode}
+Balance: $${data.giftCardBalance.toFixed(2)}
+Purchased: ${formatDate(data.purchaseDate)}
+Expires: ${formatDate(data.expirationDate)}
+
+HOW TO USE YOUR GIFT CARD:
+
+1. During Checkout: When placing an order on our website, enter your gift card code during the payment process.
+
+2. Add to Wallet: Visit your profile page → Payment Information tab → enter your gift card code to add the balance to your wallet.
+
+3. Check Balance: Go to your profile → Payment Information tab and use the gift card balance checker.
+
+4. Call for Assistance: Contact us at (803) 221-0466 if you need help.
+
+IMPORTANT: Please save this email! Your gift card code is required to use your gift card. This gift card expires in one year from the purchase date.
+
+Thank you for choosing JumpCSRA!
+
+JumpCSRA Party Rentals
+Phone: (803) 221-0466
+  `.trim();
+};
+// Cloud Function to send gift card email
 exports.sendGiftCardEmail = functions.https.onCall(async (data, context) => {
+    var _a;
+    // Verify that the user is authenticated
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to send gift card emails.');
     }
     try {
-        const result = await (0, emailService_1.sendGiftCardEmail)(data);
-        return result; // Return the actual email server response
+        // Validate input data
+        if (!data.recipientEmail || !data.giftCardCode || !data.giftCardBalance) {
+            throw new functions.https.HttpsError('invalid-argument', 'Missing required email data.');
+        }
+        if (!sendGridApiKey) {
+            throw new functions.https.HttpsError('failed-precondition', 'SendGrid API key not configured.');
+        }
+        const msg = {
+            to: data.recipientEmail,
+            from: 'jumpcsra@gmail.com', // Simplified format
+            subject: `Your JumpCSRA Gift Card - $${data.giftCardBalance.toFixed(2)}`,
+            html: generateGiftCardEmailHTML(data),
+            text: generateGiftCardEmailText(data),
+            // Optional: Add categories for tracking
+            categories: ['gift-card', 'transactional'],
+            // Optional: Add custom args for tracking
+            customArgs: {
+                giftCardCode: data.giftCardCode,
+                amount: data.giftCardBalance.toString()
+            }
+        };
+        await sgMail.send(msg);
+        // Log successful email send
+        console.log(`Gift card email sent successfully to ${data.recipientEmail} for code ${data.giftCardCode}`);
+        return {
+            success: true,
+            message: 'Gift card email sent successfully',
+            emailSent: true
+        };
     }
     catch (error) {
-        console.error('❌ GIFT CARD - Cloud Function error:', error);
-        throw error;
+        console.error('Error sending gift card email:', error);
+        // If it's a SendGrid error, provide more specific information
+        if (error && typeof error === 'object' && 'response' in error) {
+            console.error('SendGrid error response:', (_a = error.response) === null || _a === void 0 ? void 0 : _a.body);
+        }
+        throw new functions.https.HttpsError('internal', 'Failed to send gift card email.');
     }
 });
-/**
- * Automated Gift Card Email Trigger (Firestore)
- *
- * Purpose: Automatically sends gift card emails when new gift cards are created in Firestore
- *
- * Functionality:
- * - Triggered automatically when a document is added to the 'giftCards' collection
- * - Filters for purchased gift cards (not promotional/admin-created ones)
- * - Validates required email data before sending
- * - Prevents duplicate emails by checking purchase status
- * - Provides seamless customer experience without manual intervention
- *
- * Trigger: Firestore document creation in 'giftCards/{giftCardId}'
- *
- * Processing Logic:
- * - Checks if gift card is marked as purchased (isPurchased: true)
- * - Validates recipient email exists
- * - Constructs email data from Firestore document
- * - Calls email service to send gift card
- * - Logs success/failure for monitoring
- *
- * Data Requirements:
- * - Firestore document must have isPurchased: true
- * - Must include recipientEmail field
- * - Supports optional fields like senderName, personalMessage
- *
- * Error Handling: Logs errors but doesn't block Firestore write operations
- */
+// Alternative: Cloud Function triggered by Firestore document creation
 exports.sendGiftCardEmailOnCreate = functions.firestore
     .document('giftCards/{giftCardId}')
     .onCreate(async (snap, context) => {
-    const giftCardData = snap.data();
+    const giftCard = snap.data();
     // Only send email for purchased gift cards (not promotional ones)
-    if ((giftCardData === null || giftCardData === void 0 ? void 0 : giftCardData.isPurchased) && (giftCardData === null || giftCardData === void 0 ? void 0 : giftCardData.recipientEmail)) {
-        const emailData = {
-            recipientEmail: giftCardData.recipientEmail,
-            recipientName: giftCardData.recipientName || 'Valued Customer',
-            senderName: giftCardData.senderName,
-            personalMessage: giftCardData.personalMessage,
-            giftCardCode: giftCardData.code,
-            giftCardBalance: giftCardData.balance,
-            expirationDate: giftCardData.expirationDate,
-            purchaseDate: giftCardData.purchaseDate || new Date().toISOString(),
-            orderID: giftCardData.orderID
-        };
+    if (!giftCard.isGift && giftCard.purchaserEmail) {
         try {
-            await (0, emailService_1.sendGiftCardEmail)(emailData);
+            const emailData = {
+                recipientEmail: giftCard.purchaserEmail,
+                recipientName: giftCard.purchaserName || 'Customer',
+                giftCardCode: giftCard.redemptionCode,
+                giftCardBalance: giftCard.originalAmount,
+                expirationDate: giftCard.expirationDate,
+                purchaseDate: giftCard.purchaseDate
+            };
+            if (!sendGridApiKey) {
+                console.error('SendGrid API key not configured');
+                return;
+            }
+            const msg = {
+                to: emailData.recipientEmail,
+                from: {
+                    email: 'jumpcsra@gmail.com', // Using your Gmail address
+                    name: 'JumpCSRA Party Rentals'
+                },
+                subject: `Your JumpCSRA Gift Card - $${emailData.giftCardBalance.toFixed(2)}`,
+                html: generateGiftCardEmailHTML(emailData),
+                text: generateGiftCardEmailText(emailData),
+                categories: ['gift-card', 'transactional'],
+                customArgs: {
+                    giftCardCode: emailData.giftCardCode,
+                    amount: emailData.giftCardBalance.toString()
+                }
+            };
+            await sgMail.send(msg);
+            console.log(`Auto-sent gift card email to ${emailData.recipientEmail} for code ${emailData.giftCardCode}`);
         }
         catch (error) {
-            console.error('❌ Failed to auto-send gift card email:', error);
+            console.error('Error auto-sending gift card email:', error);
         }
     }
 });
-/**
- * Account Deletion Confirmation Email Function
- *
- * Purpose: Sends confirmation emails when users delete their accounts for security and compliance
- *
- * Functionality:
- * - Confirms account deletion action to user's email address
- * - Documents deletion date and optional reason for records
- * - Provides security confirmation for account changes
- * - Supports GDPR and privacy compliance requirements
- * - Includes information about data retention policies
- *
- * Authentication: Required (ensures only account owner can trigger deletion emails)
- *
- * Input Data:
- * - email: Account email address for confirmation
- * - name: User's name (optional, for personalization)
- * - reason: Optional deletion reason for feedback tracking
- *
- * Processing:
- * - Validates user authentication before sending
- * - Constructs AccountDeletionEmailData with deletion timestamp
- * - Calls email service to send confirmation
- * - Returns email server response for verification
- *
- * Security Features:
- * - Authentication required prevents unauthorized deletion confirmations
- * - Logs all deletion attempts for security monitoring
- * - Preserves error details for debugging failed attempts
- *
- * Compliance: Supports audit trails for account deletion processes
- */
-exports.sendAccountDeletionEmail = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to send account deletion emails.');
-    }
+// Cloud Function to send order confirmation email
+// Enhanced SendGrid Email System - Replace PayPal Invoicing
+exports.sendEnhancedOrderConfirmation = functions.https.onCall(async (data, context) => {
+    var _a, _b;
     try {
-        const emailData = {
-            email: data.email,
-            name: data.name,
-            deletionDate: new Date().toISOString(),
-            reason: data.reason
+        // SendGrid API key validation
+        if (!sendGridApiKey) {
+            console.error('❌ ENHANCED EMAIL - SendGrid API key not configured');
+            throw new functions.https.HttpsError('failed-precondition', 'SendGrid API key not configured.');
+        }
+        console.log('📧 ENHANCED EMAIL - Sending comprehensive order confirmation to:', data.recipientEmail, 'for order:', data.orderID);
+        console.log('📧 ENHANCED EMAIL - Using sender email:', 'jumpcsra@gmail.com');
+        console.log('📧 ENHANCED EMAIL - SendGrid API Key configured:', !!sendGridApiKey);
+        // Try alternative SendGrid sender format
+        const msg = {
+            to: data.recipientEmail,
+            from: {
+                email: 'jumpcsra@gmail.com',
+                name: 'JumpCSRA Party Rentals'
+            },
+            subject: `Order Confirmation & Invoice #${data.orderID} - JumpCSRA Party Rentals`,
+            html: generateEnhancedOrderEmailHTML(data),
+            // Optional: Add categories for tracking
+            categories: ['order-confirmation', 'invoice', 'transactional'],
+            // Optional: Add custom args for tracking
+            customArgs: {
+                orderID: data.orderID,
+                totalAmount: data.totalAmount.toString(),
+                bookingStatus: data.bookingStatus,
+                hasGiftCards: (((_a = data.giftCards) === null || _a === void 0 ? void 0 : _a.length) || 0).toString()
+            }
         };
-        const result = await (0, emailService_1.sendAccountDeletionEmail)(emailData);
-        return result; // Return the actual email server response
-    }
-    catch (error) {
-        console.error('❌ ACCOUNT DELETION - Cloud Function error:', error);
-        throw error;
-    }
-});
-// =============================================================================
-// PAYPAL FUNCTIONS
-// =============================================================================
-/**
- * PayPal Invoice Creation and Delivery Function
- *
- * Purpose: Creates and sends professional PayPal invoices for bookings and services
- *
- * Functionality:
- * - Integrates with PayPal API to create formal invoices
- * - Automatically sends invoices to customer email addresses
- * - Handles complex pricing structures including deposits and full payments
- * - Supports recurring billing for ongoing services
- * - Manages invoice tracking and payment status monitoring
- *
- * Authentication: Recommended but not strictly required for invoice creation
- *
- * Input Data (PayPalInvoiceData):
- * - customerEmail: Invoice recipient email
- * - customerName: Customer full name and contact information
- * - invoiceItems: Detailed line items with descriptions and pricing
- * - totalAmount: Invoice total with taxes and fees
- * - dueDate: Payment due date
- * - bookingDetails: Associated booking information
- * - paymentTerms: Payment conditions and policies
- *
- * PayPal Integration:
- * - Uses PayPal REST API for invoice creation
- * - Automatically generates unique invoice IDs
- * - Sends invoices through PayPal's email system
- * - Provides payment links for easy customer access
- *
- * Response Data:
- * - success: Boolean indicating operation success
- * - invoiceId: PayPal-generated invoice identifier
- * - invoiceDetails: Complete invoice object from PayPal
- *
- * Error Handling: Preserves PayPal API errors for debugging payment issues
- */
-exports.createPayPalInvoice = functions.https.onCall(async (data, context) => {
-    try {
-        const invoice = await (0, paypalService_1.createPayPalInvoice)(data);
+        console.log('📧 ENHANCED EMAIL - About to send email via SendGrid...');
+        console.log('📧 ENHANCED EMAIL - Message config:', JSON.stringify({
+            to: msg.to,
+            from: msg.from,
+            subject: msg.subject,
+            hasHtml: !!msg.html,
+            categories: msg.categories
+        }, null, 2));
+        try {
+            const sendResult = await sgMail.send(msg);
+            console.log('📧 ENHANCED EMAIL - SendGrid success response:', JSON.stringify(sendResult, null, 2));
+        }
+        catch (sgError) {
+            console.error('📧 ENHANCED EMAIL - SendGrid detailed error:', JSON.stringify(sgError, null, 2));
+            if (sgError.response && sgError.response.body && sgError.response.body.errors) {
+                console.error('📧 ENHANCED EMAIL - SendGrid specific errors:', sgError.response.body.errors);
+            }
+            // Fallback: Return success but indicate email failed
+            console.log('📧 ENHANCED EMAIL - Returning success despite email failure for system stability');
+            return {
+                success: true,
+                message: 'Order processed successfully (email delivery pending)',
+                emailSent: false,
+                fallbackRequired: true
+            };
+        }
+        // Log successful email send
+        console.log(`Enhanced order confirmation & invoice email sent successfully to ${data.recipientEmail} for order ${data.orderID}`);
         return {
             success: true,
-            message: 'PayPal invoice created and sent successfully',
-            invoiceId: invoice.id,
-            invoiceDetails: invoice
+            message: 'Order confirmation & invoice email sent successfully',
+            emailSent: true
         };
     }
     catch (error) {
-        console.error('❌ PAYPAL INVOICE - Cloud Function error:', error);
+        console.error('Error sending enhanced order confirmation email:', error);
+        console.error('📧 ENHANCED EMAIL - Full error details:', JSON.stringify(error, null, 2));
+        // If it's a SendGrid error, provide more specific information
+        if (error && typeof error === 'object' && 'response' in error) {
+            console.error('SendGrid error response:', (_b = error.response) === null || _b === void 0 ? void 0 : _b.body);
+        }
+        // Always return success to prevent checkout failures
+        return {
+            success: true,
+            message: 'Order processed successfully (email delivery pending)',
+            emailSent: false,
+            fallbackRequired: true
+        };
+    }
+});
+// Legacy order confirmation email function (keep for compatibility)
+exports.sendOrderConfirmationEmail = functions.https.onCall(async (data, context) => {
+    var _a;
+    console.log('📧 ORDER EMAIL - Function called, auth status:', !!context.auth);
+    try {
+        // For order confirmations, we'll be more lenient about authentication
+        // since these are triggered by completed payments
+        if (!context.auth) {
+            console.log('⚠️ ORDER EMAIL - No authentication provided, but proceeding for order confirmation');
+        }
+        // Validate input data
+        if (!data.recipientEmail || !data.orderID || typeof data.totalAmount !== 'number') {
+            console.error('❌ ORDER EMAIL - Invalid input data:', {
+                hasEmail: !!data.recipientEmail,
+                hasOrderID: !!data.orderID,
+                totalAmountType: typeof data.totalAmount
+            });
+            throw new functions.https.HttpsError('invalid-argument', 'Missing required email data.');
+        }
+        if (!sendGridApiKey) {
+            console.error('❌ ORDER EMAIL - SendGrid API key not configured');
+            throw new functions.https.HttpsError('failed-precondition', 'SendGrid API key not configured.');
+        }
+        console.log('📧 ORDER EMAIL - Sending to:', data.recipientEmail, 'for order:', data.orderID);
+        console.log('📧 ORDER EMAIL - Using sender email:', 'jumpcsra@gmail.com');
+        console.log('📧 ORDER EMAIL - SendGrid API Key configured:', !!sendGridApiKey);
+        // Try alternative SendGrid sender format
+        const msg = {
+            to: data.recipientEmail,
+            from: {
+                email: 'jumpcsra@gmail.com',
+                name: 'JumpCSRA'
+            },
+            subject: `Order Confirmation #${data.orderID} - JumpCSRA Party Rentals`,
+            html: generateOrderConfirmationEmailHTML(data),
+            // Optional: Add categories for tracking
+            categories: ['order-confirmation', 'transactional'],
+            // Optional: Add custom args for tracking
+            customArgs: {
+                orderID: data.orderID,
+                totalAmount: data.totalAmount.toString(),
+                bookingStatus: data.bookingStatus
+            }
+        };
+        console.log('📧 ORDER EMAIL - About to send email via SendGrid...');
+        console.log('📧 ORDER EMAIL - Message config:', JSON.stringify({
+            to: msg.to,
+            from: msg.from,
+            subject: msg.subject,
+            hasHtml: !!msg.html,
+            categories: msg.categories
+        }, null, 2));
+        try {
+            const sendResult = await sgMail.send(msg);
+            console.log('📧 ORDER EMAIL - SendGrid success response:', JSON.stringify(sendResult, null, 2));
+        }
+        catch (sgError) {
+            console.error('📧 ORDER EMAIL - SendGrid detailed error:', JSON.stringify(sgError, null, 2));
+            if (sgError.response && sgError.response.body && sgError.response.body.errors) {
+                console.error('📧 ORDER EMAIL - SendGrid specific errors:', sgError.response.body.errors);
+            }
+            // Fallback: Return success but indicate email failed
+            console.log('📧 ORDER EMAIL - Returning success despite email failure for system stability');
+            return {
+                success: true,
+                message: 'Order processed successfully (email delivery pending)',
+                emailSent: false,
+                fallbackRequired: true
+            };
+        }
+        // Log successful email send
+        console.log(`Order confirmation email sent successfully to ${data.recipientEmail} for order ${data.orderID}`);
+        return {
+            success: true,
+            message: 'Order confirmation email sent successfully',
+            emailSent: true
+        };
+    }
+    catch (error) {
+        console.error('Error sending order confirmation email:', error);
+        console.error('📧 ORDER EMAIL - Full error details:', JSON.stringify(error, null, 2));
+        // If it's a SendGrid error, provide more specific information
+        if (error && typeof error === 'object' && 'response' in error) {
+            console.error('SendGrid error response:', (_a = error.response) === null || _a === void 0 ? void 0 : _a.body);
+        }
+        throw new functions.https.HttpsError('internal', 'Failed to send order confirmation email.');
+    }
+});
+// Get PayPal access token
+const getPayPalAccessToken = async () => {
+    try {
+        const auth = Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64');
+        const response = await fetch(`${PAYPAL_BASE_URL}/v1/oauth2/token`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${auth}`,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'grant_type=client_credentials'
+        });
+        if (!response.ok) {
+            throw new Error(`PayPal auth failed: ${response.status} ${response.statusText}`);
+        }
+        const data = await response.json();
+        return data.access_token;
+    }
+    catch (error) {
+        console.error('Error getting PayPal access token:', error);
         throw error;
     }
-});
-/**
- * PayPal Connection Testing and Diagnostics Function
- *
- * Purpose: Tests PayPal API connectivity and validates configuration for troubleshooting
- *
- * Functionality:
- * - Verifies PayPal API credentials and authentication
- * - Tests connection to PayPal sandbox and production environments
- * - Validates API permissions and access levels
- * - Performs basic API calls to ensure functionality
- * - Returns detailed diagnostic information for debugging
- *
- * Use Cases:
- * - Development environment setup verification
- * - Production deployment validation
- * - Troubleshooting payment processing issues
- * - Regular health checks for PayPal integration
- * - Configuration validation after updates
- *
- * Testing Features:
- * - Authentication token validation
- * - API endpoint accessibility checks
- * - Response time measurements
- * - Error condition testing
- * - Environment configuration verification
- *
- * Response Data:
- * - Connection status and response times
- * - API version and capability information
- * - Environment details (sandbox vs production)
- * - Detailed error messages for failed connections
- *
- * Security: No sensitive data exposed in test responses
- */
-exports.testPayPalDebug = functions.https.onCall(async (data, context) => {
-    try {
-        const result = await (0, paypalService_1.testPayPalConnection)();
-        return result;
+};
+// Convert order data to PayPal invoice format
+const createPayPalInvoicePayload = (data) => {
+    const items = [];
+    // Add rental items
+    data.rentalItems.forEach(item => {
+        items.push({
+            name: item.name,
+            description: `${item.duration ? `Duration: ${item.duration}` : ''}${item.wetDry ? ` - ${item.wetDry}` : ''}`,
+            quantity: item.quantity.toString(),
+            unit_amount: {
+                currency_code: "USD",
+                value: (item.price / item.quantity).toFixed(2)
+            }
+        });
+    });
+    // Add last minute additions
+    data.lastMinuteAdditions.forEach(item => {
+        items.push({
+            name: item.name,
+            description: "Last minute addition",
+            quantity: item.quantity.toString(),
+            unit_amount: {
+                currency_code: "USD",
+                value: (item.price / item.quantity).toFixed(2)
+            }
+        });
+    });
+    // Add adjustments
+    if (data.surfaceAdjustment > 0) {
+        items.push({
+            name: "Surface Adjustment",
+            description: "Additional charge for surface preparation",
+            quantity: "1",
+            unit_amount: {
+                currency_code: "USD",
+                value: data.surfaceAdjustment.toFixed(2)
+            }
+        });
     }
-    catch (error) {
-        console.error('❌ PAYPAL TEST - Cloud Function error:', error);
-        throw new functions.https.HttpsError('internal', `PayPal test failed: ${error.message}`);
+    if (data.timeAdjustment > 0) {
+        items.push({
+            name: "Time Adjustment",
+            description: "Additional charge for timing requirements",
+            quantity: "1",
+            unit_amount: {
+                currency_code: "USD",
+                value: data.timeAdjustment.toFixed(2)
+            }
+        });
     }
-});
-exports.processPayPalBookingRefund = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    if (data.deliveryCost > 0) {
+        items.push({
+            name: "Delivery Service",
+            description: "Delivery and setup service",
+            quantity: "1",
+            unit_amount: {
+                currency_code: "USD",
+                value: data.deliveryCost.toFixed(2)
+            }
+        });
     }
-    try {
-        const { captureId, amount, reason = 'Booking cancellation' } = data;
-        if (!captureId || !amount || amount <= 0) {
-            throw new functions.https.HttpsError('invalid-argument', 'Invalid refund parameters');
+    // Generate invoice note with gift card info
+    let note = `Order Confirmation for ${data.recipientName}\n\n`;
+    if (data.eventDate) {
+        note += `Event Details:\n`;
+        note += `• Date: ${data.eventDate}\n`;
+        if (data.deliveryAddress)
+            note += `• Address: ${data.deliveryAddress}\n`;
+        if (data.deliveryTime)
+            note += `• Delivery Time: ${data.deliveryTime}\n`;
+        if (data.duration)
+            note += `• Duration: ${data.duration}\n`;
+        if (data.surface)
+            note += `• Surface: ${data.surface}\n`;
+        note += `\n`;
+    }
+    note += `Payment Information:\n`;
+    note += `• Payment Type: ${data.paymentType === 'deposit' ? '50% Deposit' : 'Full Payment'}\n`;
+    note += `• Amount Paid: $${data.amountPaid.toFixed(2)} (${data.paymentMethod})\n`;
+    if (data.remainingBalance > 0) {
+        note += `• Remaining Balance: $${data.remainingBalance.toFixed(2)} (due before event)\n`;
+    }
+    note += `\n`;
+    if (data.giftCards.length > 0) {
+        note += `Gift Cards Included:\n`;
+        data.giftCards.forEach(gc => {
+            note += `• Code: ${gc.code} - $${gc.balance.toFixed(2)}\n`;
+            note += `  Expires: ${gc.expirationDate}\n`;
+            if (gc.isPromotional) {
+                note += `  Type: Promotional Gift Card\n`;
+                if (gc.promotionalMessage) {
+                    note += `  Note: ${gc.promotionalMessage}\n`;
+                }
+                if (gc.recipientEmail && gc.recipientEmail !== data.recipientEmail) {
+                    note += `  Recipient: ${gc.recipientEmail}\n`;
+                }
+            }
+            note += `\n`;
+        });
+        note += `Gift Card Usage:\n`;
+        note += `• Log in to your account at jumpcsra.com\n`;
+        note += `• Use the gift card balance checker in your profile\n`;
+        note += `• Apply gift card balance during checkout\n`;
+        note += `• Gift cards never expire and can be used for any rental\n\n`;
+    }
+    // Add status information
+    switch (data.bookingStatus.toLowerCase()) {
+        case 'confirmed':
+            note += `Status: ✅ Order Confirmed - Your booking is confirmed and ready!\n`;
+            break;
+        case 'pending':
+            note += `Status: ⏳ Order Pending - We're processing your order and will confirm shortly.\n`;
+            break;
+        case 'deferred':
+            note += `Status: 📞 Call Required - Since your event is within 2 days, we'll contact you to confirm details.\n`;
+            break;
+        default:
+            note += `Status: 📋 Order Received - Thank you for your order!\n`;
+    }
+    if (data.requiresPhoneCall) {
+        note += `Important: We'll contact you to confirm details and arrange delivery.\n`;
+    }
+    note += `\nQuestions? Contact us at jumpcsra@gmail.com or visit jumpcsra.com\n`;
+    note += `Thank you for choosing JumpCSRA Party Rentals!`;
+    return {
+        detail: {
+            invoice_number: `JC-${data.orderID.slice(-10)}`, // Take last 10 chars to keep under 25 char limit
+            reference: data.paypalOrderId || data.orderID,
+            invoice_date: new Date(data.orderDate).toISOString().split('T')[0],
+            currency_code: "USD",
+            note: note,
+            term: "No refunds after event date",
+            memo: `JumpCSRA Order #${data.orderID}`,
+            payment_term: {
+                term_type: "NET_10",
+                due_date: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+            }
+        },
+        invoicer: {
+            name: {
+                given_name: "JumpCSRA",
+                surname: "Party Rentals"
+            },
+            address: {
+                address_line_1: "Your Business Address",
+                admin_area_2: "Your City",
+                admin_area_1: "SC",
+                postal_code: "Your ZIP",
+                country_code: "US"
+            },
+            email_address: "jumpcsra@gmail.com",
+            phones: [
+                {
+                    country_code: "001",
+                    national_number: "8032210466",
+                    phone_type: "MOBILE"
+                }
+            ],
+            website: "https://jumpcsra.com",
+            additional_notes: "Making Your Events Unforgettable"
+        },
+        primary_recipients: [
+            {
+                billing_info: {
+                    name: {
+                        given_name: data.recipientName.split(' ')[0] || data.recipientName,
+                        surname: data.recipientName.split(' ').slice(1).join(' ') || ""
+                    },
+                    address: data.deliveryAddress ? {
+                        address_line_1: data.deliveryAddress,
+                        country_code: "US"
+                    } : undefined,
+                    email_address: data.recipientEmail
+                }
+            }
+        ],
+        items: items,
+        configuration: {
+            partial_payment: {
+                allow_partial_payment: data.remainingBalance > 0,
+                minimum_amount_due: {
+                    currency_code: "USD",
+                    value: data.amountPaid.toFixed(2)
+                }
+            },
+            allow_tip: false,
+            tax_calculated_after_discount: true,
+            tax_inclusive: false
         }
-        const result = await (0, paypalService_1.processPayPalRefund)(captureId, amount, reason);
-        return result;
+    };
+};
+// Cloud Function to create and send PayPal invoice
+exports.createPayPalInvoice = functions.https.onCall(async (data, context) => {
+    var _a;
+    console.log('🚀 FIREBASE FUNCTION - createPayPalInvoice called, auth status:', !!context.auth);
+    try {
+        // For PayPal invoices triggered by completed payments, be more lenient about authentication
+        if (!context.auth) {
+            console.log('⚠️ PAYPAL INVOICE - No authentication provided, but proceeding for completed payment');
+        }
+        console.log('📧 Input data validation:', {
+            orderID: data.orderID,
+            recipientEmail: data.recipientEmail,
+            totalAmount: data.totalAmount,
+            giftCardsCount: ((_a = data.giftCards) === null || _a === void 0 ? void 0 : _a.length) || 0
+        });
+        // Validate input data
+        if (!data.recipientEmail || !data.orderID || typeof data.totalAmount !== 'number') {
+            console.error('❌ FIREBASE FUNCTION - Invalid input data:', {
+                hasEmail: !!data.recipientEmail,
+                hasOrderID: !!data.orderID,
+                totalAmountType: typeof data.totalAmount
+            });
+            throw new functions.https.HttpsError('invalid-argument', 'Missing required invoice data.');
+        }
+        console.log(`📧 FIREBASE FUNCTION - Creating PayPal invoice for order ${data.orderID}`);
+        // Get PayPal access token
+        console.log('🔑 FIREBASE FUNCTION - Getting PayPal access token...');
+        const accessToken = await getPayPalAccessToken();
+        console.log('✅ FIREBASE FUNCTION - Access token obtained');
+        // Create invoice payload
+        console.log('📋 FIREBASE FUNCTION - Creating invoice payload...');
+        const invoicePayload = createPayPalInvoicePayload(data);
+        console.log('✅ FIREBASE FUNCTION - Invoice payload created');
+        // Create the invoice
+        console.log('📤 FIREBASE FUNCTION - Creating invoice via PayPal API...');
+        console.log('🔍 PAYPAL DEBUG - About to call:', `${PAYPAL_BASE_URL}/v2/invoicing/invoices`);
+        console.log('🔍 PAYPAL DEBUG - Payload:', JSON.stringify(invoicePayload, null, 2));
+        const createResponse = await fetch(`${PAYPAL_BASE_URL}/v2/invoicing/invoices`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+                'PayPal-Request-Id': `${data.orderID}-${Date.now()}`
+            },
+            body: JSON.stringify(invoicePayload)
+        });
+        console.log('🔍 PAYPAL DEBUG - Response received, status:', createResponse.status);
+        console.log('🔍 PAYPAL DEBUG - Response ok:', createResponse.ok);
+        if (!createResponse.ok) {
+            const errorText = await createResponse.text();
+            console.error('❌ FIREBASE FUNCTION - PayPal create invoice error:', errorText);
+            console.error('🔍 PAYPAL DEBUG - Error response body:', errorText);
+            throw new functions.https.HttpsError('internal', `PayPal API error: ${createResponse.status}`);
+        }
+        console.log('📋 FIREBASE FUNCTION - PayPal response status:', createResponse.status);
+        console.log('📋 FIREBASE FUNCTION - PayPal response headers:', createResponse.headers);
+        const invoice = await createResponse.json();
+        // Enhanced debugging - let's see what PayPal actually returns
+        console.log('� PAYPAL DEBUG - Full response object:', JSON.stringify(invoice, null, 2));
+        console.log('🔍 PAYPAL DEBUG - Object keys:', Object.keys(invoice || {}));
+        console.log('🔍 PAYPAL DEBUG - invoice.id:', invoice === null || invoice === void 0 ? void 0 : invoice.id);
+        console.log('🔍 PAYPAL DEBUG - invoice.invoice_id:', invoice === null || invoice === void 0 ? void 0 : invoice.invoice_id);
+        console.log('🔍 PAYPAL DEBUG - invoice.href:', invoice === null || invoice === void 0 ? void 0 : invoice.href);
+        console.log('🔍 PAYPAL DEBUG - invoice.links:', invoice === null || invoice === void 0 ? void 0 : invoice.links);
+        console.log('✅ FIREBASE FUNCTION - Invoice created with ID:', invoice.id);
+        // Check if invoice ID exists
+        if (!invoice.id) {
+            console.error('❌ FIREBASE FUNCTION - No invoice ID in response:', invoice);
+            // Fallback: Return success but indicate invoice creation failed
+            console.log('💰 FIREBASE FUNCTION - Returning success despite invoice failure for system stability');
+            return {
+                success: true,
+                message: 'Order processed successfully (invoice delivery pending)',
+                invoiceCreated: false,
+                fallbackRequired: true
+            };
+        }
+        // Send the invoice
+        console.log('📮 FIREBASE FUNCTION - Sending invoice to customer...');
+        const sendResponse = await fetch(`${PAYPAL_BASE_URL}/v2/invoicing/invoices/${invoice.id}/send`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({
+                send_to_recipient: true,
+                send_to_invoicer: true
+            })
+        });
+        if (!sendResponse.ok) {
+            const errorText = await sendResponse.text();
+            console.error('❌ FIREBASE FUNCTION - PayPal send invoice error:', errorText);
+            throw new functions.https.HttpsError('internal', `Failed to send invoice: ${sendResponse.status}`);
+        }
+        console.log(`✅ FIREBASE FUNCTION - PayPal invoice created and sent successfully: ${invoice.id}`);
+        return {
+            success: true,
+            invoiceId: invoice.id,
+            invoiceUrl: invoice.href || `https://paypal.com/invoice/details/${invoice.id}`,
+            message: 'PayPal invoice created and sent successfully'
+        };
     }
     catch (error) {
-        console.error('❌ PAYPAL REFUND - Cloud Function error:', error);
-        throw new functions.https.HttpsError('internal', `PayPal refund failed: ${error.message}`);
+        console.error('❌ FIREBASE FUNCTION - Error creating PayPal invoice:', error);
+        if (error instanceof functions.https.HttpsError) {
+            throw error;
+        }
+        throw new functions.https.HttpsError('internal', 'Failed to create PayPal invoice.');
     }
 });
-// =============================================================================
-// EMAIL SCHEDULER FUNCTIONS
-// =============================================================================
-/**
- * Manual Email Testing and Trigger Function
- *
- * Purpose: Provides manual testing capabilities for all automated email types in the system
- *
- * Functionality:
- * - Allows manual triggering of specific email types for testing
- * - Validates email processing logic without waiting for scheduled triggers
- * - Supports development and debugging of email automation workflows
- * - Provides immediate feedback on email system functionality
- * - Enables testing of edge cases and error conditions
- *
- * Authentication: Required (prevents unauthorized email testing/spamming)
- *
- * Supported Email Types:
- * - 'cart-abandonment': Reminds customers of items left in cart
- * - 'deposit-reminder': Prompts for required deposit payments
- * - 'event-confirmation': Confirms upcoming event details
- * - 'post-event-thanks': Thank you messages after event completion
- * - 'rebooking-reminder': Encourages repeat bookings from past customers
- *
- * Input Data:
- * - type: Email type to trigger (see supported types above)
- * - email: Test recipient email address
- * - name: Test recipient name
- * - bookingId: Required for booking-specific emails (optional for general types)
- *
- * Testing Features:
- * - Individual email type testing
- * - Real-time error reporting
- * - Success/failure status tracking
- * - Integration with actual email processing functions
- *
- * Development Use: Essential for testing email automation before production deployment
- */
+// ============================================================================
+// SCHEDULED EMAIL FUNCTIONS - Individual email sending functions
+// ============================================================================
+// Cart abandonment email
+async function sendCartAbandonmentEmail(cart, userId) {
+    try {
+        console.log('📧 Sending cart abandonment email to:', cart.customerEmail);
+        const emailHTML = generateCartAbandonmentEmailHTML(cart, userId);
+        const msg = {
+            to: cart.customerEmail,
+            from: 'jumpcsra@gmail.com',
+            subject: 'Don\'t forget your bounce house rental! 🏰',
+            html: emailHTML,
+            categories: ['cart-abandonment', 'marketing']
+        };
+        await sgMail.send(msg);
+        console.log('✅ Cart abandonment email sent successfully');
+    }
+    catch (error) {
+        console.error('❌ Error sending cart abandonment email:', error);
+        throw error;
+    }
+}
+// Deposit reminder email
+async function sendDepositReminderEmail(booking, bookingId) {
+    try {
+        console.log('📧 Sending deposit reminder email to:', booking.customerEmail);
+        const emailHTML = generateDepositReminderEmailHTML(booking, bookingId);
+        const msg = {
+            to: booking.customerEmail,
+            from: 'jumpcsra@gmail.com',
+            subject: `Final Payment Due Soon - Event ${booking.eventDate} 💰`,
+            html: emailHTML,
+            categories: ['deposit-reminder', 'transactional']
+        };
+        await sgMail.send(msg);
+        console.log('✅ Deposit reminder email sent successfully');
+    }
+    catch (error) {
+        console.error('❌ Error sending deposit reminder email:', error);
+        throw error;
+    }
+}
+// Event confirmation email
+async function sendEventConfirmationEmail(booking, bookingId) {
+    try {
+        console.log('📧 Sending event confirmation email to:', booking.customerEmail);
+        const emailHTML = generateEventConfirmationEmailHTML(booking, bookingId);
+        const msg = {
+            to: booking.customerEmail,
+            from: 'jumpcsra@gmail.com',
+            subject: `Your Event is Coming Up! - ${booking.eventDate} 🎉`,
+            html: emailHTML,
+            categories: ['event-confirmation', 'transactional']
+        };
+        await sgMail.send(msg);
+        console.log('✅ Event confirmation email sent successfully');
+    }
+    catch (error) {
+        console.error('❌ Error sending event confirmation email:', error);
+        throw error;
+    }
+}
+// Post-event thank you email
+async function sendPostEventThanksEmail(booking, bookingId) {
+    try {
+        console.log('📧 Sending post-event thank you email to:', booking.customerEmail);
+        const emailHTML = generatePostEventThanksEmailHTML(booking, bookingId);
+        const msg = {
+            to: booking.customerEmail,
+            from: 'jumpcsra@gmail.com',
+            subject: `Thank you for choosing JumpCSRA! 🙏`,
+            html: emailHTML,
+            categories: ['post-event', 'marketing']
+        };
+        await sgMail.send(msg);
+        console.log('✅ Post-event thank you email sent successfully');
+    }
+    catch (error) {
+        console.error('❌ Error sending post-event thank you email:', error);
+        throw error;
+    }
+}
+// Rebooking reminder email
+async function sendRebookingReminderEmail(booking, bookingId) {
+    try {
+        console.log('📧 Sending rebooking reminder email to:', booking.customerEmail);
+        const emailHTML = generateRebookingReminderEmailHTML(booking, bookingId);
+        const msg = {
+            to: booking.customerEmail,
+            from: 'jumpcsra@gmail.com',
+            subject: `Time for Another Party? 🎈 Special Returning Customer Discount!`,
+            html: emailHTML,
+            categories: ['rebooking-reminder', 'marketing']
+        };
+        await sgMail.send(msg);
+        console.log('✅ Rebooking reminder email sent successfully');
+    }
+    catch (error) {
+        console.error('❌ Error sending rebooking reminder email:', error);
+        throw error;
+    }
+}
+// ============================================================================
+// EMAIL TEMPLATE GENERATORS - HTML templates for scheduled emails
+// ============================================================================
+// Cart abandonment email template
+function generateCartAbandonmentEmailHTML(cart, userId) {
+    const cartItems = cart.cartItems || [];
+    const cartTotal = cart.cartValue || 0;
+    const itemsHTML = cartItems.map((item) => `
+    <tr>
+      <td style="padding: 10px; border-bottom: 1px solid #eee;">
+        <strong>${item.name || item.title}</strong><br>
+        <small style="color: #666;">${item.category || 'Rental Item'}</small>
+      </td>
+      <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">
+        $${(item.price || 0).toFixed(2)}
+      </td>
+    </tr>
+  `).join('');
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Don't Forget Your Bounce House Rental!</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        .header { text-align: center; color: #2c5aa0; margin-bottom: 30px; }
+        .cta-button { display: inline-block; background: #ff6b35; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🏰 Don't Forget Your Bounce House Rental!</h1>
+        </div>
+        
+        <p>Hi ${cart.customerName || 'there'}!</p>
+        
+        <p>We noticed you left some amazing bounce houses in your cart. Don't let the fun slip away! Your party rentals are waiting for you:</p>
+        
+        <table>
+          <thead>
+            <tr style="background-color: #f8f9fa;">
+              <th style="padding: 15px; text-align: left;">Item</th>
+              <th style="padding: 15px; text-align: right;">Price</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHTML}
+          </tbody>
+          <tfoot>
+            <tr style="background-color: #2c5aa0; color: white;">
+              <th style="padding: 15px; text-align: left;">Total</th>
+              <th style="padding: 15px; text-align: right;">$${cartTotal.toFixed(2)}</th>
+            </tr>
+          </tfoot>
+        </table>
+        
+        <div style="text-align: center;">
+          <a href="https://jumpcsra.com/checkout" class="cta-button">Complete Your Booking Now! 🎉</a>
+        </div>
+        
+        <p>❗ <strong>Important:</strong> Popular items book up fast, especially on weekends. Complete your booking now to secure your date!</p>
+        
+        <p>Questions? Reply to this email or call us at (555) 123-4567.</p>
+        
+        <div class="footer">
+          <p>JumpCSRA Party Rentals - Making Your Celebrations Unforgettable!</p>
+          <p>If you no longer wish to receive these emails, <a href="#">unsubscribe here</a>.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+// Deposit reminder email template
+function generateDepositReminderEmailHTML(booking, bookingId) {
+    const eventDate = new Date(booking.eventDate).toLocaleDateString();
+    const remainingAmount = booking.remainingBalance || 0;
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Final Payment Due Soon</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        .header { text-align: center; color: #2c5aa0; margin-bottom: 30px; }
+        .alert { background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .cta-button { display: inline-block; background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>💰 Final Payment Reminder</h1>
+        </div>
+        
+        <p>Hi ${booking.customerName || 'there'}!</p>
+        
+        <p>Your bounce house party is coming up soon! Just a friendly reminder that your final payment is due.</p>
+        
+        <div class="alert">
+          <strong>Event Details:</strong><br>
+          📅 <strong>Date:</strong> ${eventDate}<br>
+          💵 <strong>Remaining Balance:</strong> $${remainingAmount.toFixed(2)}<br>
+          🆔 <strong>Booking ID:</strong> ${bookingId}
+        </div>
+        
+        <p>To ensure your event goes smoothly, please complete your final payment as soon as possible. You can pay online through your customer portal or call us directly.</p>
+        
+        <div style="text-align: center;">
+          <a href="https://jumpcsra.com/profile" class="cta-button">Pay Remaining Balance 💳</a>
+        </div>
+        
+        <p><strong>Payment Options:</strong></p>
+        <ul>
+          <li>💻 Online: Log into your account at jumpcsra.com</li>
+          <li>📞 Phone: Call us at (555) 123-4567</li>
+          <li>💵 Cash: Pay on delivery (arrangement required)</li>
+        </ul>
+        
+        <p>Thank you for choosing JumpCSRA for your celebration!</p>
+        
+        <div class="footer">
+          <p>JumpCSRA Party Rentals - Making Your Celebrations Unforgettable!</p>
+          <p>Questions? Reply to this email or call (555) 123-4567</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+// Event confirmation email template
+function generateEventConfirmationEmailHTML(booking, bookingId) {
+    const eventDate = new Date(booking.eventDate).toLocaleDateString();
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Your Event is Coming Up!</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        .header { text-align: center; color: #2c5aa0; margin-bottom: 30px; }
+        .info-box { background: #e3f2fd; border: 1px solid #2196f3; color: #1565c0; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .checklist { background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; }
+        .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🎉 Your Event is Almost Here!</h1>
+        </div>
+        
+        <p>Hi ${booking.customerName || 'there'}!</p>
+        
+        <p>We're excited that your bounce house party is coming up in just a few days! Here's everything you need to know:</p>
+        
+        <div class="info-box">
+          <strong>Event Details:</strong><br>
+          📅 <strong>Date:</strong> ${eventDate}<br>
+          📍 <strong>Address:</strong> ${booking.deliveryAddress || 'As provided'}<br>
+          🕐 <strong>Setup Time:</strong> ${booking.deliveryTime || 'As scheduled'}<br>
+          🆔 <strong>Booking ID:</strong> ${bookingId}
+        </div>
+        
+        <div class="checklist">
+          <h3>📋 Pre-Event Checklist:</h3>
+          <ul>
+            <li>✅ Ensure the setup area is clear and accessible</li>
+            <li>✅ Have electrical outlets within 100 feet available</li>
+            <li>✅ Check weather forecast (we'll contact you if needed)</li>
+            <li>✅ Prepare space for our delivery team</li>
+            <li>✅ Have someone available during delivery window</li>
+          </ul>
+        </div>
+        
+        <p><strong>Delivery Information:</strong></p>
+        <ul>
+          <li>🚚 Our team will arrive during your scheduled time window</li>
+          <li>⚡ We'll need access to electricity for setup</li>
+          <li>🏠 Please ensure the setup area is easily accessible</li>
+          <li>📱 We'll call 30 minutes before arrival</li>
+        </ul>
+        
+        <p><strong>Weather Policy:</strong> We monitor weather conditions closely. If severe weather is expected, we'll contact you to discuss rescheduling options.</p>
+        
+        <p>Need to make any changes or have questions? Contact us immediately at (555) 123-4567.</p>
+        
+        <p>We can't wait to help make your celebration amazing! 🎈</p>
+        
+        <div class="footer">
+          <p>JumpCSRA Party Rentals - Making Your Celebrations Unforgettable!</p>
+          <p>Questions? Reply to this email or call (555) 123-4567</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+// Post-event thank you email template
+function generatePostEventThanksEmailHTML(booking, bookingId) {
+    const eventDate = new Date(booking.eventDate).toLocaleDateString();
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Thank You for Choosing JumpCSRA!</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        .header { text-align: center; color: #2c5aa0; margin-bottom: 30px; }
+        .highlight { background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 15px; border-radius: 5px; margin: 20px 0; text-align: center; }
+        .cta-button { display: inline-block; background: #ff6b35; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🙏 Thank You for Choosing JumpCSRA!</h1>
+        </div>
+        
+        <p>Hi ${booking.customerName || 'there'}!</p>
+        
+        <p>We hope your event on ${eventDate} was absolutely amazing! It was our pleasure to help make your celebration special with our bounce house rentals.</p>
+        
+        <div class="highlight">
+          <h3>🌟 How did we do?</h3>
+          <p>Your feedback means the world to us! Please take a moment to share your experience.</p>
+        </div>
+        
+        <div style="text-align: center;">
+          <a href="https://g.page/r/YOUR_GOOGLE_REVIEW_LINK/review" class="cta-button">Leave a Google Review ⭐</a>
+        </div>
+        
+        <p><strong>Share Your Photos! 📸</strong><br>
+        We'd love to see photos from your event! Tag us on social media @JumpCSRA or email them to us. We might feature your celebration (with permission) on our website!</p>
+        
+        <p><strong>Planning Another Event?</strong><br>
+        As a returning customer, you'll receive exclusive discounts and early access to new equipment. Keep us in mind for:</p>
+        <ul>
+          <li>🎂 Birthday parties</li>
+          <li>🎓 Graduation celebrations</li>
+          <li>🏫 School events</li>
+          <li>🏢 Corporate gatherings</li>
+          <li>🎪 Community festivals</li>
+        </ul>
+        
+        <p><strong>Refer a Friend:</strong> Know someone planning a party? Refer them to JumpCSRA and you'll both receive a special discount on your next rental!</p>
+        
+        <p>Thank you again for trusting us with your special day. We hope to bounce with you again soon! 🎈</p>
+        
+        <div class="footer">
+          <p>JumpCSRA Party Rentals - Making Your Celebrations Unforgettable!</p>
+          <p>Follow us: Facebook | Instagram | Twitter</p>
+          <p>Questions? Reply to this email or call (555) 123-4567</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+// Rebooking reminder email template
+function generateRebookingReminderEmailHTML(booking, bookingId) {
+    const lastEventDate = new Date(booking.eventDate).toLocaleDateString();
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Time for Another Party?</title>
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
+        .header { text-align: center; color: #2c5aa0; margin-bottom: 30px; }
+        .discount-box { background: linear-gradient(135deg, #ff6b35, #f39c12); color: white; padding: 20px; border-radius: 10px; text-align: center; margin: 20px 0; }
+        .cta-button { display: inline-block; background: #28a745; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .features { background: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; }
+        .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>🎈 Time for Another Amazing Party?</h1>
+        </div>
+        
+        <p>Hi ${booking.customerName || 'there'}!</p>
+        
+        <p>It's been a while since your last bounce house party with us on ${lastEventDate}, and we've been thinking about you! Are you ready to create more unforgettable memories?</p>
+        
+        <div class="discount-box">
+          <h2>🎉 SPECIAL RETURNING CUSTOMER OFFER!</h2>
+          <h3 style="margin: 10px 0; font-size: 28px;">15% OFF</h3>
+          <p style="margin: 5px 0;">Your Next Rental + FREE Setup</p>
+          <p style="font-size: 14px; margin: 5px 0;">Use Code: WELCOME-BACK</p>
+        </div>
+        
+        <div style="text-align: center;">
+          <a href="https://jumpcsra.com?discount=WELCOME-BACK" class="cta-button">Browse Bounce Houses 🏰</a>
+        </div>
+        
+        <div class="features">
+          <h3>🆕 What's New Since Your Last Visit:</h3>
+          <ul>
+            <li>🎪 Brand new themed bounce houses (Princess, Superhero, Sports)</li>
+            <li>🌊 Water slide combos for summer fun</li>
+            <li>🎯 Interactive games and obstacle courses</li>
+            <li>📱 Improved online booking with instant confirmation</li>
+            <li>🚚 Extended delivery areas</li>
+          </ul>
+        </div>
+        
+        <p><strong>Perfect for:</strong></p>
+        <ul>
+          <li>🎂 Upcoming birthdays</li>
+          <li>🎓 Graduation celebrations</li>
+          <li>☀️ Summer parties</li>
+          <li>🏫 School events</li>
+          <li>👨‍👩‍👧‍👦 Family reunions</li>
+        </ul>
+        
+        <p><strong>Why Choose JumpCSRA Again?</strong></p>
+        <ul>
+          <li>✅ Same great service you remember</li>
+          <li>✅ Clean, sanitized equipment</li>
+          <li>✅ Professional setup and pickup</li>
+          <li>✅ Competitive pricing</li>
+          <li>✅ Last-minute availability</li>
+        </ul>
+        
+        <p><strong>⏰ Limited Time Offer:</strong> This 15% discount expires in 30 days, so book soon to secure your date and savings!</p>
+        
+        <p>Ready to bounce back into fun? We can't wait to help make your next celebration spectacular! 🎉</p>
+        
+        <div class="footer">
+          <p>JumpCSRA Party Rentals - Making Your Celebrations Unforgettable!</p>
+          <p>Questions? Reply to this email or call (555) 123-4567</p>
+          <p>If you no longer wish to receive these emails, <a href="#">unsubscribe here</a>.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
+// ============================================================================
+// MANUAL EMAIL TESTING FUNCTIONS - For immediate testing via frontend
+// ============================================================================
+// Manual email testing function (callable from frontend)
 exports.triggerTestEmail = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'Authentication required for email testing.');
-    }
-    const db = admin.database();
-    const now = Date.now();
+    console.log('🧪 MANUAL TEST: Triggering test email:', data);
     try {
-        switch (data.type) {
+        const db = admin.database();
+        switch (data.emailType) {
             case 'cart-abandonment':
-                await processCartAbandonmentEmails(db, now);
-                return { success: true, message: 'Cart abandonment email sent' };
+                if (!data.userId)
+                    throw new Error('userId required for cart abandonment email');
+                const cartRef = db.ref(`carts/${data.userId}`);
+                const cartSnapshot = await cartRef.once('value');
+                if (cartSnapshot.exists()) {
+                    await sendCartAbandonmentEmail(cartSnapshot.val(), data.userId);
+                    return { success: true, message: 'Cart abandonment email sent' };
+                }
+                throw new Error('Cart not found');
             case 'deposit-reminder':
-                await processDepositReminderEmails(db, now);
-                return { success: true, message: 'Deposit reminder email sent' };
+                if (!data.bookingId)
+                    throw new Error('bookingId required for deposit reminder email');
+                const bookingRef = db.ref(`bookings/${data.bookingId}`);
+                const bookingSnapshot = await bookingRef.once('value');
+                if (bookingSnapshot.exists()) {
+                    await sendDepositReminderEmail(bookingSnapshot.val(), data.bookingId);
+                    return { success: true, message: 'Deposit reminder email sent' };
+                }
+                throw new Error('Booking not found');
             case 'event-confirmation':
-                await processEventConfirmationEmails(db, now);
-                return { success: true, message: 'Event confirmation email sent' };
+                if (!data.bookingId)
+                    throw new Error('bookingId required for event confirmation email');
+                const eventBookingRef = db.ref(`bookings/${data.bookingId}`);
+                const eventBookingSnapshot = await eventBookingRef.once('value');
+                if (eventBookingSnapshot.exists()) {
+                    await sendEventConfirmationEmail(eventBookingSnapshot.val(), data.bookingId);
+                    return { success: true, message: 'Event confirmation email sent' };
+                }
+                throw new Error('Booking not found');
             case 'post-event-thanks':
-                await processPostEventEmails(db, now);
-                return { success: true, message: 'Post-event thank you email sent' };
+                if (!data.bookingId)
+                    throw new Error('bookingId required for post-event email');
+                const postEventBookingRef = db.ref(`bookings/${data.bookingId}`);
+                const postEventBookingSnapshot = await postEventBookingRef.once('value');
+                if (postEventBookingSnapshot.exists()) {
+                    await sendPostEventThanksEmail(postEventBookingSnapshot.val(), data.bookingId);
+                    return { success: true, message: 'Post-event thank you email sent' };
+                }
+                throw new Error('Booking not found');
             case 'rebooking-reminder':
+                if (!data.bookingId)
+                    throw new Error('bookingId required for rebooking reminder email');
+                const rebookingBookingRef = db.ref(`bookings/${data.bookingId}`);
+                const rebookingBookingSnapshot = await rebookingBookingRef.once('value');
+                if (rebookingBookingSnapshot.exists()) {
+                    await sendRebookingReminderEmail(rebookingBookingSnapshot.val(), data.bookingId);
+                    return { success: true, message: 'Rebooking reminder email sent' };
+                }
+                throw new Error('Booking not found');
+            case 'process-all-scheduled':
+                const now = Date.now();
+                await processCartAbandonmentEmails(db, now);
+                await processDepositReminderEmails(db, now);
+                await processEventConfirmationEmails(db, now);
+                await processPostEventEmails(db, now);
                 await processRebookingReminderEmails(db, now);
-                return { success: true, message: 'Rebooking reminder email sent' };
+                return { success: true, message: 'All scheduled emails processed' };
             default:
-                throw new Error(`Unknown email type: ${data.type}`);
+                throw new Error('Invalid email type. Use: cart-abandonment, deposit-reminder, event-confirmation, post-event-thanks, rebooking-reminder, or process-all-scheduled');
         }
     }
     catch (error) {
-        console.error(`❌ EMAIL TEST - ${data.type} failed:`, error);
-        throw new functions.https.HttpsError('internal', `Email test failed: ${error.message}`);
+        console.error('❌ MANUAL TEST: Error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        return { success: false, error: errorMessage };
     }
 });
-/**
- * Automated Email Processing Scheduler (Cloud Scheduler)
- *
- * Purpose: Automatically processes all scheduled email types at regular intervals
- *
- * Functionality:
- * - Runs comprehensive email automation system on schedule
- * - Processes multiple email types simultaneously for efficiency
- * - Monitors database for conditions triggering automated emails
- * - Ensures timely delivery of customer communications
- * - Maintains customer engagement through automated touchpoints
- *
- * Schedule Configuration:
- * - Current: Every 2 minutes (production scheduler)
- * - Production: Should be changed to 'every 1 hours' for optimal performance
- * - Adjustable based on business needs and email volume
- *
- * Email Types Processed:
- * - Cart Abandonment: Recovers potentially lost sales
- * - Deposit Reminders: Ensures timely payment collection
- * - Event Confirmations: Provides pre-event customer communication
- * - Post-Event Thanks: Maintains customer relationships
- * - Rebooking Reminders: Drives repeat business
- *
- * Processing Strategy:
- * - Parallel processing for improved performance
- * - Database timestamp checks to prevent duplicate sends
- * - Error isolation (one failure doesn't stop others)
- * - Comprehensive logging for monitoring and debugging
- *
- * Monitoring:
- * - Success/failure logging for each email type
- * - Performance metrics and processing times
- * - Error tracking for system health monitoring
- *
- * Production Notes: Adjust schedule frequency based on email volume and business requirements
- */
+// ============================================================================
+// SCHEDULED EMAIL SYSTEM - Checks database daily for emails to send
+// ============================================================================
+// Environment variable for testing mode (speeds up email timing)
+const emailConfig = functions.config().email || {};
+const isTestingMode = emailConfig.testing_mode === 'true';
+console.log(`📧 EMAIL SCHEDULER: Testing mode ${isTestingMode ? 'ENABLED' : 'DISABLED'}`);
+// Email timing constants (in milliseconds)
+const EMAIL_TIMING = {
+    CART_ABANDONMENT: isTestingMode ? 1 * 60 * 1000 : 24 * 60 * 60 * 1000, // 1 min vs 24 hours
+    DEPOSIT_REMINDER: isTestingMode ? 2 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000, // 2 min vs 7 days
+    EVENT_CONFIRMATION: isTestingMode ? 3 * 60 * 1000 : 3 * 24 * 60 * 60 * 1000, // 3 min vs 3 days
+    POST_EVENT_THANKS: isTestingMode ? 4 * 60 * 1000 : 1 * 24 * 60 * 60 * 1000, // 4 min vs 1 day
+    REBOOKING_REMINDER: isTestingMode ? 5 * 60 * 1000 : 9 * 30 * 24 * 60 * 60 * 1000 // 5 min vs 9 months
+};
+console.log('📧 EMAIL TIMING CONFIG:', {
+    testingMode: isTestingMode,
+    cartAbandonment: isTestingMode ? '1 minute' : '24 hours',
+    depositReminder: isTestingMode ? '2 minutes' : '7 days',
+    eventConfirmation: isTestingMode ? '3 minutes' : '3 days',
+    postEventThanks: isTestingMode ? '4 minutes' : '1 day',
+    rebookingReminder: isTestingMode ? '5 minutes' : '9 months'
+});
+// Main scheduled function to process all email types
 exports.processScheduledEmails = functions.pubsub
-    .schedule('every 2 minutes') // For production, change to 'every 1 hours'
+    .schedule(isTestingMode ? '*/2 * * * *' : '0 */6 * * *') // Every 2 minutes in testing, every 6 hours in production
+    .timeZone('America/New_York') // EST/EDT timezone
     .onRun(async (context) => {
-    const db = admin.database();
-    const now = Date.now();
+    console.log(`🕐 SCHEDULER: Running scheduled email processor... (Testing Mode: ${isTestingMode})`);
     try {
-        // Process all email types
-        await Promise.all([
-            processCartAbandonmentEmails(db, now),
-            processDepositReminderEmails(db, now),
-            processEventConfirmationEmails(db, now),
-            processPostEventEmails(db, now),
-            processRebookingReminderEmails(db, now)
-        ]);
+        const db = admin.database();
+        const now = Date.now();
+        // Process cart abandonment emails
+        await processCartAbandonmentEmails(db, now);
+        // Process deposit reminder emails
+        await processDepositReminderEmails(db, now);
+        // Process event confirmation emails
+        await processEventConfirmationEmails(db, now);
+        // Process post-event thank you emails
+        await processPostEventEmails(db, now);
+        // Process rebooking reminder emails
+        await processRebookingReminderEmails(db, now);
+        console.log('✅ SCHEDULER: All scheduled emails processed successfully');
     }
     catch (error) {
         console.error('❌ SCHEDULER: Error processing scheduled emails:', error);
+        throw error;
     }
 });
-/**
- * Automatic Booking Completion Function (Cloud Scheduler)
- *
- * Purpose: Automatically marks confirmed bookings as "complete" once their event date has passed
- *
- * Functionality:
- * - Maintains accurate booking status lifecycle management
- * - Identifies past events that are still marked as confirmed/paid
- * - Updates booking status to 'complete' for proper record keeping
- * - Enables proper analytics and reporting on completed events
- * - Supports business operations for follow-up activities
- *
- * Schedule: Runs every hour to ensure timely status updates
- *
- * Processing Logic:
- * - Queries database for confirmed bookings (status: 'confirmed' or 'paid')
- * - Checks if event date has passed (eventDate < current date)
- * - Updates booking status to 'complete' with completion timestamp
- * - Records completion reason for audit purposes
- * - Batch processes multiple bookings for efficiency
- *
- * Business Rules:
- * - Only processes confirmed/paid bookings (skips pending, canceled)
- * - Uses event date from orderDetails.eventDate field
- * - Preserves all original booking data
- * - Marks completion as automatic system action
- * - Maintains audit trail with timestamps
- *
- * Database Operations:
- * - Efficient querying using Firebase Database indexing
- * - Batch updates to minimize database writes
- * - Atomic operations to prevent data inconsistency
- * - Comprehensive logging for monitoring
- *
- * Benefits:
- * - Accurate booking lifecycle tracking
- * - Enables post-event email automation
- * - Improved reporting and analytics
- * - Automated business process management
- *
- * Configuration: Checks event dates against current date for completion
- */
-exports.autoCompleteBookings = functions.pubsub
-    .schedule('every 1 hours')
-    .onRun(async (context) => {
-    const db = admin.database();
-    const now = Date.now();
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Start of today
-    try {
-        const bookingsRef = db.ref('bookings');
-        const snapshot = await bookingsRef.once('value');
-        if (!snapshot.exists()) {
-            return;
-        }
-        const updates = {};
-        let completedCount = 0;
-        snapshot.forEach((child) => {
-            var _a;
-            const booking = child.val();
-            const bookingStatus = booking.status || 'pending';
-            // Only process confirmed or paid bookings
-            if (bookingStatus === 'confirmed' || bookingStatus === 'paid') {
-                // Access event date from the correct location in the data structure
-                const eventDate = ((_a = booking.orderDetails) === null || _a === void 0 ? void 0 : _a.eventDate) || booking.eventDate;
-                if (eventDate) {
-                    const eventDateObj = new Date(eventDate);
-                    eventDateObj.setHours(23, 59, 59, 999); // End of event day
-                    // If event date has passed, mark as complete
-                    if (eventDateObj < today) {
-                        updates[`${child.key}/status`] = 'complete';
-                        updates[`${child.key}/completedAt`] = now;
-                        updates[`${child.key}/completionReason`] = 'Auto-completed after event date';
-                        completedCount++;
-                    }
-                }
-                else {
-                }
-            }
-        });
-        if (completedCount > 0) {
-            await bookingsRef.update(updates);
-        }
-        else {
-        }
-    }
-    catch (error) {
-        console.error('❌ AUTO-COMPLETE: Error processing bookings:', error);
-    }
-});
-/**
- * Daily Membership Billing Processor (Cloud Scheduler)
- *
- * Purpose: Process recurring membership billing every 30 days
- * Features:
- * - Checks all users with active memberships
- * - Bills users whose 30-day period has elapsed
- * - Handles payment failures with email notifications
- * - Processes membership cancellations
- * - Creates billing history records
- *
- * Schedule: Runs daily at 9:00 AM UTC
- */
-exports.processMembershipBilling = functions.pubsub
-    .schedule('0 9 * * *') // Daily at 9 AM UTC
-    .onRun(async (context) => {
-    var _a, _b;
-    console.log('Starting daily subscription status sync...');
-    const db = admin.firestore();
-    let processedCount = 0;
-    let errorCount = 0;
-    try {
-        // Get PayPal access token once for all requests
-        const accessToken = await getPayPalAccessToken();
-        // Get all user subscriptions from our database
-        const subscriptionsSnapshot = await db.collection('userSubscriptions').get();
-        for (const subDoc of subscriptionsSnapshot.docs) {
-            const userId = subDoc.id;
-            const localSubscription = subDoc.data();
-            // Skip if no PayPal subscription ID
-            if (!localSubscription.subscriptionId) {
-                console.log(`No subscription ID for user ${userId}, skipping...`);
-                continue;
-            }
-            try {
-                // Get current status from PayPal
-                const paypalResponse = await axios_1.default.get(`${PAYPAL_BASE_URL}/v1/billing/subscriptions/${localSubscription.subscriptionId}`, {
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                        'Accept': 'application/json'
-                    }
-                });
-                const paypalStatus = paypalResponse.data.status;
-                const localStatus = localSubscription.status;
-                // Check if status has changed
-                if (paypalStatus !== localStatus) {
-                    console.log(`Status mismatch for user ${userId}: Local=${localStatus}, PayPal=${paypalStatus}`);
-                    // Update our database to match PayPal
-                    await subDoc.ref.update({
-                        status: paypalStatus,
-                        lastSyncedAt: new Date(),
-                        lastPayPalSync: paypalResponse.data,
-                        syncReason: 'daily-status-check'
-                    });
-                    // Update user membership status based on PayPal status
-                    const membershipUpdate = {
-                        updatedAt: new Date().toISOString(),
-                        lastSyncedAt: new Date().toISOString()
-                    };
-                    if (paypalStatus === 'ACTIVE') {
-                        membershipUpdate.jumpClub = true;
-                        membershipUpdate.cancelled = false;
-                    }
-                    else if (['CANCELLED', 'SUSPENDED', 'EXPIRED'].includes(paypalStatus)) {
-                        membershipUpdate.jumpClub = false;
-                        membershipUpdate.cancelled = true;
-                        if (paypalStatus === 'CANCELLED') {
-                            membershipUpdate.dateCancelled = new Date().toISOString();
-                        }
-                    }
-                    // Update user membership status
-                    await db.collection('users')
-                        .doc(userId)
-                        .collection('membership')
-                        .doc('status')
-                        .update(membershipUpdate);
-                    console.log(`Updated user ${userId} membership status to match PayPal: ${paypalStatus}`);
-                }
-                processedCount++;
-            }
-            catch (error) {
-                console.error(`Error syncing subscription for user ${userId}:`, ((_a = error.response) === null || _a === void 0 ? void 0 : _a.data) || error.message);
-                errorCount++;
-                // If subscription not found in PayPal, mark as cancelled locally
-                if (((_b = error.response) === null || _b === void 0 ? void 0 : _b.status) === 404) {
-                    await subDoc.ref.update({
-                        status: 'CANCELLED',
-                        lastSyncedAt: new Date(),
-                        syncReason: 'not-found-in-paypal'
-                    });
-                    await db.collection('users')
-                        .doc(userId)
-                        .collection('membership')
-                        .doc('status')
-                        .update({
-                        jumpClub: false,
-                        cancelled: true,
-                        dateCancelled: new Date().toISOString(),
-                        updatedAt: new Date().toISOString()
-                    });
-                    console.log(`Marked user ${userId} subscription as cancelled (not found in PayPal)`);
-                }
-            }
-            // Small delay to avoid rate limits
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
-        console.log(`Daily sync completed: ${processedCount} processed, ${errorCount} errors`);
-    }
-    catch (error) {
-        console.error('Error in daily subscription sync:', error);
-    }
-});
-try { }
-catch (emailError) {
-    console.error(`Failed to send payment failure email to ${userData.email}:`, emailError);
-}
-// Cancel membership
-await firestore
-    .collection('users')
-    .doc(userId)
-    .collection('membership')
-    .doc('status')
-    .update({
-    jumpClub: false,
-    dateStarted: admin.firestore.FieldValue.delete(),
-    updatedAt: now.toISOString()
-});
-continue;
-const paymentData = paymentDoc.data(); // We know it exists from the check above
-// Create payment record
-const paymentId = `mb-${userId}-${Date.now()}`;
-const nextBillingDate = new Date(now);
-nextBillingDate.setDate(nextBillingDate.getDate() + 30);
-try {
-    // Attempt to charge the payment method
-    const chargeResult = await (0, paypalService_1.chargeVaultedPayment)({
-        customerId: paymentData.paypalVaultId,
-        paymentTokenId: ((_b = paymentData.savedPaymentMethods[0]) === null || _b === void 0 ? void 0 : _b.paypalVaultId) || '',
-        amount: amount,
-        currency: 'USD',
-        description: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Monthly Billing`,
-        reference_id: paymentId
-    });
-    // Save successful payment record
-    await firestore.collection('membershipPayments').doc(paymentId).set({
-        id: paymentId,
-        userId: userId,
-        membershipType: membershipType,
-        amount: amount,
-        paymentDate: now.toISOString(),
-        nextBillingDate: nextBillingDate.toISOString(),
-        paymentMethodId: (_c = paymentData.savedPaymentMethods[0]) === null || _c === void 0 ? void 0 : _c.id,
-        paypalTransactionId: chargeResult.id,
-        status: 'completed',
-        createdAt: now.toISOString()
-    });
-    // Send successful billing email
-    const userData = userDoc.data();
-    if (userData === null || userData === void 0 ? void 0 : userData.email) {
-        try {
-            await (0, emailService_1.sendOrderConfirmationEmail)({
-                recipientEmail: userData.email,
-                recipientName: userData.name || 'Valued Customer',
-                orderID: paymentId,
-                orderDate: now.toISOString(),
-                eventDate: now.toISOString(),
-                deliveryAddress: 'Digital Service',
-                rentalItems: [{
-                        name: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Monthly Billing`,
-                        price: amount,
-                        quantity: 1
-                    }],
-                lastMinuteAdditions: [],
-                subtotal: amount,
-                surfaceAdjustment: 0,
-                timeAdjustment: 0,
-                deliveryCost: 0,
-                totalAmount: amount,
-                paymentType: 'Membership Billing',
-                amountPaid: amount,
-                remainingBalance: 0
-            });
-        }
-        catch (emailError) {
-            console.error(`Failed to send billing success email to ${userData.email}:`, emailError);
-        }
-    }
-}
-catch (chargeError) {
-    // Payment failed - save failed record and send email
-    await firestore.collection('membershipPayments').doc(paymentId).set({
-        id: paymentId,
-        userId: userId,
-        membershipType: membershipType,
-        amount: amount,
-        paymentDate: now.toISOString(),
-        nextBillingDate: nextBillingDate.toISOString(),
-        paymentMethodId: (_d = paymentData === null || paymentData === void 0 ? void 0 : paymentData.savedPaymentMethods[0]) === null || _d === void 0 ? void 0 : _d.id,
-        status: 'failed',
-        failureReason: (chargeError === null || chargeError === void 0 ? void 0 : chargeError.message) || 'Unknown payment error',
-        createdAt: now.toISOString()
-    });
-    // Send payment failure email and cancel membership
-    const userData = userDoc.data();
-    if (userData === null || userData === void 0 ? void 0 : userData.email) {
-        try {
-            await (0, emailService_1.sendOrderConfirmationEmail)({
-                recipientEmail: userData.email,
-                recipientName: userData.name || 'Valued Customer',
-                orderID: paymentId,
-                orderDate: now.toISOString(),
-                eventDate: now.toISOString(),
-                deliveryAddress: 'Payment Failed - Membership Cancelled',
-                rentalItems: [{
-                        name: `${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)} Membership - Payment Failed`,
-                        price: amount,
-                        quantity: 1
-                    }],
-                lastMinuteAdditions: [],
-                subtotal: amount,
-                surfaceAdjustment: 0,
-                timeAdjustment: 0,
-                deliveryCost: 0,
-                totalAmount: amount,
-                paymentType: 'Membership Billing',
-                amountPaid: 0,
-                remainingBalance: amount
-            });
-        }
-        catch (emailError) {
-            console.error(`Failed to send payment failure email to ${userData.email}:`, emailError);
-        }
-    }
-    // Cancel membership after payment failure
-    await firestore
-        .collection('users')
-        .doc(userId)
-        .collection('membership')
-        .doc('status')
-        .update({
-        jumpClub: false,
-        dateStarted: admin.firestore.FieldValue.delete(),
-        updatedAt: now.toISOString()
-    });
-}
-try { }
-catch (userError) {
-    console.error(`Error processing membership billing for user ${userId}:`, userError);
-}
-try { }
-catch (error) {
-    console.error('❌ MEMBERSHIP BILLING: Error processing membership billing:', error);
-}
-;
-// =============================================================================
-// EMAIL PROCESSING HELPER FUNCTIONS
-// =============================================================================
-// Email timing constants for scheduled functions (production values only)
-const EMAIL_TIMING = {
-    CART_ABANDONMENT: 24 * 60 * 60 * 1000, // 24 hours
-    DEPOSIT_REMINDER: 2 * 24 * 60 * 60 * 1000, // 2 days
-    EVENT_CONFIRMATION: 3 * 24 * 60 * 60 * 1000, // 3 days
-    POST_EVENT_THANKS: 1 * 24 * 60 * 60 * 1000, // 1 day
-    REBOOKING_REMINDER: 9 * 30 * 24 * 60 * 60 * 1000 // 9 months
-};
-// Email server configuration for scheduled emails
-const EMAIL_SERVER_BASE_URL = 'http://170.187.145.7:3001';
-const EMAIL_SERVER_API_KEY = 'jumpcsra_secure_api_key_2024';
+// Helper function to process cart abandonment emails
 async function processCartAbandonmentEmails(db, now) {
-    var _a;
     try {
+        console.log('📧 SCHEDULER: Checking cart abandonment emails...');
         const cartsRef = db.ref('carts');
         const snapshot = await cartsRef.once('value');
         if (!snapshot.exists()) {
+            console.log('📧 SCHEDULER: No carts found');
             return;
         }
         const carts = snapshot.val();
         let emailsSent = 0;
-        for (const [cartId, cartData] of Object.entries(carts)) {
+        for (const [userId, cartData] of Object.entries(carts)) {
             const cart = cartData;
-            // Skip if no email address
-            if (!cart.email)
+            // Skip if cart is empty or user already checked out
+            if (!cart.cartItems || cart.cartItems.length === 0)
                 continue;
-            const lastUpdated = cart.lastUpdated || cart.createdAt;
-            if (!lastUpdated)
-                continue;
-            const timeSinceUpdate = now - lastUpdated;
-            // Check if cart abandonment time has passed
+            // Check if cart abandonment email should be sent
+            const cartLastUpdated = cart.lastUpdated || cart.createdAt || now;
+            const timeSinceUpdate = now - cartLastUpdated;
             if (timeSinceUpdate >= EMAIL_TIMING.CART_ABANDONMENT) {
-                const emailSentKey = `cartAbandonment_${cartId}`;
+                // Check if we already sent this email
+                const emailSentKey = `cartAbandonment_${userId}_${cartLastUpdated}`;
                 const emailRef = db.ref(`emailsSent/${emailSentKey}`);
                 const emailSentSnapshot = await emailRef.once('value');
                 if (!emailSentSnapshot.exists()) {
-                    // Call email server directly for cart abandonment
-                    try {
-                        const emailData = {
-                            customerEmail: cart.email,
-                            customerName: ((_a = cart.customerInfo) === null || _a === void 0 ? void 0 : _a.name) || 'Customer',
-                            cartData: {
-                                items: cart.items || [],
-                                cartId: cartId,
-                                lastUpdated: lastUpdated
-                            }
-                        };
-                        await axios_1.default.post(`${EMAIL_SERVER_BASE_URL}/api/email/cart-abandonment`, emailData, {
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-API-Key': EMAIL_SERVER_API_KEY,
-                                'Accept': 'application/json'
-                            },
-                            timeout: 30000
-                        });
-                        await emailRef.set({ sentAt: now, type: 'cart-abandonment' });
-                        emailsSent++;
-                    }
-                    catch (emailError) {
-                        console.error(`❌ SCHEDULER: Failed to send cart abandonment email to ${cart.email}:`, emailError);
-                    }
+                    await sendCartAbandonmentEmail(cart, userId);
+                    await emailRef.set({ sentAt: now, type: 'cart-abandonment' });
+                    emailsSent++;
                 }
             }
         }
+        console.log(`📧 SCHEDULER: Sent ${emailsSent} cart abandonment emails`);
     }
     catch (error) {
         console.error('❌ SCHEDULER: Error processing cart abandonment emails:', error);
     }
 }
+// Helper function to process deposit reminder emails
 async function processDepositReminderEmails(db, now) {
-    var _a, _b, _c, _d;
     try {
+        console.log('📧 SCHEDULER: Checking deposit reminder emails...');
         const bookingsRef = db.ref('bookings');
         const snapshot = await bookingsRef.once('value');
         if (!snapshot.exists()) {
+            console.log('📧 SCHEDULER: No bookings found');
             return;
         }
         const bookings = snapshot.val();
         let emailsSent = 0;
         for (const [bookingId, bookingData] of Object.entries(bookings)) {
             const booking = bookingData;
-            // Only process pending bookings with remaining balance (deposit payments)
-            const remainingBalance = ((_a = booking.paymentDetails) === null || _a === void 0 ? void 0 : _a.remainingBalance) || 0;
-            if (!remainingBalance || remainingBalance <= 0)
+            // Only process bookings with remaining balance (deposit payments)
+            if (!booking.remainingBalance || booking.remainingBalance <= 0)
                 continue;
-            if (booking.status !== 'pending')
+            if (booking.status !== 'confirmed')
                 continue;
-            if (!((_b = booking.customerInfo) === null || _b === void 0 ? void 0 : _b.email))
-                continue;
-            if (((_c = booking.emails) === null || _c === void 0 ? void 0 : _c.depositReminder) === true)
-                continue; // Already sent
-            // Parse event date from the date range string (e.g., "11/10/2025 - 11/10/2025")
-            const eventDateString = (_d = booking.orderDetails) === null || _d === void 0 ? void 0 : _d.eventDate;
-            if (!eventDateString)
-                continue;
-            // Extract the first date from the range
-            const firstDate = eventDateString.split(' - ')[0];
-            const eventDate = new Date(firstDate).getTime();
-            if (isNaN(eventDate)) {
-                continue;
-            }
+            const eventDate = new Date(booking.eventDate).getTime();
             const timeUntilEvent = eventDate - now;
-            // Send reminder if event is within 2 days (or 2 min in testing mode)
+            // Send reminder 7 days before event (or testing interval)
             if (timeUntilEvent <= EMAIL_TIMING.DEPOSIT_REMINDER && timeUntilEvent > 0) {
-                try {
-                    const emailData = {
-                        customerEmail: booking.customerInfo.email,
-                        customerName: booking.customerInfo.name || 'Customer',
-                        bookingId: bookingId,
-                        remainingAmount: remainingBalance,
-                        dueDate: firstDate, // Event date as due date
-                        bookingDetails: {
-                            eventDate: firstDate,
-                            eventDetails: booking.orderDetails || {}
-                        }
-                    };
-                    await axios_1.default.post(`${EMAIL_SERVER_BASE_URL}/api/email/deposit-reminder`, emailData, {
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-API-Key': EMAIL_SERVER_API_KEY,
-                            'Accept': 'application/json'
-                        },
-                        timeout: 30000
-                    });
-                    // Update the email tracking flag
-                    await db.ref(`bookings/${bookingId}/emails/depositReminder`).set(true);
+                const emailSentKey = `depositReminder_${bookingId}`;
+                const emailRef = db.ref(`emailsSent/${emailSentKey}`);
+                const emailSentSnapshot = await emailRef.once('value');
+                if (!emailSentSnapshot.exists()) {
+                    await sendDepositReminderEmail(booking, bookingId);
+                    await emailRef.set({ sentAt: now, type: 'deposit-reminder' });
                     emailsSent++;
                 }
-                catch (emailError) {
-                    console.error(`❌ SCHEDULER: Failed to send deposit reminder email to ${booking.customerInfo.email}:`, emailError);
-                }
-            }
-            else {
             }
         }
+        console.log(`📧 SCHEDULER: Sent ${emailsSent} deposit reminder emails`);
     }
     catch (error) {
         console.error('❌ SCHEDULER: Error processing deposit reminder emails:', error);
     }
 }
+// Helper function to process event confirmation emails
 async function processEventConfirmationEmails(db, now) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
     try {
+        console.log('📧 SCHEDULER: Checking event confirmation emails...');
         const bookingsRef = db.ref('bookings');
         const snapshot = await bookingsRef.once('value');
         if (!snapshot.exists()) {
+            console.log('📧 SCHEDULER: No bookings found');
             return;
         }
         const bookings = snapshot.val();
         let emailsSent = 0;
         for (const [bookingId, bookingData] of Object.entries(bookings)) {
             const booking = bookingData;
-            // Only process confirmed bookings with no remaining balance  
-            const remainingBalance = ((_a = booking.paymentDetails) === null || _a === void 0 ? void 0 : _a.remainingBalance) || 0;
+            // Only process confirmed bookings
             if (booking.status !== 'confirmed')
                 continue;
-            if (remainingBalance > 0)
-                continue; // Still has deposit due
-            if (!((_b = booking.customerInfo) === null || _b === void 0 ? void 0 : _b.email))
-                continue;
-            if (((_c = booking.emails) === null || _c === void 0 ? void 0 : _c.eventConfirmation) === true)
-                continue; // Already sent
-            // Parse event date from the date range string (e.g., "11/11/2025 - 11/11/2025")
-            const eventDateString = (_d = booking.orderDetails) === null || _d === void 0 ? void 0 : _d.eventDate;
-            if (!eventDateString)
-                continue;
-            // Extract the first date from the range
-            const firstDate = eventDateString.split(' - ')[0];
-            const eventDate = new Date(firstDate).getTime();
-            if (isNaN(eventDate)) {
-                continue;
-            }
+            const eventDate = new Date(booking.eventDate).getTime();
             const timeUntilEvent = eventDate - now;
-            // Send confirmation if event is within 3 days
+            // Send confirmation 3 days before event
             if (timeUntilEvent <= EMAIL_TIMING.EVENT_CONFIRMATION && timeUntilEvent > 0) {
-                try {
-                    const emailData = {
-                        customerEmail: booking.customerInfo.email,
-                        customerName: booking.customerInfo.name || 'Customer',
-                        bookingId: bookingId,
-                        eventDate: firstDate,
-                        bookingDetails: {
-                            eventDetails: booking.orderDetails || {},
-                            deliveryAddress: ((_e = booking.orderDetails) === null || _e === void 0 ? void 0 : _e.deliveryAddress) || '',
-                            deliveryTime: ((_f = booking.orderDetails) === null || _f === void 0 ? void 0 : _f.deliveryTime) || '',
-                            duration: ((_g = booking.orderDetails) === null || _g === void 0 ? void 0 : _g.duration) || '',
-                            surface: ((_h = booking.orderDetails) === null || _h === void 0 ? void 0 : _h.surface) || '',
-                            items: ((_j = booking.orderDetails) === null || _j === void 0 ? void 0 : _j.items) || []
-                        }
-                    };
-                    await axios_1.default.post(`${EMAIL_SERVER_BASE_URL}/api/email/booking-confirmation`, emailData, {
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-API-Key': EMAIL_SERVER_API_KEY,
-                            'Accept': 'application/json'
-                        },
-                        timeout: 30000
-                    });
-                    // Update the email tracking flag
-                    await db.ref(`bookings/${bookingId}/emails/eventConfirmation`).set(true);
+                const emailSentKey = `eventConfirmation_${bookingId}`;
+                const emailRef = db.ref(`emailsSent/${emailSentKey}`);
+                const emailSentSnapshot = await emailRef.once('value');
+                if (!emailSentSnapshot.exists()) {
+                    await sendEventConfirmationEmail(booking, bookingId);
+                    await emailRef.set({ sentAt: now, type: 'event-confirmation' });
                     emailsSent++;
-                }
-                catch (emailError) {
-                    console.error(`❌ SCHEDULER: Failed to send event confirmation email to ${booking.customerInfo.email}:`, emailError);
                 }
             }
         }
+        console.log(`📧 SCHEDULER: Sent ${emailsSent} event confirmation emails`);
     }
     catch (error) {
         console.error('❌ SCHEDULER: Error processing event confirmation emails:', error);
     }
 }
+// Helper function to process post-event thank you emails
 async function processPostEventEmails(db, now) {
-    var _a, _b, _c, _d, _e;
     try {
+        console.log('📧 SCHEDULER: Checking post-event emails...');
         const bookingsRef = db.ref('bookings');
         const snapshot = await bookingsRef.once('value');
         if (!snapshot.exists()) {
+            console.log('📧 SCHEDULER: No bookings found');
             return;
         }
         const bookings = snapshot.val();
         let emailsSent = 0;
         for (const [bookingId, bookingData] of Object.entries(bookings)) {
             const booking = bookingData;
-            // Only process events that have passed
-            if (!((_a = booking.customerInfo) === null || _a === void 0 ? void 0 : _a.email))
+            // Only process completed events
+            if (booking.status !== 'confirmed' && booking.status !== 'completed')
                 continue;
-            if (((_b = booking.emails) === null || _b === void 0 ? void 0 : _b.thanks) === true)
-                continue; // Already sent
-            // Parse event date from the date range string (e.g., "11/09/2025 - 11/09/2025")
-            const eventDateString = (_c = booking.orderDetails) === null || _c === void 0 ? void 0 : _c.eventDate;
-            if (!eventDateString)
-                continue;
-            // Extract the first date from the range
-            const firstDate = eventDateString.split(' - ')[0];
-            const eventDate = new Date(firstDate).getTime();
-            if (isNaN(eventDate)) {
-                continue;
-            }
+            const eventDate = new Date(booking.eventDate).getTime();
             const timeSinceEvent = now - eventDate;
-            // Send thank you email after event (1 day after or testing interval)
+            // Send thank you 1 day after event
             if (timeSinceEvent >= EMAIL_TIMING.POST_EVENT_THANKS) {
-                try {
-                    const emailData = {
-                        customerEmail: booking.customerInfo.email,
-                        customerName: booking.customerInfo.name || 'Customer',
-                        bookingId: bookingId,
-                        eventDate: firstDate,
-                        bookingDetails: {
-                            eventDetails: booking.orderDetails || {},
-                            totalAmount: (_d = booking.paymentDetails) === null || _d === void 0 ? void 0 : _d.totalAmount,
-                            items: ((_e = booking.orderDetails) === null || _e === void 0 ? void 0 : _e.items) || []
-                        }
-                    };
-                    await axios_1.default.post(`${EMAIL_SERVER_BASE_URL}/api/email/post-event-thanks`, emailData, {
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-API-Key': EMAIL_SERVER_API_KEY,
-                            'Accept': 'application/json'
-                        },
-                        timeout: 30000
-                    });
-                    // Update the email tracking flag
-                    await db.ref(`bookings/${bookingId}/emails/thanks`).set(true);
+                const emailSentKey = `postEventThanks_${bookingId}`;
+                const emailRef = db.ref(`emailsSent/${emailSentKey}`);
+                const emailSentSnapshot = await emailRef.once('value');
+                if (!emailSentSnapshot.exists()) {
+                    await sendPostEventThanksEmail(booking, bookingId);
+                    await emailRef.set({ sentAt: now, type: 'post-event-thanks' });
                     emailsSent++;
-                }
-                catch (emailError) {
-                    console.error(`❌ SCHEDULER: Failed to send post-event thank you email to ${booking.customerInfo.email}:`, emailError);
                 }
             }
         }
+        console.log(`📧 SCHEDULER: Sent ${emailsSent} post-event emails`);
     }
     catch (error) {
-        console.error('❌ SCHEDULER: Error processing post-event thank you emails:', error);
+        console.error('❌ SCHEDULER: Error processing post-event emails:', error);
     }
 }
+// Helper function to process rebooking reminder emails
 async function processRebookingReminderEmails(db, now) {
-    var _a, _b, _c;
     try {
+        console.log('📧 SCHEDULER: Checking rebooking reminder emails...');
         const bookingsRef = db.ref('bookings');
         const snapshot = await bookingsRef.once('value');
         if (!snapshot.exists()) {
+            console.log('📧 SCHEDULER: No bookings found');
             return;
         }
         const bookings = snapshot.val();
         let emailsSent = 0;
         for (const [bookingId, bookingData] of Object.entries(bookings)) {
             const booking = bookingData;
-            // Only process events that have passed significantly
-            if (!((_a = booking.customerInfo) === null || _a === void 0 ? void 0 : _a.email))
+            // Only process completed events
+            if (booking.status !== 'completed')
                 continue;
-            if (((_b = booking.emails) === null || _b === void 0 ? void 0 : _b.rebooking) === true)
-                continue; // Already sent
-            // Parse event date from the date range string (e.g., "11/09/2025 - 11/09/2025")
-            const eventDateString = (_c = booking.orderDetails) === null || _c === void 0 ? void 0 : _c.eventDate;
-            if (!eventDateString)
-                continue;
-            // Extract the first date from the range
-            const firstDate = eventDateString.split(' - ')[0];
-            const eventDate = new Date(firstDate).getTime();
-            if (isNaN(eventDate)) {
-                continue;
-            }
+            const eventDate = new Date(booking.eventDate).getTime();
             const timeSinceEvent = now - eventDate;
-            // Send rebooking reminder after significant time (9 months or testing interval)
+            // Send rebooking reminder 9 months after event
             if (timeSinceEvent >= EMAIL_TIMING.REBOOKING_REMINDER) {
-                try {
-                    const emailData = {
-                        customerEmail: booking.customerInfo.email,
-                        customerName: booking.customerInfo.name || 'Customer',
-                        lastBookingDate: firstDate,
-                        lastBookingId: bookingId
-                    };
-                    await axios_1.default.post(`${EMAIL_SERVER_BASE_URL}/api/email/follow-up`, emailData, {
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-API-Key': EMAIL_SERVER_API_KEY,
-                            'Accept': 'application/json'
-                        },
-                        timeout: 30000
-                    });
-                    // Update the email tracking flag
-                    await db.ref(`bookings/${bookingId}/emails/rebooking`).set(true);
+                const emailSentKey = `rebookingReminder_${bookingId}`;
+                const emailRef = db.ref(`emailsSent/${emailSentKey}`);
+                const emailSentSnapshot = await emailRef.once('value');
+                if (!emailSentSnapshot.exists()) {
+                    await sendRebookingReminderEmail(booking, bookingId);
+                    await emailRef.set({ sentAt: now, type: 'rebooking-reminder' });
                     emailsSent++;
-                }
-                catch (emailError) {
-                    console.error(`❌ SCHEDULER: Failed to send rebooking reminder email to ${booking.customerInfo.email}:`, emailError);
                 }
             }
         }
+        console.log(`📧 SCHEDULER: Sent ${emailsSent} rebooking reminder emails`);
     }
     catch (error) {
         console.error('❌ SCHEDULER: Error processing rebooking reminder emails:', error);
     }
 }
-// Membership-specific API endpoints
-/**
- * Create PayPal subscription for membership
- */
+// Scheduled function to auto-cancel pending orders on event day
+exports.autoCancelPendingOrders = functions.pubsub
+    .schedule('0 8 * * *') // Run daily at 8 AM
+    .timeZone('America/New_York') // EST/EDT timezone
+    .onRun(async (context) => {
+    var _a, _b, _c, _d;
+    console.log('Running auto-cancel pending orders function...');
+    try {
+        const db = admin.database();
+        const bookingsRef = db.ref('bookings');
+        const snapshot = await bookingsRef.once('value');
+        if (!snapshot.exists()) {
+            console.log('No bookings found');
+            return null;
+        }
+        const bookings = snapshot.val();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Start of today
+        let cancelledCount = 0;
+        for (const [bookingId, booking] of Object.entries(bookings)) {
+            const bookingData = booking;
+            // Only process pending bookings
+            if (bookingData.status !== 'pending') {
+                continue;
+            }
+            // Check if event date is today or in the past
+            const eventDateStr = (_a = bookingData.orderDetails) === null || _a === void 0 ? void 0 : _a.eventDate;
+            if (!eventDateStr) {
+                continue;
+            }
+            // Parse event date (assuming format like "MM/DD/YYYY - MM/DD/YYYY")
+            const dateRange = eventDateStr.split(' - ');
+            const startDateStr = dateRange[0];
+            try {
+                const eventDate = new Date(startDateStr);
+                eventDate.setHours(0, 0, 0, 0);
+                // If event date is today or has passed, cancel the booking
+                if (eventDate <= today) {
+                    console.log(`Cancelling booking ${bookingId} with event date ${startDateStr}`);
+                    // Update booking status to cancelled
+                    await bookingsRef.child(bookingId).update({
+                        status: 'cancelled',
+                        updatedAt: new Date().toISOString(),
+                        notes: admin.database.ServerValue.increment(1) // Will create array if doesn't exist
+                    });
+                    // Add cancellation note
+                    await bookingsRef.child(`${bookingId}/notes`).push({
+                        type: 'system',
+                        message: 'Booking auto-cancelled due to event date passing without payment completion',
+                        timestamp: new Date().toISOString()
+                    });
+                    // Send cancellation notification email
+                    try {
+                        if ((_b = bookingData.customerInfo) === null || _b === void 0 ? void 0 : _b.email) {
+                            const msg = {
+                                to: bookingData.customerInfo.email,
+                                from: {
+                                    email: 'jumpcsra@gmail.com',
+                                    name: 'JumpCSRA Party Rentals'
+                                },
+                                subject: `Booking Cancelled - Order #${bookingData.orderID}`,
+                                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                      <div style="background: #f8d7da; color: #721c24; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                        <h2>Booking Cancelled</h2>
+                        <p>Your booking #${bookingData.orderID} has been automatically cancelled because the event date has passed without payment completion.</p>
+                      </div>
+                      
+                      <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+                        <h3>Booking Details:</h3>
+                        <p><strong>Order ID:</strong> ${bookingData.orderID}</p>
+                        <p><strong>Event Date:</strong> ${eventDateStr}</p>
+                        <p><strong>Total Amount:</strong> $${((_d = (_c = bookingData.orderDetails) === null || _c === void 0 ? void 0 : _c.totalAmount) === null || _d === void 0 ? void 0 : _d.toFixed(2)) || '0.00'}</p>
+                        <p><strong>Cancelled Date:</strong> ${new Date().toLocaleDateString()}</p>
+                      </div>
+                      
+                      <div style="margin-top: 20px; padding: 15px; background: #d1ecf1; border-radius: 8px;">
+                        <p><strong>Need to rebook?</strong> Visit <a href="https://jumpcsra.com">jumpcsra.com</a> to place a new order.</p>
+                        <p>If you have questions, please contact us at jumpcsra@gmail.com or (803) 221-0466.</p>
+                      </div>
+                      
+                      <div style="text-align: center; margin-top: 30px; color: #666; font-size: 14px;">
+                        <p>JumpCSRA Party Rentals</p>
+                        <p>Making Your Events Unforgettable</p>
+                      </div>
+                    </div>
+                  `,
+                                categories: ['booking-cancellation', 'automated'],
+                                customArgs: {
+                                    bookingId: bookingId,
+                                    reason: 'auto-cancel-event-date-passed'
+                                }
+                            };
+                            if (sendGridApiKey) {
+                                await sgMail.send(msg);
+                                console.log(`Cancellation email sent to ${bookingData.customerInfo.email} for booking ${bookingId}`);
+                            }
+                        }
+                    }
+                    catch (emailError) {
+                        console.error(`Error sending cancellation email for booking ${bookingId}:`, emailError);
+                    }
+                    cancelledCount++;
+                }
+            }
+            catch (dateError) {
+                console.error(`Error parsing event date for booking ${bookingId}:`, dateError);
+            }
+        }
+        console.log(`Auto-cancellation complete. Cancelled ${cancelledCount} bookings.`);
+        return null;
+    }
+    catch (error) {
+        console.error('Error in auto-cancel function:', error);
+        return null;
+    }
+});
+// Account deletion email function
+exports.sendAccountDeletionEmail = functions.https.onCall(async (data, context) => {
+    var _a;
+    // Verify that the user is authenticated
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to send account deletion emails.');
+    }
+    try {
+        // Validate input data
+        if (!data.userEmail || !data.userName) {
+            throw new functions.https.HttpsError('invalid-argument', 'Missing required email data.');
+        }
+        if (!sendGridApiKey) {
+            throw new functions.https.HttpsError('failed-precondition', 'SendGrid API key not configured.');
+        }
+        const deletionDateFormatted = new Date(data.deletionDate).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        const msg = {
+            to: data.userEmail,
+            from: 'jumpcsra@gmail.com', // Simplified format
+            subject: 'Account Deletion Confirmation - JumpCSRA',
+            html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: #f8d7da; color: #721c24; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+            <h2 style="margin: 0; color: #721c24;">Account Deletion Confirmed</h2>
+            <p style="margin: 10px 0 0 0; font-size: 16px;">Your JumpCSRA account has been permanently deleted</p>
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="color: #333; margin-top: 0;">Deletion Summary</h3>
+            <p><strong>Account Holder:</strong> ${data.userName}</p>
+            <p><strong>Email:</strong> ${data.userEmail}</p>
+            <p><strong>Deletion Date:</strong> ${deletionDateFormatted}</p>
+            ${data.deletedWalletBalance > 0 ? `
+              <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                <p style="margin: 0; color: #856404;"><strong>⚠️ Wallet Balance Forfeited:</strong> $${data.deletedWalletBalance.toFixed(2)}</p>
+              </div>
+            ` : ''}
+          </div>
+          
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="color: #333; margin-top: 0;">What Was Deleted</h3>
+            <ul style="color: #666; line-height: 1.6;">
+              <li>Your profile information and account settings</li>
+              <li>Your booking history and event records</li>
+              <li>Your saved payment methods</li>
+              <li>Your gift card purchases (promotional gift cards remain valid)</li>
+              ${data.deletedWalletBalance > 0 ? '<li>Your wallet balance (permanently forfeited)</li>' : ''}
+            </ul>
+          </div>
+          
+          <div style="background: #d1ecf1; border: 1px solid #bee5eb; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h4 style="color: #0c5460; margin-top: 0;">Need to Book Again?</h4>
+            <p style="color: #0c5460; margin-bottom: 0;">
+              You can always create a new account at <a href="https://jumpcsra.com" style="color: #0c5460;">jumpcsra.com</a> 
+              if you'd like to use our services again in the future.
+            </p>
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px; color: #666; font-size: 14px; border-top: 1px solid #dee2e6; padding-top: 20px;">
+            <p style="margin: 0;">JumpCSRA Party Rentals</p>
+            <p style="margin: 5px 0 0 0;">Thank you for being part of our community</p>
+            <p style="margin: 5px 0 0 0;">jumpcsra@gmail.com | (803) 221-0466</p>
+          </div>
+        </div>
+      `,
+            categories: ['account-deletion', 'transactional'],
+            customArgs: {
+                userId: context.auth.uid,
+                deletedWalletBalance: data.deletedWalletBalance.toString(),
+                deletionDate: data.deletionDate
+            }
+        };
+        await sgMail.send(msg);
+        console.log(`Account deletion email sent successfully to ${data.userEmail} for user ${context.auth.uid}`);
+        return {
+            success: true,
+            message: 'Account deletion email sent successfully'
+        };
+    }
+    catch (error) {
+        console.error('Error sending account deletion email:', error);
+        if (error && typeof error === 'object' && 'response' in error) {
+            console.error('SendGrid error response:', (_a = error.response) === null || _a === void 0 ? void 0 : _a.body);
+        }
+        throw new functions.https.HttpsError('internal', 'Failed to send account deletion email.');
+    }
+});
+// ============================================
+// PAYPAL SUBSCRIPTION SYSTEM (OPTIMIZED)
+// ============================================
 // STATIC PAYPAL PRODUCT AND PLAN IDs - Created once and reused
-const JUMP_CLUB_PRODUCT_ID = "PROD_JUMP_CLUB_MEMBERSHIP_2024"; // Set this after running setupPayPalPlans
-const JUMP_CLUB_PLAN_ID = "P-JUMP_CLUB_MONTHLY_2024"; // Set this after running setupPayPalPlans
+const JUMP_CLUB_PRODUCT_ID = "PROD_JUMP_CLUB_MEMBERSHIP_2024";
+const JUMP_CLUB_PLAN_ID = "P-JUMP_CLUB_MONTHLY_2024";
 // One-time setup function to create PayPal product and billing plan
 // Run this function once via Firebase console or admin script
 exports.setupPayPalPlans = functions.https.onRequest(async (req, res) => {
-    // This should only be run by administrators
-    // Add authentication/security as needed
-    var _a;
+    console.log('🚀 DEBUG: Starting PayPal plans setup...');
     try {
-        console.log('Setting up PayPal product and billing plans...');
         // Get PayPal access token
         const accessToken = await getPayPalAccessToken();
         // Create PayPal product (one-time)
         const productData = {
-            id: JUMP_CLUB_PRODUCT_ID, // Use consistent ID
+            id: JUMP_CLUB_PRODUCT_ID,
             name: "Jump Club Membership",
             description: "Monthly subscription to Jump Club with premium inflatable delivery and exclusive member benefits",
             type: "SERVICE",
-            category: "ENTERTAINMENT"
+            category: "SOFTWARE"
         };
-        console.log('Creating PayPal product...');
-        const productResponse = await axios_1.default.post(`${PAYPAL_BASE_URL}/v1/catalogs/products`, productData, {
+        console.log('📦 DEBUG: Creating PayPal product...', productData);
+        const productResponse = await fetch(`${PAYPAL_BASE_URL}/v1/catalogs/products`, {
+            method: 'POST',
             headers: {
                 'Authorization': `Bearer ${accessToken}`,
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
                 'PayPal-Request-Id': `product-setup-${Date.now()}`
-            }
+            },
+            body: JSON.stringify(productData)
         });
-        console.log('Product created:', productResponse.data.id);
+        console.log('📦 DEBUG: Product response status:', productResponse.status);
+        if (!productResponse.ok) {
+            const errorData = await productResponse.json();
+            console.error('📦 ERROR: Product creation failed:', errorData);
+            throw new Error(`Product creation failed: ${JSON.stringify(errorData)}`);
+        }
+        const productResult = await productResponse.json();
+        console.log('📦 SUCCESS: Product created:', productResult.id);
         // Create billing plan (one-time)
         const planData = {
             product_id: JUMP_CLUB_PRODUCT_ID,
@@ -1216,74 +2313,98 @@ exports.setupPayPalPlans = functions.https.onRequest(async (req, res) => {
                 payment_failure_threshold: 3
             }
         };
-        console.log('Creating billing plan...');
-        const planResponse = await axios_1.default.post(`${PAYPAL_BASE_URL}/v1/billing/plans`, planData, {
+        console.log('💳 DEBUG: Creating billing plan...', planData);
+        const planResponse = await fetch(`${PAYPAL_BASE_URL}/v1/billing/plans`, {
+            method: 'POST',
             headers: {
                 'Authorization': `Bearer ${accessToken}`,
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
                 'PayPal-Request-Id': `plan-setup-${Date.now()}`
-            }
+            },
+            body: JSON.stringify(planData)
         });
-        console.log('Plan created:', planResponse.data.id);
+        console.log('💳 DEBUG: Plan response status:', planResponse.status);
+        if (!planResponse.ok) {
+            const errorData = await planResponse.json();
+            console.error('💳 ERROR: Plan creation failed:', errorData);
+            throw new Error(`Plan creation failed: ${JSON.stringify(errorData)}`);
+        }
+        const planResult = await planResponse.json();
+        console.log('💳 SUCCESS: Plan created:', planResult.id);
         // Store the IDs in Firestore for reference
         const db = admin.firestore();
-        await db.collection('paypalConfig').doc('membershipPlans').set({
-            productId: productResponse.data.id,
-            planId: planResponse.data.id,
+        const configData = {
+            productId: productResult.id,
+            planId: planResult.id,
             createdAt: new Date(),
             status: 'ACTIVE'
-        });
+        };
+        await db.collection('paypalConfig').doc('membershipPlans').set(configData);
+        console.log('💾 DEBUG: Config saved to Firestore:', configData);
         res.json({
             success: true,
-            productId: productResponse.data.id,
-            planId: planResponse.data.id,
-            message: 'PayPal product and billing plan created successfully. Update the constants in your code with these IDs.'
+            productId: productResult.id,
+            planId: planResult.id,
+            message: 'PayPal product and billing plan created successfully!'
         });
     }
     catch (error) {
-        console.error('Error setting up PayPal plans:', error);
+        console.error('🚨 ERROR: Failed to setup PayPal plans:', error);
         res.status(500).json({
             success: false,
-            error: ((_a = error.response) === null || _a === void 0 ? void 0 : _a.data) || error.message
+            error: error.message || 'Unknown error'
         });
     }
 });
+// Optimized subscription creation function (uses stored plan_id)
 exports.createMembershipSubscription = functions.https.onCall(async (data, context) => {
-    var _a, _b, _c, _d, _e, _f;
+    var _a, _b;
+    console.log('🎯 DEBUG: =================================');
+    console.log('🎯 DEBUG: SUBSCRIPTION CREATION START');
+    console.log('🎯 DEBUG: =================================');
+    console.log('🎯 DEBUG: Input data:', JSON.stringify(data, null, 2));
+    console.log('🎯 DEBUG: Context auth:', ((_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid) || 'No auth context');
     try {
-        console.log('Received createMembershipSubscription request with data:', JSON.stringify(data));
-        console.log('Context auth:', ((_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid) || 'No auth context');
         const { userId, planAmount = 149, currency = 'USD', userEmail, userName } = data;
-        // More detailed validation
+        // Input validation with detailed debugging
+        console.log('✅ DEBUG: Starting input validation...');
         if (!data) {
+            console.error('❌ VALIDATION: No data provided');
             throw new functions.https.HttpsError('invalid-argument', 'No data provided');
         }
         if (!userId) {
+            console.error('❌ VALIDATION: Missing userId. Data keys:', Object.keys(data));
             throw new functions.https.HttpsError('invalid-argument', `Missing userId. Received data keys: ${Object.keys(data).join(', ')}`);
         }
         if (!userEmail) {
+            console.error('❌ VALIDATION: Missing userEmail. Data keys:', Object.keys(data));
             throw new functions.https.HttpsError('invalid-argument', `Missing userEmail. Received data keys: ${Object.keys(data).join(', ')}`);
         }
-        // Validate amount is a number
         if (typeof planAmount !== 'number' || isNaN(planAmount) || planAmount <= 0) {
+            console.error('❌ VALIDATION: Invalid planAmount:', planAmount);
             throw new functions.https.HttpsError('invalid-argument', `Invalid planAmount: ${planAmount}. Must be a positive number.`);
         }
+        console.log('✅ DEBUG: Input validation passed');
         // Get PayPal access token
+        console.log('🔑 DEBUG: Getting PayPal access token...');
         const accessToken = await getPayPalAccessToken();
-        // Get the stored plan ID from Firestore (created once via setupPayPalPlans)
+        // Get stored plan ID from Firestore
+        console.log('💾 DEBUG: Getting stored plan ID from Firestore...');
         const db = admin.firestore();
-        const configDoc = await db.collection('paypalConfig').doc('membershipPlans').get();
+        const configDoc = await db.collection('paypalConfig').doc('membershipPlanMonthly').get();
         if (!configDoc.exists) {
+            console.error('❌ CONFIG: PayPal billing plan not configured');
             throw new functions.https.HttpsError('failed-precondition', 'PayPal billing plan not configured. Run setupPayPalPlans first.');
         }
         const config = configDoc.data();
-        const planId = (config === null || config === void 0 ? void 0 : config.planId) || JUMP_CLUB_PLAN_ID; // Fallback to constant
+        const planId = (config === null || config === void 0 ? void 0 : config.planId) || JUMP_CLUB_PLAN_ID;
         if (!planId) {
+            console.error('❌ CONFIG: No billing plan ID available');
             throw new functions.https.HttpsError('failed-precondition', 'No billing plan ID available. Run setupPayPalPlans first.');
         }
-        console.log('Using existing plan ID:', planId);
-        // Create subscription using the existing plan (no product/plan creation needed)
+        console.log('✅ DEBUG: Using plan ID:', planId);
+        // Create subscription using existing plan
         const subscriptionData = {
             plan_id: planId,
             start_time: new Date(Date.now() + 60000).toISOString(), // Start in 1 minute
@@ -1303,409 +2424,87 @@ exports.createMembershipSubscription = functions.https.onCall(async (data, conte
                     payer_selected: "PAYPAL",
                     payee_preferred: "IMMEDIATE_PAYMENT_REQUIRED"
                 },
-                return_url: `https://jumpcsra.com/checkout?membership=jump-club&success=true`,
-                cancel_url: `https://jumpcsra.com/checkout?membership=jump-club&cancelled=true`
+                return_url: `http://localhost:5173/subscription-success?success=true`,
+                cancel_url: `http://localhost:5173/subscription-success?cancelled=true`
             },
             custom_id: userId // Store user ID for reference
         };
-        const subscriptionResponse = await axios_1.default.post(`${PAYPAL_BASE_URL}/v1/billing/subscriptions`, subscriptionData, {
+        console.log('💳 DEBUG: Creating subscription...', JSON.stringify(subscriptionData, null, 2));
+        const subscriptionResponse = await fetch(`${PAYPAL_BASE_URL}/v1/billing/subscriptions`, {
+            method: 'POST',
             headers: {
                 'Authorization': `Bearer ${accessToken}`,
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
                 'PayPal-Request-Id': `sub-${userId}-${Date.now()}`
-            }
-        });
-        console.log('Membership subscription created:', subscriptionResponse.data.id);
-        return {
-            success: true,
-            subscriptionId: subscriptionResponse.data.id,
-            planId: planId,
-            approvalUrl: (_c = (_b = subscriptionResponse.data.links) === null || _b === void 0 ? void 0 : _b.find((link) => link.rel === 'approve')) === null || _c === void 0 ? void 0 : _c.href
-        };
-    }
-    catch (error) {
-        console.error('Error creating membership subscription:', ((_d = error.response) === null || _d === void 0 ? void 0 : _d.data) || error);
-        if (error instanceof functions.https.HttpsError) {
-            throw error;
-        }
-        throw new functions.https.HttpsError('internal', ((_f = (_e = error.response) === null || _e === void 0 ? void 0 : _e.data) === null || _f === void 0 ? void 0 : _f.message) || 'Failed to create membership subscription');
-    }
-});
-/**
- * Activate membership subscription after PayPal approval
- */
-exports.activateMembershipSubscription = functions.https.onRequest(async (req, res) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h;
-    // Set CORS headers
-    res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
-    try {
-        const { subscriptionId, userId } = req.body;
-        if (!subscriptionId || !userId) {
-            res.status(400).json({
-                success: false,
-                error: 'Missing required fields: subscriptionId, userId'
-            });
-            return;
-        }
-        // Get PayPal access token
-        const accessToken = await getPayPalAccessToken();
-        // Get subscription details to verify it's active
-        const subscriptionResponse = await axios_1.default.get(`${PAYPAL_BASE_URL}/v1/billing/subscriptions/${subscriptionId}`, {
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Accept': 'application/json'
-            }
-        });
-        const subscription = subscriptionResponse.data;
-        if (subscription.status !== 'ACTIVE') {
-            res.status(400).json({
-                success: false,
-                error: `Subscription status is ${subscription.status}, not ACTIVE`
-            });
-            return;
-        }
-        // Store subscription information in Firestore
-        const db = admin.firestore();
-        await db.collection('userSubscriptions').doc(userId).set({
-            subscriptionId: subscriptionId,
-            planId: subscription.plan_id,
-            status: subscription.status,
-            createdAt: new Date(),
-            nextBillingDate: ((_a = subscription.billing_info) === null || _a === void 0 ? void 0 : _a.next_billing_time) || null,
-            lastPaymentAmount: ((_d = (_c = (_b = subscription.billing_info) === null || _b === void 0 ? void 0 : _b.last_payment) === null || _c === void 0 ? void 0 : _c.amount) === null || _d === void 0 ? void 0 : _d.value) || null,
-            subscriber: subscription.subscriber
-        });
-        console.log('Membership subscription activated for user:', userId);
-        res.status(200).json({
-            success: true,
-            subscriptionId: subscriptionId,
-            status: subscription.status,
-            nextBilling: (_e = subscription.billing_info) === null || _e === void 0 ? void 0 : _e.next_billing_time
-        });
-    }
-    catch (error) {
-        console.error('Error activating membership subscription:', ((_f = error.response) === null || _f === void 0 ? void 0 : _f.data) || error);
-        res.status(500).json({
-            success: false,
-            error: ((_h = (_g = error.response) === null || _g === void 0 ? void 0 : _g.data) === null || _h === void 0 ? void 0 : _h.message) || 'Failed to activate membership subscription'
-        });
-    }
-});
-/**
- * Cancel membership subscription
- */
-exports.cancelMembershipSubscription = functions.https.onRequest(async (req, res) => {
-    var _a, _b, _c;
-    // Set CORS headers
-    res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
-    try {
-        const { subscriptionId, userId, reason = "User requested cancellation" } = req.body;
-        if (!subscriptionId || !userId) {
-            res.status(400).json({
-                success: false,
-                error: 'Missing required fields: subscriptionId, userId'
-            });
-            return;
-        }
-        // Get PayPal access token
-        const accessToken = await getPayPalAccessToken();
-        // Cancel the subscription
-        const cancelData = {
-            reason: reason
-        };
-        await axios_1.default.post(`${PAYPAL_BASE_URL}/v1/billing/subscriptions/${subscriptionId}/cancel`, cancelData, {
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            }
-        });
-        // Update subscription status in Firestore
-        const db = admin.firestore();
-        await db.collection('userSubscriptions').doc(userId).update({
-            status: 'CANCELLED',
-            cancelledAt: new Date(),
-            cancellationReason: reason
-        });
-        console.log('Membership subscription cancelled for user:', userId);
-        res.status(200).json({
-            success: true,
-            message: 'Subscription cancelled successfully'
-        });
-    }
-    catch (error) {
-        console.error('Error cancelling membership subscription:', ((_a = error.response) === null || _a === void 0 ? void 0 : _a.data) || error);
-        res.status(500).json({
-            success: false,
-            error: ((_c = (_b = error.response) === null || _b === void 0 ? void 0 : _b.data) === null || _c === void 0 ? void 0 : _c.message) || 'Failed to cancel membership subscription'
-        });
-    }
-});
-/**
- * Create membership order with PayPal
- */
-exports.createMembershipOrder = functions.https.onCall(async (data, context) => {
-    var _a;
-    try {
-        console.log('Received createMembershipOrder request with data:', JSON.stringify(data));
-        console.log('Context auth:', ((_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid) || 'No auth context');
-        const { userId, amount, currency = 'USD' } = data;
-        // More detailed validation
-        if (!data) {
-            throw new functions.https.HttpsError('invalid-argument', 'No data provided');
-        }
-        if (!userId) {
-            throw new functions.https.HttpsError('invalid-argument', `Missing userId. Received data keys: ${Object.keys(data).join(', ')}`);
-        }
-        if (!amount) {
-            throw new functions.https.HttpsError('invalid-argument', `Missing amount. Received data keys: ${Object.keys(data).join(', ')}`);
-        }
-        // Validate amount is a number
-        if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) {
-            throw new functions.https.HttpsError('invalid-argument', `Invalid amount: ${amount}. Must be a positive number.`);
-        }
-        // Create PayPal order for membership with vault setup
-        const orderResponse = await createVaultedPayPalOrder({
-            amount: amount.toString(),
-            currency,
-            userId,
-            description: 'Jump Club Membership - Monthly Subscription'
-        });
-        console.log('Membership order created:', orderResponse);
-        return {
-            success: true,
-            orderID: orderResponse.id
-        };
-    }
-    catch (error) {
-        console.error('Error creating membership order:', error);
-        if (error instanceof functions.https.HttpsError) {
-            throw error;
-        }
-        throw new functions.https.HttpsError('internal', 'Failed to create membership order');
-    }
-});
-/**
- * Capture membership payment and set up vault
- */
-exports.captureMembershipPayment = functions.https.onCall(async (data, context) => {
-    try {
-        const { orderID, userId } = data;
-        if (!orderID || !userId) {
-            throw new functions.https.HttpsError('invalid-argument', 'Missing required fields: orderID, userId');
-        }
-        // Capture the PayPal payment
-        const captureResponse = await captureVaultedPayment(orderID);
-        if (!captureResponse.success) {
-            throw new functions.https.HttpsError('internal', 'Payment capture failed');
-        }
-        // Check if we got vault information
-        if (!captureResponse.vaultId) {
-            console.error('Payment captured but no vault ID received for user:', userId);
-            throw new functions.https.HttpsError('internal', 'Payment processed but recurring billing setup incomplete. Please contact support.');
-        }
-        // Store payment info in user's record
-        const firestore = admin.firestore();
-        await firestore.collection('users').doc(userId).set({
-            paymentInfo: {
-                paypalVaultId: captureResponse.vaultId,
-                lastPaymentDate: admin.firestore.Timestamp.now(),
-                paymentMethod: 'paypal',
-                status: 'active'
-            }
-        }, { merge: true });
-        // Record membership payment
-        const paymentRecord = {
-            id: `membership-${Date.now()}`,
-            userId,
-            membershipType: 'jump-club',
-            amount: 149,
-            paymentDate: admin.firestore.Timestamp.now(),
-            nextBillingDate: admin.firestore.Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days from now
-            ),
-            paymentMethodId: captureResponse.vaultId,
-            paypalTransactionId: captureResponse.transactionId,
-            status: 'completed'
-        };
-        await firestore.collection('membershipPayments').doc(paymentRecord.id).set(paymentRecord);
-        console.log('Membership payment completed successfully for user:', userId);
-        return {
-            success: true,
-            transactionId: captureResponse.transactionId,
-            vaultId: captureResponse.vaultId
-        };
-    }
-    catch (error) {
-        console.error('Error capturing membership payment:', error);
-        if (error instanceof functions.https.HttpsError) {
-            throw error;
-        }
-        throw new functions.https.HttpsError('internal', 'Failed to process membership payment');
-    }
-});
-// Helper function to create PayPal order with vault setup
-async function createVaultedPayPalOrder(orderData) {
-    const { amount, currency, userId, description } = orderData;
-    const paypalOrder = {
-        intent: 'CAPTURE',
-        purchase_units: [{
-                amount: {
-                    currency_code: currency,
-                    value: amount
-                },
-                description: description,
-                custom_id: `membership-${userId}-${Date.now()}`
-            }],
-        payment_source: {
-            paypal: {
-                attributes: {
-                    vault: {
-                        store_in_vault: 'ON_SUCCESS',
-                        usage_type: 'MERCHANT',
-                        customer_type: 'CONSUMER'
-                    }
-                }
-            }
-        }
-    };
-    const response = await axios_1.default.post(`${PAYPAL_BASE_URL}/v2/checkout/orders`, paypalOrder, {
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${await getPayPalAccessToken()}`,
-        },
-    });
-    return response.data;
-}
-// Helper function to capture vaulted payment
-async function captureVaultedPayment(orderId) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j;
-    try {
-        const response = await axios_1.default.post(`${PAYPAL_BASE_URL}/v2/checkout/orders/${orderId}/capture`, {}, {
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${await getPayPalAccessToken()}`,
             },
+            body: JSON.stringify(subscriptionData)
         });
-        const captureData = response.data;
-        // Extract vault information
-        const paymentSource = (_a = captureData.payment_source) === null || _a === void 0 ? void 0 : _a.paypal;
-        const vaultId = (_c = (_b = paymentSource === null || paymentSource === void 0 ? void 0 : paymentSource.attributes) === null || _b === void 0 ? void 0 : _b.vault) === null || _c === void 0 ? void 0 : _c.id;
-        const transactionId = (_h = (_g = (_f = (_e = (_d = captureData.purchase_units) === null || _d === void 0 ? void 0 : _d[0]) === null || _e === void 0 ? void 0 : _e.payments) === null || _f === void 0 ? void 0 : _f.captures) === null || _g === void 0 ? void 0 : _g[0]) === null || _h === void 0 ? void 0 : _h.id;
+        console.log('💳 DEBUG: Subscription response status:', subscriptionResponse.status);
+        if (!subscriptionResponse.ok) {
+            const errorData = await subscriptionResponse.json();
+            console.error('💳 ERROR: Subscription creation failed:', errorData);
+            throw new functions.https.HttpsError('internal', `Subscription creation failed: ${JSON.stringify(errorData)}`);
+        }
+        const subscriptionResult = await subscriptionResponse.json();
+        console.log('💳 SUCCESS: Subscription created:', subscriptionResult.id);
+        // Find approval URL
+        const approvalLink = (_b = subscriptionResult.links) === null || _b === void 0 ? void 0 : _b.find((link) => link.rel === 'approve');
+        const approvalUrl = approvalLink === null || approvalLink === void 0 ? void 0 : approvalLink.href;
+        if (!approvalUrl) {
+            console.error('❌ ERROR: No approval URL in subscription response');
+            throw new functions.https.HttpsError('internal', 'No approval URL received from PayPal');
+        }
+        console.log('✅ SUCCESS: Approval URL found:', approvalUrl);
+        // Store subscription in database
+        const subscriptionRecord = {
+            subscriptionId: subscriptionResult.id,
+            userId: userId,
+            status: 'PENDING_APPROVAL',
+            planId: planId,
+            amount: planAmount,
+            currency: currency,
+            createdAt: new Date(),
+            paypalData: subscriptionResult
+        };
+        await db.collection('userSubscriptions').doc(userId).set(subscriptionRecord);
+        console.log('💾 DEBUG: Subscription stored in database');
+        console.log('🎯 DEBUG: =================================');
+        console.log('🎯 DEBUG: SUBSCRIPTION CREATION SUCCESS');
+        console.log('🎯 DEBUG: =================================');
         return {
             success: true,
-            vaultId,
-            transactionId,
-            captureData
+            subscriptionId: subscriptionResult.id,
+            approvalUrl: approvalUrl,
+            status: 'PENDING_APPROVAL'
         };
     }
     catch (error) {
-        console.error('Error capturing vaulted payment:', error);
-        return {
-            success: false,
-            error: ((_j = error.response) === null || _j === void 0 ? void 0 : _j.data) || error.message
-        };
-    }
-}
-/**
- * Get subscription details for a user
- */
-exports.getMembershipSubscription = functions.https.onRequest(async (req, res) => {
-    var _a, _b, _c;
-    // Set CORS headers
-    res.set('Access-Control-Allow-Origin', '*');
-    res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
-    }
-    try {
-        const { userId } = req.query;
-        if (!userId) {
-            res.status(400).json({
-                success: false,
-                error: 'Missing required field: userId'
-            });
-            return;
+        console.error('🚨 ERROR: Subscription creation failed:', error);
+        console.log('🎯 DEBUG: =================================');
+        console.log('🎯 DEBUG: SUBSCRIPTION CREATION FAILED');
+        console.log('🎯 DEBUG: =================================');
+        if (error instanceof functions.https.HttpsError) {
+            throw error;
         }
-        const db = admin.firestore();
-        const subscriptionDoc = await db.collection('userSubscriptions').doc(userId).get();
-        if (!subscriptionDoc.exists) {
-            res.status(404).json({
-                success: false,
-                error: 'No subscription found for user'
-            });
-            return;
-        }
-        const subscriptionData = subscriptionDoc.data();
-        // Get latest PayPal subscription details
-        if (subscriptionData === null || subscriptionData === void 0 ? void 0 : subscriptionData.subscriptionId) {
-            try {
-                const accessToken = await getPayPalAccessToken();
-                const subscriptionResponse = await axios_1.default.get(`${PAYPAL_BASE_URL}/v1/billing/subscriptions/${subscriptionData.subscriptionId}`, {
-                    headers: {
-                        'Authorization': `Bearer ${accessToken}`,
-                        'Accept': 'application/json'
-                    }
-                });
-                const paypalSubscription = subscriptionResponse.data;
-                res.status(200).json({
-                    success: true,
-                    subscription: Object.assign(Object.assign({}, subscriptionData), { currentStatus: paypalSubscription.status, nextBillingDate: (_a = paypalSubscription.billing_info) === null || _a === void 0 ? void 0 : _a.next_billing_time, lastPayment: (_b = paypalSubscription.billing_info) === null || _b === void 0 ? void 0 : _b.last_payment, failedPaymentsCount: ((_c = paypalSubscription.billing_info) === null || _c === void 0 ? void 0 : _c.failed_payments_count) || 0 })
-                });
-            }
-            catch (paypalError) {
-                console.error('Error fetching PayPal subscription details:', paypalError);
-                // Return local data if PayPal call fails
-                res.status(200).json({
-                    success: true,
-                    subscription: subscriptionData,
-                    warning: 'Could not fetch latest PayPal details'
-                });
-            }
-        }
-        else {
-            res.status(200).json({
-                success: true,
-                subscription: subscriptionData
-            });
-        }
-    }
-    catch (error) {
-        console.error('Error getting membership subscription:', error);
-        res.status(500).json({
-            success: false,
-            error: 'Failed to get membership subscription details'
-        });
+        throw new functions.https.HttpsError('internal', `Subscription creation error: ${error.message}`);
     }
 });
-/**
- * PayPal Subscription Webhook Handler
- * Handles subscription events like payments, cancellations, failures
- */
+// Webhook handler for PayPal subscription events
 exports.paypalSubscriptionWebhook = functions.https.onRequest(async (req, res) => {
+    var _a, _b;
+    console.log('📡 DEBUG: =================================');
+    console.log('📡 DEBUG: PAYPAL WEBHOOK RECEIVED');
+    console.log('📡 DEBUG: =================================');
     try {
         const event = req.body;
-        console.log('PayPal Webhook Event:', event.event_type);
-        // Verify webhook signature (recommended for production)
-        // You would implement webhook signature verification here
+        console.log('📡 DEBUG: Event type:', event.event_type);
+        console.log('📡 DEBUG: Event data:', JSON.stringify(event, null, 2));
         const db = admin.firestore();
         switch (event.event_type) {
             case 'BILLING.SUBSCRIPTION.ACTIVATED':
                 {
+                    console.log('✅ WEBHOOK: Subscription activated');
                     const subscription = event.resource;
                     const userId = subscription.custom_id;
                     if (userId) {
@@ -1714,12 +2513,20 @@ exports.paypalSubscriptionWebhook = functions.https.onRequest(async (req, res) =
                             activatedAt: new Date(),
                             lastWebhookEvent: event.event_type
                         });
-                        console.log('Subscription activated via webhook for user:', userId);
+                        // Update user membership status
+                        await db.collection('users').doc(userId).collection('membership').doc('status').update({
+                            jumpClub: true,
+                            cancelled: false,
+                            dateStarted: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                        });
+                        console.log('✅ WEBHOOK: User membership activated:', userId);
                     }
                 }
                 break;
             case 'BILLING.SUBSCRIPTION.CANCELLED':
                 {
+                    console.log('❌ WEBHOOK: Subscription cancelled');
                     const subscription = event.resource;
                     const userId = subscription.custom_id;
                     if (userId) {
@@ -1728,101 +2535,244 @@ exports.paypalSubscriptionWebhook = functions.https.onRequest(async (req, res) =
                             cancelledAt: new Date(),
                             lastWebhookEvent: event.event_type
                         });
-                        // Also update user membership status
-                        await db.collection('users').doc(userId).update({
-                            'membership.jumpClub': false,
-                            'membership.cancelled': true,
-                            'membership.cancelledDate': new Date()
+                        // Update user membership status
+                        await db.collection('users').doc(userId).collection('membership').doc('status').update({
+                            jumpClub: false,
+                            cancelled: true,
+                            dateCancelled: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
                         });
-                        console.log('Subscription cancelled via webhook for user:', userId);
-                    }
-                }
-                break;
-            case 'BILLING.SUBSCRIPTION.SUSPENDED':
-                {
-                    const subscription = event.resource;
-                    const userId = subscription.custom_id;
-                    if (userId) {
-                        await db.collection('userSubscriptions').doc(userId).update({
-                            status: 'SUSPENDED',
-                            suspendedAt: new Date(),
-                            lastWebhookEvent: event.event_type
-                        });
-                        // Suspend user membership
-                        await db.collection('users').doc(userId).update({
-                            'membership.jumpClub': false,
-                            'membership.suspended': true,
-                            'membership.suspendedDate': new Date()
-                        });
-                        console.log('Subscription suspended via webhook for user:', userId);
+                        console.log('❌ WEBHOOK: User membership cancelled:', userId);
                     }
                 }
                 break;
             case 'PAYMENT.SALE.COMPLETED':
                 {
+                    console.log('💰 WEBHOOK: Payment completed');
                     const payment = event.resource;
-                    const billingAgreementId = payment.billing_agreement_id;
-                    if (billingAgreementId) {
-                        // Find subscription by billing agreement ID
-                        const subscriptions = await db.collection('userSubscriptions')
-                            .where('subscriptionId', '==', billingAgreementId)
-                            .get();
-                        if (!subscriptions.empty) {
-                            const subscriptionDoc = subscriptions.docs[0];
-                            const userId = subscriptionDoc.id;
-                            // Record the payment
-                            await db.collection('subscriptionPayments').add({
-                                userId: userId,
-                                subscriptionId: billingAgreementId,
-                                paymentId: payment.id,
-                                amount: payment.amount.total,
-                                currency: payment.amount.currency,
-                                status: payment.state,
-                                paidAt: new Date(payment.create_time),
-                                recordedAt: new Date()
-                            });
-                            console.log('Payment recorded for subscription:', billingAgreementId);
-                        }
-                    }
-                }
-                break;
-            case 'PAYMENT.SALE.DENIED':
-            case 'BILLING.SUBSCRIPTION.PAYMENT.FAILED':
-                {
-                    const resource = event.resource;
-                    const subscriptionId = resource.billing_agreement_id || resource.id;
+                    const subscriptionId = payment.billing_agreement_id;
                     if (subscriptionId) {
-                        // Find user by subscription ID
-                        const subscriptions = await db.collection('userSubscriptions')
-                            .where('subscriptionId', '==', subscriptionId)
-                            .get();
-                        if (!subscriptions.empty) {
-                            const subscriptionDoc = subscriptions.docs[0];
-                            const userId = subscriptionDoc.id;
-                            // Record failed payment
-                            await db.collection('subscriptionPayments').add({
-                                userId: userId,
-                                subscriptionId: subscriptionId,
-                                paymentId: resource.id,
-                                status: 'FAILED',
-                                failureReason: resource.reason_code || 'Payment failed',
-                                attemptedAt: new Date(),
-                                recordedAt: new Date()
-                            });
-                            console.log('Failed payment recorded for subscription:', subscriptionId);
-                            // You might want to send email notification or take other action
-                        }
+                        // Log successful payment
+                        await db.collection('subscriptionPayments').add({
+                            subscriptionId: subscriptionId,
+                            amount: (_a = payment.amount) === null || _a === void 0 ? void 0 : _a.total,
+                            currency: (_b = payment.amount) === null || _b === void 0 ? void 0 : _b.currency,
+                            paymentId: payment.id,
+                            completedAt: new Date(),
+                            webhookEvent: event.event_type
+                        });
+                        console.log('💰 WEBHOOK: Payment logged:', payment.id);
                     }
                 }
                 break;
             default:
-                console.log('Unhandled webhook event type:', event.event_type);
+                console.log('📡 WEBHOOK: Unhandled event type:', event.event_type);
         }
-        res.status(200).send('Webhook processed successfully');
+        console.log('📡 DEBUG: =================================');
+        console.log('📡 DEBUG: WEBHOOK PROCESSED SUCCESSFULLY');
+        console.log('📡 DEBUG: =================================');
+        res.status(200).send('OK');
     }
     catch (error) {
-        console.error('Error processing PayPal webhook:', error);
-        res.status(500).send('Webhook processing failed');
+        console.error('🚨 WEBHOOK ERROR:', error);
+        res.status(500).send('Error');
+    }
+});
+// Get PayPal subscription details
+exports.getPayPalSubscriptionDetails = functions.https.onCall(async (data, context) => {
+    console.log('🔍 DEBUG: Getting PayPal subscription details');
+    try {
+        const { subscriptionId } = data;
+        if (!subscriptionId) {
+            throw new functions.https.HttpsError('invalid-argument', 'Missing subscriptionId');
+        }
+        // Get PayPal access token
+        const accessToken = await getPayPalAccessToken();
+        // Get subscription details from PayPal
+        const response = await fetch(`${PAYPAL_BASE_URL}/v1/billing/subscriptions/${subscriptionId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+        if (!response.ok) {
+            const errorData = await response.text();
+            console.error('❌ PayPal subscription details error:', errorData);
+            throw new Error(`Failed to get subscription details: ${errorData}`);
+        }
+        const subscription = await response.json();
+        console.log('✅ Subscription details retrieved:', subscription.id);
+        return {
+            success: true,
+            subscription: subscription
+        };
+    }
+    catch (error) {
+        console.error('💥 Error getting subscription details:', error);
+        throw new functions.https.HttpsError('internal', 'Failed to get subscription details', { error: error.message });
+    }
+});
+// Cancel PayPal subscription
+exports.cancelPayPalSubscription = functions.https.onCall(async (data, context) => {
+    var _a;
+    console.log('❌ DEBUG: Cancelling PayPal subscription');
+    try {
+        const { subscriptionId, reason = 'User requested cancellation' } = data;
+        // Verify user is authenticated
+        if (!((_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+            throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+        }
+        if (!subscriptionId) {
+            throw new functions.https.HttpsError('invalid-argument', 'Missing subscriptionId');
+        }
+        // Get PayPal access token
+        const accessToken = await getPayPalAccessToken();
+        // Cancel subscription in PayPal
+        const response = await fetch(`${PAYPAL_BASE_URL}/v1/billing/subscriptions/${subscriptionId}/cancel`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({
+                reason: reason
+            })
+        });
+        if (!response.ok) {
+            const errorData = await response.text();
+            console.error('❌ PayPal cancellation error:', errorData);
+            throw new Error(`Failed to cancel subscription: ${errorData}`);
+        }
+        // Update subscription status in Firestore
+        const db = admin.firestore();
+        await db.collection('userSubscriptions').doc(context.auth.uid).update({
+            status: 'CANCELLED',
+            cancelledAt: new Date(),
+            cancellationReason: reason,
+            lastWebhookEvent: 'MANUAL_CANCELLATION'
+        });
+        console.log('✅ Subscription cancelled successfully:', subscriptionId);
+        return {
+            success: true,
+            message: 'Subscription cancelled successfully'
+        };
+    }
+    catch (error) {
+        console.error('💥 Error cancelling subscription:', error);
+        throw new functions.https.HttpsError('internal', 'Failed to cancel subscription', { error: error.message });
+    }
+});
+// Reactivate PayPal subscription
+exports.reactivatePayPalSubscription = functions.https.onCall(async (data, context) => {
+    var _a;
+    console.log('🔄 DEBUG: Reactivating PayPal subscription');
+    try {
+        const { subscriptionId } = data;
+        // Verify user is authenticated
+        if (!((_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+            throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+        }
+        if (!subscriptionId) {
+            throw new functions.https.HttpsError('invalid-argument', 'Missing subscriptionId');
+        }
+        // Get PayPal access token
+        const accessToken = await getPayPalAccessToken();
+        // Reactivate subscription in PayPal
+        const response = await fetch(`${PAYPAL_BASE_URL}/v1/billing/subscriptions/${subscriptionId}/activate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({
+                reason: 'User requested reactivation'
+            })
+        });
+        if (!response.ok) {
+            const errorData = await response.text();
+            console.error('❌ PayPal reactivation error:', errorData);
+            throw new Error(`Failed to reactivate subscription: ${errorData}`);
+        }
+        // Update subscription status in Firestore
+        const db = admin.firestore();
+        await db.collection('userSubscriptions').doc(context.auth.uid).update({
+            status: 'ACTIVE',
+            reactivatedAt: new Date(),
+            lastWebhookEvent: 'MANUAL_REACTIVATION'
+        });
+        console.log('✅ Subscription reactivated successfully:', subscriptionId);
+        return {
+            success: true,
+            message: 'Subscription reactivated successfully'
+        };
+    }
+    catch (error) {
+        console.error('💥 Error reactivating subscription:', error);
+        throw new functions.https.HttpsError('internal', 'Failed to reactivate subscription', { error: error.message });
+    }
+});
+// Function to activate subscription after successful PayPal approval
+exports.activateSubscription = functions.region('us-central1').https.onCall(async (data, context) => {
+    console.log('🎯 ACTIVATE SUBSCRIPTION: Function called', data);
+    if (!context.auth) {
+        console.error('❌ ACTIVATE SUBSCRIPTION: User not authenticated');
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+    const { subscriptionId, baToken } = data;
+    const db = admin.firestore();
+    if (!subscriptionId) {
+        console.error('❌ ACTIVATE SUBSCRIPTION: Missing subscription ID');
+        throw new functions.https.HttpsError('invalid-argument', 'Subscription ID is required');
+    }
+    try {
+        console.log('📋 ACTIVATE SUBSCRIPTION: Getting PayPal subscription details', subscriptionId);
+        // Get PayPal access token
+        const accessToken = await getPayPalAccessToken();
+        console.log('🔑 ACTIVATE SUBSCRIPTION: Got PayPal access token');
+        // Get subscription details from PayPal
+        const subscriptionResponse = await fetch(`${PAYPAL_BASE_URL}/v1/billing/subscriptions/${subscriptionId}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        });
+        if (!subscriptionResponse.ok) {
+            const errorText = await subscriptionResponse.text();
+            console.error('❌ ACTIVATE SUBSCRIPTION: PayPal API error:', errorText);
+            throw new Error(`PayPal API error: ${errorText}`);
+        }
+        const subscriptionDetails = await subscriptionResponse.json();
+        console.log('📊 ACTIVATE SUBSCRIPTION: PayPal subscription details:', JSON.stringify(subscriptionDetails, null, 2));
+        // Check if subscription is active
+        const isActive = subscriptionDetails.status === 'ACTIVE';
+        console.log('✅ ACTIVATE SUBSCRIPTION: Subscription active status:', isActive);
+        // Update subscription in Firestore
+        const updateData = {
+            status: isActive ? 'Active' : 'Failed',
+            paypalStatus: subscriptionDetails.status,
+            activatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            paypalDetails: subscriptionDetails,
+            lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+        };
+        if (baToken) {
+            updateData.baToken = baToken;
+        }
+        console.log('💾 ACTIVATE SUBSCRIPTION: Updating Firestore with:', updateData);
+        await db.collection('userSubscriptions').doc(context.auth.uid).update(updateData);
+        console.log('🎉 ACTIVATE SUBSCRIPTION: Successfully activated subscription');
+        return {
+            success: true,
+            status: updateData.status,
+            subscriptionDetails: subscriptionDetails,
+            message: isActive ? 'Subscription successfully activated!' : 'Subscription activation failed'
+        };
+    }
+    catch (error) {
+        console.error('❌ ACTIVATE SUBSCRIPTION: Error:', error);
+        throw new functions.https.HttpsError('internal', 'Failed to activate subscription', { error: error instanceof Error ? error.message : 'Unknown error' });
     }
 });
 //# sourceMappingURL=index.js.map
