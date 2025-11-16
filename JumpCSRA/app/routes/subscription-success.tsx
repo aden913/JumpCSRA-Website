@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router';
 import { RouterNav } from '../components/RouterNav';
 import { auth, firestore } from '../components/FirebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import type { User as FirebaseUser } from 'firebase/auth';
 
@@ -44,11 +44,28 @@ export default function SubscriptionSuccess() {
         console.log('✅ SUCCESS PAGE: User authenticated and success=true, loading subscription data...');
         
         try {
-          // First load current subscription data
-          console.log('📊 SUCCESS PAGE: Querying Firestore for user subscription...');
-          const subscriptionDoc = await getDoc(doc(firestore, 'userSubscriptions', u.uid));
+          // First load current subscription data from subcollection
+          console.log('📊 SUCCESS PAGE: Querying Firestore for user subscriptions...');
+          const subscriptionsRef = collection(firestore, 'users', u.uid, 'subscriptions');
           
-          if (subscriptionDoc.exists()) {
+          // Query for active or pending subscriptions
+          let subscriptionsQuery = query(
+            subscriptionsRef, 
+            where('status', 'in', ['Active', 'ACTIVE', 'PENDING_APPROVAL', 'approval-pending']),
+            limit(10)
+          );
+          
+          let subscriptionsSnapshot = await getDocs(subscriptionsQuery);
+          
+          // If no active subscriptions found, try getting any subscription
+          if (subscriptionsSnapshot.empty) {
+            console.log('📊 SUCCESS PAGE: No active subscriptions found, querying all subscriptions...');
+            subscriptionsQuery = query(subscriptionsRef, limit(10));
+            subscriptionsSnapshot = await getDocs(subscriptionsQuery);
+          }
+          
+          if (!subscriptionsSnapshot.empty) {
+            const subscriptionDoc = subscriptionsSnapshot.docs[0];
             const currentData = subscriptionDoc.data();
             console.log('📋 SUCCESS PAGE: Current subscription data:', JSON.stringify(currentData, null, 2));
             setSubscriptionData(currentData);
@@ -82,8 +99,11 @@ export default function SubscriptionSuccess() {
                   
                   // Reload subscription data to get updated status
                   console.log('🔄 SUCCESS PAGE: Reloading subscription data after activation...');
-                  const updatedDoc = await getDoc(doc(firestore, 'userSubscriptions', u.uid));
-                  if (updatedDoc.exists()) {
+                  const updatedQuery = query(subscriptionsRef, limit(10));
+                  const updatedSnapshot = await getDocs(updatedQuery);
+                  
+                  if (!updatedSnapshot.empty) {
+                    const updatedDoc = updatedSnapshot.docs[0];
                     const updatedData = updatedDoc.data();
                     console.log('📊 SUCCESS PAGE: Updated subscription data:', JSON.stringify(updatedData, null, 2));
                     setSubscriptionData(updatedData);
@@ -111,9 +131,63 @@ export default function SubscriptionSuccess() {
               setActivationMessage(`Unexpected subscription status: ${currentData.status}`);
             }
           } else {
-            console.error('❌ SUCCESS PAGE: No subscription document found for user:', u.uid);
-            setActivationStatus('error');
-            setActivationMessage('No subscription found in database');
+            console.log('ℹ️ SUCCESS PAGE: No subscription documents found, but we have PayPal data - attempting activation...');
+            // No subscription document found, but we have subscription data from PayPal
+            // This might be a new subscription that needs to be created/activated
+            if (subscriptionId && baToken) {
+              console.log('🎯 SUCCESS PAGE: Using PayPal subscription data for activation...');
+              console.log('🔑 SUCCESS PAGE: Using subscriptionId:', subscriptionId);
+              console.log('🎫 SUCCESS PAGE: Using baToken:', baToken);
+              
+              setActivationStatus('pending');
+              setActivationMessage('Contacting PayPal to activate your subscription...');
+              
+              try {
+                const functions = getFunctions();
+                const activateSubscription = httpsCallable(functions, 'activateSubscription');
+                
+                console.log('🚀 SUCCESS PAGE: Calling activateSubscription function...');
+                const result = await activateSubscription({
+                  subscriptionId: subscriptionId,
+                  baToken: baToken
+                });
+                
+                console.log('📨 SUCCESS PAGE: Function response:', JSON.stringify(result, null, 2));
+                console.log('📊 SUCCESS PAGE: Function data:', JSON.stringify(result.data, null, 2));
+                
+                if (result.data && (result.data as any).success) {
+                  console.log('✅ SUCCESS PAGE: Activation successful!');
+                  setActivationStatus('success');
+                  setActivationMessage((result.data as any).message || 'Subscription activated successfully!');
+                  
+                  // Reload subscription data to get updated status
+                  console.log('🔄 SUCCESS PAGE: Reloading subscription data after activation...');
+                  const updatedQuery = query(subscriptionsRef, limit(10));
+                  const updatedSnapshot = await getDocs(updatedQuery);
+                  
+                  if (!updatedSnapshot.empty) {
+                    const updatedDoc = updatedSnapshot.docs[0];
+                    const updatedData = updatedDoc.data();
+                    console.log('📊 SUCCESS PAGE: Updated subscription data:', JSON.stringify(updatedData, null, 2));
+                    setSubscriptionData(updatedData);
+                  } else {
+                    console.error('❌ SUCCESS PAGE: Updated subscription document not found after activation');
+                  }
+                } else {
+                  console.error('❌ SUCCESS PAGE: Activation failed:', result.data);
+                  setActivationStatus('error');
+                  setActivationMessage((result.data as any).message || 'Failed to activate subscription');
+                }
+              } catch (functionError) {
+                console.error('❌ SUCCESS PAGE: Error calling activation function:', functionError);
+                setActivationStatus('error');
+                setActivationMessage(`Function error: ${functionError instanceof Error ? functionError.message : 'Unknown error'}`);
+              }
+            } else {
+              console.error('❌ SUCCESS PAGE: No subscription found and missing PayPal data');
+              setActivationStatus('error');
+              setActivationMessage('No subscription found and missing PayPal data');
+            }
           }
         } catch (error) {
           console.error('❌ SUCCESS PAGE: Error in subscription loading/activation process:', error);

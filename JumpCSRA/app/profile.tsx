@@ -13,7 +13,7 @@ import "./styles/profile.css";
 import { useInflateables } from "./hooks/useInflateables";
 import { useCategories } from "./hooks/useCategories";
 import type { CartItem } from "./components/CartSidebar";
-import { loadBookingData, loadContractData, loadContractByOrderID, getUserWallet, getUserPaymentInfo, addWalletTransaction, addSavedPaymentMethod, deleteAllUserData, updateBookingStatus, getUserMembership } from "./utils/databaseUtils";
+import { loadBookingData, loadContractData, loadContractByOrderID, getUserWallet, getUserPaymentInfo, addWalletTransaction, addSavedPaymentMethod, deleteAllUserData, updateBookingStatus } from "./utils/databaseUtils";
 import type { BookingData, ContractData, UserWallet, UserPaymentInfo, SavedPaymentMethod, UserMembership } from "./utils/databaseUtils";
 
 // Helper function to clear all localStorage data on sign out
@@ -794,21 +794,54 @@ export default function Profile() {
     }
   };
 
-  // Load membership data
+  // Load subscription data - Updated to use only subscription subcollection
   const loadMembershipData = async () => {
     if (!user) return;
     
     setLoadingSubscription(true);
     
     try {
-      const membershipData = await getUserMembership(user.uid);
-      setUserMembership(membershipData);
+      console.log('📊 PROFILE: Loading subscription data for user:', user.uid);
       
-      // Load subscription data from Firestore
-      const subscriptionDoc = await getDoc(doc(firestore, 'userSubscriptions', user.uid));
-      if (subscriptionDoc.exists()) {
+      // Load subscription data from Firestore subcollection
+      const { collection, query, where, getDocs, limit, orderBy } = await import('firebase/firestore');
+      const subscriptionsRef = collection(firestore, 'users', user.uid, 'subscriptions');
+      
+      // Query for active subscriptions first, then any subscription if none are active
+      let subscriptionsQuery = query(
+        subscriptionsRef, 
+        where('status', 'in', ['Active', 'ACTIVE', 'PENDING_APPROVAL']),
+        limit(10)
+      );
+      
+      let subscriptionsSnapshot = await getDocs(subscriptionsQuery);
+      
+      // If no active subscription found, get any subscription
+      if (subscriptionsSnapshot.empty) {
+        console.log('📊 PROFILE: No active subscriptions found, querying all subscriptions...');
+        subscriptionsQuery = query(subscriptionsRef, limit(10));
+        subscriptionsSnapshot = await getDocs(subscriptionsQuery);
+      }
+      
+      if (!subscriptionsSnapshot.empty) {
+        const subscriptionDoc = subscriptionsSnapshot.docs[0];
         const subscriptionData = subscriptionDoc.data();
-        console.log('📊 Subscription data loaded:', subscriptionData);
+        console.log('📊 PROFILE: Subscription data loaded:', subscriptionData);
+
+        // Create userMembership object from subscription data for compatibility
+        const membershipData = {
+          jumpClub: subscriptionData.status === 'Active' || subscriptionData.status === 'ACTIVE',
+          dateStarted: subscriptionData.createdAt ? 
+            (subscriptionData.createdAt.seconds ? 
+              new Date(subscriptionData.createdAt.seconds * 1000).toISOString() : 
+              subscriptionData.createdAt) : 
+            undefined,
+          cancelled: subscriptionData.status === 'Cancelled' || subscriptionData.status === 'CANCELLED',
+          createdAt: subscriptionData.createdAt,
+          updatedAt: subscriptionData.lastUpdated || subscriptionData.updatedAt
+        };
+        
+        setUserMembership(membershipData);
         
         // If subscription is active, get next billing date from PayPal
         if ((subscriptionData.status === 'ACTIVE' || subscriptionData.status === 'Active') && subscriptionData.subscriptionId) {
@@ -827,6 +860,10 @@ export default function Profile() {
         }
         
         setUserSubscription(subscriptionData);
+      } else {
+        console.log('📊 PROFILE: No subscription documents found');
+        setUserMembership(null);
+        setUserSubscription(null);
       }
     } catch (error) {
       console.error('Error loading membership data:', error);
@@ -897,8 +934,27 @@ export default function Profile() {
       });
       
       if (result.data && (result.data as any).success) {
-        alert('Your membership has been reactivated and will continue as scheduled.');
-        await loadMembershipData(); // Reload data
+        const responseData = result.data as any;
+        
+        // Check if the reactivation requires approval (new subscription created)
+        if (responseData.requiresApproval && responseData.approvalUrl) {
+          const shouldProceed = confirm(
+            'Your previous subscription was cancelled and cannot be directly reactivated. ' +
+            'We need to create a new subscription. You will be redirected to PayPal to approve it. ' +
+            'Continue?'
+          );
+          
+          if (shouldProceed) {
+            // Redirect to PayPal for approval
+            window.location.href = responseData.approvalUrl;
+          } else {
+            alert('Reactivation cancelled. Your membership status remains unchanged.');
+          }
+        } else {
+          // Direct reactivation successful
+          alert('Your membership has been reactivated and will continue as scheduled.');
+          await loadMembershipData(); // Reload data
+        }
       } else {
         throw new Error((result.data as any)?.error || 'Failed to reactivate subscription');
       }

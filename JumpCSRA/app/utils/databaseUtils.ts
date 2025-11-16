@@ -996,18 +996,39 @@ export interface MembershipPayment {
   createdAt: string;
 }
 
-// Membership utility functions
+// Membership utility functions - Updated to use subscription subcollection
 export const getUserMembership = async (userId: string): Promise<UserMembership | null> => {
   try {
     const firestore = getFirestore();
-    const membershipRef = doc(firestore, 'users', userId, 'membership', 'status');
-    const membershipSnap = await getDoc(membershipRef);
     
-    if (!membershipSnap.exists()) {
-      return null;
+    // Query the user's subscriptions subcollection for active subscriptions
+    const subscriptionsRef = collection(firestore, 'users', userId, 'subscriptions');
+    const activeSubscriptionsQuery = query(
+      subscriptionsRef, 
+      where('status', 'in', ['Active', 'ACTIVE'])
+    );
+    
+    const subscriptionsSnapshot = await getDocs(activeSubscriptionsQuery);
+    
+    // If we have active subscriptions, user is a member
+    if (!subscriptionsSnapshot.empty) {
+      const subscriptionDoc = subscriptionsSnapshot.docs[0];
+      const subscriptionData = subscriptionDoc.data();
+      
+      return {
+        jumpClub: true,
+        dateStarted: subscriptionData.createdAt ? 
+          (subscriptionData.createdAt.seconds ? 
+            new Date(subscriptionData.createdAt.seconds * 1000).toISOString() : 
+            subscriptionData.createdAt) : 
+          undefined,
+        cancelled: subscriptionData.status === 'Cancelled',
+        createdAt: subscriptionData.createdAt,
+        updatedAt: subscriptionData.lastUpdated || subscriptionData.updatedAt
+      };
     }
     
-    return membershipSnap.data() as UserMembership;
+    return null;
   } catch (error) {
     console.error('Error getting user membership:', error);
     return null;
@@ -1020,33 +1041,11 @@ export const updateUserMembership = async (
   isActive: boolean
 ): Promise<boolean> => {
   try {
-    const firestore = getFirestore();
-    const membershipRef = doc(firestore, 'users', userId, 'membership', 'status');
+    console.log('⚠️ updateUserMembership is deprecated - membership status is now managed through subscription subcollection');
+    console.log('Use subscription management functions instead');
     
-    // Get existing membership or create new one
-    const existingMembership = await getUserMembership(userId);
-    const currentMembership: UserMembership = existingMembership || {
-      jumpClub: false,
-      createdAt: new Date().toISOString()
-    };
-    
-    // Update the specific membership type
-    currentMembership.jumpClub = isActive;
-    currentMembership.updatedAt = new Date().toISOString();
-    
-    // Set dateStarted when activating a membership for the first time
-    if (isActive && !currentMembership.dateStarted) {
-      currentMembership.dateStarted = new Date().toISOString();
-    }
-    
-    // Clear dateStarted if deactivating Jump Club membership
-    if (!isActive && !currentMembership.jumpClub) {
-      delete currentMembership.dateStarted;
-      delete currentMembership.cancelled;
-    }
-    
-    await setDoc(membershipRef, currentMembership);
-    
+    // This function is now deprecated as membership status is determined by active subscriptions
+    // The actual membership status should be managed through the subscription lifecycle
     return true;
   } catch (error) {
     console.error('Error updating user membership:', error);
@@ -1056,14 +1055,19 @@ export const updateUserMembership = async (
 
 export const isUserMember = async (userId: string, membershipType?: 'jump-club'): Promise<boolean> => {
   try {
-    const membership = await getUserMembership(userId);
+    const firestore = getFirestore();
     
-    if (!membership) {
-      return false;
-    }
+    // Query the user's subscriptions subcollection for active subscriptions
+    const subscriptionsRef = collection(firestore, 'users', userId, 'subscriptions');
+    const activeSubscriptionsQuery = query(
+      subscriptionsRef, 
+      where('status', 'in', ['Active', 'ACTIVE'])
+    );
     
-    // Since we only have one membership type now, just check jumpClub
-    return membership.jumpClub;
+    const subscriptionsSnapshot = await getDocs(activeSubscriptionsQuery);
+    
+    // If we have any active subscriptions, user is a member
+    return !subscriptionsSnapshot.empty;
   } catch (error) {
     console.error('Error checking user membership:', error);
     return false;
@@ -1122,16 +1126,10 @@ export const getUsersMembershipPayments = async (userId: string): Promise<Member
 
 export const updateMembershipDateStarted = async (userId: string, membershipType: 'jump-club'): Promise<boolean> => {
   try {
-    const firestore = getFirestore();
-    const membershipRef = doc(firestore, 'users', userId, 'membership', 'status');
+    console.log('⚠️ updateMembershipDateStarted is deprecated - membership dates are now managed through subscription subcollection');
+    console.log('Use subscription management functions instead');
     
-    const updateData: Partial<UserMembership> = {
-      dateStarted: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      jumpClub: true
-    };
-    
-    await setDoc(membershipRef, updateData, { merge: true });
+    // This function is deprecated as membership dates are managed through subscription lifecycle
     return true;
   } catch (error) {
     console.error('Error updating membership dateStarted:', error);
@@ -1141,15 +1139,10 @@ export const updateMembershipDateStarted = async (userId: string, membershipType
 
 export const cancelMembership = async (userId: string): Promise<boolean> => {
   try {
-    const firestore = getFirestore();
-    const membershipRef = doc(firestore, 'users', userId, 'membership', 'status');
+    console.log('⚠️ cancelMembership is deprecated - use PayPal subscription cancellation functions instead');
+    console.log('Use cancelPayPalSubscription cloud function instead');
     
-    const updateData: Partial<UserMembership> = {
-      cancelled: true,
-      updatedAt: new Date().toISOString()
-    };
-    
-    await setDoc(membershipRef, updateData, { merge: true });
+    // This function is deprecated as membership cancellation is managed through PayPal subscription cancellation
     return true;
   } catch (error) {
     console.error('Error cancelling membership:', error);

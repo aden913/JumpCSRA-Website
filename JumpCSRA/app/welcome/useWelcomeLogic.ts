@@ -9,7 +9,7 @@ import { notifications } from '@mantine/notifications';
 import { useState, useRef, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '../components/FirebaseConfig';
-import { getUserMembership } from '../utils/databaseUtils';
+import { isUserMember } from '../utils/databaseUtils';
 import type { CartItem } from '../components/CartSidebar';
 import type { UserMembership } from '../utils/databaseUtils';
 
@@ -48,8 +48,19 @@ export function useWelcomeLogic() {
       
       if (firebaseUser) {
         try {
-          const membership = await getUserMembership(firebaseUser.uid);
-          setUserMembership(membership);
+          // Check if user is a member by checking active subscriptions
+          const isMember = await isUserMember(firebaseUser.uid);
+          
+          // Create membership object for compatibility
+          const membershipData = isMember ? {
+            jumpClub: true,
+            dateStarted: new Date().toISOString(), // We don't have exact date from isUserMember
+            cancelled: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          } : null;
+          
+          setUserMembership(membershipData);
         } catch (error) {
           console.error('Error fetching user membership:', error);
           setUserMembership(null);
