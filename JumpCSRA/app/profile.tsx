@@ -803,30 +803,50 @@ export default function Profile() {
     try {
       console.log('📊 PROFILE: Loading subscription data for user:', user.uid);
       
-      // Load subscription data from Firestore subcollection
+      // Load subscription data from Firestore activeSubscriptions collection (fast query)
       const { collection, query, where, getDocs, limit, orderBy } = await import('firebase/firestore');
-      const subscriptionsRef = collection(firestore, 'users', user.uid, 'subscriptions');
+      const activeSubscriptionsRef = collection(firestore, 'users', user.uid, 'activeSubscriptions');
       
-      // Query for active subscriptions first, then any subscription if none are active
-      let subscriptionsQuery = query(
-        subscriptionsRef, 
-        where('status', 'in', ['Active', 'ACTIVE', 'PENDING_APPROVAL']),
-        limit(10)
-      );
+      // Get active subscriptions (should be fast since we only store active ones here)
+      console.log('📊 PROFILE: Fetching active subscriptions from activeSubscriptions collection...');
+      const activeSubscriptionsQuery = query(activeSubscriptionsRef, orderBy('createdAt', 'desc'), limit(10));
+      const activeSubscriptionsSnapshot = await getDocs(activeSubscriptionsQuery);
       
-      let subscriptionsSnapshot = await getDocs(subscriptionsQuery);
+      console.log('📊 PROFILE: Found', activeSubscriptionsSnapshot.size, 'active subscriptions');
       
-      // If no active subscription found, get any subscription
-      if (subscriptionsSnapshot.empty) {
-        console.log('📊 PROFILE: No active subscriptions found, querying all subscriptions...');
-        subscriptionsQuery = query(subscriptionsRef, limit(10));
-        subscriptionsSnapshot = await getDocs(subscriptionsQuery);
-      }
+      let activeSubscriptionData: any = null;
+      let anySubscriptionData: any = null;
       
-      if (!subscriptionsSnapshot.empty) {
-        const subscriptionDoc = subscriptionsSnapshot.docs[0];
-        const subscriptionData = subscriptionDoc.data();
-        console.log('📊 PROFILE: Subscription data loaded:', subscriptionData);
+      // Log all active subscriptions for debugging
+      activeSubscriptionsSnapshot.forEach((doc: any) => {
+        const data = doc.data();
+        console.log(`� PROFILE: Subscription details:`, {
+          docId: doc.id,
+          subscriptionId: data.subscriptionId,
+          status: data.status,
+          createdAt: data.createdAt,
+          isActive: data.status === 'Active' || data.status === 'ACTIVE'
+        });
+        
+        // Store the first active subscription we find
+        if (!activeSubscriptionData && (data.status === 'Active' || data.status === 'ACTIVE')) {
+          console.log('✅ PROFILE: Found active subscription:', doc.id);
+          activeSubscriptionData = data;
+        }
+        
+        // Store any subscription as fallback
+        if (!anySubscriptionData) {
+          anySubscriptionData = data;
+        }
+      });
+      
+      // Use active subscription if found, otherwise use any subscription
+      const subscriptionData = activeSubscriptionData || anySubscriptionData;
+      
+      if (subscriptionData) {
+        console.log('📊 PROFILE: Using subscription data:', subscriptionData);
+        console.log('📊 PROFILE: This subscription is active?', 
+          subscriptionData.status === 'Active' || subscriptionData.status === 'ACTIVE');
 
         // Create userMembership object from subscription data for compatibility
         const membershipData = {
@@ -860,6 +880,13 @@ export default function Profile() {
         }
         
         setUserSubscription(subscriptionData);
+        
+        // Debug logging for cancel button troubleshooting
+        console.log('🔍 PROFILE DEBUG: userSubscription set to:', subscriptionData);
+        console.log('🔍 PROFILE DEBUG: subscriptionData.status:', subscriptionData.status);
+        console.log('🔍 PROFILE DEBUG: subscriptionData.subscriptionId:', subscriptionData.subscriptionId);
+        console.log('🔍 PROFILE DEBUG: Cancel button should show?', 
+          (subscriptionData.status === 'ACTIVE' || subscriptionData.status === 'Active'));
       } else {
         console.log('📊 PROFILE: No subscription documents found');
         setUserMembership(null);
@@ -874,7 +901,15 @@ export default function Profile() {
 
   // Cancel subscription function
   const handleCancelSubscription = async () => {
-    if (!user || !userSubscription?.subscriptionId) return;
+    console.log('🚨 CANCEL DEBUG: handleCancelSubscription called');
+    console.log('🔍 CANCEL DEBUG: user exists?', !!user);
+    console.log('🔍 CANCEL DEBUG: userSubscription:', userSubscription);
+    console.log('🔍 CANCEL DEBUG: userSubscription.subscriptionId:', userSubscription?.subscriptionId);
+    
+    if (!user || !userSubscription?.subscriptionId) {
+      console.error('❌ CANCEL DEBUG: Missing requirements - user:', !!user, 'subscriptionId:', userSubscription?.subscriptionId);
+      return;
+    }
     
     const confirmCancel = confirm(
       'Are you sure you want to cancel your membership?\n\n' +
@@ -2816,7 +2851,7 @@ export default function Profile() {
                 selectedContract.agreementSections.map((section: any, index: number) => (
                   <div key={section.id || index} className="contract-section">
                     <div className="section-header">
-                      <h4>{section.title || `Section ${index + 1}`}</h4>
+                      <h4>{section.title || `Section details`}</h4>
                       <div className="section-status">
                         {section.isInitialed ? (
                           <span className="initialed">

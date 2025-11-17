@@ -996,16 +996,16 @@ export interface MembershipPayment {
   createdAt: string;
 }
 
-// Membership utility functions - Updated to use subscription subcollection
+// Membership utility functions - Updated to use activeSubscriptions collection
 export const getUserMembership = async (userId: string): Promise<UserMembership | null> => {
   try {
     const firestore = getFirestore();
     
-    // Query the user's subscriptions subcollection for active subscriptions
-    const subscriptionsRef = collection(firestore, 'users', userId, 'subscriptions');
+    // Query the user's activeSubscriptions collection for active subscriptions (fast query)
+    const activeSubscriptionsRef = collection(firestore, 'users', userId, 'activeSubscriptions');
     const activeSubscriptionsQuery = query(
-      subscriptionsRef, 
-      where('status', 'in', ['Active', 'ACTIVE'])
+      activeSubscriptionsRef, 
+      where('status', 'in', ['Active', 'ACTIVE', 'Pending', 'Suspended'])
     );
     
     const subscriptionsSnapshot = await getDocs(activeSubscriptionsQuery);
@@ -1057,11 +1057,11 @@ export const isUserMember = async (userId: string, membershipType?: 'jump-club')
   try {
     const firestore = getFirestore();
     
-    // Query the user's subscriptions subcollection for active subscriptions
-    const subscriptionsRef = collection(firestore, 'users', userId, 'subscriptions');
+    // Query the user's activeSubscriptions collection for active subscriptions (fast query)
+    const activeSubscriptionsRef = collection(firestore, 'users', userId, 'activeSubscriptions');
     const activeSubscriptionsQuery = query(
-      subscriptionsRef, 
-      where('status', 'in', ['Active', 'ACTIVE'])
+      activeSubscriptionsRef, 
+      where('status', 'in', ['Active', 'ACTIVE', 'Pending', 'Suspended'])
     );
     
     const subscriptionsSnapshot = await getDocs(activeSubscriptionsQuery);

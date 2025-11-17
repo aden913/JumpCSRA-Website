@@ -2847,22 +2847,16 @@ export const createMembershipSubscription = functions.https.onCall(async (data, 
       }
     };
 
-    console.log('💾 DEBUG: About to store subscription in dual-collection structure...');
-    console.log('📍 DEBUG: ActiveSubscriptions path: users/${userId}/activeSubscriptions/${subscriptionResult.id}');
-    console.log('📍 DEBUG: SubscriptionHistory path: users/${userId}/subscriptionHistory/${subscriptionResult.id}');
+    console.log('💾 DEBUG: About to store subscription in database...');
+    console.log('📍 DEBUG: Document path will be:', `users/${userId}/subscriptions/${subscriptionResult.id}`);
     console.log('📊 DEBUG: Subscription record:', JSON.stringify(subscriptionRecord, null, 2));
 
     try {
-      // Store in activeSubscriptions collection (for fast queries)
-      await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionResult.id).set(subscriptionRecord);
-      console.log('✅ DEBUG: Subscription stored in activeSubscriptions');
-      
-      // Store in subscriptionHistory collection (for billing/statistics)
-      await db.collection('users').doc(userId).collection('subscriptionHistory').doc(subscriptionResult.id).set(subscriptionRecord);
-      console.log('✅ DEBUG: Subscription stored in subscriptionHistory');
+      await db.collection('users').doc(userId).collection('subscriptions').doc(subscriptionResult.id).set(subscriptionRecord);
+      console.log('✅ DEBUG: Subscription successfully stored in database');
       
       // Verify the document was created by reading it back
-      const verifyDoc = await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionResult.id).get();
+      const verifyDoc = await db.collection('users').doc(userId).collection('subscriptions').doc(subscriptionResult.id).get();
       if (verifyDoc.exists) {
         console.log('✅ VERIFY: Document exists in database:', verifyDoc.id);
         console.log('📊 VERIFY: Document data:', JSON.stringify(verifyDoc.data(), null, 2));
@@ -2929,21 +2923,13 @@ export const paypalSubscriptionWebhook = functions.https.onRequest(async (req, r
           const subscriptionId = subscription.id;
           
           if (userId && subscriptionId) {
-            // Update activeSubscriptions collection
-            await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).update({
+            await db.collection('users').doc(userId).collection('subscriptions').doc(subscriptionId).update({
               status: 'ACTIVE',
               activatedAt: new Date(),
               lastWebhookEvent: event.event_type
             });
-            console.log('✅ WEBHOOK: Subscription activated in activeSubscriptions:', userId);
             
-            // Update subscriptionHistory collection
-            await db.collection('users').doc(userId).collection('subscriptionHistory').doc(subscriptionId).update({
-              status: 'ACTIVE',
-              activatedAt: new Date(),
-              lastWebhookEvent: event.event_type
-            });
-            console.log('✅ WEBHOOK: Subscription activated in subscriptionHistory:', userId);
+            console.log('✅ WEBHOOK: Subscription activated in database:', userId);
           }
         }
         break;
@@ -2956,63 +2942,13 @@ export const paypalSubscriptionWebhook = functions.https.onRequest(async (req, r
           const subscriptionId = subscription.id;
           
           if (userId && subscriptionId) {
-            // Delete from activeSubscriptions (since it's no longer active)
-            await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).delete();
-            console.log('❌ WEBHOOK: Subscription removed from activeSubscriptions:', userId);
-            
-            // Update status in subscriptionHistory (preserve for billing history)
-            await db.collection('users').doc(userId).collection('subscriptionHistory').doc(subscriptionId).update({
+            await db.collection('users').doc(userId).collection('subscriptions').doc(subscriptionId).update({
               status: 'CANCELLED',
               cancelledAt: new Date(),
               lastWebhookEvent: event.event_type
             });
-            console.log('❌ WEBHOOK: Subscription cancelled in subscriptionHistory:', userId);
-          }
-        }
-        break;
-
-      case 'BILLING.SUBSCRIPTION.SUSPENDED':
-        {
-          console.log('⏸️ WEBHOOK: Subscription suspended');
-          const subscription = event.resource;
-          const userId = subscription.custom_id;
-          const subscriptionId = subscription.id;
-          
-          if (userId && subscriptionId) {
-            // Delete from activeSubscriptions (since it's no longer active)
-            await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).delete();
-            console.log('⏸️ WEBHOOK: Subscription removed from activeSubscriptions (suspended):', userId);
             
-            // Update status in subscriptionHistory
-            await db.collection('users').doc(userId).collection('subscriptionHistory').doc(subscriptionId).update({
-              status: 'SUSPENDED',
-              suspendedAt: new Date(),
-              lastWebhookEvent: event.event_type
-            });
-            console.log('⏸️ WEBHOOK: Subscription suspended in subscriptionHistory:', userId);
-          }
-        }
-        break;
-
-      case 'BILLING.SUBSCRIPTION.EXPIRED':
-        {
-          console.log('⏰ WEBHOOK: Subscription expired');
-          const subscription = event.resource;
-          const userId = subscription.custom_id;
-          const subscriptionId = subscription.id;
-          
-          if (userId && subscriptionId) {
-            // Delete from activeSubscriptions (since it's no longer active)
-            await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).delete();
-            console.log('⏰ WEBHOOK: Subscription removed from activeSubscriptions (expired):', userId);
-            
-            // Update status in subscriptionHistory
-            await db.collection('users').doc(userId).collection('subscriptionHistory').doc(subscriptionId).update({
-              status: 'EXPIRED',
-              expiredAt: new Date(),
-              lastWebhookEvent: event.event_type
-            });
-            console.log('⏰ WEBHOOK: Subscription expired in subscriptionHistory:', userId);
+            console.log('❌ WEBHOOK: Subscription cancelled in database:', userId);
           }
         }
         break;
@@ -3139,22 +3075,14 @@ export const cancelPayPalSubscription = functions.region('us-central1').https.on
       throw new Error(`Failed to cancel subscription: ${errorData}`);
     }
 
-    // Update subscription status in dual-collection structure
+    // Update subscription status in Firestore
     const db = admin.firestore();
-    
-    // Delete from activeSubscriptions (since it's no longer active)
-    await db.collection('users').doc(context.auth.uid).collection('activeSubscriptions').doc(subscriptionId).delete();
-    console.log('✅ Subscription removed from activeSubscriptions:', subscriptionId);
-    
-    // Update status to 'Cancelled' in subscriptionHistory (for billing/statistics)
-    await db.collection('users').doc(context.auth.uid).collection('subscriptionHistory').doc(subscriptionId).update({
+    await db.collection('users').doc(context.auth.uid).collection('subscriptions').doc(subscriptionId).update({
       status: 'Cancelled',
       cancelledAt: new Date(),
       cancellationReason: reason,
-      lastWebhookEvent: 'MANUAL_CANCELLATION',
-      lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+      lastWebhookEvent: 'MANUAL_CANCELLATION'
     });
-    console.log('✅ Subscription status updated to Cancelled in subscriptionHistory:', subscriptionId);
 
     console.log('✅ Subscription cancelled successfully:', subscriptionId);
 
@@ -3287,7 +3215,7 @@ export const reactivatePayPalSubscription = functions.region('us-central1').http
       const newSubscription = await newSubscriptionResponse.json();
       console.log('🆕 New subscription created:', newSubscription.id);
 
-      // Create new subscription record in the dual-collection structure
+      // Create new subscription record in the database
       const db = admin.firestore();
       const newSubscriptionRecord = {
         subscriptionId: newSubscription.id,
@@ -3299,10 +3227,7 @@ export const reactivatePayPalSubscription = functions.region('us-central1').http
         userId: context.auth.uid,
         lastWebhookEvent: 'NEW_SUBSCRIPTION_CREATED'
       };
-      
-      // Store in both collections
-      await db.collection('users').doc(context.auth.uid).collection('activeSubscriptions').doc(newSubscription.id).set(newSubscriptionRecord);
-      await db.collection('users').doc(context.auth.uid).collection('subscriptionHistory').doc(newSubscription.id).set(newSubscriptionRecord);
+      await db.collection('users').doc(context.auth.uid).collection('subscriptions').doc(newSubscription.id).set(newSubscriptionRecord);
 
       // Return approval URL for user to complete
       const approvalLink = newSubscription.links?.find((link: any) => link.rel === 'approve');
@@ -3325,19 +3250,14 @@ export const reactivatePayPalSubscription = functions.region('us-central1').http
       throw new Error(`Cannot reactivate subscription with status: ${subscriptionDetails.status}`);
     }
 
-    // Update subscription status in Firestore dual-collection structure for activated subscriptions
+    // Update subscription status in Firestore for activated subscriptions
     const db = admin.firestore();
-    const updateData = {
+    await db.collection('users').doc(context.auth.uid).collection('subscriptions').doc(subscriptionId).update({
       status: 'Active',
       reactivatedAt: new Date(),
       lastWebhookEvent: 'MANUAL_REACTIVATION',
       paypalStatus: reactivationResult.status
-    };
-    
-    // Update activeSubscriptions
-    await db.collection('users').doc(context.auth.uid).collection('activeSubscriptions').doc(subscriptionId).update(updateData);
-    // Update subscriptionHistory
-    await db.collection('users').doc(context.auth.uid).collection('subscriptionHistory').doc(subscriptionId).update(updateData);
+    });
 
     console.log('✅ Subscription reactivated successfully:', subscriptionId);
 
@@ -3423,44 +3343,37 @@ export const activateSubscription = functions.region('us-central1').https.onCall
       updateData.baToken = baToken;
     }
 
-    console.log('💾 ACTIVATE SUBSCRIPTION: Updating Firestore with dual-collection structure:', JSON.stringify(updateData, null, 2));
-    console.log('📍 ACTIVATE SUBSCRIPTION: ActiveSubscriptions path: users/${context.auth.uid}/activeSubscriptions/${subscriptionId}');
-    console.log('📍 ACTIVATE SUBSCRIPTION: SubscriptionHistory path: users/${context.auth.uid}/subscriptionHistory/${subscriptionId}');
+    console.log('💾 ACTIVATE SUBSCRIPTION: Updating Firestore with:', JSON.stringify(updateData, null, 2));
+    console.log('📍 ACTIVATE SUBSCRIPTION: Document path will be:', `users/${context.auth.uid}/subscriptions/${subscriptionId}`);
     
-    // First, check if document already exists in activeSubscriptions
-    const activeDocRef = db.collection('users').doc(context.auth.uid).collection('activeSubscriptions').doc(subscriptionId);
-    const historyDocRef = db.collection('users').doc(context.auth.uid).collection('subscriptionHistory').doc(subscriptionId);
-    console.log('🔍 ACTIVATE SUBSCRIPTION: Checking if document already exists in activeSubscriptions...');
+    // First, check if document already exists
+    const docRef = db.collection('users').doc(context.auth.uid).collection('subscriptions').doc(subscriptionId);
+    console.log('🔍 ACTIVATE SUBSCRIPTION: Checking if document already exists...');
     
     try {
-      const existingDoc = await activeDocRef.get();
+      const existingDoc = await docRef.get();
       if (existingDoc.exists) {
-        console.log('📋 ACTIVATE SUBSCRIPTION: Document already exists in activeSubscriptions, current data:', JSON.stringify(existingDoc.data(), null, 2));
+        console.log('📋 ACTIVATE SUBSCRIPTION: Document already exists, current data:', JSON.stringify(existingDoc.data(), null, 2));
       } else {
-        console.log('📋 ACTIVATE SUBSCRIPTION: Document does not exist in activeSubscriptions, will create new one');
+        console.log('📋 ACTIVATE SUBSCRIPTION: Document does not exist, will create new one');
       }
     } catch (checkError) {
       console.error('⚠️ ACTIVATE SUBSCRIPTION: Error checking existing document:', checkError);
     }
     
-    // Use set with merge to update/create document in both collections
+    // Use set with merge to create document if it doesn't exist
     try {
-      // Update activeSubscriptions (for fast queries)
-      await activeDocRef.set(updateData, { merge: true });
-      console.log('✅ ACTIVATE SUBSCRIPTION: ActiveSubscriptions update completed successfully');
+      await docRef.set(updateData, { merge: true });
+      console.log('✅ ACTIVATE SUBSCRIPTION: Firestore update completed successfully');
       
-      // Update subscriptionHistory (for billing/statistics)
-      await historyDocRef.set(updateData, { merge: true });
-      console.log('✅ ACTIVATE SUBSCRIPTION: SubscriptionHistory update completed successfully');
-      
-      // Verify the document was written by reading it back from activeSubscriptions
-      const verifyDoc = await activeDocRef.get();
+      // Verify the document was written by reading it back
+      const verifyDoc = await docRef.get();
       if (verifyDoc.exists) {
-        console.log('✅ VERIFY ACTIVATION: Document exists after update in activeSubscriptions:', verifyDoc.id);
+        console.log('✅ VERIFY ACTIVATION: Document exists after update:', verifyDoc.id);
         console.log('📊 VERIFY ACTIVATION: Final document data:', JSON.stringify(verifyDoc.data(), null, 2));
       } else {
-        console.error('❌ VERIFY ACTIVATION: Document was not found in activeSubscriptions after update!');
-        throw new Error('Document verification failed - document not found in activeSubscriptions after update');
+        console.error('❌ VERIFY ACTIVATION: Document was not found after update!');
+        throw new Error('Document verification failed - document not found after update');
       }
     } catch (updateError) {
       console.error('❌ ACTIVATE SUBSCRIPTION: Firestore update failed:', updateError);
@@ -3473,9 +3386,8 @@ export const activateSubscription = functions.region('us-central1').https.onCall
       throw updateError;
     }
     
-    console.log('🎉 ACTIVATE SUBSCRIPTION: Successfully activated subscription in dual-collection structure');
-    console.log('✅ ACTIVATE SUBSCRIPTION: Document should now exist at users/' + context.auth.uid + '/activeSubscriptions/' + subscriptionId);
-    console.log('✅ ACTIVATE SUBSCRIPTION: Document should now exist at users/' + context.auth.uid + '/subscriptionHistory/' + subscriptionId);
+    console.log('🎉 ACTIVATE SUBSCRIPTION: Successfully activated subscription');
+    console.log('✅ ACTIVATE SUBSCRIPTION: Document should now exist at users/' + context.auth.uid + '/subscriptions/' + subscriptionId);
     
     return { 
       success: true, 
@@ -3509,56 +3421,31 @@ export const debugSubscriptionDatabase = functions.https.onCall(async (data, con
     const db = admin.firestore();
     console.log('🔍 DEBUG: Checking subscriptions for user:', targetUserId);
     
-    // Get active subscriptions
-    const activeSubscriptionsRef = db.collection('users').doc(targetUserId).collection('activeSubscriptions');
-    const activeSubscriptions = await activeSubscriptionsRef.get();
+    // Get all subscriptions for the user
+    const subscriptionsRef = db.collection('users').doc(targetUserId).collection('subscriptions');
+    const allSubscriptions = await subscriptionsRef.get();
     
-    // Get subscription history
-    const historySubscriptionsRef = db.collection('users').doc(targetUserId).collection('subscriptionHistory');
-    const historySubscriptions = await historySubscriptionsRef.get();
+    console.log('📊 DEBUG: Total subscription documents found:', allSubscriptions.size);
     
-    console.log('📊 DEBUG: Active subscription documents found:', activeSubscriptions.size);
-    console.log('📊 DEBUG: History subscription documents found:', historySubscriptions.size);
-    
-    const activeSubscriptionsList: any[] = [];
-    activeSubscriptions.forEach(doc => {
+    const subscriptionsList: any[] = [];
+    allSubscriptions.forEach(doc => {
       const data = doc.data();
-      console.log('📋 DEBUG: Active subscription document:', doc.id, JSON.stringify(data, null, 2));
-      activeSubscriptionsList.push({
+      console.log('📋 DEBUG: Subscription document:', doc.id, JSON.stringify(data, null, 2));
+      subscriptionsList.push({
         documentId: doc.id,
-        collection: 'activeSubscriptions',
         data: data
       });
     });
     
-    const historySubscriptionsList: any[] = [];
-    historySubscriptions.forEach(doc => {
-      const data = doc.data();
-      console.log('📋 DEBUG: History subscription document:', doc.id, JSON.stringify(data, null, 2));
-      historySubscriptionsList.push({
-        documentId: doc.id,
-        collection: 'subscriptionHistory',
-        data: data
-      });
-    });
-    
-    // If specific subscriptionId provided, check that document in both collections
+    // If specific subscriptionId provided, check that document
     if (subscriptionId) {
       console.log('🎯 DEBUG: Checking specific subscription:', subscriptionId);
+      const specificDoc = await subscriptionsRef.doc(subscriptionId).get();
       
-      const activeDoc = await activeSubscriptionsRef.doc(subscriptionId).get();
-      const historyDoc = await historySubscriptionsRef.doc(subscriptionId).get();
-      
-      if (activeDoc.exists) {
-        console.log('✅ DEBUG: Specific subscription found in activeSubscriptions:', JSON.stringify(activeDoc.data(), null, 2));
+      if (specificDoc.exists) {
+        console.log('✅ DEBUG: Specific subscription found:', JSON.stringify(specificDoc.data(), null, 2));
       } else {
-        console.log('❌ DEBUG: Specific subscription NOT found in activeSubscriptions');
-      }
-      
-      if (historyDoc.exists) {
-        console.log('✅ DEBUG: Specific subscription found in subscriptionHistory:', JSON.stringify(historyDoc.data(), null, 2));
-      } else {
-        console.log('❌ DEBUG: Specific subscription NOT found in subscriptionHistory');
+        console.log('❌ DEBUG: Specific subscription NOT found');
       }
     }
     
@@ -3572,10 +3459,8 @@ export const debugSubscriptionDatabase = functions.https.onCall(async (data, con
     return {
       success: true,
       userId: targetUserId,
-      activeSubscriptionsCount: activeSubscriptions.size,
-      historySubscriptionsCount: historySubscriptions.size,
-      activeSubscriptions: activeSubscriptionsList,
-      historySubscriptions: historySubscriptionsList,
+      totalSubscriptions: allSubscriptions.size,
+      subscriptions: subscriptionsList,
       userDocumentExists: userDoc.exists,
       userDocumentData: userDoc.exists ? userDoc.data() : null
     };

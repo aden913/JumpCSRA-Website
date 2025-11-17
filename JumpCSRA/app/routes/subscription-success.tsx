@@ -44,23 +44,23 @@ export default function SubscriptionSuccess() {
         console.log('✅ SUCCESS PAGE: User authenticated and success=true, loading subscription data...');
         
         try {
-          // First load current subscription data from subcollection
-          console.log('📊 SUCCESS PAGE: Querying Firestore for user subscriptions...');
-          const subscriptionsRef = collection(firestore, 'users', u.uid, 'subscriptions');
+          // First load current subscription data from activeSubscriptions subcollection
+          console.log('📊 SUCCESS PAGE: Querying Firestore for user activeSubscriptions...');
+          const activeSubscriptionsRef = collection(firestore, 'users', u.uid, 'activeSubscriptions');
           
           // Query for active or pending subscriptions
           let subscriptionsQuery = query(
-            subscriptionsRef, 
+            activeSubscriptionsRef, 
             where('status', 'in', ['Active', 'ACTIVE', 'PENDING_APPROVAL', 'approval-pending']),
             limit(10)
           );
           
           let subscriptionsSnapshot = await getDocs(subscriptionsQuery);
           
-          // If no active subscriptions found, try getting any subscription
+          // If no active subscriptions found, try getting any subscription from activeSubscriptions
           if (subscriptionsSnapshot.empty) {
-            console.log('📊 SUCCESS PAGE: No active subscriptions found, querying all subscriptions...');
-            subscriptionsQuery = query(subscriptionsRef, limit(10));
+            console.log('📊 SUCCESS PAGE: No active subscriptions found, querying all activeSubscriptions...');
+            subscriptionsQuery = query(activeSubscriptionsRef, limit(10));
             subscriptionsSnapshot = await getDocs(subscriptionsQuery);
           }
           
@@ -99,7 +99,7 @@ export default function SubscriptionSuccess() {
                   
                   // Reload subscription data to get updated status
                   console.log('🔄 SUCCESS PAGE: Reloading subscription data after activation...');
-                  const updatedQuery = query(subscriptionsRef, limit(10));
+                  const updatedQuery = query(activeSubscriptionsRef, limit(10));
                   const updatedSnapshot = await getDocs(updatedQuery);
                   
                   if (!updatedSnapshot.empty) {
@@ -162,7 +162,7 @@ export default function SubscriptionSuccess() {
                   
                   // Reload subscription data to get updated status
                   console.log('🔄 SUCCESS PAGE: Reloading subscription data after activation...');
-                  const updatedQuery = query(subscriptionsRef, limit(10));
+                  const updatedQuery = query(activeSubscriptionsRef, limit(10));
                   const updatedSnapshot = await getDocs(updatedQuery);
                   
                   if (!updatedSnapshot.empty) {
