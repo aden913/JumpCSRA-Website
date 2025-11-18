@@ -39,7 +39,8 @@ import { redeemGiftCardToWallet, validateGiftCard, getGiftCardDetails } from "./
 import { WalletFundingModal } from "./components/WalletFundingModal";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 
-const TABS = ["Profile Information", "Bookings", "Membership", "Payment Information"];
+// Base tabs that are always available
+const BASE_TABS = ["Profile Information", "Bookings", "Membership", "Payment Information"];
 
 export default function Profile() {
   const [canEditEmail, setCanEditEmail] = useState(false);
@@ -52,7 +53,13 @@ export default function Profile() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedTab = localStorage.getItem('profile_activeTab');
+      return savedTab ? parseInt(savedTab, 10) : 0;
+    }
+    return 0;
+  });
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState({
     firstName: "",
@@ -92,6 +99,54 @@ export default function Profile() {
   const [showGiftCardModal, setShowGiftCardModal] = useState(false);
   const [giftCardCode, setGiftCardCode] = useState("");
   const [giftCardLookupResult, setGiftCardLookupResult] = useState<any>(null);
+
+  // Membership Booking State
+  const [membershipBookingData, setMembershipBookingData] = useState<any>(null);
+  const [loadingMembershipBooking, setLoadingMembershipBooking] = useState(false);
+  const [membershipDataLoaded, setMembershipDataLoaded] = useState(false);
+  
+  // Membership Booking Selection State with localStorage persistence
+  const [selectedWeekday, setSelectedWeekday] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('membershipBooking_weekday') || '';
+    }
+    return '';
+  });
+  const [selectedInflatable, setSelectedInflatable] = useState<any>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('membershipBooking_inflatable');
+      return saved ? JSON.parse(saved) : null;
+    }
+    return null;
+  });
+  const [selectedSurface, setSelectedSurface] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('membershipBooking_surface') || 'grass';
+    }
+    return 'grass';
+  });
+  const [selectedStakesOrSandbags, setSelectedStakesOrSandbags] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('membershipBooking_stakesOrSandbags') || '';
+    }
+    return '';
+  });
+  const [deliveryAddress, setDeliveryAddress] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('membershipBooking_address') || '';
+    }
+    return '';
+  });
+  const [membershipBookingError, setMembershipBookingError] = useState<string | null>(null);
+
+  // Create dynamic tabs based on subscription status
+  const isActiveSubscriber = userSubscription?.status === 'ACTIVE' || userSubscription?.status === 'Active';
+  const TABS = BASE_TABS; // Use base tabs only - membership booking moved to membership tab
+  
+  // Adjust active tab index when tabs change (simplified since tabs are now consistent)
+  const adjustActiveTabForSubscription = () => {
+    return activeTab; // No adjustment needed since tabs are consistent
+  };
   const [loadingGiftCardLookup, setLoadingGiftCardLookup] = useState(false);
   const [giftCardError, setGiftCardError] = useState<string | null>(null);
 
@@ -104,6 +159,82 @@ export default function Profile() {
   // Add hooks for navbar functionality
   const inflateables = useInflateables();
   const categories = useCategories(inflateables);
+
+  // Handle URL parameters for direct navigation
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tab = urlParams.get('tab');
+    if (tab === 'membership') {
+      setActiveTab(2); // Membership tab
+    }
+  }, [isActiveSubscriber]);
+
+  // Adjust active tab when subscription status changes
+  useEffect(() => {
+    const adjustedTab = adjustActiveTabForSubscription();
+    if (adjustedTab !== activeTab) {
+      setActiveTab(adjustedTab);
+    }
+  }, [isActiveSubscriber]);
+
+  // Helper function to get the tab index based on subscription status
+  const getTabIndex = (tabName: string) => {
+    // Tab indices are now consistent regardless of subscription status
+    switch (tabName) {
+      case 'profile': return 0;
+      case 'bookings': return 1;
+      case 'membership': return 2;
+      case 'payment': return 3;
+      default: return 0;
+    }
+  };
+
+  // Membership Booking Helper Functions
+  const validateMembershipBooking = (): string | null => {
+    if (!selectedWeekday) return "Please select a delivery day";
+    if (!selectedSurface) return "Please select a surface type";
+    if (!profile.address) return "Please add your address in Profile Information tab";
+    
+    return null;
+  };
+
+  // Function to calculate the actual event date based on membership signup timing
+  const calculateActualEventDate = (): Date | null => {
+    if (!selectedWeekday || !userSubscription?.activatedAt) return null;
+    
+    const activatedDate = new Date(userSubscription.activatedAt.seconds ? 
+      userSubscription.activatedAt.seconds * 1000 : userSubscription.activatedAt);
+    
+    // Find the next first occurrence of the selected weekday after today
+    const today = new Date();
+    const targetWeekday = ['monday', 'tuesday', 'wednesday', 'thursday'].indexOf(selectedWeekday.toLowerCase());
+    
+    if (targetWeekday === -1) return null;
+    
+    // Start from today and find the next first occurrence of weekday in a month
+    let currentDate = new Date(today);
+    
+    // Look ahead up to 4 months
+    while (currentDate <= new Date(today.getTime() + 120 * 24 * 60 * 60 * 1000)) {
+      const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      const targetDay = targetWeekday + 1; // Convert to Date.getDay() format
+      const dayOfMonth = currentDate.getDate();
+      
+      // Check if this is the first occurrence of this weekday in the month (within first 7 days)
+      if (dayOfWeek === targetDay && dayOfMonth <= 7) {
+        // Check if it's at least 2 days in the future for delivery logistics
+        const diffInDays = Math.ceil((currentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffInDays >= 2) {
+          return currentDate;
+        }
+      }
+      
+      // Move to next day
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return null;
+  };
 
   // Helper function to safely format status strings
   const formatStatus = (status?: string): string => {
@@ -618,17 +749,61 @@ export default function Profile() {
 
   // Load user bookings when user changes or Bookings tab is accessed
   useEffect(() => {
-    if (user && activeTab === 1) {
+    if (user && activeTab === getTabIndex('bookings')) {
       loadUserBookings(user.uid);
     }
   }, [user, activeTab]);
 
-  // Load user membership when user changes or Membership tab is accessed
+  // Load user membership when user changes or Membership tab is accessed (optimize to load only once per session)
   useEffect(() => {
-    if (user && activeTab === 2) {
+    if (user && activeTab === getTabIndex('membership') && !membershipDataLoaded) {
       loadMembershipData();
     }
-  }, [user, activeTab]);
+  }, [user, activeTab, membershipDataLoaded]);
+
+  // Initialize delivery address from profile
+  useEffect(() => {
+    if (profile.address) {
+      setDeliveryAddress(profile.address);
+    }
+  }, [profile.address]);
+
+  // Save membership booking state to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('membershipBooking_weekday', selectedWeekday);
+    }
+  }, [selectedWeekday]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('membershipBooking_inflatable', JSON.stringify(selectedInflatable));
+    }
+  }, [selectedInflatable]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('membershipBooking_surface', selectedSurface);
+    }
+  }, [selectedSurface]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('membershipBooking_stakesOrSandbags', selectedStakesOrSandbags);
+    }
+  }, [selectedStakesOrSandbags]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('membershipBooking_address', deliveryAddress);
+    }
+  }, [deliveryAddress]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('profile_activeTab', activeTab.toString());
+    }
+  }, [activeTab]);
 
 
 
@@ -896,6 +1071,7 @@ export default function Profile() {
       console.error('Error loading membership data:', error);
     } finally {
       setLoadingSubscription(false);
+      setMembershipDataLoaded(true); // Mark as loaded for this session
     }
   };
 
@@ -1391,9 +1567,9 @@ export default function Profile() {
 
   // Load payment data when tab changes
   React.useEffect(() => {
-    if (activeTab === 3 && user && !passwordVerified) {
+    if (activeTab === getTabIndex('payment') && user && !passwordVerified) {
       setShowPasswordVerification(true);
-    } else if (activeTab === 3 && passwordVerified) {
+    } else if (activeTab === getTabIndex('payment') && passwordVerified) {
       loadPaymentTabData();
     }
   }, [activeTab, user, passwordVerified]);
@@ -1436,7 +1612,8 @@ export default function Profile() {
       </div>
 
       <div className="profile-right">
-        {activeTab === 0 ? (
+        {/* Profile Information Tab */}
+        {activeTab === getTabIndex('profile') ? (
           <div className="profile-info">
             {/* First Name */}
             <div className="profile-row">
@@ -1789,7 +1966,10 @@ export default function Profile() {
               </button>
             </div>
           </div>
-        ) : activeTab === 1 ? (
+        ) : 
+        
+        /* Bookings Tab */
+        activeTab === getTabIndex('bookings') ? (
           <div className="profile-events">
             <h3>Bookings</h3>
             
@@ -2096,7 +2276,10 @@ export default function Profile() {
               </div>
             )}
           </div>
-        ) : activeTab === 2 ? (
+        ) : 
+        
+        /* Membership Status Tab */
+        activeTab === getTabIndex('membership') ? (
           <div className="profile-membership">
             <h3>Membership</h3>
             
@@ -2270,18 +2453,319 @@ export default function Profile() {
                   )}
                 </div>
                 
-                {/* Membership Benefits */}
-                <div className="membership-benefits-card">
-                  <h4>🎯 Membership Benefits</h4>
-                  <ul className="benefits-list">
-                    <li>📦 Monthly inflatable delivery to your home</li>
-                    <li>💰 25% off all other reservations</li>
-                    <li>🔧 No setup or takedown hassle</li>
-                    <li>⭐ Priority booking for special events</li>
-                    <li>🆕 Fresh new inflatable each month</li>
-                    <li>📞 Dedicated member support</li>
-                  </ul>
-                </div>
+                {/* Membership Benefits - Only show for non-active subscribers */}
+                {!isActiveSubscriber && (
+                  <div className="membership-benefits-card">
+                    <h4>🎯 Membership Benefits</h4>
+                    <ul className="benefits-list">
+                      <li>📦 Monthly inflatable delivery to your home</li>
+                      <li>💰 25% off all other reservations</li>
+                      <li>🔧 No setup or takedown hassle</li>
+                      <li>⭐ Priority booking for special events</li>
+                      <li>🆕 Fresh new inflatable each month</li>
+                      <li>📞 Dedicated member support</li>
+                    </ul>
+                  </div>
+                )}
+                
+                {/* Membership Booking Section (only for active subscribers) */}
+                {isActiveSubscriber && (
+                  <div className="membership-booking-card">
+                    <h4>🎪 Monthly Membership Booking</h4>
+                    <p>Schedule your monthly inflatable delivery!</p>
+                    
+                    {/* Error Message */}
+                    {membershipBookingError && (
+                      <div style={{
+                        backgroundColor: '#ffebee',
+                        border: '1px solid #f44336',
+                        borderRadius: '4px',
+                        padding: '0.75rem',
+                        margin: '1rem 0',
+                        color: '#c62828'
+                      }}>
+                        {membershipBookingError}
+                      </div>
+                    )}
+                    
+                    <div className="membership-booking-form">
+                      {/* Step 1: Weekday Selection */}
+                      <div className="booking-step">
+                        <h5>📅 Step 1: Choose Delivery Day</h5>
+                        <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.75rem' }}>
+                          Select your preferred delivery day of the week (Monday-Thursday only)
+                        </p>
+                        
+                        <div className="weekday-selection" style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(4, 1fr)',
+                          gap: '0.5rem',
+                          marginBottom: '1rem'
+                        }}>
+                          {['Monday', 'Tuesday', 'Wednesday', 'Thursday'].map((day) => (
+                            <button
+                              key={day}
+                              type="button"
+                              onClick={() => setSelectedWeekday(day)}
+                              style={{
+                                padding: '0.75rem 0.5rem',
+                                border: `2px solid ${selectedWeekday === day ? '#4CAF50' : '#ddd'}`,
+                                backgroundColor: selectedWeekday === day ? '#e8f5e8' : '#fff',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontWeight: selectedWeekday === day ? 'bold' : 'normal',
+                                color: selectedWeekday === day ? '#2e7d32' : '#333',
+                                transition: 'all 0.2s ease'
+                              }}
+                            >
+                              {day}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Step 2: Surface and Anchoring Selection */}
+                      {selectedWeekday && (
+                        <div className="booking-step">
+                          <h5>🏠 Step 2: Surface Type & Setup</h5>
+                          <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.75rem' }}>
+                            Select the surface where the inflatable will be set up
+                          </p>
+                          
+                          <div className="surface-selection" style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                            gap: '0.5rem',
+                            marginBottom: '1rem'
+                          }}>
+                            {[
+                              { 
+                                value: 'grass-stakes', 
+                                surface: 'grass',
+                                anchoring: 'stakes',
+                                label: 'Grass (Stakes)', 
+                                description: 'Metal stakes driven into ground',
+                                fee: 0 
+                              },
+                              { 
+                                value: 'grass-sandbags', 
+                                surface: 'grass',
+                                anchoring: 'sandbags',
+                                label: 'Grass (Sandbags)', 
+                                description: 'Weighted bags for safety',
+                                fee: 0 
+                              },
+                              { 
+                                value: 'concrete', 
+                                surface: 'concrete',
+                                anchoring: null,
+                                label: 'Concrete/Pavement', 
+                                description: 'Hard surface setup',
+                                fee: 20 
+                              }
+                            ].map((option) => (
+                              <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedSurface(option.surface);
+                                  setSelectedStakesOrSandbags(option.anchoring || '');
+                                }}
+                                style={{
+                                  padding: '0.75rem 0.5rem',
+                                  border: `2px solid ${selectedSurface === option.surface && (option.surface === 'concrete' || selectedStakesOrSandbags === option.anchoring) ? '#4CAF50' : '#ddd'}`,
+                                  backgroundColor: selectedSurface === option.surface && (option.surface === 'concrete' || selectedStakesOrSandbags === option.anchoring) ? '#e8f5e8' : '#fff',
+                                  borderRadius: '8px',
+                                  cursor: 'pointer',
+                                  fontWeight: selectedSurface === option.surface && (option.surface === 'concrete' || selectedStakesOrSandbags === option.anchoring) ? 'bold' : 'normal',
+                                  color: selectedSurface === option.surface && (option.surface === 'concrete' || selectedStakesOrSandbags === option.anchoring) ? '#2e7d32' : '#333',
+                                  transition: 'all 0.2s ease',
+                                  textAlign: 'center',
+                                  fontSize: '0.85rem'
+                                }}
+                              >
+                                <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>{option.label}</div>
+                                <div style={{ fontSize: '0.75rem', opacity: 0.8, marginBottom: '0.25rem' }}>{option.description}</div>
+                                {option.fee > 0 && (
+                                  <div style={{ fontSize: '0.75rem', color: '#f57c00', fontWeight: 'bold' }}>
+                                    +${option.fee}
+                                  </div>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+
+                      {/* Address Validation */}
+                      {selectedSurface && (
+                        <div className="booking-step">
+                          <h5>📍 Step 3: Delivery Address</h5>
+                          <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.75rem' }}>
+                            Confirm your delivery address
+                          </p>
+                          
+                          {profile.address ? (
+                            <div style={{
+                              padding: '0.75rem',
+                              backgroundColor: '#f8f9fa',
+                              border: '1px solid #dee2e6',
+                              borderRadius: '8px',
+                              marginBottom: '1rem'
+                            }}>
+                              <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                                📍 Delivery Address:
+                              </div>
+                              <div>{profile.address}</div>
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab(0)} // Navigate to Profile Information tab
+                                style={{
+                                  marginTop: '0.5rem',
+                                  padding: '0.25rem 0.75rem',
+                                  backgroundColor: '#2196F3',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontSize: '0.8rem'
+                                }}
+                              >
+                                Update Address
+                              </button>
+                            </div>
+                          ) : (
+                            <div style={{
+                              padding: '1rem',
+                              backgroundColor: '#fff3cd',
+                              border: '1px solid #ffeaa7',
+                              borderRadius: '8px',
+                              textAlign: 'center',
+                              marginBottom: '1rem'
+                            }}>
+                              <div style={{ color: '#856404', marginBottom: '0.5rem' }}>
+                                ⚠️ Address Required
+                              </div>
+                              <p style={{ margin: '0.5rem 0', fontSize: '0.9rem' }}>
+                                Please add your address in the Profile Information tab before booking.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab(0)} // Navigate to Profile Information tab
+                                style={{
+                                  padding: '0.5rem 1rem',
+                                  backgroundColor: '#ffc107',
+                                  color: '#212529',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  fontWeight: 'bold'
+                                }}
+                              >
+                                Add Address
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Summary and Submit */}
+                      {profile.address && selectedSurface && (
+                        <div className="booking-step">
+                          <h5>📋 Step 4: Review & Book</h5>
+                          
+                          {(() => {
+                            const validationError = validateMembershipBooking();
+                            if (validationError) {
+                              return (
+                                <div style={{
+                                  padding: '1rem',
+                                  backgroundColor: '#ffebee',
+                                  border: '1px solid #f44336',
+                                  borderRadius: '8px',
+                                  color: '#c62828',
+                                  marginBottom: '1rem'
+                                }}>
+                                  ⚠️ {validationError}
+                                </div>
+                              );
+                            }
+
+                            const surfaceFee = selectedSurface === 'concrete' ? 20 : 0;
+                            const actualEventDate = calculateActualEventDate();
+                            
+                            return (
+                              <div>
+                                {/* Event Date Notice */}
+                                {actualEventDate && (
+                                  <div style={{
+                                    padding: '1rem',
+                                    backgroundColor: '#e3f2fd',
+                                    border: '1px solid #2196f3',
+                                    borderRadius: '8px',
+                                    marginBottom: '1rem'
+                                  }}>
+                                    <h6 style={{ margin: '0 0 0.5rem 0', color: '#1565c0' }}>📅 Actual Event Date</h6>
+                                    <p style={{ margin: '0', fontSize: '0.9rem' }}>
+                                      Your membership booking will be scheduled for <strong>{actualEventDate.toLocaleDateString('en-US', { 
+                                        weekday: 'long', 
+                                        year: 'numeric', 
+                                        month: 'long', 
+                                        day: 'numeric' 
+                                      })}</strong> - the next first {selectedWeekday} of the month.
+                                    </p>
+                                  </div>
+                                )}
+
+                                <div style={{
+                                  padding: '1rem',
+                                  backgroundColor: '#f8f9fa',
+                                  border: '1px solid #dee2e6',
+                                  borderRadius: '8px',
+                                  marginBottom: '1rem'
+                                }}>
+                                  <h6 style={{ margin: '0 0 0.5rem 0' }}>Booking Summary</h6>
+                                  <div style={{ fontSize: '0.9rem', lineHeight: '1.4' }}>
+                                    <div>📅 <strong>Preferred Day:</strong> {selectedWeekday}s (first of each month)</div>
+                                    <div>🏠 <strong>Surface & Setup:</strong> {
+                                      selectedSurface === 'grass' ? 
+                                        `Grass with ${selectedStakesOrSandbags === 'stakes' ? 'Stakes' : 'Sandbags'}` : 
+                                        'Concrete/Pavement'
+                                    }</div>
+                                    <div>📍 <strong>Address:</strong> {profile.address}</div>
+                                    <div>💰 <strong>Additional Fee:</strong> {surfaceFee > 0 ? `$${surfaceFee} (concrete surface)` : 'None'}</div>
+                                  </div>
+                                </div>
+                                
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    // TODO: Implement booking submission
+                                    setMembershipBookingError("Booking submission functionality coming soon!");
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '0.75rem',
+                                    backgroundColor: '#4CAF50',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '1rem',
+                                    fontWeight: 'bold'
+                                  }}
+                                >
+                                  🎪 Confirm Membership Booking
+                                </button>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
                 
                 {/* Join/Upgrade Action */}
                 {!userSubscription && (
@@ -2312,7 +2796,10 @@ export default function Profile() {
               </div>
             )}
           </div>
-        ) : (
+        ) : 
+        
+        /* Payment Information Tab */
+        activeTab === getTabIndex('payment') ? (
           <div className="profile-payment">
             <h3>Payment Information</h3>
             
@@ -2659,6 +3146,8 @@ export default function Profile() {
               </div>
             )}
           </div>
+        ) : (
+          <div>Unknown tab selected</div>
         )}
 
         {/* Back button */}

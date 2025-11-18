@@ -605,6 +605,74 @@
           "done": false,
           "start": 1762882869740
         }
+      },
+      {
+        "key": 1763437315638,
+        "children": [
+          {
+            "key": 1763437328531,
+            "children": [],
+            "todo": {
+              "content": "when purchasing a membership",
+              "id": 1763437328531,
+              "level": "default",
+              "done": false,
+              "start": 1763437328531
+            }
+          },
+          {
+            "key": 1763437376029,
+            "children": [],
+            "todo": {
+              "content": "on recurring payment",
+              "id": 1763437376029,
+              "level": "default",
+              "done": false,
+              "start": 1763437376029
+            }
+          },
+          {
+            "key": 1763437381654,
+            "children": [],
+            "todo": {
+              "content": "cancel confirmation",
+              "id": 1763437381654,
+              "level": "default",
+              "done": false,
+              "start": 1763437381654
+            }
+          },
+          {
+            "key": 1763437402069,
+            "children": [
+              {
+                "key": 1763437484810,
+                "children": [],
+                "todo": {
+                  "content": "setup monthly booking",
+                  "id": 1763437484810,
+                  "level": "default",
+                  "done": false,
+                  "start": 1763437484810
+                }
+              }
+            ],
+            "todo": {
+              "content": "email for confirming the monthly booking",
+              "id": 1763437402069,
+              "level": "default",
+              "done": false,
+              "start": 1763437402069
+            }
+          }
+        ],
+        "todo": {
+          "content": "add emails for membership flow",
+          "id": 1763437315638,
+          "level": "default",
+          "done": false,
+          "start": 1763437315638
+        }
       }
     ],
     "expandKeys": [
@@ -637,7 +705,9 @@
       1761757659665,
       1761757698803,
       1761757731623,
-      1762023399287
+      1762023399287,
+      1763437315638,
+      1763437402069
     ],
     "schema": "https://github.com/Saber2pr/vsc-ext-todolist/blob/master/src/api/type.ts#L3",
     "add_mode": "bottom",
@@ -650,6 +720,6 @@
     "showEndTime": false,
     "simpleMode": false,
     "lang": "en",
-    "version": "1762882900940"
+    "version": "1763437489025"
   }
 }
