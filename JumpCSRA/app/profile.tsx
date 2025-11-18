@@ -903,11 +903,18 @@ export default function Profile() {
   const handleCancelSubscription = async () => {
     console.log('🚨 CANCEL DEBUG: handleCancelSubscription called');
     console.log('🔍 CANCEL DEBUG: user exists?', !!user);
+    console.log('🔍 CANCEL DEBUG: user.uid:', user?.uid);
     console.log('🔍 CANCEL DEBUG: userSubscription:', userSubscription);
     console.log('🔍 CANCEL DEBUG: userSubscription.subscriptionId:', userSubscription?.subscriptionId);
+    console.log('🔍 CANCEL DEBUG: userSubscription.status:', userSubscription?.status);
     
     if (!user || !userSubscription?.subscriptionId) {
-      console.error('❌ CANCEL DEBUG: Missing requirements - user:', !!user, 'subscriptionId:', userSubscription?.subscriptionId);
+      console.error('❌ CANCEL DEBUG: Missing requirements');
+      console.error('❌ CANCEL DEBUG: user exists:', !!user);
+      console.error('❌ CANCEL DEBUG: user.uid:', user?.uid);
+      console.error('❌ CANCEL DEBUG: subscriptionId exists:', !!userSubscription?.subscriptionId);
+      console.error('❌ CANCEL DEBUG: subscriptionId value:', userSubscription?.subscriptionId);
+      alert('Error: Missing user authentication or subscription ID. Please refresh the page and try again.');
       return;
     }
     
@@ -2152,6 +2159,17 @@ export default function Profile() {
                       
                       {/* Subscription Management Actions */}
                       <div className="subscription-actions">
+                        {(() => {
+                          console.log('🔍 BUTTON DEBUG: Checking cancel button visibility');
+                          console.log('🔍 BUTTON DEBUG: userSubscription exists?', !!userSubscription);
+                          console.log('🔍 BUTTON DEBUG: userSubscription.status:', userSubscription?.status);
+                          console.log('🔍 BUTTON DEBUG: Status is ACTIVE?', userSubscription?.status === 'ACTIVE');
+                          console.log('🔍 BUTTON DEBUG: Status is Active?', userSubscription?.status === 'Active');
+                          console.log('🔍 BUTTON DEBUG: Should show cancel button?', 
+                            userSubscription?.status === 'ACTIVE' || userSubscription?.status === 'Active');
+                          return null;
+                        })()}
+                        
                         {(userSubscription.status === 'ACTIVE' || userSubscription.status === 'Active') && (
                           <>
                             <div className="membership-benefits-highlight">

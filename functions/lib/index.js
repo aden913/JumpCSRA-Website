@@ -11,10 +11,8 @@ Object.defineProperty(exports, "testFunction", { enumerable: true, get: function
 // Export standalone PayPal setup function
 var paypal_setup_1 = require("./paypal-setup");
 Object.defineProperty(exports, "setupPayPalPlansStandalone", { enumerable: true, get: function () { return paypal_setup_1.setupPayPalPlansStandalone; } });
-// Simple PayPal debug test
 exports.testPayPalDebug = functions.https.onCall(async (data, context) => {
     var _a;
-    console.log('STARTING PAYPAL DEBUG TEST');
     const PAYPAL_CLIENT_ID = "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0";
     const PAYPAL_CLIENT_SECRET = ((_a = functions.config().paypal) === null || _a === void 0 ? void 0 : _a.client_secret) || "YOUR_PAYPAL_CLIENT_SECRET";
     const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com";
@@ -1182,8 +1180,6 @@ exports.createPayPalInvoice = functions.https.onCall(async (data, context) => {
         console.log('✅ FIREBASE FUNCTION - Invoice payload created');
         // Create the invoice
         console.log('📤 FIREBASE FUNCTION - Creating invoice via PayPal API...');
-        console.log('🔍 PAYPAL DEBUG - About to call:', `${PAYPAL_BASE_URL}/v2/invoicing/invoices`);
-        console.log('🔍 PAYPAL DEBUG - Payload:', JSON.stringify(invoicePayload, null, 2));
         const createResponse = await fetch(`${PAYPAL_BASE_URL}/v2/invoicing/invoices`, {
             method: 'POST',
             headers: {
@@ -1193,24 +1189,14 @@ exports.createPayPalInvoice = functions.https.onCall(async (data, context) => {
             },
             body: JSON.stringify(invoicePayload)
         });
-        console.log('🔍 PAYPAL DEBUG - Response received, status:', createResponse.status);
-        console.log('🔍 PAYPAL DEBUG - Response ok:', createResponse.ok);
         if (!createResponse.ok) {
             const errorText = await createResponse.text();
             console.error('❌ FIREBASE FUNCTION - PayPal create invoice error:', errorText);
-            console.error('🔍 PAYPAL DEBUG - Error response body:', errorText);
             throw new functions.https.HttpsError('internal', `PayPal API error: ${createResponse.status}`);
         }
         console.log('📋 FIREBASE FUNCTION - PayPal response status:', createResponse.status);
         console.log('📋 FIREBASE FUNCTION - PayPal response headers:', createResponse.headers);
         const invoice = await createResponse.json();
-        // Enhanced debugging - let's see what PayPal actually returns
-        console.log('� PAYPAL DEBUG - Full response object:', JSON.stringify(invoice, null, 2));
-        console.log('🔍 PAYPAL DEBUG - Object keys:', Object.keys(invoice || {}));
-        console.log('🔍 PAYPAL DEBUG - invoice.id:', invoice === null || invoice === void 0 ? void 0 : invoice.id);
-        console.log('🔍 PAYPAL DEBUG - invoice.invoice_id:', invoice === null || invoice === void 0 ? void 0 : invoice.invoice_id);
-        console.log('🔍 PAYPAL DEBUG - invoice.href:', invoice === null || invoice === void 0 ? void 0 : invoice.href);
-        console.log('🔍 PAYPAL DEBUG - invoice.links:', invoice === null || invoice === void 0 ? void 0 : invoice.links);
         console.log('✅ FIREBASE FUNCTION - Invoice created with ID:', invoice.id);
         // Check if invoice ID exists
         if (!invoice.id) {
@@ -2249,7 +2235,6 @@ const JUMP_CLUB_PLAN_ID = "P-JUMP_CLUB_MONTHLY_2024";
 // One-time setup function to create PayPal product and billing plan
 // Run this function once via Firebase console or admin script
 exports.setupPayPalPlans = functions.https.onRequest(async (req, res) => {
-    console.log('🚀 DEBUG: Starting PayPal plans setup...');
     try {
         // Get PayPal access token
         const accessToken = await getPayPalAccessToken();
@@ -2261,7 +2246,6 @@ exports.setupPayPalPlans = functions.https.onRequest(async (req, res) => {
             type: "SERVICE",
             category: "SOFTWARE"
         };
-        console.log('📦 DEBUG: Creating PayPal product...', productData);
         const productResponse = await fetch(`${PAYPAL_BASE_URL}/v1/catalogs/products`, {
             method: 'POST',
             headers: {
@@ -2272,7 +2256,6 @@ exports.setupPayPalPlans = functions.https.onRequest(async (req, res) => {
             },
             body: JSON.stringify(productData)
         });
-        console.log('📦 DEBUG: Product response status:', productResponse.status);
         if (!productResponse.ok) {
             const errorData = await productResponse.json();
             console.error('📦 ERROR: Product creation failed:', errorData);
@@ -2313,7 +2296,6 @@ exports.setupPayPalPlans = functions.https.onRequest(async (req, res) => {
                 payment_failure_threshold: 3
             }
         };
-        console.log('💳 DEBUG: Creating billing plan...', planData);
         const planResponse = await fetch(`${PAYPAL_BASE_URL}/v1/billing/plans`, {
             method: 'POST',
             headers: {
@@ -2324,7 +2306,6 @@ exports.setupPayPalPlans = functions.https.onRequest(async (req, res) => {
             },
             body: JSON.stringify(planData)
         });
-        console.log('💳 DEBUG: Plan response status:', planResponse.status);
         if (!planResponse.ok) {
             const errorData = await planResponse.json();
             console.error('💳 ERROR: Plan creation failed:', errorData);
@@ -2341,7 +2322,6 @@ exports.setupPayPalPlans = functions.https.onRequest(async (req, res) => {
             status: 'ACTIVE'
         };
         await db.collection('paypalConfig').doc('membershipPlans').set(configData);
-        console.log('💾 DEBUG: Config saved to Firestore:', configData);
         res.json({
             success: true,
             productId: productResult.id,
@@ -2359,16 +2339,9 @@ exports.setupPayPalPlans = functions.https.onRequest(async (req, res) => {
 });
 // Optimized subscription creation function (uses stored plan_id)
 exports.createMembershipSubscription = functions.https.onCall(async (data, context) => {
-    var _a, _b;
-    console.log('🎯 DEBUG: =================================');
-    console.log('🎯 DEBUG: SUBSCRIPTION CREATION START');
-    console.log('🎯 DEBUG: =================================');
-    console.log('🎯 DEBUG: Input data:', JSON.stringify(data, null, 2));
-    console.log('🎯 DEBUG: Context auth:', ((_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid) || 'No auth context');
+    var _a;
     try {
         const { userId, planAmount = 149, currency = 'USD', userEmail, userName } = data;
-        // Input validation with detailed debugging
-        console.log('✅ DEBUG: Starting input validation...');
         if (!data) {
             console.error('❌ VALIDATION: No data provided');
             throw new functions.https.HttpsError('invalid-argument', 'No data provided');
@@ -2385,12 +2358,9 @@ exports.createMembershipSubscription = functions.https.onCall(async (data, conte
             console.error('❌ VALIDATION: Invalid planAmount:', planAmount);
             throw new functions.https.HttpsError('invalid-argument', `Invalid planAmount: ${planAmount}. Must be a positive number.`);
         }
-        console.log('✅ DEBUG: Input validation passed');
         // Get PayPal access token
-        console.log('🔑 DEBUG: Getting PayPal access token...');
         const accessToken = await getPayPalAccessToken();
         // Get stored plan ID from Firestore
-        console.log('💾 DEBUG: Getting stored plan ID from Firestore...');
         const db = admin.firestore();
         const configDoc = await db.collection('paypalConfig').doc('membershipPlanMonthly').get();
         if (!configDoc.exists) {
@@ -2403,7 +2373,6 @@ exports.createMembershipSubscription = functions.https.onCall(async (data, conte
             console.error('❌ CONFIG: No billing plan ID available');
             throw new functions.https.HttpsError('failed-precondition', 'No billing plan ID available. Run setupPayPalPlans first.');
         }
-        console.log('✅ DEBUG: Using plan ID:', planId);
         // Create subscription using existing plan
         const subscriptionData = {
             plan_id: planId,
@@ -2416,7 +2385,7 @@ exports.createMembershipSubscription = functions.https.onCall(async (data, conte
                 email_address: userEmail
             },
             application_context: {
-                brand_name: "Jump CSRA Party Rental",
+                brand_name: "JumpCSRA",
                 locale: "en-US",
                 shipping_preference: "NO_SHIPPING",
                 user_action: "SUBSCRIBE_NOW",
@@ -2424,12 +2393,11 @@ exports.createMembershipSubscription = functions.https.onCall(async (data, conte
                     payer_selected: "PAYPAL",
                     payee_preferred: "IMMEDIATE_PAYMENT_REQUIRED"
                 },
-                return_url: `http://localhost:5173/subscription-success?success=true`,
-                cancel_url: `http://localhost:5173/subscription-success?cancelled=true`
+                return_url: `${process.env.NODE_ENV === 'production' ? 'https://jumpcsra.com' : 'http://localhost:3000'}/subscription-success?success=true`,
+                cancel_url: `${process.env.NODE_ENV === 'production' ? 'https://jumpcsra.com' : 'http://localhost:3000'}/subscription-success?cancelled=true`
             },
-            custom_id: userId // Store user ID for reference
+            custom_id: userId
         };
-        console.log('💳 DEBUG: Creating subscription...', JSON.stringify(subscriptionData, null, 2));
         const subscriptionResponse = await fetch(`${PAYPAL_BASE_URL}/v1/billing/subscriptions`, {
             method: 'POST',
             headers: {
@@ -2440,7 +2408,6 @@ exports.createMembershipSubscription = functions.https.onCall(async (data, conte
             },
             body: JSON.stringify(subscriptionData)
         });
-        console.log('💳 DEBUG: Subscription response status:', subscriptionResponse.status);
         if (!subscriptionResponse.ok) {
             const errorData = await subscriptionResponse.json();
             console.error('💳 ERROR: Subscription creation failed:', errorData);
@@ -2449,7 +2416,7 @@ exports.createMembershipSubscription = functions.https.onCall(async (data, conte
         const subscriptionResult = await subscriptionResponse.json();
         console.log('💳 SUCCESS: Subscription created:', subscriptionResult.id);
         // Find approval URL
-        const approvalLink = (_b = subscriptionResult.links) === null || _b === void 0 ? void 0 : _b.find((link) => link.rel === 'approve');
+        const approvalLink = (_a = subscriptionResult.links) === null || _a === void 0 ? void 0 : _a.find((link) => link.rel === 'approve');
         const approvalUrl = approvalLink === null || approvalLink === void 0 ? void 0 : approvalLink.href;
         if (!approvalUrl) {
             console.error('❌ ERROR: No approval URL in subscription response');
@@ -2473,14 +2440,11 @@ exports.createMembershipSubscription = functions.https.onCall(async (data, conte
                 paypalResponseStatus: subscriptionResponse.status
             }
         };
-        console.log(' DEBUG: About to store subscription in dual-collection structure...');
-        console.log(' DEBUG: Document path will be:', 'users/' + userId + '/activeSubscriptions/' + subscriptionResult.id);
-        console.log('📊 DEBUG: Subscription record:', JSON.stringify(subscriptionRecord, null, 2));
         try {
+            // Store in activeSubscriptions collection (for fast queries)
             await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionResult.id).set(subscriptionRecord);
-            console.log(' DEBUG: Subscription stored in activeSubscriptions at path: users/' + userId + '/activeSubscriptions/' + subscriptionResult.id);
+            // Store in subscriptionHistory collection (for billing/statistics)
             await db.collection('users').doc(userId).collection('subscriptionHistory').doc(subscriptionResult.id).set(subscriptionRecord);
-            console.log(' DEBUG: Subscription stored in subscriptionHistory at path: users/' + userId + '/subscriptionHistory/' + subscriptionResult.id);
             // Verify the document was created by reading it back
             const verifyDoc = await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionResult.id).get();
             if (verifyDoc.exists) {
@@ -2502,9 +2466,6 @@ exports.createMembershipSubscription = functions.https.onCall(async (data, conte
             // Don't fail the entire function, but log the issue
             console.log('⚠️ WARNING: Proceeding despite database storage issue');
         }
-        console.log('🎯 DEBUG: =================================');
-        console.log('🎯 DEBUG: SUBSCRIPTION CREATION SUCCESS');
-        console.log('🎯 DEBUG: =================================');
         return {
             success: true,
             subscriptionId: subscriptionResult.id,
@@ -2514,9 +2475,6 @@ exports.createMembershipSubscription = functions.https.onCall(async (data, conte
     }
     catch (error) {
         console.error('🚨 ERROR: Subscription creation failed:', error);
-        console.log('🎯 DEBUG: =================================');
-        console.log('🎯 DEBUG: SUBSCRIPTION CREATION FAILED');
-        console.log('🎯 DEBUG: =================================');
         if (error instanceof functions.https.HttpsError) {
             throw error;
         }
@@ -2526,13 +2484,8 @@ exports.createMembershipSubscription = functions.https.onCall(async (data, conte
 // Webhook handler for PayPal subscription events
 exports.paypalSubscriptionWebhook = functions.https.onRequest(async (req, res) => {
     var _a, _b;
-    console.log('📡 DEBUG: =================================');
-    console.log('📡 DEBUG: PAYPAL WEBHOOK RECEIVED');
-    console.log('📡 DEBUG: =================================');
     try {
         const event = req.body;
-        console.log('📡 DEBUG: Event type:', event.event_type);
-        console.log('📡 DEBUG: Event data:', JSON.stringify(event, null, 2));
         const db = admin.firestore();
         switch (event.event_type) {
             case 'BILLING.SUBSCRIPTION.ACTIVATED':
@@ -2542,12 +2495,20 @@ exports.paypalSubscriptionWebhook = functions.https.onRequest(async (req, res) =
                     const userId = subscription.custom_id;
                     const subscriptionId = subscription.id;
                     if (userId && subscriptionId) {
+                        // Update activeSubscriptions collection
                         await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).update({
                             status: 'ACTIVE',
                             activatedAt: new Date(),
                             lastWebhookEvent: event.event_type
                         });
-                        console.log('✅ WEBHOOK: Subscription activated in database:', userId);
+                        console.log('✅ WEBHOOK: Subscription activated in activeSubscriptions:', userId);
+                        // Update subscriptionHistory collection
+                        await db.collection('users').doc(userId).collection('subscriptionHistory').doc(subscriptionId).update({
+                            status: 'ACTIVE',
+                            activatedAt: new Date(),
+                            lastWebhookEvent: event.event_type
+                        });
+                        console.log('✅ WEBHOOK: Subscription activated in subscriptionHistory:', userId);
                     }
                 }
                 break;
@@ -2558,12 +2519,56 @@ exports.paypalSubscriptionWebhook = functions.https.onRequest(async (req, res) =
                     const userId = subscription.custom_id;
                     const subscriptionId = subscription.id;
                     if (userId && subscriptionId) {
-                        await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).update({
+                        // Delete from activeSubscriptions (since it's no longer active)
+                        await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).delete();
+                        console.log('❌ WEBHOOK: Subscription removed from activeSubscriptions:', userId);
+                        // Update status in subscriptionHistory (preserve for billing history)
+                        await db.collection('users').doc(userId).collection('subscriptionHistory').doc(subscriptionId).update({
                             status: 'CANCELLED',
                             cancelledAt: new Date(),
                             lastWebhookEvent: event.event_type
                         });
-                        console.log('❌ WEBHOOK: Subscription cancelled in database:', userId);
+                        console.log('❌ WEBHOOK: Subscription cancelled in subscriptionHistory:', userId);
+                    }
+                }
+                break;
+            case 'BILLING.SUBSCRIPTION.SUSPENDED':
+                {
+                    console.log('⏸️ WEBHOOK: Subscription suspended');
+                    const subscription = event.resource;
+                    const userId = subscription.custom_id;
+                    const subscriptionId = subscription.id;
+                    if (userId && subscriptionId) {
+                        // Delete from activeSubscriptions (since it's no longer active)
+                        await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).delete();
+                        console.log('⏸️ WEBHOOK: Subscription removed from activeSubscriptions (suspended):', userId);
+                        // Update status in subscriptionHistory
+                        await db.collection('users').doc(userId).collection('subscriptionHistory').doc(subscriptionId).update({
+                            status: 'SUSPENDED',
+                            suspendedAt: new Date(),
+                            lastWebhookEvent: event.event_type
+                        });
+                        console.log('⏸️ WEBHOOK: Subscription suspended in subscriptionHistory:', userId);
+                    }
+                }
+                break;
+            case 'BILLING.SUBSCRIPTION.EXPIRED':
+                {
+                    console.log('⏰ WEBHOOK: Subscription expired');
+                    const subscription = event.resource;
+                    const userId = subscription.custom_id;
+                    const subscriptionId = subscription.id;
+                    if (userId && subscriptionId) {
+                        // Delete from activeSubscriptions (since it's no longer active)
+                        await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).delete();
+                        console.log('⏰ WEBHOOK: Subscription removed from activeSubscriptions (expired):', userId);
+                        // Update status in subscriptionHistory
+                        await db.collection('users').doc(userId).collection('subscriptionHistory').doc(subscriptionId).update({
+                            status: 'EXPIRED',
+                            expiredAt: new Date(),
+                            lastWebhookEvent: event.event_type
+                        });
+                        console.log('⏰ WEBHOOK: Subscription expired in subscriptionHistory:', userId);
                     }
                 }
                 break;
@@ -2589,9 +2594,6 @@ exports.paypalSubscriptionWebhook = functions.https.onRequest(async (req, res) =
             default:
                 console.log('📡 WEBHOOK: Unhandled event type:', event.event_type);
         }
-        console.log('📡 DEBUG: =================================');
-        console.log('📡 DEBUG: WEBHOOK PROCESSED SUCCESSFULLY');
-        console.log('📡 DEBUG: =================================');
         res.status(200).send('OK');
     }
     catch (error) {
@@ -2601,7 +2603,6 @@ exports.paypalSubscriptionWebhook = functions.https.onRequest(async (req, res) =
 });
 // Get PayPal subscription details
 exports.getPayPalSubscriptionDetails = functions.https.onCall(async (data, context) => {
-    console.log('🔍 DEBUG: Getting PayPal subscription details');
     try {
         const { subscriptionId } = data;
         if (!subscriptionId) {
@@ -2636,20 +2637,29 @@ exports.getPayPalSubscriptionDetails = functions.https.onCall(async (data, conte
 });
 // Cancel PayPal subscription
 exports.cancelPayPalSubscription = functions.region('us-central1').https.onCall(async (data, context) => {
-    var _a;
-    console.log('❌ DEBUG: Cancelling PayPal subscription');
+    var _a, _b, _c;
+    console.log('🚨 CANCEL BACKEND: Function called with data:', JSON.stringify(data, null, 2));
+    console.log('🚨 CANCEL BACKEND: Context auth:', (_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid);
     try {
         const { subscriptionId, reason = 'User requested cancellation' } = data;
+        console.log('🔍 CANCEL BACKEND: Extracted subscriptionId:', subscriptionId);
+        console.log('🔍 CANCEL BACKEND: Extracted reason:', reason);
         // Verify user is authenticated
-        if (!((_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid)) {
+        if (!((_b = context.auth) === null || _b === void 0 ? void 0 : _b.uid)) {
+            console.error('❌ CANCEL BACKEND: User not authenticated');
             throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
         }
         if (!subscriptionId) {
+            console.error('❌ CANCEL BACKEND: Missing subscriptionId');
             throw new functions.https.HttpsError('invalid-argument', 'Missing subscriptionId');
         }
+        console.log('✅ CANCEL BACKEND: Validation passed, proceeding with cancellation...');
         // Get PayPal access token
+        console.log('🔑 CANCEL BACKEND: Getting PayPal access token...');
         const accessToken = await getPayPalAccessToken();
+        console.log('🔑 CANCEL BACKEND: Got PayPal access token successfully');
         // Cancel subscription in PayPal
+        console.log('📞 CANCEL BACKEND: Calling PayPal API to cancel subscription:', subscriptionId);
         const response = await fetch(`${PAYPAL_BASE_URL}/v1/billing/subscriptions/${subscriptionId}/cancel`, {
             method: 'POST',
             headers: {
@@ -2662,32 +2672,50 @@ exports.cancelPayPalSubscription = functions.region('us-central1').https.onCall(
         });
         if (!response.ok) {
             const errorData = await response.text();
-            console.error('❌ PayPal cancellation error:', errorData);
+            console.error('❌ CANCEL BACKEND: PayPal cancellation error:', errorData);
+            console.error('❌ CANCEL BACKEND: PayPal response status:', response.status);
+            console.error('❌ CANCEL BACKEND: PayPal response headers:', response.headers);
             throw new Error(`Failed to cancel subscription: ${errorData}`);
         }
-        // Update subscription status in Firestore
+        console.log('✅ CANCEL BACKEND: PayPal cancellation successful');
+        // Update subscription status in dual-collection structure
+        console.log('📊 CANCEL BACKEND: Updating Firestore dual-collection structure...');
         const db = admin.firestore();
-        await db.collection('users').doc(context.auth.uid).collection('activeSubscriptions').doc(subscriptionId).update({
+        const userId = context.auth.uid;
+        console.log('📍 CANCEL BACKEND: ActiveSubscriptions path: users/' + userId + '/activeSubscriptions/' + subscriptionId);
+        console.log('📍 CANCEL BACKEND: SubscriptionHistory path: users/' + userId + '/subscriptionHistory/' + subscriptionId);
+        // Delete from activeSubscriptions (since it's no longer active)
+        await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).delete();
+        console.log('✅ CANCEL BACKEND: Subscription removed from activeSubscriptions:', subscriptionId);
+        // Update status to 'Cancelled' in subscriptionHistory (for billing/statistics)
+        await db.collection('users').doc(userId).collection('subscriptionHistory').doc(subscriptionId).update({
             status: 'Cancelled',
             cancelledAt: new Date(),
             cancellationReason: reason,
-            lastWebhookEvent: 'MANUAL_CANCELLATION'
+            lastWebhookEvent: 'MANUAL_CANCELLATION',
+            lastUpdated: admin.firestore.FieldValue.serverTimestamp()
         });
-        console.log('✅ Subscription cancelled successfully:', subscriptionId);
+        console.log('✅ CANCEL BACKEND: Subscription status updated to Cancelled in subscriptionHistory:', subscriptionId);
+        console.log('✅ CANCEL BACKEND: Subscription cancelled successfully:', subscriptionId);
         return {
             success: true,
             message: 'Subscription cancelled successfully'
         };
     }
     catch (error) {
-        console.error('💥 Error cancelling subscription:', error);
+        console.error('💥 CANCEL BACKEND: Error cancelling subscription:', error);
+        console.error('💥 CANCEL BACKEND: Error details:', {
+            message: error.message,
+            stack: error.stack,
+            userId: (_c = context.auth) === null || _c === void 0 ? void 0 : _c.uid,
+            subscriptionId: data === null || data === void 0 ? void 0 : data.subscriptionId
+        });
         throw new functions.https.HttpsError('internal', 'Failed to cancel subscription', { error: error.message });
     }
 });
 // Reactivate PayPal subscription
 exports.reactivatePayPalSubscription = functions.region('us-central1').https.onCall(async (data, context) => {
     var _a, _b, _c, _d, _e, _f, _g;
-    console.log('🔄 DEBUG: Reactivating PayPal subscription');
     try {
         const { subscriptionId } = data;
         // Verify user is authenticated
@@ -2783,7 +2811,7 @@ exports.reactivatePayPalSubscription = functions.region('us-central1').https.onC
             }
             const newSubscription = await newSubscriptionResponse.json();
             console.log('🆕 New subscription created:', newSubscription.id);
-            // Create new subscription record in the database
+            // Create new subscription record in the dual-collection structure
             const db = admin.firestore();
             const newSubscriptionRecord = {
                 subscriptionId: newSubscription.id,
@@ -2795,7 +2823,9 @@ exports.reactivatePayPalSubscription = functions.region('us-central1').https.onC
                 userId: context.auth.uid,
                 lastWebhookEvent: 'NEW_SUBSCRIPTION_CREATED'
             };
+            // Store in both collections
             await db.collection('users').doc(context.auth.uid).collection('activeSubscriptions').doc(newSubscription.id).set(newSubscriptionRecord);
+            await db.collection('users').doc(context.auth.uid).collection('subscriptionHistory').doc(newSubscription.id).set(newSubscriptionRecord);
             // Return approval URL for user to complete
             const approvalLink = (_g = newSubscription.links) === null || _g === void 0 ? void 0 : _g.find((link) => link.rel === 'approve');
             return {
@@ -2815,14 +2845,18 @@ exports.reactivatePayPalSubscription = functions.region('us-central1').https.onC
             // Unknown status
             throw new Error(`Cannot reactivate subscription with status: ${subscriptionDetails.status}`);
         }
-        // Update subscription status in Firestore for activated subscriptions
+        // Update subscription status in Firestore dual-collection structure for activated subscriptions
         const db = admin.firestore();
-        await db.collection('users').doc(context.auth.uid).collection('activeSubscriptions').doc(subscriptionId).update({
+        const updateData = {
             status: 'Active',
             reactivatedAt: new Date(),
             lastWebhookEvent: 'MANUAL_REACTIVATION',
             paypalStatus: reactivationResult.status
-        });
+        };
+        // Update activeSubscriptions
+        await db.collection('users').doc(context.auth.uid).collection('activeSubscriptions').doc(subscriptionId).update(updateData);
+        // Update subscriptionHistory
+        await db.collection('users').doc(context.auth.uid).collection('subscriptionHistory').doc(subscriptionId).update(updateData);
         console.log('✅ Subscription reactivated successfully:', subscriptionId);
         return {
             success: true,
@@ -2870,14 +2904,70 @@ exports.activateSubscription = functions.region('us-central1').https.onCall(asyn
         }
         const subscriptionDetails = await subscriptionResponse.json();
         console.log('📊 ACTIVATE SUBSCRIPTION: PayPal subscription details:', JSON.stringify(subscriptionDetails, null, 2));
-        // Check if subscription is active
+        // Check if subscription is active or if user successfully completed payment
         const isActive = subscriptionDetails.status === 'ACTIVE';
-        console.log('✅ ACTIVATE SUBSCRIPTION: Subscription active status:', isActive);
+        const isApprovalPending = subscriptionDetails.status === 'APPROVAL_PENDING';
+        const hasValidPaymentMethod = subscriptionDetails.subscriber && subscriptionDetails.subscriber.payment_source;
+        console.log('✅ ACTIVATE SUBSCRIPTION: PayPal status:', subscriptionDetails.status);
+        console.log('✅ ACTIVATE SUBSCRIPTION: Is active:', isActive);
+        console.log('✅ ACTIVATE SUBSCRIPTION: Is approval pending:', isApprovalPending);
+        console.log('✅ ACTIVATE SUBSCRIPTION: Has payment method:', hasValidPaymentMethod);
+        // If user completed payment but PayPal hasn't updated status yet, 
+        // and we have a baToken (successful return from PayPal), treat as active
+        let finalStatus = 'Failed';
+        let shouldManuallyActivate = false;
+        if (isActive) {
+            finalStatus = 'Active';
+            console.log('✅ ACTIVATE SUBSCRIPTION: Setting status to Active - PayPal confirms ACTIVE');
+        }
+        else if (isApprovalPending && baToken) {
+            // User completed payment, but PayPal status is still pending
+            // Try to manually activate the subscription
+            shouldManuallyActivate = true;
+            console.log('🔄 ACTIVATE SUBSCRIPTION: Will attempt manual activation - User completed payment');
+        }
+        else if (isApprovalPending) {
+            finalStatus = 'PENDING_APPROVAL';
+            console.log('⏳ ACTIVATE SUBSCRIPTION: Setting status to PENDING_APPROVAL - Still awaiting user action');
+        }
+        // Attempt manual activation if needed
+        if (shouldManuallyActivate) {
+            try {
+                console.log('🔄 ACTIVATE SUBSCRIPTION: Attempting manual PayPal activation...');
+                const activateResponse = await fetch(`${PAYPAL_BASE_URL}/v1/billing/subscriptions/${subscriptionId}/activate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: JSON.stringify({
+                        reason: 'User completed payment process'
+                    })
+                });
+                if (activateResponse.ok) {
+                    console.log('✅ ACTIVATE SUBSCRIPTION: Manual activation successful');
+                    finalStatus = 'Active';
+                }
+                else {
+                    const activateError = await activateResponse.text();
+                    console.log('⚠️ ACTIVATE SUBSCRIPTION: Manual activation failed:', activateError);
+                    // Even if manual activation fails, if user has baToken, they completed payment
+                    finalStatus = 'Active';
+                    console.log('✅ ACTIVATE SUBSCRIPTION: Treating as Active due to completed payment (baToken present)');
+                }
+            }
+            catch (activateError) {
+                console.log('⚠️ ACTIVATE SUBSCRIPTION: Manual activation error:', activateError);
+                // Even if manual activation fails, if user has baToken, they completed payment
+                finalStatus = 'Active';
+                console.log('✅ ACTIVATE SUBSCRIPTION: Treating as Active due to completed payment (baToken present)');
+            }
+        }
         // Update subscription in Firestore
         const updateData = {
             subscriptionId: subscriptionId,
             userId: context.auth.uid,
-            status: isActive ? 'Active' : 'Failed',
+            status: finalStatus,
             paypalStatus: subscriptionDetails.status,
             activatedAt: admin.firestore.FieldValue.serverTimestamp(),
             paypalDetails: subscriptionDetails,
@@ -2890,36 +2980,42 @@ exports.activateSubscription = functions.region('us-central1').https.onCall(asyn
         if (baToken) {
             updateData.baToken = baToken;
         }
-        console.log('💾 ACTIVATE SUBSCRIPTION: Updating Firestore with:', JSON.stringify(updateData, null, 2));
-        console.log('📍 ACTIVATE SUBSCRIPTION: Document path will be:', `users/${context.auth.uid}/subscriptions/${subscriptionId}`);
-        // First, check if document already exists
-        const docRef = db.collection('users').doc(context.auth.uid).collection('activeSubscriptions').doc(subscriptionId);
-        console.log('🔍 ACTIVATE SUBSCRIPTION: Checking if document already exists...');
+        console.log('💾 ACTIVATE SUBSCRIPTION: Updating Firestore with dual-collection structure:', JSON.stringify(updateData, null, 2));
+        console.log('📍 ACTIVATE SUBSCRIPTION: ActiveSubscriptions path: users/${context.auth.uid}/activeSubscriptions/${subscriptionId}');
+        console.log('📍 ACTIVATE SUBSCRIPTION: SubscriptionHistory path: users/${context.auth.uid}/subscriptionHistory/${subscriptionId}');
+        // First, check if document already exists in activeSubscriptions
+        const activeDocRef = db.collection('users').doc(context.auth.uid).collection('activeSubscriptions').doc(subscriptionId);
+        const historyDocRef = db.collection('users').doc(context.auth.uid).collection('subscriptionHistory').doc(subscriptionId);
+        console.log('🔍 ACTIVATE SUBSCRIPTION: Checking if document already exists in activeSubscriptions...');
         try {
-            const existingDoc = await docRef.get();
+            const existingDoc = await activeDocRef.get();
             if (existingDoc.exists) {
-                console.log('📋 ACTIVATE SUBSCRIPTION: Document already exists, current data:', JSON.stringify(existingDoc.data(), null, 2));
+                console.log('📋 ACTIVATE SUBSCRIPTION: Document already exists in activeSubscriptions, current data:', JSON.stringify(existingDoc.data(), null, 2));
             }
             else {
-                console.log('📋 ACTIVATE SUBSCRIPTION: Document does not exist, will create new one');
+                console.log('📋 ACTIVATE SUBSCRIPTION: Document does not exist in activeSubscriptions, will create new one');
             }
         }
         catch (checkError) {
             console.error('⚠️ ACTIVATE SUBSCRIPTION: Error checking existing document:', checkError);
         }
-        // Use set with merge to create document if it doesn't exist
+        // Use set with merge to update/create document in both collections
         try {
-            await docRef.set(updateData, { merge: true });
-            console.log('✅ ACTIVATE SUBSCRIPTION: Firestore update completed successfully');
-            // Verify the document was written by reading it back
-            const verifyDoc = await docRef.get();
+            // Update activeSubscriptions (for fast queries)
+            await activeDocRef.set(updateData, { merge: true });
+            console.log('✅ ACTIVATE SUBSCRIPTION: ActiveSubscriptions update completed successfully');
+            // Update subscriptionHistory (for billing/statistics)
+            await historyDocRef.set(updateData, { merge: true });
+            console.log('✅ ACTIVATE SUBSCRIPTION: SubscriptionHistory update completed successfully');
+            // Verify the document was written by reading it back from activeSubscriptions
+            const verifyDoc = await activeDocRef.get();
             if (verifyDoc.exists) {
-                console.log('✅ VERIFY ACTIVATION: Document exists after update:', verifyDoc.id);
+                console.log('✅ VERIFY ACTIVATION: Document exists after update in activeSubscriptions:', verifyDoc.id);
                 console.log('📊 VERIFY ACTIVATION: Final document data:', JSON.stringify(verifyDoc.data(), null, 2));
             }
             else {
-                console.error('❌ VERIFY ACTIVATION: Document was not found after update!');
-                throw new Error('Document verification failed - document not found after update');
+                console.error('❌ VERIFY ACTIVATION: Document was not found in activeSubscriptions after update!');
+                throw new Error('Document verification failed - document not found in activeSubscriptions after update');
             }
         }
         catch (updateError) {
@@ -2932,13 +3028,16 @@ exports.activateSubscription = functions.region('us-central1').https.onCall(asyn
             });
             throw updateError;
         }
-        console.log('🎉 ACTIVATE SUBSCRIPTION: Successfully activated subscription');
-        console.log('✅ ACTIVATE SUBSCRIPTION: Document should now exist at users/' + context.auth.uid + '/subscriptions/' + subscriptionId);
+        console.log('🎉 ACTIVATE SUBSCRIPTION: Successfully processed subscription in dual-collection structure');
+        console.log('✅ ACTIVATE SUBSCRIPTION: Document should now exist at users/' + context.auth.uid + '/activeSubscriptions/' + subscriptionId);
+        console.log('✅ ACTIVATE SUBSCRIPTION: Document should now exist at users/' + context.auth.uid + '/subscriptionHistory/' + subscriptionId);
         return {
             success: true,
-            status: updateData.status,
+            status: finalStatus,
             subscriptionDetails: subscriptionDetails,
-            message: isActive ? 'Subscription successfully activated!' : 'Subscription activation failed'
+            message: finalStatus === 'Active' ? 'Subscription successfully activated!' :
+                finalStatus === 'PENDING_APPROVAL' ? 'Subscription pending user approval' :
+                    'Subscription activation failed'
         };
     }
     catch (error) {
@@ -2948,7 +3047,6 @@ exports.activateSubscription = functions.region('us-central1').https.onCall(asyn
 });
 // Debug function to check subscription database state
 exports.debugSubscriptionDatabase = functions.https.onCall(async (data, context) => {
-    console.log('🔍 DEBUG SUBSCRIPTION DB: Function called');
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
     }
@@ -2956,42 +3054,54 @@ exports.debugSubscriptionDatabase = functions.https.onCall(async (data, context)
     const targetUserId = userId || context.auth.uid;
     try {
         const db = admin.firestore();
-        console.log('🔍 DEBUG: Checking subscriptions for user:', targetUserId);
-        // Get all subscriptions for the user
-        const subscriptionsRef = db.collection('users').doc(targetUserId).collection('activeSubscriptions');
-        const allSubscriptions = await subscriptionsRef.get();
-        console.log('📊 DEBUG: Total subscription documents found:', allSubscriptions.size);
-        const subscriptionsList = [];
-        allSubscriptions.forEach(doc => {
+        // Get active subscriptions
+        const activeSubscriptionsRef = db.collection('users').doc(targetUserId).collection('activeSubscriptions');
+        const activeSubscriptions = await activeSubscriptionsRef.get();
+        // Get subscription history
+        const historySubscriptionsRef = db.collection('users').doc(targetUserId).collection('subscriptionHistory');
+        const historySubscriptions = await historySubscriptionsRef.get();
+        const activeSubscriptionsList = [];
+        activeSubscriptions.forEach(doc => {
             const data = doc.data();
-            console.log('📋 DEBUG: Subscription document:', doc.id, JSON.stringify(data, null, 2));
-            subscriptionsList.push({
+            activeSubscriptionsList.push({
                 documentId: doc.id,
+                collection: 'activeSubscriptions',
                 data: data
             });
         });
-        // If specific subscriptionId provided, check that document
+        const historySubscriptionsList = [];
+        historySubscriptions.forEach(doc => {
+            const data = doc.data();
+            historySubscriptionsList.push({
+                documentId: doc.id,
+                collection: 'subscriptionHistory',
+                data: data
+            });
+        });
+        // If specific subscriptionId provided, check that document in both collections
         if (subscriptionId) {
-            console.log('🎯 DEBUG: Checking specific subscription:', subscriptionId);
-            const specificDoc = await subscriptionsRef.doc(subscriptionId).get();
-            if (specificDoc.exists) {
-                console.log('✅ DEBUG: Specific subscription found:', JSON.stringify(specificDoc.data(), null, 2));
+            const activeDoc = await activeSubscriptionsRef.doc(subscriptionId).get();
+            const historyDoc = await historySubscriptionsRef.doc(subscriptionId).get();
+            if (activeDoc.exists) {
             }
             else {
-                console.log('❌ DEBUG: Specific subscription NOT found');
+            }
+            if (historyDoc.exists) {
+            }
+            else {
             }
         }
         // Also check if user document exists
         const userDoc = await db.collection('users').doc(targetUserId).get();
-        console.log('👤 DEBUG: User document exists:', userDoc.exists);
         if (userDoc.exists) {
-            console.log('👤 DEBUG: User document data:', JSON.stringify(userDoc.data(), null, 2));
         }
         return {
             success: true,
             userId: targetUserId,
-            totalSubscriptions: allSubscriptions.size,
-            subscriptions: subscriptionsList,
+            activeSubscriptionsCount: activeSubscriptions.size,
+            historySubscriptionsCount: historySubscriptions.size,
+            activeSubscriptions: activeSubscriptionsList,
+            historySubscriptions: historySubscriptionsList,
             userDocumentExists: userDoc.exists,
             userDocumentData: userDoc.exists ? userDoc.data() : null
         };

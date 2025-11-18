@@ -23,29 +23,15 @@ export default function SubscriptionSuccess() {
   const subscriptionId = urlParams.get('subscription_id');
   const baToken = urlParams.get('ba_token');
 
-  // Debug logging for URL parameters
-  console.log('🌐 SUCCESS PAGE: URL Parameters:', {
-    fullURL: location.search,
-    success,
-    cancelled,
-    subscriptionId,
-    baToken,
-    pathname: location.pathname
-  });
-
   useEffect(() => {
-    console.log('🔍 SUCCESS PAGE: useEffect triggered', { success, baToken, subscriptionId });
     
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      console.log('👤 SUCCESS PAGE: Auth state changed', { user: u?.uid, success });
       setUser(u);
       
       if (u && success === 'true') {
-        console.log('✅ SUCCESS PAGE: User authenticated and success=true, loading subscription data...');
         
         try {
           // First load current subscription data from activeSubscriptions subcollection
-          console.log('📊 SUCCESS PAGE: Querying Firestore for user activeSubscriptions...');
           const activeSubscriptionsRef = collection(firestore, 'users', u.uid, 'activeSubscriptions');
           
           // Query for active or pending subscriptions
@@ -59,7 +45,6 @@ export default function SubscriptionSuccess() {
           
           // If no active subscriptions found, try getting any subscription from activeSubscriptions
           if (subscriptionsSnapshot.empty) {
-            console.log('📊 SUCCESS PAGE: No active subscriptions found, querying all activeSubscriptions...');
             subscriptionsQuery = query(activeSubscriptionsRef, limit(10));
             subscriptionsSnapshot = await getDocs(subscriptionsQuery);
           }
@@ -67,14 +52,10 @@ export default function SubscriptionSuccess() {
           if (!subscriptionsSnapshot.empty) {
             const subscriptionDoc = subscriptionsSnapshot.docs[0];
             const currentData = subscriptionDoc.data();
-            console.log('📋 SUCCESS PAGE: Current subscription data:', JSON.stringify(currentData, null, 2));
             setSubscriptionData(currentData);
             
             // If subscription is still pending, try to activate it
             if ((currentData.status === 'approval-pending' || currentData.status === 'PENDING_APPROVAL') && currentData.subscriptionId) {
-              console.log('🎯 SUCCESS PAGE: Subscription is pending approval, attempting activation...');
-              console.log('🔑 SUCCESS PAGE: Using subscriptionId:', currentData.subscriptionId);
-              console.log('🎫 SUCCESS PAGE: Using baToken:', baToken);
               
               setActivationStatus('pending');
               setActivationMessage('Contacting PayPal to activate your subscription...');
@@ -83,29 +64,23 @@ export default function SubscriptionSuccess() {
                 const functions = getFunctions();
                 const activateSubscription = httpsCallable(functions, 'activateSubscription');
                 
-                console.log('🚀 SUCCESS PAGE: Calling activateSubscription function...');
                 const result = await activateSubscription({
                   subscriptionId: currentData.subscriptionId,
                   baToken: baToken
                 });
                 
-                console.log('📨 SUCCESS PAGE: Function response:', JSON.stringify(result, null, 2));
-                console.log('📊 SUCCESS PAGE: Function data:', JSON.stringify(result.data, null, 2));
                 
                 if (result.data && (result.data as any).success) {
-                  console.log('✅ SUCCESS PAGE: Activation successful!');
                   setActivationStatus('success');
                   setActivationMessage((result.data as any).message || 'Subscription activated successfully!');
                   
                   // Reload subscription data to get updated status
-                  console.log('🔄 SUCCESS PAGE: Reloading subscription data after activation...');
                   const updatedQuery = query(activeSubscriptionsRef, limit(10));
                   const updatedSnapshot = await getDocs(updatedQuery);
                   
                   if (!updatedSnapshot.empty) {
                     const updatedDoc = updatedSnapshot.docs[0];
                     const updatedData = updatedDoc.data();
-                    console.log('📊 SUCCESS PAGE: Updated subscription data:', JSON.stringify(updatedData, null, 2));
                     setSubscriptionData(updatedData);
                   } else {
                     console.error('❌ SUCCESS PAGE: Updated subscription document not found after activation');
@@ -121,23 +96,16 @@ export default function SubscriptionSuccess() {
                 setActivationMessage(`Function error: ${functionError instanceof Error ? functionError.message : 'Unknown error'}`);
               }
             } else if (currentData.status === 'Active') {
-              console.log('✅ SUCCESS PAGE: Subscription is already active!');
               setActivationStatus('success');
               setActivationMessage('Subscription is already active!');
             } else {
-              console.log('ℹ️ SUCCESS PAGE: Subscription status is not pending approval:', currentData.status);
-              console.log('🔍 SUCCESS PAGE: Subscription ID present:', !!currentData.subscriptionId);
               setActivationStatus('error');
               setActivationMessage(`Unexpected subscription status: ${currentData.status}`);
             }
           } else {
-            console.log('ℹ️ SUCCESS PAGE: No subscription documents found, but we have PayPal data - attempting activation...');
             // No subscription document found, but we have subscription data from PayPal
             // This might be a new subscription that needs to be created/activated
             if (subscriptionId && baToken) {
-              console.log('🎯 SUCCESS PAGE: Using PayPal subscription data for activation...');
-              console.log('🔑 SUCCESS PAGE: Using subscriptionId:', subscriptionId);
-              console.log('🎫 SUCCESS PAGE: Using baToken:', baToken);
               
               setActivationStatus('pending');
               setActivationMessage('Contacting PayPal to activate your subscription...');
@@ -146,29 +114,23 @@ export default function SubscriptionSuccess() {
                 const functions = getFunctions();
                 const activateSubscription = httpsCallable(functions, 'activateSubscription');
                 
-                console.log('🚀 SUCCESS PAGE: Calling activateSubscription function...');
                 const result = await activateSubscription({
                   subscriptionId: subscriptionId,
                   baToken: baToken
                 });
                 
-                console.log('📨 SUCCESS PAGE: Function response:', JSON.stringify(result, null, 2));
-                console.log('📊 SUCCESS PAGE: Function data:', JSON.stringify(result.data, null, 2));
                 
                 if (result.data && (result.data as any).success) {
-                  console.log('✅ SUCCESS PAGE: Activation successful!');
                   setActivationStatus('success');
                   setActivationMessage((result.data as any).message || 'Subscription activated successfully!');
                   
                   // Reload subscription data to get updated status
-                  console.log('🔄 SUCCESS PAGE: Reloading subscription data after activation...');
                   const updatedQuery = query(activeSubscriptionsRef, limit(10));
                   const updatedSnapshot = await getDocs(updatedQuery);
                   
                   if (!updatedSnapshot.empty) {
                     const updatedDoc = updatedSnapshot.docs[0];
                     const updatedData = updatedDoc.data();
-                    console.log('📊 SUCCESS PAGE: Updated subscription data:', JSON.stringify(updatedData, null, 2));
                     setSubscriptionData(updatedData);
                   } else {
                     console.error('❌ SUCCESS PAGE: Updated subscription document not found after activation');
@@ -196,12 +158,9 @@ export default function SubscriptionSuccess() {
           setActivationMessage(`Database error: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
       } else {
-        console.log('ℹ️ SUCCESS PAGE: Skipping activation - user not authenticated or success not true');
-        console.log('📊 SUCCESS PAGE: Auth state:', !!u, 'Success param:', success);
       }
       
       setLoading(false);
-      console.log('✅ SUCCESS PAGE: useEffect processing complete');
     });
 
     return () => unsubscribe();
