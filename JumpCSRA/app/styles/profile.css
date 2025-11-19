@@ -1148,3 +1148,128 @@ html, body{ background-color: white;}
     min-width: auto;
   }
 }
+
+/* Membership Booking Form Styles */
+.membership-booking-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  margin-top: 2rem;
+}
+
+.membership-booking-form {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  margin-top: 1.5rem;
+}
+
+.booking-step {
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 1.5rem;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.booking-step:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  border-color: #d0d0d0;
+}
+
+.booking-step h5 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.booking-step p {
+  margin: 0 0 1rem 0;
+  color: #666;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+/* Step completion indicator */
+.booking-step.completed {
+  background: #f8fff8;
+  border-color: #4caf50;
+}
+
+.booking-step.completed h5 {
+  color: #2e7d32;
+  border-bottom-color: #4caf50;
+}
+
+.booking-step.completed::before {
+  content: "✓";
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 24px;
+  height: 24px;
+  background: #4caf50;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.8rem;
+}
+
+/* Step active state */
+.booking-step.active {
+  background: #fff7e6;
+  border-color: #ff9800;
+}
+
+.booking-step.active h5 {
+  color: #f57c00;
+  border-bottom-color: #ff9800;
+}
+
+.booking-step.active::before {
+  content: "●";
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 24px;
+  height: 24px;
+  background: #ff9800;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.8rem;
+}
+
+/* Responsive design for booking steps */
+@media (max-width: 768px) {
+  .booking-step {
+    padding: 1rem;
+  }
+  
+  .booking-step h5 {
+    font-size: 1rem;
+  }
+  
+  .booking-step::before {
+    top: 0.75rem;
+    right: 0.75rem;
+    width: 20px;
+    height: 20px;
+    font-size: 0.7rem;
+  }
+}

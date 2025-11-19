@@ -30,18 +30,24 @@
   border-radius: 8px;
   margin-bottom: 2rem;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow-x: auto; /* Allow horizontal scroll on very small screens */
 }
 
 .progress-steps {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  min-width: 600px; /* Minimum width to prevent cramping */
+  position: relative;
 }
 
 .progress-step {
   display: flex;
+  flex-direction: column;
   align-items: center;
   flex: 1;
+  min-width: 80px; /* Minimum width per step */
+  position: relative;
 }
 
 .progress-step-circle {
@@ -53,11 +59,16 @@
   justify-content: center;
   font-weight: bold;
   font-size: 14px;
+  position: relative;
+  z-index: 2;
+  margin-bottom: 0.5rem;
+  transition: all 0.3s ease;
 }
 
 .progress-step-circle.active {
   background-color: #007bff;
   color: white;
+  transform: scale(1.1);
 }
 
 .progress-step-circle.inactive {
@@ -66,8 +77,12 @@
 }
 
 .progress-step-label {
-  margin-left: 0.5rem;
-  font-size: 14px;
+  font-size: 12px;
+  text-align: center;
+  line-height: 1.3;
+  word-break: break-word;
+  max-width: 100px;
+  transition: all 0.3s ease;
 }
 
 .progress-step-label.active {
@@ -82,6 +97,7 @@
 
 .progress-step-label.current {
   font-weight: bold !important;
+  color: #0056b3 !important;
 }
 
 /* Step content containers */
@@ -178,9 +194,13 @@
 }
 
 .progress-step-connector {
-  flex: 1;
-  height: 2px;
-  margin: 0 1rem;
+  position: absolute;
+  top: 20px; /* Center vertically with circle */
+  left: 50%;
+  right: -50%;
+  height: 3px;
+  z-index: 1;
+  transition: all 0.3s ease;
 }
 
 .progress-step-connector.active {
@@ -332,4 +352,68 @@
   margin: 0;
   font-size: 1rem;
   color: #666;
+}
+
+/* Responsive Design for Progress Indicator */
+@media (max-width: 768px) {
+  .progress-indicator {
+    padding: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .progress-steps {
+    min-width: 500px;
+    padding: 0 0.5rem;
+  }
+
+  .progress-step {
+    min-width: 70px;
+  }
+
+  .progress-step-circle {
+    width: 35px;
+    height: 35px;
+    font-size: 12px;
+  }
+
+  .progress-step-label {
+    font-size: 11px;
+    max-width: 80px;
+  }
+
+  .progress-step-connector {
+    top: 17px; /* Adjust for smaller circle */
+  }
+}
+
+@media (max-width: 480px) {
+  .progress-indicator {
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .progress-steps {
+    min-width: 400px;
+    padding: 0 0.25rem;
+  }
+
+  .progress-step {
+    min-width: 60px;
+  }
+
+  .progress-step-circle {
+    width: 30px;
+    height: 30px;
+    font-size: 10px;
+  }
+
+  .progress-step-label {
+    font-size: 10px;
+    max-width: 60px;
+  }
+
+  .progress-step-connector {
+    top: 15px; /* Adjust for smallest circle */
+    height: 2px;
+  }
 }

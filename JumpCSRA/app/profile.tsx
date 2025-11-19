@@ -2490,7 +2490,7 @@ export default function Profile() {
                     
                     <div className="membership-booking-form">
                       {/* Step 1: Weekday Selection */}
-                      <div className="booking-step">
+                      <div className={`booking-step ${selectedWeekday ? 'completed' : 'active'}`}>
                         <h5>📅 Step 1: Choose Delivery Day</h5>
                         <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.75rem' }}>
                           Select your preferred delivery day of the week (Monday-Thursday only)
@@ -2526,7 +2526,7 @@ export default function Profile() {
 
                       {/* Step 2: Surface and Anchoring Selection */}
                       {selectedWeekday && (
-                        <div className="booking-step">
+                        <div className={`booking-step ${selectedSurface ? 'completed' : 'active'}`}>
                           <h5>🏠 Step 2: Surface Type & Setup</h5>
                           <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.75rem' }}>
                             Select the surface where the inflatable will be set up
@@ -2600,7 +2600,7 @@ export default function Profile() {
 
                       {/* Address Validation */}
                       {selectedSurface && (
-                        <div className="booking-step">
+                        <div className={`booking-step ${profile.address ? 'completed' : 'active'}`}>
                           <h5>📍 Step 3: Delivery Address</h5>
                           <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.75rem' }}>
                             Confirm your delivery address
@@ -2672,7 +2672,7 @@ export default function Profile() {
 
                       {/* Summary and Submit */}
                       {profile.address && selectedSurface && (
-                        <div className="booking-step">
+                        <div className="booking-step active">
                           <h5>📋 Step 4: Review & Book</h5>
                           
                           {(() => {

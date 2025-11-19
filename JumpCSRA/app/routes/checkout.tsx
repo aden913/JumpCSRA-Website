@@ -6,6 +6,7 @@ import { RouterNav } from "../components/RouterNav";
 import { SearchBar } from "../components/SearchBar";
 import { GooglePlacesAutocomplete } from "../components/GooglePlacesAutocomplete";
 import MembershipCheckout from "../components/MembershipCheckout";
+import ContractSigning from "../components/ContractSigning";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, firestore } from "../components/FirebaseConfig";
 import { doc, setDoc, getDoc } from "firebase/firestore";
@@ -47,66 +48,6 @@ import { checkItemAvailability, type ItemAvailability } from "../utils/availabil
 import '@mantine/notifications/styles.css';
 import '../styles/checkout-buttons.css';
 import '../styles/checkout.css';
-
-// Contract interfaces
-interface ContractSection {
-  id: string;
-  title: string;
-  content: string;
-  isInitialed: boolean;
-  initialedAt?: string;
-  isFinePrint?: boolean; // New field to identify fine print sections
-}
-
-// Legacy interface for backward compatibility
-interface ContractMetadata {
-  contractId: string;
-  userId: string;
-  status: 'deferred' | 'pending' | 'confirmed' | 'completed' | 'cancelled';
-  deposit: number;
-  customerInfo: {
-    firstName: string;
-    lastName: string;
-    name: string;
-    email: string;
-    phone?: string;
-  };
-  orderDetails: {
-    eventDate: string;
-    duration: string;
-    deliveryAddress: string;
-    surface: string;
-    deliveryTime: string;
-    items: Array<{
-      name: string;
-      quantity: number;
-      price: number;
-    }>;
-    totalAmount: number;
-  };
-  agreementSections: ContractSection[];
-  signature: {
-    signatureData: string;
-    signedAt: string;
-  } | null;
-  contractDate: string;
-  initials: string;
-  // New optional fields from BookingData
-  orderID?: string;
-  customerID?: string;
-  paymentDetails?: {
-    totalAmount: number;
-    depositAmount: number;
-    remainingBalance: number;
-    paymentType: 'full' | 'deposit';
-    paypalOrderId?: string;
-    paypalTransactionId?: string;
-    paymentStatus: 'pending' | 'completed' | 'failed';
-    paymentDate?: string;
-  };
-  createdAt?: string;
-  updatedAt?: string;
-}
 
 export function meta() {
   return [
@@ -216,15 +157,6 @@ export default function Checkout() {
   // Availability tracking state
   const [itemAvailability, setItemAvailability] = useState<Map<string, ItemAvailability>>(new Map());
   const [loadingAvailability, setLoadingAvailability] = useState(false);
-  
-  // Contract and signature state
-  const [typedSignature, setTypedSignature] = useState<string>("");
-  
-  // New contract system state
-  const [customerInitials, setCustomerInitials] = useState<string>("");
-  const [contractSections, setContractSections] = useState<ContractSection[]>([]);
-  const [contractMetadata, setContractMetadata] = useState<ContractMetadata | null>(null);
-  const [showInitialsPrompt, setShowInitialsPrompt] = useState<boolean>(false);
   
   // Email state for promotional gift cards
   const [promotionalGiftCardEmail, setPromotionalGiftCardEmail] = useState<string>("");
@@ -423,116 +355,6 @@ export default function Checkout() {
     }
   }, [cart, paymentType]);
 
-  // Generate contract sections based on cart items
-  const generateContractSections = (): ContractSection[] => {
-    const sections: ContractSection[] = [];
-    
-    // Generate rental items list
-    const rentalItems = cart.map(item => {
-      const inflatable = inflateables.find(inf => inf.name === item.name);
-      const wetDryText = item.wetDry ? ` - ${item.wetDry}` : '';
-      const surfaceText = cartSettings.surface ? ` - ${cartSettings.surface}` : '';
-      return `${item.name} - ${cartSettings.duration}${wetDryText}${surfaceText}`;
-    }).join('\n');
-    
-    // Generate requirements list based on cart items
-    const requirements = [];
-    
-    // Check if there are inflatables that need power
-    const hasInflatables = cart.some(item => 
-      inflateables.find(inf => inf.name === item.name && 
-        (inf.category === 'Bounce Houses' || inf.category === 'Water Slides' || inf.category === 'Combo Units'))
-    );
-    
-    if (hasInflatables) {
-      requirements.push('Provide 110volt/20amp electric circuits within 75ft, or provide / rent a generator.');
-      requirements.push('Provide any required entrance and parking passes for access to rental delivery.');
-      requirements.push('Provide at least 1 adult volunteer(s) for each inflatable to ensure safety for the participants.');
-      requirements.push('Ensure Jumpers remove shoes, eyeglasses, and any sharp objects before jumping.');
-      requirements.push('Be held financially responsible for damage done to the rental.');
-      requirements.push('Ensure jumpers go down the slide feet first, one rider at a time per lane.');
-      requirements.push('In the event of high wind, rain, or storm, ensure all participants get off of the unit and move the blower out of the rain.');
-      requirements.push('Ensure there is no jumping or climbing on the outside of the inflatable or security netting.');
-    }
-    
-    // Check for water rentals by looking at both the 'wet' property and user's wetDry selection
-    const hasWaterRentals = cart.some((item, index) => {
-      const inflatable = inflateables.find(inf => inf.name === item.name);
-      // Check if the inflatable can be wet AND the user selected wet mode for this cart item
-      const userSelectedWet = cartSettings.wetDrySelections?.[index] === 'Wet';
-      const canBeWet = inflatable?.wet === true || inflatable?.wet === "true";
-      
-      console.log(`[WET CONTRACT DEBUG] Item: ${item.name}, Index: ${index}, Can be wet: ${canBeWet}, User selected wet: ${userSelectedWet}, WetDry selection: ${cartSettings.wetDrySelections?.[index]}`);
-      
-      return canBeWet && userSelectedWet;
-    });
-    
-    console.log(`[WET CONTRACT DEBUG] Has water rentals: ${hasWaterRentals}`);
-    
-    // Get customer info
-    const customerName = userProfile?.firstName && userProfile?.lastName 
-      ? `${userProfile.firstName} ${userProfile.lastName}`
-      : userProfile?.name || user?.displayName || user?.email || '';
-    
-    // First section: Rental Agreement Between Parties
-    sections.push({
-      id: 'rental-agreement',
-      title: 'Rental Contract & Terms Between',
-      content: `${customerName}\n${deliveryAddress}\n\nand\n\nJump CSRA Party Rental\n\nI agree to rent the following items from ${calendarDateRange[0]?.toLocaleDateString()} ${cartSettings.deliveryTime} until ${calendarDateRange[1]?.toLocaleDateString()} 12:00pm:\n\n${rentalItems}\n\n${requirements.join('\n')}`,
-      isInitialed: false
-    });
-
-    // Water Rental Agreement (only if water items are rented)
-    if (hasWaterRentals) {
-      sections.push({
-        id: 'water-agreement',
-        title: 'Water Rental Agreement',
-        content: 'I understand and agree to the following water rental requirements:\n\n• Provide a water hose that reaches to the water rental or add one to my order.\n• Ensure the inflatable is properly drained and dried before pickup.\n• Water usage is the responsibility of the renter and may affect utility costs.\n• In case of inclement weather, water activities must cease immediately for safety.\n• Adult supervision is required at all times during water activities.\n• Maximum occupancy limits must be strictly followed for water units.',
-        isInitialed: false
-      });
-    }
-
-    // Standard agreement sections (always included)
-    sections.push({
-      id: 'security-deposit',
-      title: 'Security Deposit',
-      content: 'I understand a $50 deposit will be placed on my card and may be charged after pickup if: Food, candy, drinks, pets, water balloons, silly string, soap, paint, or other messes are found. The unit is muddy, full of water, unclean, or not inflated at pickup. The unit is not in the same condition it was at delivery. There is excess amounts of water left in the unit. The unit is not inflated by 8:00am on pick up day to dry out. The unit is not inflated when we arrive for pick up.',
-      isInitialed: false
-    });
-    
-    sections.push({
-      id: 'safety-usage',
-      title: 'Safety & Usage',
-      content: 'I agree that: The inflatable will not be moved or repositioned after setup. All users will remove shoes, glasses, and sharp objects before entering. The inflatable will stay inflated during rain, but deflated when high winds are present.',
-      isInitialed: false
-    });
-    
-    sections.push({
-      id: 'cancellation-policy',
-      title: 'Cancellation Policy',
-      content: 'I agree to the cancellation policy as follows. Cancel 14+ days before your event: Receive a full refund. Cancel within 6–13 days of your event: Receive a gift card for 100%, which can be used for any future rental—no expiration date. Cancel with less than 5 days\' notice: Receive a gift card for 50%. The remaining 50% is non-refundable. If Jump CSRA cancels due to weather (e.g., storms, high winds, heavy rain): You will receive a full refund.',
-      isInitialed: false
-    });
-    
-    sections.push({
-      id: 'hold-harmless',
-      title: 'Hold Harmless Provision',
-      content: 'Lessee recognizes and understands that the use of Lessor equipment may involve inherently dangerous activities. Consequently, lessee agrees to indemnify and hold lessor harmless from any and all claims, actions, suits, proceeding costs, expenses, damages, and liabilities, including reasonable attorney\'s fees arising by reason of injury, damage, or death to persons or property, in connection with or resulting from the use of said equipment including, but not limited to the delivery, possession, use, operation, or return of the equipment. Lessee hereby releases and holds harmless lessor from injuries or damages incurred as a result of the use of said equipment unless the lessor is operating the equipment and is deemed by a court of law to be negligent in its actions. Lessor cannot under any circumstances be held liable for injuries as a result of acts of God, nature, or other conditions beyond its control or knowledge. Lessee also agrees to indemnify and hold harmless lessor from any loss, damage, theft, or destruction of the equipment during the term of this contract and any extension thereof.',
-      isInitialed: false,
-      isFinePrint: true
-    });
-    
-    sections.push({
-      id: 'merger-clause',
-      title: 'Merger Clause',
-      content: 'This signed Agreement in conjunction with the signed Instruction Manual and Reservation Form contains the entire agreement between the Lessor and the Lessee. No amendment, whether from previous or subsequent negotiations between the Lessee and the Lessor, shall be valid or enforceable unless in writing and signed by all parties to this contract. The invalidity or unenforceability of any particular provision of this Agreement shall not affect the other provisions hereof.',
-      isInitialed: false,
-      isFinePrint: true
-    });
-    
-    return sections;
-  };
-
   // Load booking from URL parameter for payment completion
   const loadBookingFromUrl = async (bookingId: string) => {
     setLoadingBookingFromUrl(true);
@@ -656,66 +478,13 @@ export default function Checkout() {
     console.log('🔄 DELIVERY ADDRESS STATE CHANGED:', deliveryAddress);
   }, [deliveryAddress]);
 
-  // Initialize contract sections when entering contract step
-  useEffect(() => {
-    if (currentStep === 'contract' && contractSections.length === 0) {
-      const sections = generateContractSections();
-      setContractSections(sections);
-      
-      // Automatically set initials from user's firstName and lastName
-      if (!customerInitials.trim() && userProfile?.firstName && userProfile?.lastName) {
-        const autoInitials = `${userProfile.firstName.charAt(0).toUpperCase()}${userProfile.lastName.charAt(0).toUpperCase()}`;
-        setCustomerInitials(autoInitials);
-      }
-      
-      // Automatically set signature from user's full name
-      if (!typedSignature.trim() && userProfile?.firstName && userProfile?.lastName) {
-        const fullName = `${userProfile.firstName} ${userProfile.lastName}`;
-        setTypedSignature(fullName);
-      }
-    }
-  }, [currentStep, contractSections.length, customerInitials, typedSignature, userProfile]);
-
-  // Handle section initialing
-  const handleSectionInitial = (sectionId: string) => {
-    // Automatically generate initials from user's firstName and lastName
-    const autoInitials = userProfile?.firstName && userProfile?.lastName 
-      ? `${userProfile.firstName.charAt(0).toUpperCase()}${userProfile.lastName.charAt(0).toUpperCase()}`
-      : customerInitials.trim() || 'XX'; // Fallback to existing initials or XX
-    
-    // Set the initials if not already set
-    if (!customerInitials.trim()) {
-      setCustomerInitials(autoInitials);
-    }
-    
-    setContractSections(prev => 
-      prev.map(section => 
-        section.id === sectionId 
-          ? { ...section, isInitialed: !section.isInitialed, initialedAt: new Date().toISOString() }
-          : section
-      )
-    );
-  };
-
-  // Check if all sections are initialed (excluding fine print)
-  const allSectionsInitialed = () => {
-    const sectionsRequiringInitials = contractSections.filter(section => !section.isFinePrint);
-    return sectionsRequiringInitials.length > 0 && sectionsRequiringInitials.every(section => section.isInitialed);
-  };
-
-  // Handle contract completion
-  const handleContractCompletion = async () => {
-    console.log('🔥 Contract completion button clicked');
-    console.log('All sections initialed:', allSectionsInitialed());
-    console.log('Typed signature:', typedSignature.trim());
-    console.log('Current step:', currentStep);
-    
-    if (!allSectionsInitialed() || !typedSignature.trim()) {
-      alert("Please initial all sections and provide your signature before proceeding.");
-      return;
-    }
-    
-    console.log('✅ Validation passed, determining booking status');
+  // Handle contract completion - called by ContractSigning component
+  const handleContractCompletion = async (contractData: { 
+    sections: any[], 
+    signature: string, 
+    initials: string 
+  }) => {
+    console.log('🔥 Contract completed by component, proceeding with booking', contractData);
     
     try {
       // Determine initial booking status based on event date
@@ -732,7 +501,7 @@ export default function Checkout() {
       console.log(`Event date: ${eventDateString}, Within 2 days: ${isWithinTwoDays}, Only gift cards: ${onlyGiftCards}, Initial status: ${initialStatus}`);
       
       // Save contract and booking with determined status
-      const result = await saveBookingAndContract(initialStatus);
+      const result = await saveBookingAndContract(initialStatus, 'full', 0, undefined, undefined, contractData);
       if (result) {
         const { orderID, contractID } = result;
         setPendingBookingId(orderID); // Store orderID for payment processing
@@ -1727,6 +1496,27 @@ export default function Checkout() {
     return isBookingWithinTwoDays(eventDateString);
   };
 
+  // Contract completion handler - called by ContractSigning component
+  const onContractComplete = (orderID: string, contractID: string) => {
+    setPendingBookingId(orderID);
+    
+    // Use flushSync to ensure state update completes before navigation
+    flushSync(() => {
+      setContractSigned(true);
+    });
+    
+    // Navigate to payment step
+    setCurrentStep('payment');
+    setVisitedSteps(prev => new Set([...prev, 'payment']));
+    
+    console.log('🚀 Contract completed, navigated to payment step');
+  };
+
+  // Status change handler - called by ContractSigning component
+  const handleContractStatusChange = (requiresPhoneCall: boolean) => {
+    setRequiresPhoneCall(requiresPhoneCall);
+  };
+
   // PayPal payment handlers
   const createPayPalOrder = (data: any, actions: any) => {
     // Calculate PayPal amount (total payment minus wallet application)
@@ -2675,7 +2465,8 @@ export default function Checkout() {
     paymentType: 'full' | 'deposit' = 'full',
     depositAmount: number = 0,
     paypalOrderId?: string,
-    paypalTransactionId?: string
+    paypalTransactionId?: string,
+    contractInfo?: { sections: any[], signature: string, initials: string }
   ): Promise<{orderID: string, contractID: string} | null> => {
 
     const onlyGiftCards = cart.every(item => item.isGiftCard || item.isMembership);
@@ -2683,9 +2474,9 @@ export default function Checkout() {
       console.error("Missing user for booking creation");
       return null;
     }
-    // If only gift cards/memberships, skip contract validation
-    if (!onlyGiftCards && (!allSectionsInitialed() || !typedSignature.trim() || !customerInitials.trim())) {
-      console.error("Missing required contract data");
+    // Contract validation only needed if not gift cards and contract data provided
+    if (!onlyGiftCards && !contractInfo) {
+      console.error("Missing required contract data for non-gift-card order");
       return null;
     }
 
@@ -2778,13 +2569,13 @@ export default function Checkout() {
           contractID,
           orderID,
           customerID: user.uid,
-          agreementSections: contractSections,
+          agreementSections: contractInfo?.sections || [],
           signature: {
-            signatureData: typedSignature,
+            signatureData: contractInfo?.signature || '',
             signedAt: new Date().toISOString()
           },
           contractDate: new Date().toLocaleDateString(),
-          initials: customerInitials,
+          initials: contractInfo?.initials || '',
           contractStatus: 'signed'
         };
         bookingSaved = await saveBookingData(bookingData);
@@ -3603,301 +3394,14 @@ export default function Checkout() {
         
         {/* Contract Section - Only show when currentStep is 'contract' */}
         {currentStep === 'contract' && (
-          <>
-            {/* Contract Details */}
-            <div style={{ 
-              marginBottom: '2rem',
-              padding: '1rem',
-              backgroundColor: '#f8f9fa',
-              border: '1px solid #ddd'
-            }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.95rem' }}>
-                <div>
-                  <p style={{ margin: '0.25rem 0' }}><strong>Agreement Date:</strong> {new Date().toLocaleDateString()}</p>
-                  <p style={{ margin: '0.25rem 0' }}><strong>Customer:</strong> {
-                    userProfile?.firstName && userProfile?.lastName 
-                      ? `${userProfile.firstName} ${userProfile.lastName}`
-                      : userProfile?.name || user?.displayName || user?.email
-                  }</p>
-                  <p style={{ margin: '0.25rem 0' }}><strong>Email:</strong> {user?.email}</p>
-                </div>
-                <div>
-                  <p style={{ margin: '0.25rem 0' }}><strong>Event Date:</strong> {calendarDateRange[0]?.toLocaleDateString()} - {calendarDateRange[1]?.toLocaleDateString()}</p>
-                  <p style={{ margin: '0.25rem 0' }}><strong>Delivery Address:</strong> {deliveryAddress}</p>
-                  <p style={{ margin: '0.25rem 0' }}><strong>Total Amount:</strong> ${total.toFixed(2)}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Main Agreement Terms */}
-            <div style={{ marginBottom: '2rem' }}>
-              <h3 style={{ 
-                margin: '0 0 1rem 0', 
-                fontSize: '1.3rem',
-                textAlign: 'center',
-                textTransform: 'uppercase',
-                borderBottom: '1px solid #ccc',
-                paddingBottom: '0.5rem'
-              }}>
-                Terms and Conditions
-              </h3>
-              
-              <p style={{ marginBottom: '1.5rem', fontStyle: 'italic', textAlign: 'center', color: '#666' }}>
-                By initialing each section below, the Customer acknowledges understanding and agreement to these terms:
-              </p>
-
-              {contractSections.filter(section => !section.isFinePrint).map((section, index) => (
-                <div key={section.id} style={{ 
-                  marginBottom: '1.5rem',
-                  padding: '1rem',
-                  border: section.isInitialed ? '2px solid #28a745' : '1px solid #ddd',
-                  borderRadius: '4px',
-                  backgroundColor: section.isInitialed ? '#f8fff8' : '#fff',
-                  position: 'relative'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
-                    <div style={{ 
-                      minWidth: '80px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      paddingTop: '0.5rem'
-                    }}>
-                      <div style={{ 
-                        display: 'flex', 
-                        flexDirection: 'column',
-                        alignItems: 'center', 
-                        cursor: 'pointer',
-                        gap: '0.5rem'
-                      }}
-                      onClick={() => handleSectionInitial(section.id)}
-                      >
-                        <div style={{ 
-                          display: 'inline-block',
-                          minWidth: '50px',
-                          padding: '0.25rem 0.5rem',
-                          border: '2px solid #000',
-                          borderRadius: '0px',
-                          fontSize: '0.9rem',
-                          fontWeight: 'bold',
-                          backgroundColor: section.isInitialed ? '#e8f5e8' : '#fff',
-                          textAlign: 'center',
-                          fontFamily: 'Times, serif'
-                        }}>
-                          {section.isInitialed ? customerInitials : '____'}
-                        </div>
-                      </div>
-                      <small style={{ fontSize: '0.7rem', color: '#666', textAlign: 'center' }}>Initial</small>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <h4 style={{ 
-                        margin: '0 0 0.5rem 0', 
-                        fontSize: '1.1rem',
-                        fontWeight: 'bold',
-                        textTransform: 'uppercase',
-                        color: '#333'
-                      }}>
-                        {index + 1}. {section.title}
-                      </h4>
-                      <p style={{ 
-                        margin: 0, 
-                        color: '#333', 
-                        lineHeight: '1.5',
-                        fontSize: '0.95rem',
-                        textAlign: 'justify'
-                      }}>
-                        {section.content}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Fine Print Section */}
-            <div style={{ 
-              marginBottom: '2rem',
-              padding: '1rem',
-              backgroundColor: '#f9f9f9',
-              border: '1px solid #ccc',
-              borderRadius: '4px'
-            }}>
-              <h4 style={{ 
-                margin: '0 0 1rem 0', 
-                fontSize: '1.1rem',
-                textAlign: 'center',
-                textTransform: 'uppercase',
-                color: '#666'
-              }}>
-                Additional Legal Terms and Conditions
-              </h4>
-              
-              {contractSections.filter(section => section.isFinePrint).map((section, index) => (
-                <div key={section.id} style={{ marginBottom: '1rem' }}>
-                  <h5 style={{ 
-                    margin: '0 0 0.5rem 0', 
-                    fontSize: '1rem',
-                    fontWeight: 'bold',
-                    color: '#333'
-                  }}>
-                    {section.title}
-                  </h5>
-                  <p style={{ 
-                    margin: 0, 
-                    color: '#555', 
-                    lineHeight: '1.4',
-                    fontSize: '0.85rem',
-                    textAlign: 'justify'
-                  }}>
-                    {section.content}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            {/* Signature Section */}
-            <div style={{ 
-              marginBottom: '2rem',
-              padding: '2rem',
-              border: '2px solid #000',
-              borderRadius: '0px',
-              backgroundColor: '#fff'
-            }}>
-              <h3 style={{ 
-                margin: '0 0 1rem 0', 
-                fontSize: '1.3rem',
-                textAlign: 'center',
-                textTransform: 'uppercase',
-                borderBottom: '1px solid #ccc',
-                paddingBottom: '0.5rem'
-              }}>
-                Customer Signature
-              </h3>
-              
-              <p style={{ 
-                marginBottom: '2rem', 
-                textAlign: 'center',
-                color: '#666',
-                fontStyle: 'italic'
-              }}>
-                By signing below, I acknowledge that I have read, understood, and agree to all terms and conditions outlined in this agreement.
-              </p>
-              
-              <div style={{ 
-                display: 'flex',
-                alignItems: 'center',
-                gap: '2rem',
-                marginBottom: '2rem'
-              }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ 
-                    display: 'block',
-                    marginBottom: '0.5rem',
-                    fontWeight: 'bold',
-                    fontSize: '1rem'
-                  }}>
-                    Customer Signature:
-                  </label>
-                  <input
-                    type="text"
-                    value={typedSignature}
-                    onChange={(e) => setTypedSignature(e.target.value)}
-                    onClick={handleSignatureClick}
-                    placeholder="Type your full name here"
-                    style={{
-                      width: '100%',
-                      padding: '1rem',
-                      border: 'none',
-                      borderBottom: '2px solid #000',
-                      borderRadius: '0px',
-                      fontSize: '1.3rem',
-                      fontFamily: 'cursive',
-                      backgroundColor: 'transparent',
-                      textAlign: 'center'
-                    }}
-                  />
-                </div>
-                <div style={{ 
-                  minWidth: '150px',
-                  textAlign: 'center'
-                }}>
-                  <label style={{ 
-                    display: 'block',
-                    marginBottom: '0.5rem',
-                    fontWeight: 'bold',
-                    fontSize: '1rem'
-                  }}>
-                    Date:
-                  </label>
-                  <div style={{
-                    padding: '1rem',
-                    borderBottom: '2px solid #000',
-                    fontSize: '1.1rem',
-                    fontFamily: 'Times, serif'
-                  }}>
-                    {new Date().toLocaleDateString()}
-                  </div>
-                </div>
-              </div>
-              
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'center' }}>
-                <button
-                  onClick={clearSignature}
-                  style={{
-                    backgroundColor: '#6c757d',
-                    color: 'white',
-                    border: 'none',
-                    padding: '0.5rem 1rem',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Clear Signature
-                </button>
-                
-                {typedSignature.trim() && (
-                  <span style={{ color: '#28a745', fontSize: '0.9rem' }}>
-                    ✓ Signature entered
-                  </span>
-                )}
-              </div>
-
-              {/* Contract Completion Status */}
-              <div style={{ 
-                marginTop: '2rem', 
-                padding: '1.5rem', 
-                backgroundColor: '#f8f9fa',
-                border: '1px solid #ddd',
-                borderRadius: '0px',
-                textAlign: 'center'
-              }}>
-                <h4 style={{ 
-                  margin: '0 0 1rem 0', 
-                  fontWeight: 'bold',
-                  textTransform: 'uppercase',
-                  fontSize: '1.1rem'
-                }}>
-                  Contract Completion Status
-                </h4>
-                <div style={{ display: 'flex', justifyContent: 'space-around', gap: '2rem' }}>
-                  <div style={{ 
-                    color: allSectionsInitialed() ? '#28a745' : '#dc3545',
-                    fontSize: '1rem',
-                    fontWeight: 'bold'
-                  }}>
-                    ✓ Sections Initialed: {contractSections.filter(s => !s.isFinePrint && s.isInitialed).length} / {contractSections.filter(s => !s.isFinePrint).length}
-                  </div>
-                  <div style={{ 
-                    color: typedSignature.trim() ? '#28a745' : '#dc3545',
-                    fontSize: '1rem',
-                    fontWeight: 'bold'
-                  }}>
-                    ✓ Signature: {typedSignature.trim() ? 'Complete' : 'Required'}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </>
+          <ContractSigning
+            user={user}
+            userProfile={userProfile}
+            calendarDateRange={calendarDateRange}
+            deliveryAddress={deliveryAddress}
+            total={total}
+            onContractComplete={handleContractCompletion}
+          />
         )}
         
         {/* Navigation Buttons - Show different buttons based on current step */}
@@ -3937,110 +3441,10 @@ export default function Checkout() {
                 >
                   ← Back to Order Review
                 </button>
-                <button
-                  id="btn-proceed-payment"
-                  onClick={handleContractCompletion}
-                  disabled={!allSectionsInitialed() || !typedSignature.trim()}
-                  style={{
-                    backgroundColor: (allSectionsInitialed() && typedSignature.trim()) ? '#28a745' : '#ccc',
-                    color: 'white',
-                    padding: '1.2rem 2.5rem',
-                    border: 'none',
-                    borderRadius: '4px',
-                    fontSize: '1.1rem',
-                    fontWeight: 'bold',
-                    cursor: (allSectionsInitialed() && typedSignature.trim()) ? 'pointer' : 'not-allowed'
-                  }}
-                >
-                  Complete Contract & Proceed to Payment →
-                </button>
               </>
             )}
           </div>
         )}
-        </div>
-      )}
-
-      {/* Initials Prompt Modal */}
-      {showInitialsPrompt && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            padding: '2rem',
-            borderRadius: '8px',
-            minWidth: '400px',
-            textAlign: 'center'
-          }}>
-            <h3 style={{ marginBottom: '1rem' }}>Enter Your Initials</h3>
-            <p style={{ marginBottom: '1rem', color: '#666' }}>
-              Please enter your initials to initial each section of the contract:
-            </p>
-            
-            <input
-              type="text"
-              value={customerInitials}
-              onChange={(e) => setCustomerInitials(e.target.value.toUpperCase())}
-              placeholder="Enter initials (e.g., JD)"
-              style={{
-                padding: '0.75rem',
-                fontSize: '1rem',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                width: '200px',
-                textAlign: 'center',
-                marginBottom: '1rem'
-              }}
-              maxLength={5}
-            />
-            
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-              <button
-                onClick={() => setShowInitialsPrompt(false)}
-                style={{
-                  backgroundColor: '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-              >
-                Cancel
-              </button>
-              
-              <button
-                onClick={() => {
-                  if (customerInitials.trim()) {
-                    setShowInitialsPrompt(false);
-                  } else {
-                    alert("Please enter your initials");
-                  }
-                }}
-                disabled={!customerInitials.trim()}
-                style={{
-                  backgroundColor: customerInitials.trim() ? '#28a745' : '#ccc',
-                  color: 'white',
-                  border: 'none',
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '4px',
-                  cursor: customerInitials.trim() ? 'pointer' : 'not-allowed'
-                }}
-              >
-                Save Initials
-              </button>
-            </div>
-          </div>
         </div>
       )}
 
