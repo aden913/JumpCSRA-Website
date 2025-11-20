@@ -6,7 +6,7 @@ import { GooglePlacesAutocomplete } from "./components/GooglePlacesAutocomplete"
 import { auth, firestore } from "./components/FirebaseConfig";
 import { onAuthStateChanged, unlink  } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { getDatabase, ref, get } from "firebase/database";
+import { getDatabase, ref, get, push } from "firebase/database";
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import "./styles/profile.css";
@@ -15,6 +15,8 @@ import { useCategories } from "./hooks/useCategories";
 import type { CartItem } from "./components/CartSidebar";
 import { loadBookingData, loadContractData, loadContractByOrderID, getUserWallet, getUserPaymentInfo, addWalletTransaction, addSavedPaymentMethod, deleteAllUserData, updateBookingStatus } from "./utils/databaseUtils";
 import type { BookingData, ContractData, UserWallet, UserPaymentInfo, SavedPaymentMethod, UserMembership } from "./utils/databaseUtils";
+import ContractSigning from "./components/ContractSigning";
+import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 
 // Helper function to clear all localStorage data on sign out
 const clearAllLocalStorage = () => {
@@ -37,7 +39,6 @@ const clearAllLocalStorage = () => {
 };
 import { redeemGiftCardToWallet, validateGiftCard, getGiftCardDetails } from "./hooks/useDiscounts";
 import { WalletFundingModal } from "./components/WalletFundingModal";
-import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 
 // Base tabs that are always available
 const BASE_TABS = ["Profile Information", "Bookings", "Membership", "Payment Information"];
@@ -138,6 +139,13 @@ export default function Profile() {
     return '';
   });
   const [membershipBookingError, setMembershipBookingError] = useState<string | null>(null);
+
+  // Contract and Payment Modal State
+  const [showContractModal, setShowContractModal] = useState(false);
+  const [contractCompleted, setContractCompleted] = useState(false);
+  const [contractData, setContractData] = useState<any>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentCompleted, setPaymentCompleted] = useState(false);
 
   // Create dynamic tabs based on subscription status
   const isActiveSubscriber = userSubscription?.status === 'ACTIVE' || userSubscription?.status === 'Active';
@@ -1072,6 +1080,81 @@ export default function Profile() {
     } finally {
       setLoadingSubscription(false);
       setMembershipDataLoaded(true); // Mark as loaded for this session
+    }
+  };
+
+  // Contract completion handler
+  const handleContractComplete = () => {
+    setContractCompleted(true);
+    setShowContractModal(false);
+    
+    // Check if concrete/pavement fee is required
+    const surfaceType = membershipBookingData?.surfaceType || '';
+    if (surfaceType === 'concrete' || surfaceType === 'pavement') {
+      // Show PayPal payment modal for $20 fee
+      setShowPaymentModal(true);
+    } else {
+      // No fee required, proceed directly to booking
+      handleBookingSubmission();
+    }
+  };
+
+  // Handle booking submission (after contract and payment if needed)
+  const handleBookingSubmission = async () => {
+    if (!user || !profile) {
+      setMembershipBookingError('User profile not available');
+      return;
+    }
+
+    try {
+      setLoadingMembershipBooking(true);
+      setMembershipBookingError(null);
+
+      const { getDatabase, ref, push } = await import('firebase/database');
+      const db = getDatabase();
+      
+      const surfaceFee = (membershipBookingData?.surfaceType === 'concrete' || membershipBookingData?.surfaceType === 'pavement') ? 20 : 0;
+      
+      const bookingData = {
+        userId: user.uid,
+        userEmail: user.email,
+        membershipId: userMembership?.subscriptionId || 'membership-' + Date.now(),
+        membershipType: 'Jump Club',
+        inflatableType: membershipBookingData?.selectedInflatable || '',
+        inflatableName: membershipBookingData?.selectedInflatable || '',
+        deliveryAddress: membershipBookingData?.deliveryAddress || profile.address,
+        surfaceType: membershipBookingData?.surfaceType || '',
+        additionalFee: surfaceFee,
+        contractSigned: true,
+        paymentRequired: surfaceFee > 0,
+        paymentCompleted: surfaceFee === 0 || paymentCompleted,
+        bookingDate: new Date().toISOString(),
+        bookingStatus: 'confirmed',
+        dateRange: `${new Date(membershipStartDate).toLocaleDateString()} - ${new Date(membershipEndDate).toLocaleDateString()}`,
+        createdAt: new Date().toISOString()
+      };
+
+      const bookingRef = push(ref(db, 'bookings/membershipBookings'), bookingData);
+      
+      console.log('✅ Membership booking created:', bookingRef.key);
+      
+      // Clear localStorage
+      localStorage.removeItem('membershipBooking_inflatable');
+      localStorage.removeItem('membershipBooking_deliveryAddress');
+      localStorage.removeItem('membershipBooking_surfaceType');
+      
+      // Reset form
+      setMembershipBookingData(null);
+      setContractCompleted(false);
+      setPaymentCompleted(false);
+      
+      alert('🎉 Membership booking confirmed successfully!');
+      
+    } catch (error) {
+      console.error('Error submitting membership booking:', error);
+      setMembershipBookingError('Failed to submit booking. Please try again.');
+    } finally {
+      setLoadingMembershipBooking(false);
     }
   };
 
@@ -2741,8 +2824,13 @@ export default function Profile() {
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    // TODO: Implement booking submission
-                                    setMembershipBookingError("Booking submission functionality coming soon!");
+                                    setContractData({
+                                      userProfile: profile,
+                                      dateRange: `${new Date(membershipStartDate).toLocaleDateString()} - ${new Date(membershipEndDate).toLocaleDateString()}`,
+                                      deliveryAddress: membershipBookingData.deliveryAddress || profile?.address || '',
+                                      onComplete: handleContractComplete
+                                    });
+                                    setShowContractModal(true);
                                   }}
                                   style={{
                                     width: '100%',
@@ -2756,7 +2844,7 @@ export default function Profile() {
                                     fontWeight: 'bold'
                                   }}
                                 >
-                                  🎪 Confirm Membership Booking
+                                  📋 Review Contract & Book
                                 </button>
                               </div>
                             );
@@ -3920,6 +4008,162 @@ export default function Profile() {
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    )}
+
+    {/* Contract Modal */}
+    {showContractModal && contractData && (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10000,
+        padding: '1rem'
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '12px',
+          width: '95%',
+          height: '95%',
+          maxWidth: '1200px',
+          maxHeight: '800px',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
+        }}>
+          <div style={{
+            padding: '1rem 1.5rem',
+            borderBottom: '1px solid #e0e0e0',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <h2 style={{ margin: 0 }}>📋 Rental Contract</h2>
+            <button 
+              onClick={() => setShowContractModal(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '1.5rem',
+                cursor: 'pointer'
+              }}
+            >
+              ✕
+            </button>
+          </div>
+          
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <ContractSigning {...contractData} />
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Payment Modal */}
+    {showPaymentModal && (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10001,
+        padding: '1rem'
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '12px',
+          padding: '2rem',
+          width: '90%',
+          maxWidth: '500px',
+          textAlign: 'center'
+        }}>
+          <h2 style={{ margin: '0 0 1rem 0' }}>💳 Concrete Surface Fee</h2>
+          <p style={{ marginBottom: '1.5rem', color: '#666' }}>
+            A $20 fee is required for concrete or pavement surfaces to cover additional setup requirements.
+          </p>
+          
+          <div style={{
+            border: '2px solid #4CAF50',
+            borderRadius: '8px',
+            padding: '1rem',
+            marginBottom: '1.5rem',
+            backgroundColor: '#f8f8f8'
+          }}>
+            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#4CAF50' }}>
+              Total: $20.00
+            </div>
+            <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.5rem' }}>
+              Concrete surface setup fee
+            </div>
+          </div>
+
+          <PayPalScriptProvider options={{
+            clientId: "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0",
+            currency: "USD"
+          }}>
+            <PayPalButtons
+              style={{ layout: "vertical" }}
+              createOrder={async (data, actions) => {
+                return actions.order.create({
+                  purchase_units: [{
+                    amount: {
+                      value: "20.00",
+                      currency_code: "USD"
+                    },
+                    description: "Concrete Surface Setup Fee"
+                  }],
+                  application_context: {
+                    shipping_preference: "NO_SHIPPING"
+                  }
+                });
+              }}
+              onApprove={async (data, actions) => {
+                try {
+                  const details = await actions.order?.capture();
+                  console.log('Payment completed:', details);
+                  setPaymentCompleted(true);
+                  setShowPaymentModal(false);
+                  handleBookingSubmission();
+                } catch (error) {
+                  console.error('Payment error:', error);
+                  setMembershipBookingError('Payment failed. Please try again.');
+                }
+              }}
+              onError={(err) => {
+                console.error('PayPal error:', err);
+                setMembershipBookingError('Payment error. Please try again.');
+              }}
+              onCancel={() => {
+                console.log('Payment cancelled by user');
+              }}
+            />
+          </PayPalScriptProvider>
+
+          <button
+            onClick={() => setShowPaymentModal(false)}
+            style={{
+              marginTop: '1rem',
+              padding: '0.5rem 1rem',
+              backgroundColor: '#f0f0f0',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Cancel
+          </button>
         </div>
       </div>
     )}

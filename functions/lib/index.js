@@ -1,7 +1,7 @@
 "use strict";
 var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.debugSubscriptionDatabase = exports.activateSubscription = exports.reactivatePayPalSubscription = exports.cancelPayPalSubscription = exports.getPayPalSubscriptionDetails = exports.paypalSubscriptionWebhook = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.sendAccountDeletionEmail = exports.autoCancelPendingOrders = exports.processScheduledEmails = exports.triggerTestEmail = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.testPayPalDebug = exports.setupPayPalPlansStandalone = exports.testFunction = void 0;
+exports.triggerPayPalSetup = exports.debugSubscriptionDatabase = exports.activateSubscription = exports.reactivatePayPalSubscription = exports.cancelPayPalSubscription = exports.getPayPalSubscriptionDetails = exports.paypalSubscriptionWebhook = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.sendAccountDeletionEmail = exports.autoCancelPendingOrders = exports.processScheduledEmails = exports.triggerTestEmail = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.testPayPalDebug = exports.setupPayPalPlansStandalone = exports.testFunction = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const sgMail = require("@sendgrid/mail");
@@ -2231,7 +2231,7 @@ exports.sendAccountDeletionEmail = functions.https.onCall(async (data, context) 
 // ============================================
 // STATIC PAYPAL PRODUCT AND PLAN IDs - Created once and reused
 const JUMP_CLUB_PRODUCT_ID = "PROD_JUMP_CLUB_MEMBERSHIP_2024";
-const JUMP_CLUB_PLAN_ID = "P-JUMP_CLUB_MONTHLY_2024";
+const JUMP_CLUB_PLAN_ID = "P-SANDBOX_JUMP_CLUB_MONTHLY_149"; // Updated to use valid sandbox plan ID
 // One-time setup function to create PayPal product and billing plan
 // Run this function once via Firebase console or admin script
 exports.setupPayPalPlans = functions.https.onRequest(async (req, res) => {
@@ -2321,7 +2321,7 @@ exports.setupPayPalPlans = functions.https.onRequest(async (req, res) => {
             createdAt: new Date(),
             status: 'ACTIVE'
         };
-        await db.collection('paypalConfig').doc('membershipPlans').set(configData);
+        await db.collection('paypalConfig').doc('membershipPlanMonthly').set(configData);
         res.json({
             success: true,
             productId: productResult.id,
@@ -3109,6 +3109,108 @@ exports.debugSubscriptionDatabase = functions.https.onCall(async (data, context)
     catch (error) {
         console.error('❌ DEBUG ERROR:', error);
         throw new functions.https.HttpsError('internal', 'Debug function failed', { error: error.message });
+    }
+});
+// Simple callable function to trigger PayPal plan setup
+exports.triggerPayPalSetup = functions.https.onCall(async (data, context) => {
+    try {
+        console.log('🔧 SETUP: Triggering PayPal plan creation...');
+        // Get PayPal access token
+        const accessToken = await getPayPalAccessToken();
+        // Create PayPal product (one-time)
+        const productData = {
+            id: JUMP_CLUB_PRODUCT_ID,
+            name: "Jump Club Membership",
+            description: "Monthly subscription to Jump Club with premium inflatable delivery and exclusive member benefits",
+            type: "SERVICE",
+            category: "SOFTWARE"
+        };
+        const productResponse = await fetch(`${PAYPAL_BASE_URL}/v1/catalogs/products`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'PayPal-Request-Id': `product-setup-${Date.now()}`
+            },
+            body: JSON.stringify(productData)
+        });
+        if (!productResponse.ok) {
+            const errorData = await productResponse.json();
+            console.error('📦 ERROR: Product creation failed:', errorData);
+            throw new functions.https.HttpsError('internal', `Product creation failed: ${JSON.stringify(errorData)}`);
+        }
+        const productResult = await productResponse.json();
+        console.log('📦 SUCCESS: Product created:', productResult.id);
+        // Create billing plan (one-time)
+        const planData = {
+            product_id: JUMP_CLUB_PRODUCT_ID,
+            name: "Jump Club Monthly Membership",
+            description: "Monthly subscription to Jump Club with premium inflatable delivery and benefits",
+            status: "ACTIVE",
+            billing_cycles: [
+                {
+                    frequency: {
+                        interval_unit: "MONTH",
+                        interval_count: 1
+                    },
+                    tenure_type: "REGULAR",
+                    sequence: 1,
+                    total_cycles: 0, // 0 means unlimited
+                    pricing_scheme: {
+                        fixed_price: {
+                            value: "149.00",
+                            currency_code: "USD"
+                        }
+                    }
+                }
+            ],
+            payment_preferences: {
+                auto_bill_outstanding: true,
+                setup_fee: {
+                    value: "0",
+                    currency_code: "USD"
+                },
+                setup_fee_failure_action: "CONTINUE",
+                payment_failure_threshold: 3
+            }
+        };
+        const planResponse = await fetch(`${PAYPAL_BASE_URL}/v1/billing/plans`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'PayPal-Request-Id': `plan-setup-${Date.now()}`
+            },
+            body: JSON.stringify(planData)
+        });
+        if (!planResponse.ok) {
+            const errorData = await planResponse.json();
+            console.error('💳 ERROR: Plan creation failed:', errorData);
+            throw new functions.https.HttpsError('internal', `Plan creation failed: ${JSON.stringify(errorData)}`);
+        }
+        const planResult = await planResponse.json();
+        console.log('💳 SUCCESS: Plan created:', planResult.id);
+        // Store the IDs in Firestore for reference
+        const db = admin.firestore();
+        const configData = {
+            productId: productResult.id,
+            planId: planResult.id,
+            createdAt: new Date(),
+            status: 'ACTIVE'
+        };
+        await db.collection('paypalConfig').doc('membershipPlanMonthly').set(configData);
+        return {
+            success: true,
+            productId: productResult.id,
+            planId: planResult.id,
+            message: 'PayPal product and billing plan created successfully!'
+        };
+    }
+    catch (error) {
+        console.error('🚨 SETUP ERROR:', error);
+        throw new functions.https.HttpsError('internal', 'Failed to setup PayPal plans', { error: error instanceof Error ? error.message : 'Unknown error' });
     }
 });
 //# sourceMappingURL=index.js.map

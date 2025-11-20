@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 import { notifications } from '@mantine/notifications';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from './FirebaseConfig';
@@ -41,13 +40,6 @@ const MembershipCheckout: React.FC<MembershipCheckoutProps> = ({ onSuccess }) =>
   }, []);
 
   const isAlreadyMember = userMembership?.jumpClub && !userMembership?.cancelled;
-
-  const paypalOptions = {
-    clientId: "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0", // Working sandbox client ID
-    currency: "USD",
-    intent: "capture" as const, // Use capture instead of subscription
-    vault: true // Keep vault for payment method storage
-  };
 
   const createSubscription = async () => {
     console.log('🎯 FRONTEND DEBUG: =================================');
