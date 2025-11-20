@@ -2393,8 +2393,8 @@ exports.createMembershipSubscription = functions.https.onCall(async (data, conte
                     payer_selected: "PAYPAL",
                     payee_preferred: "IMMEDIATE_PAYMENT_REQUIRED"
                 },
-                return_url: `${process.env.NODE_ENV === 'production' ? 'https://jumpcsra.com' : 'http://localhost:3000'}/subscription-success?success=true`,
-                cancel_url: `${process.env.NODE_ENV === 'production' ? 'https://jumpcsra.com' : 'http://localhost:3000'}/subscription-success?cancelled=true`
+                return_url: `http://localhost:5173/subscription-success?success=true`,
+                cancel_url: `http://localhost:5173/subscription-success?cancelled=true`
             },
             custom_id: userId
         };
