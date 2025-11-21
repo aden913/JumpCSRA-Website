@@ -3,7 +3,7 @@ import type { User as FirebaseUser } from "firebase/auth";
 import { useNavigate } from "react-router";
 import { RouterNav } from "./components/RouterNav";
 import { GooglePlacesAutocomplete } from "./components/GooglePlacesAutocomplete";
-import { auth, firestore } from "./components/FirebaseConfig";
+import { auth, firestore, functions } from "./components/FirebaseConfig";
 import { onAuthStateChanged, unlink  } from "firebase/auth";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { getDatabase, ref, get, push } from "firebase/database";
@@ -1089,9 +1089,17 @@ export default function Profile() {
   };
 
   // Contract completion handler
-  const handleContractComplete = () => {
+  const handleContractComplete = (contractData: { 
+    sections: any[], 
+    signature: string, 
+    initials: string 
+  }) => {
+    console.log('Contract completed with:', contractData);
     setContractCompleted(true);
     setShowContractModal(false);
+    
+    // Store contract data for later use if needed
+    // You could save this to state or send to backend
     
     // Check if concrete/pavement fee is required
     if (selectedSurface === 'concrete') {
@@ -1114,8 +1122,7 @@ export default function Profile() {
       setLoadingMembershipBooking(true);
       setMembershipBookingError(null);
 
-      const { getFunctions, httpsCallable } = await import('firebase/functions');
-      const functions = getFunctions(undefined, 'us-central1');
+      const { httpsCallable } = await import('firebase/functions');
       
       const surfaceFee = (selectedSurface === 'concrete') ? 20 : 0;
       const actualEventDate = calculateActualEventDate();
@@ -2774,12 +2781,12 @@ export default function Profile() {
                                     const eventEndDate = actualEventDate ? new Date(actualEventDate.getTime() + (7 * 24 * 60 * 60 * 1000)) : new Date(); // 7 days later
                                     
                                     setContractData({
+                                      user: user,
                                       userProfile: profile,
-                                      dateRange: actualEventDate 
-                                        ? `${actualEventDate.toLocaleDateString()} - ${eventEndDate.toLocaleDateString()}`
-                                        : `${new Date().toLocaleDateString()} - ${new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString()}`,
+                                      calendarDateRange: [actualEventDate, eventEndDate],
                                       deliveryAddress: profile?.address || '',
-                                      onComplete: handleContractComplete
+                                      total: 20.00, // Monthly membership fee
+                                      onContractComplete: handleContractComplete
                                     });
                                     setShowContractModal(true);
                                   }}

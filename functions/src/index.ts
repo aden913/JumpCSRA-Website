@@ -3848,13 +3848,15 @@ export const createMembershipBooking = functions.region('us-central1').https.onC
   }
 
   try {
-    const db = admin.firestore();
+    // Use Realtime Database instead of Firestore
+    const rtdb = admin.database();
     const userId = context.auth.uid;
     
     // Generate unique booking ID
     const bookingId = `mb_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    // Get user's subscription details
+    // Get user's subscription details from Firestore (if needed)
+    const db = admin.firestore();
     const userSubscriptionQuery = await db.collection('users').doc(userId).collection('activeSubscriptions').limit(1).get();
     let subscriptionId = null;
     if (!userSubscriptionQuery.empty) {
@@ -3888,18 +3890,18 @@ export const createMembershipBooking = functions.region('us-central1').https.onC
       bookingStatus: 'confirmed',
       
       // Timestamps
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: { '.sv': 'timestamp' },
+      updatedAt: { '.sv': 'timestamp' },
       
       // Metadata
       source: 'profile_membership_tab',
       version: '1.0'
     };
 
-    // Save booking to user's membershipBookings subcollection
-    await db.collection('users').doc(userId).collection('membershipBookings').doc(bookingId).set(bookingData);
+    // Save booking to Realtime Database: bookings/membershipBookings/{bookingId}
+    await rtdb.ref(`bookings/membershipBookings/${bookingId}`).set(bookingData);
     
-    console.log('✅ CREATE MEMBERSHIP BOOKING: Booking created successfully', bookingId);
+    console.log('✅ CREATE MEMBERSHIP BOOKING: Booking saved to Realtime Database at bookings/membershipBookings/' + bookingId);
     
     // TODO: Send confirmation email
     // TODO: Notify admin systems
