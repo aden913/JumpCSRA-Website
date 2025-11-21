@@ -2715,12 +2715,20 @@ export const createMembershipSubscription = functions.https.onCall(async (data, 
       throw new functions.https.HttpsError('invalid-argument', `Invalid planAmount: ${planAmount}. Must be a positive number.`);
     }
 
+    // Check for existing subscription in activeSubscriptions
+    const db = admin.firestore();
+    const activeSubscriptionsRef = db.collection('users').doc(userId).collection('activeSubscriptions');
+    const existingSubscriptions = await activeSubscriptionsRef.get();
+    
+    if (!existingSubscriptions.empty) {
+      console.log('❌ DUPLICATE: User already has an active subscription');
+      throw new functions.https.HttpsError('already-exists', 'You already have an active membership subscription. Please cancel your current subscription first if you want to create a new one.');
+    }
 
     // Get PayPal access token
     const accessToken = await getPayPalAccessToken();
 
     // Get stored plan ID from Firestore
-    const db = admin.firestore();
     const configDoc = await db.collection('paypalConfig').doc('membershipPlanMonthly').get();
     
     if (!configDoc.exists) {
@@ -2815,11 +2823,10 @@ export const createMembershipSubscription = functions.https.onCall(async (data, 
 
 
     try {
-      // Store in activeSubscriptions collection (for fast queries)
+      // Store ONLY in activeSubscriptions collection (no dual write)
       await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionResult.id).set(subscriptionRecord);
       
-      // Store in subscriptionHistory collection (for billing/statistics)
-      await db.collection('users').doc(userId).collection('subscriptionHistory').doc(subscriptionResult.id).set(subscriptionRecord);
+      console.log('✅ DATABASE: Subscription stored in activeSubscriptions collection');
       
       // Verify the document was created by reading it back
       const verifyDoc = await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionResult.id).get();
@@ -2878,21 +2885,14 @@ export const paypalSubscriptionWebhook = functions.https.onRequest(async (req, r
           const subscriptionId = subscription.id;
           
           if (userId && subscriptionId) {
-            // Update activeSubscriptions collection
+            // Update only activeSubscriptions collection
             await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).update({
               status: 'ACTIVE',
               activatedAt: new Date(),
-              lastWebhookEvent: event.event_type
+              lastWebhookEvent: event.event_type,
+              lastUpdated: admin.firestore.FieldValue.serverTimestamp()
             });
             console.log('✅ WEBHOOK: Subscription activated in activeSubscriptions:', userId);
-            
-            // Update subscriptionHistory collection
-            await db.collection('users').doc(userId).collection('subscriptionHistory').doc(subscriptionId).update({
-              status: 'ACTIVE',
-              activatedAt: new Date(),
-              lastWebhookEvent: event.event_type
-            });
-            console.log('✅ WEBHOOK: Subscription activated in subscriptionHistory:', userId);
           }
         }
         break;
@@ -2905,17 +2905,16 @@ export const paypalSubscriptionWebhook = functions.https.onRequest(async (req, r
           const subscriptionId = subscription.id;
           
           if (userId && subscriptionId) {
-            // Delete from activeSubscriptions (since it's no longer active)
-            await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).delete();
-            console.log('❌ WEBHOOK: Subscription removed from activeSubscriptions:', userId);
-            
-            // Update status in subscriptionHistory (preserve for billing history)
-            await db.collection('users').doc(userId).collection('subscriptionHistory').doc(subscriptionId).update({
+            // Mark as cancelled in activeSubscriptions (don't delete yet)
+            await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).update({
               status: 'CANCELLED',
               cancelledAt: new Date(),
-              lastWebhookEvent: event.event_type
+              lastWebhookEvent: event.event_type,
+              lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+              // Calculate end date (30 days from cancellation for monthly subscription)
+              endsAt: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000))
             });
-            console.log('❌ WEBHOOK: Subscription cancelled in subscriptionHistory:', userId);
+            console.log('❌ WEBHOOK: Subscription marked as cancelled in activeSubscriptions:', userId);
           }
         }
         break;
@@ -2928,40 +2927,55 @@ export const paypalSubscriptionWebhook = functions.https.onRequest(async (req, r
           const subscriptionId = subscription.id;
           
           if (userId && subscriptionId) {
-            // Delete from activeSubscriptions (since it's no longer active)
-            await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).delete();
-            console.log('⏸️ WEBHOOK: Subscription removed from activeSubscriptions (suspended):', userId);
-            
-            // Update status in subscriptionHistory
-            await db.collection('users').doc(userId).collection('subscriptionHistory').doc(subscriptionId).update({
+            // Update status in activeSubscriptions
+            await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).update({
               status: 'SUSPENDED',
               suspendedAt: new Date(),
-              lastWebhookEvent: event.event_type
+              lastWebhookEvent: event.event_type,
+              lastUpdated: admin.firestore.FieldValue.serverTimestamp()
             });
-            console.log('⏸️ WEBHOOK: Subscription suspended in subscriptionHistory:', userId);
+            console.log('⏸️ WEBHOOK: Subscription suspended in activeSubscriptions:', userId);
           }
         }
         break;
 
       case 'BILLING.SUBSCRIPTION.EXPIRED':
         {
-          console.log('⏰ WEBHOOK: Subscription expired');
+          console.log('⏰ WEBHOOK: Subscription expired - migrating to history');
           const subscription = event.resource;
           const userId = subscription.custom_id;
           const subscriptionId = subscription.id;
           
           if (userId && subscriptionId) {
-            // Delete from activeSubscriptions (since it's no longer active)
-            await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).delete();
-            console.log('⏰ WEBHOOK: Subscription removed from activeSubscriptions (expired):', userId);
-            
-            // Update status in subscriptionHistory
-            await db.collection('users').doc(userId).collection('subscriptionHistory').doc(subscriptionId).update({
-              status: 'EXPIRED',
-              expiredAt: new Date(),
-              lastWebhookEvent: event.event_type
-            });
-            console.log('⏰ WEBHOOK: Subscription expired in subscriptionHistory:', userId);
+            try {
+              // Read current subscription data from activeSubscriptions
+              const activeSubDoc = await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).get();
+              
+              if (activeSubDoc.exists) {
+                const subscriptionData = activeSubDoc.data();
+                
+                // Copy to subscriptionHistory with final status
+                const historyData = {
+                  ...subscriptionData,
+                  status: 'EXPIRED',
+                  expiredAt: new Date(),
+                  lastWebhookEvent: event.event_type,
+                  lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+                  migratedToHistoryAt: admin.firestore.FieldValue.serverTimestamp()
+                };
+                
+                await db.collection('users').doc(userId).collection('subscriptionHistory').doc(subscriptionId).set(historyData);
+                console.log('✅ WEBHOOK: Subscription copied to history:', subscriptionId);
+                
+                // Delete from activeSubscriptions
+                await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).delete();
+                console.log('✅ WEBHOOK: Subscription removed from activeSubscriptions:', subscriptionId);
+              } else {
+                console.warn('⚠️ WEBHOOK: Subscription not found in activeSubscriptions:', subscriptionId);
+              }
+            } catch (migrationError) {
+              console.error('❌ WEBHOOK: Error migrating expired subscription:', migrationError);
+            }
           }
         }
         break;
@@ -3099,27 +3113,24 @@ export const cancelPayPalSubscription = functions.region('us-central1').https.on
 
     console.log('✅ CANCEL BACKEND: PayPal cancellation successful');
 
-    // Update subscription status in dual-collection structure
-    console.log('📊 CANCEL BACKEND: Updating Firestore dual-collection structure...');
+    // Update subscription status with new logic (mark as cancelled, don't delete)
+    console.log('📊 CANCEL BACKEND: Updating subscription status to CANCELLED...');
     const db = admin.firestore();
     const userId = context.auth.uid;
     
     console.log('📍 CANCEL BACKEND: ActiveSubscriptions path: users/' + userId + '/activeSubscriptions/' + subscriptionId);
-    console.log('📍 CANCEL BACKEND: SubscriptionHistory path: users/' + userId + '/subscriptionHistory/' + subscriptionId);
     
-    // Delete from activeSubscriptions (since it's no longer active)
-    await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).delete();
-    console.log('✅ CANCEL BACKEND: Subscription removed from activeSubscriptions:', subscriptionId);
-    
-    // Update status to 'Cancelled' in subscriptionHistory (for billing/statistics)
-    await db.collection('users').doc(userId).collection('subscriptionHistory').doc(subscriptionId).update({
-      status: 'Cancelled',
+    // Mark as cancelled in activeSubscriptions (don't delete yet - let it expire naturally)
+    await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).update({
+      status: 'CANCELLED',
       cancelledAt: new Date(),
       cancellationReason: reason,
       lastWebhookEvent: 'MANUAL_CANCELLATION',
-      lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+      lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+      // Calculate end date (30 days from cancellation for monthly subscription)
+      endsAt: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000))
     });
-    console.log('✅ CANCEL BACKEND: Subscription status updated to Cancelled in subscriptionHistory:', subscriptionId);
+    console.log('✅ CANCEL BACKEND: Subscription marked as cancelled in activeSubscriptions:', subscriptionId);
 
     console.log('✅ CANCEL BACKEND: Subscription cancelled successfully:', subscriptionId);
 
@@ -3270,9 +3281,8 @@ export const reactivatePayPalSubscription = functions.region('us-central1').http
         lastWebhookEvent: 'NEW_SUBSCRIPTION_CREATED'
       };
       
-      // Store in both collections
+      // Store only in activeSubscriptions - will move to history when expired
       await db.collection('users').doc(context.auth.uid).collection('activeSubscriptions').doc(newSubscription.id).set(newSubscriptionRecord);
-      await db.collection('users').doc(context.auth.uid).collection('subscriptionHistory').doc(newSubscription.id).set(newSubscriptionRecord);
 
       // Return approval URL for user to complete
       const approvalLink = newSubscription.links?.find((link: any) => link.rel === 'approve');
@@ -3450,13 +3460,11 @@ export const activateSubscription = functions.region('us-central1').https.onCall
       updateData.baToken = baToken;
     }
 
-    console.log('💾 ACTIVATE SUBSCRIPTION: Updating Firestore with dual-collection structure:', JSON.stringify(updateData, null, 2));
+    console.log('💾 ACTIVATE SUBSCRIPTION: Updating Firestore (activeSubscriptions only):', JSON.stringify(updateData, null, 2));
     console.log('📍 ACTIVATE SUBSCRIPTION: ActiveSubscriptions path: users/${context.auth.uid}/activeSubscriptions/${subscriptionId}');
-    console.log('📍 ACTIVATE SUBSCRIPTION: SubscriptionHistory path: users/${context.auth.uid}/subscriptionHistory/${subscriptionId}');
     
     // First, check if document already exists in activeSubscriptions
     const activeDocRef = db.collection('users').doc(context.auth.uid).collection('activeSubscriptions').doc(subscriptionId);
-    const historyDocRef = db.collection('users').doc(context.auth.uid).collection('subscriptionHistory').doc(subscriptionId);
     console.log('🔍 ACTIVATE SUBSCRIPTION: Checking if document already exists in activeSubscriptions...');
     
     try {
@@ -3470,15 +3478,11 @@ export const activateSubscription = functions.region('us-central1').https.onCall
       console.error('⚠️ ACTIVATE SUBSCRIPTION: Error checking existing document:', checkError);
     }
     
-    // Use set with merge to update/create document in both collections
+    // Only update activeSubscriptions - history will be populated when subscription expires/cancels
     try {
       // Update activeSubscriptions (for fast queries)
       await activeDocRef.set(updateData, { merge: true });
       console.log('✅ ACTIVATE SUBSCRIPTION: ActiveSubscriptions update completed successfully');
-      
-      // Update subscriptionHistory (for billing/statistics)
-      await historyDocRef.set(updateData, { merge: true });
-      console.log('✅ ACTIVATE SUBSCRIPTION: SubscriptionHistory update completed successfully');
       
       // Verify the document was written by reading it back from activeSubscriptions
       const verifyDoc = await activeDocRef.get();
@@ -3500,9 +3504,8 @@ export const activateSubscription = functions.region('us-central1').https.onCall
       throw updateError;
     }
     
-    console.log('🎉 ACTIVATE SUBSCRIPTION: Successfully processed subscription in dual-collection structure');
+    console.log('🎉 ACTIVATE SUBSCRIPTION: Successfully processed subscription in activeSubscriptions');
     console.log('✅ ACTIVATE SUBSCRIPTION: Document should now exist at users/' + context.auth.uid + '/activeSubscriptions/' + subscriptionId);
-    console.log('✅ ACTIVATE SUBSCRIPTION: Document should now exist at users/' + context.auth.uid + '/subscriptionHistory/' + subscriptionId);
     
     return { 
       success: true, 
@@ -3720,3 +3723,73 @@ export const triggerPayPalSetup = functions.https.onCall(async (data, context) =
     throw new functions.https.HttpsError('internal', 'Failed to setup PayPal plans', { error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
+
+// Daily cleanup function - migrate expired cancelled subscriptions to history
+export const dailySubscriptionCleanup = functions.pubsub.schedule('0 2 * * *')
+  .timeZone('America/New_York')
+  .onRun(async (context) => {
+    console.log('🧹 CLEANUP: Starting daily subscription cleanup');
+    
+    const db = admin.firestore();
+    const now = new Date();
+    let processedCount = 0;
+    let errorCount = 0;
+    
+    try {
+      // Get all users (we need to check each user's activeSubscriptions)
+      const usersSnapshot = await db.collection('users').get();
+      
+      for (const userDoc of usersSnapshot.docs) {
+        const userId = userDoc.id;
+        
+        try {
+          // Get all active subscriptions for this user
+          const activeSubscriptionsSnapshot = await db.collection('users')
+            .doc(userId)
+            .collection('activeSubscriptions')
+            .where('status', '==', 'CANCELLED')
+            .get();
+          
+          for (const subDoc of activeSubscriptionsSnapshot.docs) {
+            const subscriptionData = subDoc.data();
+            const subscriptionId = subDoc.id;
+            
+            // Check if subscription has ended (endsAt < now)
+            if (subscriptionData.endsAt && subscriptionData.endsAt.toDate() < now) {
+              console.log(`🧹 CLEANUP: Migrating expired cancelled subscription ${subscriptionId} for user ${userId}`);
+              
+              try {
+                // Copy to subscriptionHistory
+                const historyData = {
+                  ...subscriptionData,
+                  migratedToHistoryAt: admin.firestore.FieldValue.serverTimestamp(),
+                  migratedBy: 'dailyCleanup',
+                  finalStatus: 'EXPIRED_CANCELLED'
+                };
+                
+                await db.collection('users').doc(userId).collection('subscriptionHistory').doc(subscriptionId).set(historyData);
+                console.log(`✅ CLEANUP: Copied to history: ${subscriptionId}`);
+                
+                // Delete from activeSubscriptions
+                await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).delete();
+                console.log(`✅ CLEANUP: Removed from active: ${subscriptionId}`);
+                
+                processedCount++;
+              } catch (migrationError) {
+                console.error(`❌ CLEANUP: Error migrating subscription ${subscriptionId}:`, migrationError);
+                errorCount++;
+              }
+            }
+          }
+        } catch (userError) {
+          console.error(`❌ CLEANUP: Error processing user ${userId}:`, userError);
+          errorCount++;
+        }
+      }
+      
+      console.log(`🧹 CLEANUP: Completed - Processed: ${processedCount}, Errors: ${errorCount}`);
+      
+    } catch (error) {
+      console.error('❌ CLEANUP: Fatal error during daily cleanup:', error);
+    }
+  });

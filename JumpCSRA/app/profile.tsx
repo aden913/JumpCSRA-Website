@@ -148,7 +148,12 @@ export default function Profile() {
   const [paymentCompleted, setPaymentCompleted] = useState(false);
 
   // Create dynamic tabs based on subscription status
-  const isActiveSubscriber = userSubscription?.status === 'ACTIVE' || userSubscription?.status === 'Active';
+  // Include cancelled subscriptions as "active" since they keep benefits until expiry
+  const isActiveSubscriber = 
+    userSubscription?.status === 'ACTIVE' || 
+    userSubscription?.status === 'Active' ||
+    userSubscription?.status === 'CANCELLED' ||
+    userSubscription?.status === 'Cancelled';
   const TABS = BASE_TABS; // Use base tabs only - membership booking moved to membership tab
   
   // Adjust active tab index when tabs change (simplified since tabs are now consistent)
@@ -1180,7 +1185,7 @@ export default function Profile() {
     const confirmCancel = confirm(
       'Are you sure you want to cancel your membership?\n\n' +
       'Your membership will remain active until the next billing date, then it will be cancelled.\n' +
-      'You can reactivate before the billing date if you change your mind.'
+      'You can subscribe again anytime if you change your mind.'
     );
     
     if (!confirmCancel) return;
@@ -1207,62 +1212,6 @@ export default function Profile() {
     } catch (error) {
       console.error('Error cancelling subscription:', error);
       alert('Failed to cancel subscription. Please try again or contact support.');
-    } finally {
-      setLoadingSubscription(false);
-    }
-  };
-
-  // Reactivate subscription function
-  const handleReactivateSubscription = async () => {
-    if (!user || !userSubscription?.subscriptionId) return;
-    
-    const confirmReactivate = confirm(
-      'Reactivate your membership subscription?\n\n' +
-      'Your membership will continue with the next billing cycle as scheduled.'
-    );
-    
-    if (!confirmReactivate) return;
-    
-    try {
-      setLoadingSubscription(true);
-      
-      const { getFunctions, httpsCallable } = await import('firebase/functions');
-      const functions = getFunctions(undefined, 'us-central1');
-      const reactivateSubscription = httpsCallable(functions, 'reactivatePayPalSubscription');
-      
-      const result = await reactivateSubscription({ 
-        subscriptionId: userSubscription.subscriptionId
-      });
-      
-      if (result.data && (result.data as any).success) {
-        const responseData = result.data as any;
-        
-        // Check if the reactivation requires approval (new subscription created)
-        if (responseData.requiresApproval && responseData.approvalUrl) {
-          const shouldProceed = confirm(
-            'Your previous subscription was cancelled and cannot be directly reactivated. ' +
-            'We need to create a new subscription. You will be redirected to PayPal to approve it. ' +
-            'Continue?'
-          );
-          
-          if (shouldProceed) {
-            // Redirect to PayPal for approval
-            window.location.href = responseData.approvalUrl;
-          } else {
-            alert('Reactivation cancelled. Your membership status remains unchanged.');
-          }
-        } else {
-          // Direct reactivation successful
-          alert('Your membership has been reactivated and will continue as scheduled.');
-          await loadMembershipData(); // Reload data
-        }
-      } else {
-        throw new Error((result.data as any)?.error || 'Failed to reactivate subscription');
-      }
-      
-    } catch (error) {
-      console.error('Error reactivating subscription:', error);
-      alert('Failed to reactivate subscription. Please try again or contact support.');
     } finally {
       setLoadingSubscription(false);
     }
@@ -2469,41 +2418,24 @@ export default function Profile() {
                           </>
                         )}
                         
-                        {(userSubscription.status === 'CANCELLED' || userSubscription.status === 'Cancelled') && (
-                          <>
-                            <div className="cancelled-notice">
-                              <p style={{ color: '#f44336', fontWeight: 'bold', textAlign: 'center', margin: '1rem 0' }}>
-                                Your membership is scheduled for cancellation.
-                              </p>
-                              {userSubscription.paypalDetails?.billing_info?.next_billing_time && (
-                                <p style={{ textAlign: 'center', marginBottom: '1rem' }}>
-                                  Access remains until: {new Date(userSubscription.paypalDetails.billing_info.next_billing_time).toLocaleDateString()}
-                                </p>
-                              )}
-                            </div>
-                            
-                            <button 
-                              className="btn-reactivate-subscription"
-                              onClick={handleReactivateSubscription}
-                              disabled={loadingSubscription}
-                              style={{
-                                backgroundColor: '#4CAF50',
-                                color: 'white',
-                                border: 'none',
-                                padding: '0.75rem 1.5rem',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                fontSize: '1rem',
-                                fontWeight: 'bold',
-                                width: '100%'
-                              }}
-                            >
-                              {loadingSubscription ? 'Processing...' : 'Reactivate Membership'}
-                            </button>
-                          </>
-                        )}
-                        
-                        {userSubscription.status === 'PENDING_APPROVAL' && (
+        {(userSubscription.status === 'CANCELLED' || userSubscription.status === 'Cancelled') && (
+          <div className="cancelled-notice">
+            <p style={{ color: '#ff9800', fontWeight: 'bold', textAlign: 'center', margin: '1rem 0' }}>
+              📅 Your membership is cancelled but still active
+            </p>
+            <p style={{ textAlign: 'center', marginBottom: '1rem', color: '#666' }}>
+              You'll continue to enjoy all membership benefits including 25% off rentals and monthly delivery until your next billing cycle.
+            </p>
+            {userSubscription.paypalDetails?.billing_info?.next_billing_time && (
+              <p style={{ textAlign: 'center', marginBottom: '1rem', fontWeight: 'bold' }}>
+                Benefits end: {new Date(userSubscription.paypalDetails.billing_info.next_billing_time).toLocaleDateString()}
+              </p>
+            )}
+            <p style={{ textAlign: 'center', fontSize: '0.9rem', color: '#666' }}>
+              If you'd like to continue your membership, you can subscribe again before your benefits expire.
+            </p>
+          </div>
+        )}                        {userSubscription.status === 'PENDING_APPROVAL' && (
                           <div className="pending-notice">
                             <p style={{ color: '#ff9800', fontWeight: 'bold', textAlign: 'center', margin: '1rem 0' }}>
                               ⏳ Your membership is pending PayPal approval

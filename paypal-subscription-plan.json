@@ -22,8 +22,8 @@
         "paymentFailureThreshold": 3
       },
       "urls": {
-        "returnUrl": "http://localhost:3000/subscription-success?success=true",
-        "cancelUrl": "http://localhost:3000/subscription-success?cancelled=true"
+        "returnUrl": "http://localhost:5173/subscription-success?success=true",
+        "cancelUrl": "http://localhost:5173/subscription-success?cancelled=true"
       }
     }
   }
