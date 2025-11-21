@@ -19,9 +19,9 @@ interface UserProfile {
 interface ContractSigningProps {
   user: any; // Firebase user object
   userProfile: UserProfile | null;
-  calendarDateRange: [Date | null, Date | null];
-  deliveryAddress: string;
-  total: number;
+  calendarDateRange?: [Date | null, Date | null];
+  deliveryAddress?: string;
+  total?: number;
   onContractComplete: (contractData: { 
     sections: ContractSection[], 
     signature: string, 
@@ -117,17 +117,31 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
   // Auto-generate initials from user profile
   useEffect(() => {
     if (!customerInitials.trim() && userProfile?.firstName && userProfile?.lastName) {
-      const autoInitials = `${userProfile.firstName.charAt(0).toUpperCase()}${userProfile.lastName.charAt(0).toUpperCase()}`;
-      setCustomerInitials(autoInitials);
+      const firstInitial = userProfile.firstName.charAt(0);
+      const lastInitial = userProfile.lastName.charAt(0);
+      
+      if (firstInitial && lastInitial) {
+        const autoInitials = `${firstInitial.toUpperCase()}${lastInitial.toUpperCase()}`;
+        setCustomerInitials(autoInitials);
+      }
     }
   }, [userProfile, customerInitials]);
 
   // Handle section initialing
   const handleSectionInitial = (sectionId: string) => {
     // Automatically generate initials from user's firstName and lastName
-    const autoInitials = userProfile?.firstName && userProfile?.lastName 
-      ? `${userProfile.firstName.charAt(0).toUpperCase()}${userProfile.lastName.charAt(0).toUpperCase()}`
-      : customerInitials.trim() || 'XX'; // Fallback to existing initials or XX
+    let autoInitials = 'XX'; // Default fallback
+    
+    if (userProfile?.firstName && userProfile?.lastName) {
+      const firstInitial = userProfile.firstName.charAt(0);
+      const lastInitial = userProfile.lastName.charAt(0);
+      
+      if (firstInitial && lastInitial) {
+        autoInitials = `${firstInitial.toUpperCase()}${lastInitial.toUpperCase()}`;
+      }
+    } else if (customerInitials.trim()) {
+      autoInitials = customerInitials.trim();
+    }
     
     // Set the initials if not already set
     if (!customerInitials.trim()) {
@@ -171,7 +185,7 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
           JUMP CSRA PARTY RENTAL AGREEMENT
         </h1>
         <p className="contract-date">
-          Event Date: {calendarDateRange[0]?.toLocaleDateString()} - {calendarDateRange[1]?.toLocaleDateString()}
+          Event Date: {calendarDateRange?.[0]?.toLocaleDateString() || 'TBD'} - {calendarDateRange?.[1]?.toLocaleDateString() || 'TBD'}
         </p>
       </div>
 
@@ -193,9 +207,9 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
             <p style={{ margin: '0.25rem 0' }}><strong>Email:</strong> {user?.email}</p>
           </div>
           <div>
-            <p style={{ margin: '0.25rem 0' }}><strong>Event Date:</strong> {calendarDateRange[0]?.toLocaleDateString()} - {calendarDateRange[1]?.toLocaleDateString()}</p>
-            <p style={{ margin: '0.25rem 0' }}><strong>Delivery Address:</strong> {deliveryAddress}</p>
-            <p style={{ margin: '0.25rem 0' }}><strong>Total Amount:</strong> ${total.toFixed(2)}</p>
+            <p style={{ margin: '0.25rem 0' }}><strong>Event Date:</strong> {calendarDateRange?.[0]?.toLocaleDateString() || 'TBD'} - {calendarDateRange?.[1]?.toLocaleDateString() || 'TBD'}</p>
+            <p style={{ margin: '0.25rem 0' }}><strong>Delivery Address:</strong> {deliveryAddress || 'TBD'}</p>
+            <p style={{ margin: '0.25rem 0' }}><strong>Total Amount:</strong> ${(total || 0).toFixed(2)}</p>
           </div>
         </div>
       </div>

@@ -1,10 +1,36 @@
 "use strict";
 var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.dailySubscriptionCleanup = exports.triggerPayPalSetup = exports.debugSubscriptionDatabase = exports.activateSubscription = exports.reactivatePayPalSubscription = exports.cancelPayPalSubscription = exports.getPayPalSubscriptionDetails = exports.paypalSubscriptionWebhook = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.sendAccountDeletionEmail = exports.autoCancelPendingOrders = exports.processScheduledEmails = exports.triggerTestEmail = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.testPayPalDebug = exports.setupPayPalPlansStandalone = exports.testFunction = void 0;
+exports.createMembershipBooking = exports.dailySubscriptionCleanup = exports.triggerPayPalSetup = exports.debugSubscriptionDatabase = exports.activateSubscription = exports.reactivatePayPalSubscription = exports.cancelPayPalSubscription = exports.getPayPalSubscriptionDetails = exports.paypalSubscriptionWebhook = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.sendAccountDeletionEmail = exports.autoCancelPendingOrders = exports.processScheduledEmails = exports.triggerTestEmail = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.testPayPalDebug = exports.setupPayPalPlansStandalone = exports.testFunction = exports.debugEnvironment = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const sgMail = require("@sendgrid/mail");
+// Helper function to get the correct base URL for return URLs  
+function getBaseUrl() {
+    // TEMPORARY: Force localhost for all development 
+    // TODO: Properly configure frontend to use Functions emulator
+    // Set this to 'production' when you want to test production URLs
+    const DEVELOPMENT_MODE = 'development'; // Change to 'production' to test production URLs
+    if (DEVELOPMENT_MODE === 'development') {
+        console.log('� DEVELOPMENT MODE: Using localhost URLs');
+        return 'http://localhost:5173';
+    }
+    else {
+        console.log('🌍 PRODUCTION MODE: Using jumpcsra.com URLs');
+        return 'https://jumpcsra.com';
+    }
+}
+// Debug function to test environment detection
+exports.debugEnvironment = functions.https.onCall(async (data, context) => {
+    return {
+        FUNCTIONS_EMULATOR: process.env.FUNCTIONS_EMULATOR,
+        NODE_ENV: process.env.NODE_ENV,
+        isProduction: process.env.FUNCTIONS_EMULATOR !== 'true',
+        baseUrl: getBaseUrl(),
+        returnUrl: `${getBaseUrl()}/subscription-success?success=true`,
+        cancelUrl: `${getBaseUrl()}/subscription-success?cancelled=true`
+    };
+});
 // Export test function
 var test_1 = require("./test");
 Object.defineProperty(exports, "testFunction", { enumerable: true, get: function () { return test_1.testFunction; } });
@@ -2400,8 +2426,8 @@ exports.createMembershipSubscription = functions.https.onCall(async (data, conte
                     payer_selected: "PAYPAL",
                     payee_preferred: "IMMEDIATE_PAYMENT_REQUIRED"
                 },
-                return_url: `http://localhost:5173/subscription-success?success=true`,
-                cancel_url: `http://localhost:5173/subscription-success?cancelled=true`
+                return_url: `${getBaseUrl()}/subscription-success?success=true`,
+                cancel_url: `${getBaseUrl()}/subscription-success?cancelled=true`
             },
             custom_id: userId
         };
@@ -2804,8 +2830,8 @@ exports.reactivatePayPalSubscription = functions.region('us-central1').https.onC
                             payer_selected: "PAYPAL",
                             payee_preferred: "IMMEDIATE_PAYMENT_REQUIRED"
                         },
-                        return_url: `http://localhost:5173/subscription-success?success=true`,
-                        cancel_url: `http://localhost:5173/subscription-success?cancelled=true`
+                        return_url: `${getBaseUrl()}/subscription-success?success=true`,
+                        cancel_url: `${getBaseUrl()}/subscription-success?cancelled=true`
                     },
                     custom_id: context.auth.uid
                 })
@@ -3265,6 +3291,72 @@ exports.dailySubscriptionCleanup = functions.pubsub.schedule('0 2 * * *')
     }
     catch (error) {
         console.error('❌ CLEANUP: Fatal error during daily cleanup:', error);
+    }
+});
+// Create membership booking
+exports.createMembershipBooking = functions.region('us-central1').https.onCall(async (data, context) => {
+    console.log('📋 CREATE MEMBERSHIP BOOKING: Function called', data);
+    if (!context.auth) {
+        console.error('❌ CREATE MEMBERSHIP BOOKING: User not authenticated');
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+    const { selectedWeekday, selectedInflatable, selectedSurface, selectedStakesOrSandbags, deliveryAddress, actualDeliveryDate, additionalFee, contractSigned, paymentCompleted } = data;
+    if (!selectedWeekday || !deliveryAddress) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing required booking information');
+    }
+    try {
+        const db = admin.firestore();
+        const userId = context.auth.uid;
+        // Generate unique booking ID
+        const bookingId = `mb_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        // Get user's subscription details
+        const userSubscriptionQuery = await db.collection('users').doc(userId).collection('activeSubscriptions').limit(1).get();
+        let subscriptionId = null;
+        if (!userSubscriptionQuery.empty) {
+            subscriptionId = userSubscriptionQuery.docs[0].id;
+        }
+        const bookingData = {
+            bookingId: bookingId,
+            userId: userId,
+            subscriptionId: subscriptionId,
+            bookingType: 'membership_monthly',
+            // Delivery Details
+            selectedWeekday: selectedWeekday,
+            actualDeliveryDate: actualDeliveryDate || null,
+            deliveryAddress: deliveryAddress,
+            // Inflatable Details
+            inflatableType: selectedInflatable || '',
+            inflatableName: selectedInflatable || '',
+            // Setup Details
+            surfaceType: selectedSurface || 'grass',
+            anchoringMethod: selectedStakesOrSandbags || null,
+            additionalFee: additionalFee || 0,
+            // Status
+            contractSigned: contractSigned || false,
+            paymentRequired: (additionalFee || 0) > 0,
+            paymentCompleted: paymentCompleted || false,
+            bookingStatus: 'confirmed',
+            // Timestamps
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            // Metadata
+            source: 'profile_membership_tab',
+            version: '1.0'
+        };
+        // Save booking to user's membershipBookings subcollection
+        await db.collection('users').doc(userId).collection('membershipBookings').doc(bookingId).set(bookingData);
+        console.log('✅ CREATE MEMBERSHIP BOOKING: Booking created successfully', bookingId);
+        // TODO: Send confirmation email
+        // TODO: Notify admin systems
+        return {
+            success: true,
+            bookingId: bookingId,
+            message: 'Membership booking created successfully!'
+        };
+    }
+    catch (error) {
+        console.error('❌ CREATE MEMBERSHIP BOOKING: Error:', error);
+        throw new functions.https.HttpsError('internal', 'Failed to create membership booking', { error: error instanceof Error ? error.message : 'Unknown error' });
     }
 });
 //# sourceMappingURL=index.js.map

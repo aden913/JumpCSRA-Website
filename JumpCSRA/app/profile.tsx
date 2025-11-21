@@ -1094,8 +1094,7 @@ export default function Profile() {
     setShowContractModal(false);
     
     // Check if concrete/pavement fee is required
-    const surfaceType = membershipBookingData?.surfaceType || '';
-    if (surfaceType === 'concrete' || surfaceType === 'pavement') {
+    if (selectedSurface === 'concrete') {
       // Show PayPal payment modal for $20 fee
       setShowPaymentModal(true);
     } else {
@@ -1115,49 +1114,64 @@ export default function Profile() {
       setLoadingMembershipBooking(true);
       setMembershipBookingError(null);
 
-      const { getDatabase, ref, push } = await import('firebase/database');
-      const db = getDatabase();
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const functions = getFunctions(undefined, 'us-central1');
       
-      const surfaceFee = (membershipBookingData?.surfaceType === 'concrete' || membershipBookingData?.surfaceType === 'pavement') ? 20 : 0;
+      const surfaceFee = (selectedSurface === 'concrete') ? 20 : 0;
+      const actualEventDate = calculateActualEventDate();
       
       const bookingData = {
-        userId: user.uid,
-        userEmail: user.email,
-        membershipId: userMembership?.subscriptionId || 'membership-' + Date.now(),
-        membershipType: 'Jump Club',
-        inflatableType: membershipBookingData?.selectedInflatable || '',
-        inflatableName: membershipBookingData?.selectedInflatable || '',
-        deliveryAddress: membershipBookingData?.deliveryAddress || profile.address,
-        surfaceType: membershipBookingData?.surfaceType || '',
+        selectedWeekday: selectedWeekday,
+        selectedInflatable: selectedInflatable,
+        selectedSurface: selectedSurface,
+        selectedStakesOrSandbags: selectedStakesOrSandbags,
+        deliveryAddress: profile.address,
+        actualDeliveryDate: actualEventDate?.toISOString() || null,
         additionalFee: surfaceFee,
         contractSigned: true,
-        paymentRequired: surfaceFee > 0,
-        paymentCompleted: surfaceFee === 0 || paymentCompleted,
-        bookingDate: new Date().toISOString(),
-        bookingStatus: 'confirmed',
-        dateRange: `${new Date(membershipStartDate).toLocaleDateString()} - ${new Date(membershipEndDate).toLocaleDateString()}`,
-        createdAt: new Date().toISOString()
+        paymentCompleted: surfaceFee === 0 || paymentCompleted
       };
 
-      const bookingRef = push(ref(db, 'bookings/membershipBookings'), bookingData);
+      const createMembershipBooking = httpsCallable(functions, 'createMembershipBooking');
+      const result = await createMembershipBooking(bookingData);
       
-      console.log('✅ Membership booking created:', bookingRef.key);
-      
-      // Clear localStorage
-      localStorage.removeItem('membershipBooking_inflatable');
-      localStorage.removeItem('membershipBooking_deliveryAddress');
-      localStorage.removeItem('membershipBooking_surfaceType');
-      
-      // Reset form
-      setMembershipBookingData(null);
-      setContractCompleted(false);
-      setPaymentCompleted(false);
-      
-      alert('🎉 Membership booking confirmed successfully!');
+      if (result.data && (result.data as any).success) {
+        const responseData = result.data as any;
+        console.log('✅ Membership booking created:', responseData.bookingId);
+        
+        // Clear localStorage
+        localStorage.removeItem('membershipBooking_inflatable');
+        localStorage.removeItem('membershipBooking_weekday');
+        localStorage.removeItem('membershipBooking_surface');
+        localStorage.removeItem('membershipBooking_stakesOrSandbags');
+        localStorage.removeItem('membershipBooking_address');
+        
+        // Reset form state
+        setSelectedWeekday('');
+        setSelectedInflatable('');
+        setSelectedSurface('grass');
+        setSelectedStakesOrSandbags('');
+        setContractCompleted(false);
+        setPaymentCompleted(false);
+        setShowContractModal(false);
+        setShowPaymentModal(false);
+        
+        alert('🎉 Membership booking confirmed successfully!\n\n' +
+              `Booking ID: ${responseData.bookingId}\n\n` +
+              'Your monthly inflatable delivery has been scheduled for ' + 
+              (actualEventDate 
+                ? actualEventDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) 
+                : selectedWeekday + 's') + 
+              '.\n\nYou\'ll receive a confirmation email shortly with all the details.');
+      } else {
+        throw new Error((result.data as any)?.message || 'Failed to create booking');
+      }
       
     } catch (error) {
       console.error('Error submitting membership booking:', error);
-      setMembershipBookingError('Failed to submit booking. Please try again.');
+      setMembershipBookingError(
+        `Failed to submit booking: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again or contact support.`
+      );
     } finally {
       setLoadingMembershipBooking(false);
     }
@@ -2756,10 +2770,15 @@ export default function Profile() {
                                 <button
                                   type="button"
                                   onClick={() => {
+                                    const actualEventDate = calculateActualEventDate();
+                                    const eventEndDate = actualEventDate ? new Date(actualEventDate.getTime() + (7 * 24 * 60 * 60 * 1000)) : new Date(); // 7 days later
+                                    
                                     setContractData({
                                       userProfile: profile,
-                                      dateRange: `${new Date(membershipStartDate).toLocaleDateString()} - ${new Date(membershipEndDate).toLocaleDateString()}`,
-                                      deliveryAddress: membershipBookingData.deliveryAddress || profile?.address || '',
+                                      dateRange: actualEventDate 
+                                        ? `${actualEventDate.toLocaleDateString()} - ${eventEndDate.toLocaleDateString()}`
+                                        : `${new Date().toLocaleDateString()} - ${new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString()}`,
+                                      deliveryAddress: profile?.address || '',
                                       onComplete: handleContractComplete
                                     });
                                     setShowContractModal(true);
@@ -3944,7 +3963,7 @@ export default function Profile() {
       </div>
     )}
 
-    {/* Contract Modal */}
+    {/* Contract Modal - Fullscreen */}
     {showContractModal && contractData && (
       <div style={{
         position: 'fixed',
@@ -3952,48 +3971,49 @@ export default function Profile() {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
+        backgroundColor: 'rgba(0, 0, 0, 0.95)',
         zIndex: 10000,
-        padding: '1rem'
+        display: 'flex',
+        flexDirection: 'column'
       }}>
+        {/* Modal Header - Fixed at top */}
         <div style={{
           backgroundColor: 'white',
-          borderRadius: '12px',
-          width: '95%',
-          height: '95%',
-          maxWidth: '1200px',
-          maxHeight: '800px',
-          overflow: 'hidden',
+          padding: '1rem 2rem',
+          borderBottom: '2px solid #e0e0e0',
           display: 'flex',
-          flexDirection: 'column'
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+          zIndex: 10001
         }}>
-          <div style={{
-            padding: '1rem 1.5rem',
-            borderBottom: '1px solid #e0e0e0',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <h2 style={{ margin: 0 }}>📋 Rental Contract</h2>
-            <button 
-              onClick={() => setShowContractModal(false)}
-              style={{
-                background: 'none',
-                border: 'none',
-                fontSize: '1.5rem',
-                cursor: 'pointer'
-              }}
-            >
-              ✕
-            </button>
-          </div>
-          
-          <div style={{ flex: 1, overflow: 'hidden' }}>
-            <ContractSigning {...contractData} />
-          </div>
+          <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>📋 Rental Contract Agreement</h2>
+          <button 
+            onClick={() => setShowContractModal(false)}
+            style={{
+              background: '#dc3545',
+              color: 'white',
+              border: 'none',
+              fontSize: '1.2rem',
+              cursor: 'pointer',
+              padding: '0.5rem 1rem',
+              borderRadius: '6px',
+              fontWeight: 'bold'
+            }}
+          >
+            ✕ Close
+          </button>
+        </div>
+        
+        {/* Modal Content - Scrollable */}
+        <div style={{ 
+          flex: 1, 
+          backgroundColor: 'white',
+          overflow: 'auto',
+          padding: '2rem',
+          maxHeight: 'calc(100vh - 80px)' // Account for header height
+        }}>
+          <ContractSigning {...contractData} />
         </div>
       </div>
     )}
