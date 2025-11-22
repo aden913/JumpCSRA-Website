@@ -105,6 +105,8 @@ export default function Profile() {
   const [membershipBookingData, setMembershipBookingData] = useState<any>(null);
   const [loadingMembershipBooking, setLoadingMembershipBooking] = useState(false);
   const [membershipDataLoaded, setMembershipDataLoaded] = useState(false);
+  const [existingMembershipBooking, setExistingMembershipBooking] = useState<any>(null);
+  const [hasConfirmedBookingThisMonth, setHasConfirmedBookingThisMonth] = useState(false);
   
   // Membership Booking Selection State with localStorage persistence
   const [selectedWeekday, setSelectedWeekday] = useState<string>(() => {
@@ -989,18 +991,13 @@ export default function Profile() {
     setLoadingSubscription(true);
     
     try {
-      console.log('📊 PROFILE: Loading subscription data for user:', user.uid);
-      
       // Load subscription data from Firestore activeSubscriptions collection (fast query)
       const { collection, query, where, getDocs, limit, orderBy } = await import('firebase/firestore');
       const activeSubscriptionsRef = collection(firestore, 'users', user.uid, 'activeSubscriptions');
       
       // Get active subscriptions (should be fast since we only store active ones here)
-      console.log('📊 PROFILE: Fetching active subscriptions from activeSubscriptions collection...');
       const activeSubscriptionsQuery = query(activeSubscriptionsRef, orderBy('createdAt', 'desc'), limit(10));
       const activeSubscriptionsSnapshot = await getDocs(activeSubscriptionsQuery);
-      
-      console.log('📊 PROFILE: Found', activeSubscriptionsSnapshot.size, 'active subscriptions');
       
       let activeSubscriptionData: any = null;
       let anySubscriptionData: any = null;
@@ -1008,17 +1005,9 @@ export default function Profile() {
       // Log all active subscriptions for debugging
       activeSubscriptionsSnapshot.forEach((doc: any) => {
         const data = doc.data();
-        console.log(`� PROFILE: Subscription details:`, {
-          docId: doc.id,
-          subscriptionId: data.subscriptionId,
-          status: data.status,
-          createdAt: data.createdAt,
-          isActive: data.status === 'Active' || data.status === 'ACTIVE'
-        });
         
         // Store the first active subscription we find
         if (!activeSubscriptionData && (data.status === 'Active' || data.status === 'ACTIVE')) {
-          console.log('✅ PROFILE: Found active subscription:', doc.id);
           activeSubscriptionData = data;
         }
         
@@ -1032,9 +1021,6 @@ export default function Profile() {
       const subscriptionData = activeSubscriptionData || anySubscriptionData;
       
       if (subscriptionData) {
-        console.log('📊 PROFILE: Using subscription data:', subscriptionData);
-        console.log('📊 PROFILE: This subscription is active?', 
-          subscriptionData.status === 'Active' || subscriptionData.status === 'ACTIVE');
 
         // Create userMembership object from subscription data for compatibility
         const membershipData = {
@@ -1069,22 +1055,72 @@ export default function Profile() {
         
         setUserSubscription(subscriptionData);
         
-        // Debug logging for cancel button troubleshooting
-        console.log('🔍 PROFILE DEBUG: userSubscription set to:', subscriptionData);
-        console.log('🔍 PROFILE DEBUG: subscriptionData.status:', subscriptionData.status);
-        console.log('🔍 PROFILE DEBUG: subscriptionData.subscriptionId:', subscriptionData.subscriptionId);
-        console.log('🔍 PROFILE DEBUG: Cancel button should show?', 
-          (subscriptionData.status === 'ACTIVE' || subscriptionData.status === 'Active'));
+        setUserSubscription(subscriptionData);
       } else {
-        console.log('📊 PROFILE: No subscription documents found');
         setUserMembership(null);
         setUserSubscription(null);
       }
+
+      // Check for existing confirmed membership bookings for current month
+      await checkExistingMembershipBookings();
+
     } catch (error) {
       console.error('Error loading membership data:', error);
     } finally {
       setLoadingSubscription(false);
       setMembershipDataLoaded(true); // Mark as loaded for this session
+    }
+  };
+
+  // Check for existing confirmed membership bookings for the current month
+  const checkExistingMembershipBookings = async () => {
+    if (!user) {
+      return;
+    }
+
+    try {
+      const { getDatabase, ref, get } = await import('firebase/database');
+      const database = getDatabase();
+      const membershipBookingsRef = ref(database, 'bookings/membershipBookings');
+      
+      const snapshot = await get(membershipBookingsRef);
+
+      if (snapshot.exists()) {
+        const allBookings = snapshot.val();
+        
+        const allBookingEntries = Object.entries(allBookings);
+        
+        const userBookings = allBookingEntries.filter(([_, booking]: [string, any]) => 
+          booking.userId === user.uid
+        );
+
+        if (userBookings.length === 0) {
+          setExistingMembershipBooking(null);
+          setHasConfirmedBookingThisMonth(false);
+          return;
+        }
+
+        // Check if user has any confirmed booking (regardless of month)
+        const confirmedBooking = userBookings.find(([bookingId, booking]: [string, any]) => {
+          return booking.bookingStatus === 'confirmed';
+        });
+
+        if (confirmedBooking) {
+          const [bookingId, bookingData] = confirmedBooking;
+          setExistingMembershipBooking(bookingData);
+          setHasConfirmedBookingThisMonth(true);
+        } else {
+          setExistingMembershipBooking(null);
+          setHasConfirmedBookingThisMonth(false);
+        }
+      } else {
+        setExistingMembershipBooking(null);
+        setHasConfirmedBookingThisMonth(false);
+      }
+    } catch (error) {
+      // Don't block the UI, just silently set to unlocked state
+      setExistingMembershipBooking(null);
+      setHasConfirmedBookingThisMonth(false);
     }
   };
 
@@ -1170,6 +1206,9 @@ export default function Profile() {
                 ? actualEventDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) 
                 : selectedWeekday + 's') + 
               '.\n\nYou\'ll receive a confirmation email shortly with all the details.');
+        
+        // Refresh the membership booking validation to lock future bookings
+        await checkExistingMembershipBookings();
       } else {
         throw new Error((result.data as any)?.message || 'Failed to create booking');
       }
@@ -2395,17 +2434,6 @@ export default function Profile() {
                       
                       {/* Subscription Management Actions */}
                       <div className="subscription-actions">
-                        {(() => {
-                          console.log('🔍 BUTTON DEBUG: Checking cancel button visibility');
-                          console.log('🔍 BUTTON DEBUG: userSubscription exists?', !!userSubscription);
-                          console.log('🔍 BUTTON DEBUG: userSubscription.status:', userSubscription?.status);
-                          console.log('🔍 BUTTON DEBUG: Status is ACTIVE?', userSubscription?.status === 'ACTIVE');
-                          console.log('🔍 BUTTON DEBUG: Status is Active?', userSubscription?.status === 'Active');
-                          console.log('🔍 BUTTON DEBUG: Should show cancel button?', 
-                            userSubscription?.status === 'ACTIVE' || userSubscription?.status === 'Active');
-                          return null;
-                        })()}
-                        
                         {(userSubscription.status === 'ACTIVE' || userSubscription.status === 'Active') && (
                           <>
                             <div className="membership-benefits-highlight">
@@ -2507,8 +2535,29 @@ export default function Profile() {
                 {/* Membership Booking Section (only for active subscribers) */}
                 {isActiveSubscriber && (
                   <div className="membership-booking-card">
-                    <h4>🎪 Monthly Membership Booking</h4>
-                    <p>Schedule your monthly inflatable delivery!</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                      <div>
+                        <h4 style={{ margin: 0 }}>🎪 Monthly Membership Booking</h4>
+                        <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem' }}>Schedule your monthly inflatable delivery!</p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          console.log('🔄 Manual refresh of booking validation...');
+                          await checkExistingMembershipBookings();
+                        }}
+                        style={{
+                          padding: '0.5rem',
+                          backgroundColor: '#2196F3',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem'
+                        }}
+                      >
+                        🔄 Refresh
+                      </button>
+                    </div>
                     
                     {/* Error Message */}
                     {membershipBookingError && (
@@ -2524,6 +2573,58 @@ export default function Profile() {
                       </div>
                     )}
                     
+                    {/* Check for existing booking this month */}
+                    {hasConfirmedBookingThisMonth ? (
+                      <div style={{
+                        background: 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)',
+                        border: '2px solid #ff9800',
+                        borderRadius: '12px',
+                        padding: '1.5rem',
+                        textAlign: 'center',
+                        marginBottom: '1rem'
+                      }}>
+                        <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>🎪</div>
+                        <h4 style={{ color: '#e65100', margin: '0 0 1rem 0' }}>
+                          You've Already Scheduled This Month!
+                        </h4>
+                        <p style={{ color: '#bf360c', marginBottom: '1.5rem', lineHeight: '1.6' }}>
+                          You have a confirmed membership booking for{' '}
+                          {existingMembershipBooking?.actualDeliveryDate 
+                            ? new Date(existingMembershipBooking.actualDeliveryDate).toLocaleDateString('en-US', { 
+                                weekday: 'long', 
+                                month: 'long', 
+                                day: 'numeric' 
+                              })
+                            : 'this month'
+                          }.
+                        </p>
+                        
+                        {existingMembershipBooking && (
+                          <div style={{
+                            background: 'rgba(255, 255, 255, 0.8)',
+                            padding: '1rem',
+                            borderRadius: '8px',
+                            marginBottom: '1rem',
+                            textAlign: 'left'
+                          }}>
+                            <h6 style={{ margin: '0 0 0.5rem 0', color: '#e65100' }}>Current Booking Details:</h6>
+                            <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#5d4037' }}>
+                              <strong>Delivery Day:</strong> {existingMembershipBooking.selectedWeekday || 'Not specified'}
+                            </p>
+                            <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#5d4037' }}>
+                              <strong>Surface:</strong> {existingMembershipBooking.surfaceType || 'Not specified'}
+                            </p>
+                            <p style={{ margin: '0.25rem 0', fontSize: '0.9rem', color: '#5d4037' }}>
+                              <strong>Address:</strong> {existingMembershipBooking.deliveryAddress || 'Not specified'}
+                            </p>
+                          </div>
+                        )}
+                        
+                        <p style={{ color: '#8d6e63', fontSize: '0.9rem', fontStyle: 'italic' }}>
+                          You can schedule next month's delivery starting on the 1st of next month.
+                        </p>
+                      </div>
+                    ) : (
                     <div className="membership-booking-form">
                       {/* Step 1: Weekday Selection */}
                       <div className={`booking-step ${selectedWeekday ? 'completed' : 'active'}`}>
@@ -2810,6 +2911,7 @@ export default function Profile() {
                         </div>
                       )}
                     </div>
+                    )}
                   </div>
                 )}
                 

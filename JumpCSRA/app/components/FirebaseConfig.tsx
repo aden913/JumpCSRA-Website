@@ -28,18 +28,14 @@ const database = getDatabase(app);
 
 // Connect to emulators in development (only in browser environment)
 if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-  console.log('🔧 DEVELOPMENT MODE: Connecting to Firebase emulators');
-  
   // Connect Functions emulator
   try {
     connectFunctionsEmulator(functions, 'localhost', 5001);
-    console.log('✅ Connected to Functions emulator on localhost:5001');
   } catch (error) {
-    console.log('ℹ️ Functions emulator already connected or not available');
+    // Functions emulator already connected or not available
   }
   
   // Note: Database emulator not configured, using production database
-  console.log('ℹ️ Using production Realtime Database (emulator not configured)');
 }
 
 export { app, auth, firestore, functions, database };

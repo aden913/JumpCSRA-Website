@@ -1,7 +1,7 @@
 "use strict";
 var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createMembershipBooking = exports.dailySubscriptionCleanup = exports.triggerPayPalSetup = exports.debugSubscriptionDatabase = exports.activateSubscription = exports.reactivatePayPalSubscription = exports.cancelPayPalSubscription = exports.getPayPalSubscriptionDetails = exports.paypalSubscriptionWebhook = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.sendAccountDeletionEmail = exports.autoCancelPendingOrders = exports.processScheduledEmails = exports.triggerTestEmail = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.testPayPalDebug = exports.setupPayPalPlansStandalone = exports.testFunction = exports.debugEnvironment = void 0;
+exports.createMembershipBooking = exports.dailySubscriptionCleanup = exports.triggerPayPalSetup = exports.debugSubscriptionDatabase = exports.activateSubscription = exports.reactivatePayPalSubscription = exports.cancelPayPalSubscription = exports.getPayPalSubscriptionDetails = exports.paypalSubscriptionWebhook = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.sendAccountDeletionEmail = exports.autoCompleteBookings = exports.autoCancelPendingOrders = exports.processScheduledEmails = exports.triggerTestEmail = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.testPayPalDebug = exports.setupPayPalPlansStandalone = exports.testFunction = exports.debugEnvironment = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const sgMail = require("@sendgrid/mail");
@@ -2159,6 +2159,133 @@ exports.autoCancelPendingOrders = functions.pubsub
         return null;
     }
 });
+// Scheduled function to auto-complete confirmed bookings after event completion
+exports.autoCompleteBookings = functions.pubsub
+    .schedule('0 9 * * *') // Run daily at 9 AM (1 hour after cancel function)
+    .timeZone('America/New_York') // EST/EDT timezone
+    .onRun(async (context) => {
+    console.log('🏁 Running auto-complete confirmed bookings function...');
+    try {
+        const db = admin.database();
+        let completedCount = 0;
+        // Process regular bookings
+        console.log('📋 Checking regular bookings...');
+        const bookingsRef = db.ref('bookings');
+        const bookingsSnapshot = await bookingsRef.once('value');
+        if (bookingsSnapshot.exists()) {
+            const bookings = bookingsSnapshot.val();
+            for (const [bookingId, booking] of Object.entries(bookings)) {
+                const bookingData = booking;
+                // Skip membershipBookings node and only process confirmed bookings
+                if (bookingId === 'membershipBookings' || bookingData.status !== 'confirmed') {
+                    continue;
+                }
+                // Check if booking should be completed
+                const shouldComplete = await shouldCompleteBooking(bookingData, 'regular');
+                if (shouldComplete) {
+                    console.log(`🎉 Completing regular booking ${bookingId}`);
+                    await bookingsRef.child(bookingId).update({
+                        status: 'completed',
+                        completedAt: admin.database.ServerValue.TIMESTAMP,
+                        updatedAt: new Date().toISOString()
+                    });
+                    // Add completion note
+                    await bookingsRef.child(`${bookingId}/notes`).push({
+                        type: 'system',
+                        message: 'Booking auto-completed - event has concluded',
+                        timestamp: new Date().toISOString()
+                    });
+                    completedCount++;
+                }
+            }
+        }
+        // Process membership bookings
+        console.log('👑 Checking membership bookings...');
+        const membershipBookingsRef = db.ref('bookings/membershipBookings');
+        const membershipSnapshot = await membershipBookingsRef.once('value');
+        if (membershipSnapshot.exists()) {
+            const membershipBookings = membershipSnapshot.val();
+            for (const [bookingId, booking] of Object.entries(membershipBookings)) {
+                const bookingData = booking;
+                // Only process confirmed membership bookings
+                if (bookingData.bookingStatus !== 'confirmed') {
+                    continue;
+                }
+                // Check if membership booking should be completed
+                const shouldComplete = await shouldCompleteBooking(bookingData, 'membership');
+                if (shouldComplete) {
+                    console.log(`👑 Completing membership booking ${bookingId}`);
+                    await membershipBookingsRef.child(bookingId).update({
+                        bookingStatus: 'completed',
+                        completedAt: admin.database.ServerValue.TIMESTAMP,
+                        updatedAt: { '.sv': 'timestamp' }
+                    });
+                    // Add completion note
+                    await membershipBookingsRef.child(`${bookingId}/notes`).push({
+                        type: 'system',
+                        message: 'Membership booking auto-completed - delivery period has concluded',
+                        timestamp: new Date().toISOString()
+                    });
+                    completedCount++;
+                }
+            }
+        }
+        console.log(`✅ Auto-completion process finished. Completed ${completedCount} bookings.`);
+        return null;
+    }
+    catch (error) {
+        console.error('❌ Error in auto-complete bookings function:', error);
+        return null;
+    }
+});
+// Helper function to determine if a booking should be completed
+async function shouldCompleteBooking(bookingData, bookingType) {
+    var _a, _b;
+    try {
+        const now = new Date();
+        let eventDate;
+        let completionDelayHours = 24; // Default 24 hours
+        if (bookingType === 'membership') {
+            // For membership bookings, use actualDeliveryDate or fall back to other date fields
+            const deliveryDateStr = bookingData.actualDeliveryDate || bookingData.deliveryDate;
+            if (!deliveryDateStr) {
+                console.log(`⚠️ No delivery date found for membership booking`);
+                return false;
+            }
+            eventDate = new Date(deliveryDateStr);
+            // Membership bookings are always 24-hour completion (already set above)
+        }
+        else {
+            // For regular bookings, parse eventDate from orderDetails
+            const eventDateStr = (_a = bookingData.orderDetails) === null || _a === void 0 ? void 0 : _a.eventDate;
+            if (!eventDateStr) {
+                console.log(`⚠️ No event date found for regular booking`);
+                return false;
+            }
+            // Parse event date (format: "MM/DD/YYYY - MM/DD/YYYY" or "MM/DD/YYYY")
+            const dateRange = eventDateStr.split(' - ');
+            const startDateStr = dateRange[0];
+            eventDate = new Date(startDateStr);
+            // Check duration for 2-day events
+            const duration = (_b = bookingData.orderDetails) === null || _b === void 0 ? void 0 : _b.duration;
+            if (duration === '48 hours' || duration === 48 || duration === '2 days') {
+                completionDelayHours = 48;
+                console.log(`⏰ Found 2-day event, using 48-hour completion delay`);
+            }
+        }
+        // Calculate completion threshold
+        const completionTime = new Date(eventDate.getTime() + (completionDelayHours * 60 * 60 * 1000));
+        const shouldComplete = now >= completionTime;
+        if (shouldComplete) {
+            console.log(`✅ Booking should be completed: Event date ${eventDate.toISOString()}, Completion time ${completionTime.toISOString()}, Now ${now.toISOString()}`);
+        }
+        return shouldComplete;
+    }
+    catch (error) {
+        console.error('❌ Error checking booking completion eligibility:', error);
+        return false;
+    }
+}
 // Account deletion email function
 exports.sendAccountDeletionEmail = functions.https.onCall(async (data, context) => {
     var _a;
