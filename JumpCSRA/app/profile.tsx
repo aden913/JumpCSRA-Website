@@ -2661,10 +2661,108 @@ export default function Profile() {
                         </div>
                       </div>
 
-                      {/* Step 2: Surface and Anchoring Selection */}
+                      {/* Step 2: Inflatable Selection */}
                       {selectedWeekday && (
+                        <div className={`booking-step ${selectedInflatable ? 'completed' : 'active'}`}>
+                          <h5>🎈 Step 2: Choose Your Inflatable</h5>
+                          <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.75rem' }}>
+                            Select which inflatable you'd like for your monthly delivery
+                          </p>
+                          
+                          <div className="inflatable-selection" style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                            gap: '1rem',
+                            marginBottom: '1rem'
+                          }}>
+                            {inflateables.map((inflatable) => (
+                              <div
+                                key={inflatable.id}
+                                onClick={() => setSelectedInflatable(inflatable)}
+                                style={{
+                                  border: `2px solid ${selectedInflatable?.id === inflatable.id ? '#4CAF50' : '#ddd'}`,
+                                  backgroundColor: selectedInflatable?.id === inflatable.id ? '#e8f5e8' : '#fff',
+                                  borderRadius: '12px',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s ease',
+                                  overflow: 'hidden',
+                                  position: 'relative'
+                                }}
+                              >
+                                {inflatable.imageUrl && (
+                                  <img
+                                    src={inflatable.imageUrl}
+                                    alt={inflatable.title}
+                                    style={{
+                                      width: '100%',
+                                      height: '160px',
+                                      objectFit: 'cover'
+                                    }}
+                                  />
+                                )}
+                                <div style={{ padding: '0.75rem' }}>
+                                  <h6 style={{ 
+                                    margin: '0 0 0.5rem 0', 
+                                    color: selectedInflatable?.id === inflatable.id ? '#2e7d32' : '#333',
+                                    fontWeight: 'bold'
+                                  }}>
+                                    {inflatable.title}
+                                  </h6>
+                                  <p style={{ 
+                                    fontSize: '0.8rem', 
+                                    color: '#666', 
+                                    margin: '0 0 0.5rem 0',
+                                    lineHeight: '1.3'
+                                  }}>
+                                    {inflatable.description}
+                                  </p>
+                                  <div style={{ 
+                                    fontSize: '0.75rem',
+                                    color: '#888',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                  }}>
+                                    <span>
+                                      {inflatable.dimensions?.length && inflatable.dimensions?.width ? 
+                                        `${inflatable.dimensions.length}' × ${inflatable.dimensions.width}'` : 
+                                        'Custom Size'
+                                      }
+                                    </span>
+                                    {inflatable.ageRange && (
+                                      <span>Ages {inflatable.ageRange}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                {selectedInflatable?.id === inflatable.id && (
+                                  <div style={{
+                                    position: 'absolute',
+                                    top: '8px',
+                                    right: '8px',
+                                    backgroundColor: '#4CAF50',
+                                    color: 'white',
+                                    borderRadius: '50%',
+                                    width: '24px',
+                                    height: '24px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 'bold'
+                                  }}>
+                                    ✓
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Step 3: Surface and Anchoring Selection */}
+                      {selectedWeekday && selectedInflatable && (
                         <div className={`booking-step ${selectedSurface ? 'completed' : 'active'}`}>
-                          <h5>🏠 Step 2: Surface Type & Setup</h5>
+                          <h5>🏠 Step 3: Surface Type & Setup</h5>
                           <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.75rem' }}>
                             Select the surface where the inflatable will be set up
                           </p>
@@ -2738,7 +2836,7 @@ export default function Profile() {
                       {/* Address Validation */}
                       {selectedSurface && (
                         <div className={`booking-step ${profile.address ? 'completed' : 'active'}`}>
-                          <h5>📍 Step 3: Delivery Address</h5>
+                          <h5>📍 Step 4: Delivery Address</h5>
                           <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.75rem' }}>
                             Confirm your delivery address
                           </p>
@@ -2810,7 +2908,7 @@ export default function Profile() {
                       {/* Summary and Submit */}
                       {profile.address && selectedSurface && (
                         <div className="booking-step active">
-                          <h5>📋 Step 4: Review & Book</h5>
+                          <h5>📋 Step 5: Review & Book</h5>
                           
                           {(() => {
                             const validationError = validateMembershipBooking();
@@ -2865,7 +2963,8 @@ export default function Profile() {
                                   <h6 style={{ margin: '0 0 0.5rem 0' }}>Booking Summary</h6>
                                   <div style={{ fontSize: '0.9rem', lineHeight: '1.4' }}>
                                     <div>📅 <strong>Preferred Day:</strong> {selectedWeekday}s (first of each month)</div>
-                                    <div>🏠 <strong>Surface & Setup:</strong> {
+                                    <div>� <strong>Inflatable:</strong> {inflateables.find(inf => inf.id === selectedInflatable)?.name || 'None selected'}</div>
+                                    <div>�🏠 <strong>Surface & Setup:</strong> {
                                       selectedSurface === 'grass' ? 
                                         `Grass with ${selectedStakesOrSandbags === 'stakes' ? 'Stakes' : 'Sandbags'}` : 
                                         'Concrete/Pavement'
