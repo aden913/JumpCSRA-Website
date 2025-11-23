@@ -23,6 +23,7 @@ export type OptionCardProps = {
   wetDry?: string;
   category?: string;
   unavailable?: boolean;
+  directSelection?: boolean; // New prop to control selection behavior
 };
 
 function OptionCard({
@@ -39,6 +40,7 @@ function OptionCard({
   weekendWaterPrice,
   onOrder,
   unavailable,
+  directSelection,
 }: OptionCardProps) {
   let fontSize = "1.5rem";
   if (name.length > 18) fontSize = "1.25rem";
@@ -53,6 +55,28 @@ function OptionCard({
     if (unavailable) {
       return;
     }
+    
+    // If directSelection is true, call onOrder immediately without modal
+    if (directSelection && onOrder) {
+      onOrder({
+        name,
+        img,
+        price,
+        description,
+        dimensions,
+        wet,
+        dry,
+        weekdayPrice,
+        weekendPrice,
+        weekdayWaterPrice,
+        weekendWaterPrice,
+        unavailable,
+        directSelection,
+      });
+      return;
+    }
+    
+    // Otherwise, use the original modal behavior
     if (onOrder) {
       onOrder({
         name,
@@ -67,6 +91,7 @@ function OptionCard({
         weekdayWaterPrice,
         weekendWaterPrice,
         unavailable,
+        directSelection,
       });
     }
   };
@@ -90,7 +115,7 @@ function OptionCard({
         disabled={unavailable}
         style={unavailable ? { backgroundColor: "#ccc", cursor: "not-allowed" } : {}}
       >
-        {unavailable ? "UNAVAILABLE" : "ORDER NOW"}
+        {unavailable ? "UNAVAILABLE" : (directSelection ? "SELECT" : "ORDER NOW")}
       </button>
     </div>
   );
@@ -99,6 +124,7 @@ function OptionCard({
 export type OptionsCarouselProps = {
   options: OptionCardProps[];
   onPurchase?: (product: OptionCardProps) => void;
+  disableModal?: boolean; // New prop to disable modal behavior
 };
 
 export interface OptionsCarouselRef {
@@ -106,7 +132,7 @@ export interface OptionsCarouselRef {
 }
 
 export const OptionsCarousel = React.forwardRef<OptionsCarouselRef, OptionsCarouselProps>(
-  ({ options, onPurchase }, ref) => {
+  ({ options, onPurchase, disableModal = false }, ref) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<OptionCardProps | null>(null);
   const [leftMaskWidth, setLeftMaskWidth] = useState(37);
@@ -129,7 +155,14 @@ export const OptionsCarousel = React.forwardRef<OptionsCarouselRef, OptionsCarou
     if (product.unavailable) {
       return;
     }
-    // Always pass the full product object
+    
+    // If disableModal is true or directSelection is true, don't show modal
+    if (disableModal || product.directSelection) {
+      if (onPurchase) onPurchase(product);
+      return;
+    }
+    
+    // Otherwise, show the modal
     setSelectedProduct({ ...product });
     setModalOpen(true);
   };

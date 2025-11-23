@@ -17,6 +17,8 @@ import { loadBookingData, loadContractData, loadContractByOrderID, getUserWallet
 import type { BookingData, ContractData, UserWallet, UserPaymentInfo, SavedPaymentMethod, UserMembership } from "./utils/databaseUtils";
 import ContractSigning from "./components/ContractSigning";
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
+import { OptionsCarousel } from "./components/OptionsCarousel";
+import type { OptionCardProps } from "./components/OptionsCarousel";
 
 // Helper function to clear all localStorage data on sign out
 const clearAllLocalStorage = () => {
@@ -142,6 +144,9 @@ export default function Profile() {
   });
   const [membershipBookingError, setMembershipBookingError] = useState<string | null>(null);
 
+  // Modal state for inflatable selection
+  const [showInflatableModal, setShowInflatableModal] = useState(false);
+
   // Contract and Payment Modal State
   const [showContractModal, setShowContractModal] = useState(false);
   const [contractCompleted, setContractCompleted] = useState(false);
@@ -254,6 +259,28 @@ export default function Profile() {
   // Helper function to safely format status strings
   const formatStatus = (status?: string): string => {
     return status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown';
+  };
+
+  // Convert inflateables to option card props for membership selection
+  const convertToOptionCardProps = (inflatable: any): OptionCardProps => {
+    return {
+      name: inflatable.name,
+      img: inflatable.img,
+      description: inflatable.description,
+      dimensions: inflatable.dimensions,
+      wet: inflatable.wet,
+      dry: inflatable.dry,
+      weekdayPrice: inflatable.weekdayPrice,
+      weekendPrice: inflatable.weekendPrice,
+      weekdayWaterPrice: inflatable.weekdayWaterPrice,
+      weekendWaterPrice: inflatable.weekendWaterPrice,
+      category: inflatable.category,
+      directSelection: true, // Enable direct selection for membership
+      onOrder: (product: OptionCardProps) => {
+        setSelectedInflatable(inflatable);
+        setShowInflatableModal(false);
+      }
+    };
   };
 
   // Helper function to get status color
@@ -2669,93 +2696,148 @@ export default function Profile() {
                             Select which inflatable you'd like for your monthly delivery
                           </p>
                           
-                          <div className="inflatable-selection" style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                            gap: '1rem',
-                            marginBottom: '1rem'
-                          }}>
-                            {inflateables.map((inflatable) => (
-                              <div
-                                key={inflatable.id}
-                                onClick={() => setSelectedInflatable(inflatable)}
+                          {/* Selected Inflatable Display */}
+                          {selectedInflatable && (
+                            <div style={{
+                              border: '2px solid #4CAF50',
+                              backgroundColor: '#e8f5e8',
+                              borderRadius: '12px',
+                              padding: '1rem',
+                              marginBottom: '1rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '1rem'
+                            }}>
+                              <img
+                                src={selectedInflatable.img}
+                                alt={selectedInflatable.name}
                                 style={{
-                                  border: `2px solid ${selectedInflatable?.id === inflatable.id ? '#4CAF50' : '#ddd'}`,
-                                  backgroundColor: selectedInflatable?.id === inflatable.id ? '#e8f5e8' : '#fff',
-                                  borderRadius: '12px',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.2s ease',
-                                  overflow: 'hidden',
-                                  position: 'relative'
+                                  width: '80px',
+                                  height: '60px',
+                                  objectFit: 'cover',
+                                  borderRadius: '8px'
                                 }}
-                              >
-                                {inflatable.imageUrl && (
-                                  <img
-                                    src={inflatable.imageUrl}
-                                    alt={inflatable.title}
+                              />
+                              <div>
+                                <h6 style={{ margin: '0 0 0.25rem 0', color: '#2e7d32' }}>
+                                  {selectedInflatable.name}
+                                </h6>
+                                <p style={{ margin: 0, fontSize: '0.8rem', color: '#666' }}>
+                                  {selectedInflatable.description || 'Selected for monthly delivery'}
+                                </p>
+                              </div>
+                              <div style={{ marginLeft: 'auto' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowInflatableModal(true)}
+                                  style={{
+                                    padding: '0.5rem 1rem',
+                                    backgroundColor: '#2196F3',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.9rem'
+                                  }}
+                                >
+                                  Change Selection
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Browse Button */}
+                          {!selectedInflatable && (
+                            <button
+                              type="button"
+                              onClick={() => setShowInflatableModal(true)}
+                              style={{
+                                width: '100%',
+                                padding: '1rem',
+                                backgroundColor: '#4CAF50',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontSize: '1.1rem',
+                                fontWeight: 'bold',
+                                marginBottom: '1rem'
+                              }}
+                            >
+                              🎪 Browse Available Inflatables
+                            </button>
+                          )}
+                          
+                          {/* Inflatable Selection Modal */}
+                          {showInflatableModal && (
+                            <div style={{
+                              position: 'fixed',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                              zIndex: 1000,
+                              display: 'flex',
+                              justifyContent: 'center',
+                              alignItems: 'center',
+                              padding: '2rem'
+                            }}>
+                              <div style={{
+                                backgroundColor: 'white',
+                                borderRadius: '12px',
+                                maxWidth: '90vw',
+                                maxHeight: '80vh',
+                                overflow: 'hidden',
+                                display: 'flex',
+                                flexDirection: 'column'
+                              }}>
+                                <div style={{
+                                  padding: '1.5rem',
+                                  borderBottom: '1px solid #eee',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center'
+                                }}>
+                                  <h3 style={{ margin: 0 }}>🎈 Choose Your Membership Inflatable</h3>
+                                  <button
+                                    onClick={() => setShowInflatableModal(false)}
                                     style={{
-                                      width: '100%',
-                                      height: '160px',
-                                      objectFit: 'cover'
+                                      backgroundColor: '#f44336',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '6px',
+                                      padding: '0.5rem 1rem',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Close
+                                  </button>
+                                </div>
+                                <div style={{ 
+                                  padding: '1rem',
+                                  overflow: 'auto',
+                                  flex: 1
+                                }}>
+                                  <OptionsCarousel 
+                                    options={inflateables
+                                      .filter(i => i.membership === true)
+                                      .map(convertToOptionCardProps)
+                                    }
+                                    disableModal={true}
+                                    onPurchase={(product) => {
+                                      // Find the original inflatable object
+                                      const selectedInflatable = inflateables.find(i => i.name === product.name);
+                                      if (selectedInflatable) {
+                                        setSelectedInflatable(selectedInflatable);
+                                        setShowInflatableModal(false);
+                                      }
                                     }}
                                   />
-                                )}
-                                <div style={{ padding: '0.75rem' }}>
-                                  <h6 style={{ 
-                                    margin: '0 0 0.5rem 0', 
-                                    color: selectedInflatable?.id === inflatable.id ? '#2e7d32' : '#333',
-                                    fontWeight: 'bold'
-                                  }}>
-                                    {inflatable.title}
-                                  </h6>
-                                  <p style={{ 
-                                    fontSize: '0.8rem', 
-                                    color: '#666', 
-                                    margin: '0 0 0.5rem 0',
-                                    lineHeight: '1.3'
-                                  }}>
-                                    {inflatable.description}
-                                  </p>
-                                  <div style={{ 
-                                    fontSize: '0.75rem',
-                                    color: '#888',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center'
-                                  }}>
-                                    <span>
-                                      {inflatable.dimensions?.length && inflatable.dimensions?.width ? 
-                                        `${inflatable.dimensions.length}' × ${inflatable.dimensions.width}'` : 
-                                        'Custom Size'
-                                      }
-                                    </span>
-                                    {inflatable.ageRange && (
-                                      <span>Ages {inflatable.ageRange}</span>
-                                    )}
-                                  </div>
                                 </div>
-                                {selectedInflatable?.id === inflatable.id && (
-                                  <div style={{
-                                    position: 'absolute',
-                                    top: '8px',
-                                    right: '8px',
-                                    backgroundColor: '#4CAF50',
-                                    color: 'white',
-                                    borderRadius: '50%',
-                                    width: '24px',
-                                    height: '24px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '0.75rem',
-                                    fontWeight: 'bold'
-                                  }}>
-                                    ✓
-                                  </div>
-                                )}
                               </div>
-                            ))}
-                          </div>
+                            </div>
+                          )}
                         </div>
                       )}
 
