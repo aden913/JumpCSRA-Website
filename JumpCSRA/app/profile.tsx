@@ -147,6 +147,9 @@ export default function Profile() {
   // Modal state for inflatable selection
   const [showInflatableModal, setShowInflatableModal] = useState(false);
 
+  // Loading state for membership booking processing
+  const [showBookingProcessingModal, setShowBookingProcessingModal] = useState(false);
+
   // Contract and Payment Modal State
   const [showContractModal, setShowContractModal] = useState(false);
   const [contractCompleted, setContractCompleted] = useState(false);
@@ -402,7 +405,7 @@ export default function Profile() {
           const { httpsCallable } = await import('firebase/functions');
           const { getFunctions } = await import('firebase/functions');
           
-          const functions = getFunctions();
+          const functions = getFunctions(undefined, 'us-central1');
           const processRefund = httpsCallable(functions, 'processPayPalBookingRefund');
           
           await processRefund({
@@ -1161,6 +1164,9 @@ export default function Profile() {
     setContractCompleted(true);
     setShowContractModal(false);
     
+    // Show processing modal immediately after contract completion
+    setShowBookingProcessingModal(true);
+    
     // Store contract data for later use if needed
     // You could save this to state or send to backend
     
@@ -1168,6 +1174,7 @@ export default function Profile() {
     if (selectedSurface === 'concrete') {
       // Show PayPal payment modal for $20 fee
       setShowPaymentModal(true);
+      setShowBookingProcessingModal(false); // Hide processing modal when payment modal shows
     } else {
       // No fee required, proceed directly to booking
       handleBookingSubmission();
@@ -1178,14 +1185,17 @@ export default function Profile() {
   const handleBookingSubmission = async () => {
     if (!user || !profile) {
       setMembershipBookingError('User profile not available');
+      setShowBookingProcessingModal(false);
       return;
     }
 
     try {
       setLoadingMembershipBooking(true);
       setMembershipBookingError(null);
+      // Keep processing modal visible during backend call
 
-      const { httpsCallable } = await import('firebase/functions');
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const functions = getFunctions(undefined, 'us-central1');
       
       const surfaceFee = (selectedSurface === 'concrete') ? 20 : 0;
       const actualEventDate = calculateActualEventDate();
@@ -1225,6 +1235,7 @@ export default function Profile() {
         setPaymentCompleted(false);
         setShowContractModal(false);
         setShowPaymentModal(false);
+        setShowBookingProcessingModal(false); // Hide processing modal on success
         
         alert('🎉 Membership booking confirmed successfully!\n\n' +
               `Booking ID: ${responseData.bookingId}\n\n` +
@@ -1245,6 +1256,7 @@ export default function Profile() {
       setMembershipBookingError(
         `Failed to submit booking: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again or contact support.`
       );
+      setShowBookingProcessingModal(false); // Hide processing modal on error
     } finally {
       setLoadingMembershipBooking(false);
     }
@@ -1623,7 +1635,7 @@ export default function Profile() {
       // Send account deletion email notification since we're on Blaze plan
       try {
         const { getFunctions, httpsCallable } = await import('firebase/functions');
-        const functions = getFunctions();
+        const functions = getFunctions(undefined, 'us-central1');
         const sendAccountDeletionEmail = httpsCallable(functions, 'sendAccountDeletionEmail');
         
         await sendAccountDeletionEmail({
@@ -4377,6 +4389,7 @@ export default function Profile() {
                   console.log('Payment completed:', details);
                   setPaymentCompleted(true);
                   setShowPaymentModal(false);
+                  setShowBookingProcessingModal(true); // Show processing modal after payment
                   handleBookingSubmission();
                 } catch (error) {
                   console.error('Payment error:', error);
@@ -4409,6 +4422,91 @@ export default function Profile() {
         </div>
       </div>
     )}
+
+    {/* Booking Processing Modal */}
+    {showBookingProcessingModal && (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+        zIndex: 1000,
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center'
+      }}>
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '12px',
+          padding: '2rem',
+          textAlign: 'center',
+          maxWidth: '400px',
+          margin: '1rem'
+        }}>
+          <div style={{
+            fontSize: '3rem',
+            marginBottom: '1rem',
+            animation: 'spin 1s linear infinite'
+          }}>
+            🎪
+          </div>
+          <h3 style={{ margin: '0 0 1rem 0', color: '#333' }}>
+            Processing Your Booking
+          </h3>
+          <p style={{ margin: '0 0 1rem 0', color: '#666', lineHeight: '1.5' }}>
+            Please wait while we confirm your monthly inflatable delivery...
+          </p>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: '0.5rem'
+          }}>
+            <div style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: '#4CAF50',
+              animation: 'bounce 1.4s ease-in-out 0s infinite both'
+            }}></div>
+            <div style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: '#4CAF50',
+              animation: 'bounce 1.4s ease-in-out 0.16s infinite both'
+            }}></div>
+            <div style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              backgroundColor: '#4CAF50',
+              animation: 'bounce 1.4s ease-in-out 0.32s infinite both'
+            }}></div>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Loading modal animations */}
+    <style>
+      {`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes bounce {
+          0%, 80%, 100% {
+            transform: scale(0);
+          } 40% {
+            transform: scale(1);
+          }
+        }
+      `}
+    </style>
 
     </>
   );

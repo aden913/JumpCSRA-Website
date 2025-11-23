@@ -27,7 +27,7 @@ const functions = getFunctions(app);
 const database = getDatabase(app);
 
 // Connect to emulators in development (only in browser environment)
-if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+if (false && typeof window !== 'undefined' && window.location.hostname === 'localhost') {
   // Connect Functions emulator
   try {
     connectFunctionsEmulator(functions, 'localhost', 5001);
