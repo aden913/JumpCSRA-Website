@@ -19,6 +19,7 @@ import ContractSigning from "./components/ContractSigning";
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 import { OptionsCarousel } from "./components/OptionsCarousel";
 import type { OptionCardProps } from "./components/OptionsCarousel";
+import { getAvailableMembershipInflateables } from "./utils/availabilityUtils";
 
 // Helper function to clear all localStorage data on sign out
 const clearAllLocalStorage = () => {
@@ -142,6 +143,10 @@ export default function Profile() {
     }
     return '';
   });
+  
+  // Availability tracking for membership inflatables
+  const [availableMembershipInflateables, setAvailableMembershipInflateables] = useState<any[]>([]);
+  const [loadingMembershipAvailability, setLoadingMembershipAvailability] = useState(false);
   const [membershipBookingError, setMembershipBookingError] = useState<string | null>(null);
 
   // Modal state for inflatable selection
@@ -265,7 +270,7 @@ export default function Profile() {
   };
 
   // Convert inflateables to option card props for membership selection
-  const convertToOptionCardProps = (inflatable: any): OptionCardProps => {
+  const convertToOptionCardProps = (inflatable: any, isAvailable: boolean = true): OptionCardProps => {
     return {
       name: inflatable.name,
       img: inflatable.img,
@@ -278,12 +283,25 @@ export default function Profile() {
       weekdayWaterPrice: inflatable.weekdayWaterPrice,
       weekendWaterPrice: inflatable.weekendWaterPrice,
       category: inflatable.category,
+      unavailable: !isAvailable, // Mark as unavailable if not available
       directSelection: true, // Enable direct selection for membership
       onOrder: (product: OptionCardProps) => {
-        setSelectedInflatable(inflatable);
-        setShowInflatableModal(false);
+        if (isAvailable) {
+          setSelectedInflatable(inflatable);
+          setShowInflatableModal(false);
+        }
       }
     };
+  };
+
+  // Get all membership inflatables with availability status
+  const getAllMembershipInflatablesWithStatus = () => {
+    const allMembershipInflateables = inflateables.filter(i => i.membership === true);
+    
+    return allMembershipInflateables.map(inflatable => {
+      const isAvailable = availableMembershipInflateables.find(available => available.name === inflatable.name);
+      return convertToOptionCardProps(inflatable, !!isAvailable);
+    });
   };
 
   // Helper function to get status color
@@ -813,12 +831,55 @@ export default function Profile() {
     }
   }, [profile.address]);
 
-  // Save membership booking state to localStorage
+  // Save membership booking state to localStorage and check availability
   useEffect(() => {
     if (typeof window !== 'undefined') {
       localStorage.setItem('membershipBooking_weekday', selectedWeekday);
     }
-  }, [selectedWeekday]);
+    // Check availability when weekday changes
+    if (selectedWeekday && user) {
+      checkMembershipInflatableAvailability();
+    }
+  }, [selectedWeekday, user]);
+
+  // Function to check membership inflatable availability for selected weekday
+  const checkMembershipInflatableAvailability = async () => {
+    if (!selectedWeekday || !user) return;
+    
+    console.log('🎯 PROFILE: Starting availability check', {
+      selectedWeekday,
+      selectedWeekdayType: typeof selectedWeekday,
+      userId: user.uid
+    });
+    
+    try {
+      setLoadingMembershipAvailability(true);
+      const available = await getAvailableMembershipInflateables(selectedWeekday, user.uid);
+      setAvailableMembershipInflateables(available);
+      
+      console.log('🎯 PROFILE: Availability check results', {
+        totalMembershipInflateables: inflateables.filter(i => i.membership === true).length,
+        availableCount: available.length,
+        availableNames: available.map(i => i.name),
+        unavailableNames: inflateables
+          .filter(i => i.membership === true)
+          .filter(i => !available.find(a => a.name === i.name))
+          .map(i => i.name)
+      });
+      
+      // Reset selected inflatable if it's no longer available
+      if (selectedInflatable && !available.find(inf => inf.name === selectedInflatable.name)) {
+        setSelectedInflatable(null);
+        console.log('🎯 PROFILE: Reset selected inflatable because it\'s no longer available');
+      }
+    } catch (error) {
+      console.error('Error checking membership availability:', error);
+      // On error, show all membership inflatables to avoid blocking user
+      setAvailableMembershipInflateables(inflateables.filter(i => i.membership === true));
+    } finally {
+      setLoadingMembershipAvailability(false);
+    }
+  };
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -2831,21 +2892,57 @@ export default function Profile() {
                                   overflow: 'auto',
                                   flex: 1
                                 }}>
-                                  <OptionsCarousel 
-                                    options={inflateables
-                                      .filter(i => i.membership === true)
-                                      .map(convertToOptionCardProps)
-                                    }
-                                    disableModal={true}
-                                    onPurchase={(product) => {
-                                      // Find the original inflatable object
-                                      const selectedInflatable = inflateables.find(i => i.name === product.name);
-                                      if (selectedInflatable) {
-                                        setSelectedInflatable(selectedInflatable);
-                                        setShowInflatableModal(false);
-                                      }
-                                    }}
-                                  />
+                                  {loadingMembershipAvailability ? (
+                                    <div style={{ 
+                                      display: 'flex', 
+                                      justifyContent: 'center', 
+                                      alignItems: 'center', 
+                                      padding: '2rem',
+                                      color: '#666'
+                                    }}>
+                                      <div>🔄 Checking availability for {selectedWeekday}...</div>
+                                    </div>
+                                  ) : selectedWeekday ? (
+                                    <div>
+                                      {availableMembershipInflateables.length === 0 && (
+                                        <div style={{ 
+                                          padding: '1rem',
+                                          backgroundColor: '#fff3cd',
+                                          border: '1px solid #ffeaa7',
+                                          borderRadius: '8px',
+                                          color: '#856404',
+                                          textAlign: 'center',
+                                          marginBottom: '1rem'
+                                        }}>
+                                          ⚠️ All membership inflatables are currently booked for {selectedWeekday}. 
+                                          They are shown below as unavailable.
+                                        </div>
+                                      )}
+                                      <OptionsCarousel 
+                                        options={getAllMembershipInflatablesWithStatus()}
+                                        disableModal={true}
+                                        onPurchase={(product) => {
+                                          // Only allow selection if the product is available
+                                          if (!product.unavailable) {
+                                            // Find the original inflatable object
+                                            const selectedInflatable = inflateables.find(i => i.name === product.name);
+                                            if (selectedInflatable) {
+                                              setSelectedInflatable(selectedInflatable);
+                                              setShowInflatableModal(false);
+                                            }
+                                          }
+                                        }}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div style={{ 
+                                      padding: '2rem',
+                                      textAlign: 'center',
+                                      color: '#666'
+                                    }}>
+                                      Please select a delivery day to see available inflatables.
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>

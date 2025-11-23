@@ -6,37 +6,58 @@ export interface ItemAvailability {
   totalQuantity: number;
   availableQuantity: number;
   bookedQuantity: number;
+  conflictingBookings?: Array<{
+    type: 'regular' | 'membership';
+    bookingId: string;
+    date: string;
+    userId?: string;
+  }>;
+}
+
+export interface MembershipBooking {
+  bookingId: string;
+  userId: string;
+  selectedWeekday: string;
+  inflatableType: string;
+  inflatableName: string;
+  actualDeliveryDate: string;
+  bookingStatus: string;
+  createdAt: number;
 }
 
 /**
- * Check item availability for specific date range
+ * Check item availability for specific date range including membership bookings
  * @param itemName - Name of the item to check
  * @param totalQuantity - Total inventory for this item
  * @param startDate - Start date of desired booking
  * @param endDate - End date of desired booking
+ * @param excludeBookingId - Optional booking ID to exclude from conflict checking
  * @returns Available quantity for the date range
  */
 export async function checkItemAvailability(
   itemName: string,
   totalQuantity: number,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  excludeBookingId?: string
 ): Promise<ItemAvailability> {
   
   const database = getDatabase();
   
   try {
-    // Load all bookings from both new and legacy structures
-    const [newBookings, legacyBookings] = await Promise.all([
-      loadNewBookings(),
+    // Load all booking types
+    const [regularBookings, membershipBookings, legacyBookings] = await Promise.all([
+      loadRegularBookings(),
+      loadMembershipBookings(),
       loadLegacyBookings()
     ]);
     
     let bookedQuantity = 0;
+    const conflictingBookings: ItemAvailability['conflictingBookings'] = [];
     
-    // Check new structure bookings
-    newBookings.forEach(booking => {
-      if (booking.status === 'cancelled') return; // Skip cancelled bookings
+    // Check regular bookings
+    regularBookings.forEach(booking => {
+      if (booking.status === 'cancelled' || booking.bookingId === excludeBookingId) return;
       
       const bookingStart = new Date(booking.orderDetails?.eventDate || booking.createdAt);
       const bookingEnd = new Date(bookingStart);
@@ -47,18 +68,50 @@ export async function checkItemAvailability(
       
       // Check for date overlap
       if (datesOverlap(startDate, endDate, bookingStart, bookingEnd)) {
-        // Check if this booking contains our item
         const itemQuantity = getBookedItemQuantity(booking.orderDetails?.items || [], itemName);
         if (itemQuantity > 0) {
-          // Item conflict found
+          bookedQuantity += itemQuantity;
+          conflictingBookings?.push({
+            type: 'regular',
+            bookingId: booking.bookingId || 'unknown',
+            date: bookingStart.toISOString().split('T')[0],
+            userId: booking.userId
+          });
         }
-        bookedQuantity += itemQuantity;
+      }
+    });
+    
+    // Check membership bookings
+    membershipBookings.forEach(booking => {
+      if (booking.bookingStatus === 'cancelled' || booking.bookingId === excludeBookingId) return;
+      
+      // Parse the actual delivery date or calculate based on weekday
+      const deliveryDate = booking.actualDeliveryDate 
+        ? new Date(booking.actualDeliveryDate)
+        : calculateNextWeekdayDate(booking.selectedWeekday);
+      
+      const bookingStart = deliveryDate;
+      const bookingEnd = new Date(deliveryDate);
+      bookingEnd.setDate(bookingEnd.getDate() + 1); // Membership bookings are typically 1 day
+      
+      // Check for date overlap
+      if (datesOverlap(startDate, endDate, bookingStart, bookingEnd)) {
+        // Check if this membership booking uses the requested item
+        if (booking.inflatableName === itemName || booking.inflatableType === itemName) {
+          bookedQuantity += 1; // Membership bookings typically book 1 quantity
+          conflictingBookings?.push({
+            type: 'membership',
+            bookingId: booking.bookingId,
+            date: bookingStart.toISOString().split('T')[0],
+            userId: booking.userId
+          });
+        }
       }
     });
     
     // Check legacy structure bookings
     legacyBookings.forEach(booking => {
-      if (booking.status === 'cancelled') return; // Skip cancelled bookings
+      if (booking.status === 'cancelled' || booking.bookingId === excludeBookingId) return;
       
       const bookingStart = new Date(booking.orderDetails?.eventDate || booking.contractDate);
       const bookingEnd = new Date(bookingStart);
@@ -69,12 +122,16 @@ export async function checkItemAvailability(
       
       // Check for date overlap
       if (datesOverlap(startDate, endDate, bookingStart, bookingEnd)) {
-        // Check if this booking contains our item
         const itemQuantity = getBookedItemQuantity(booking.orderDetails?.items || [], itemName);
         if (itemQuantity > 0) {
-          // Legacy booking conflict found
+          bookedQuantity += itemQuantity;
+          conflictingBookings?.push({
+            type: 'regular',
+            bookingId: booking.bookingId || 'legacy',
+            date: bookingStart.toISOString().split('T')[0],
+            userId: booking.userId
+          });
         }
-        bookedQuantity += itemQuantity;
       }
     });
     
@@ -84,10 +141,12 @@ export async function checkItemAvailability(
       itemName,
       totalQuantity,
       availableQuantity,
-      bookedQuantity
+      bookedQuantity,
+      conflictingBookings
     };
     
   } catch (error) {
+    console.error('Error checking item availability:', error);
     // Return full availability on error to avoid blocking bookings
     return {
       itemName,
@@ -99,12 +158,76 @@ export async function checkItemAvailability(
 }
 
 /**
- * Check availability for multiple items at once
+ * Check membership inflatable availability for a specific month
+ * This checks if membership inflatables are available for delivery on weekdays in the month
+ */
+export async function checkMembershipAvailability(
+  month: number, 
+  year: number,
+  excludeUserId?: string
+): Promise<{[inflatableName: string]: {
+  available: boolean;
+  conflictingDates: string[];
+  totalDeliveryDays: number;
+  bookedDeliveryDays: number;
+}}> {
+  
+  try {
+    const membershipBookings = await loadMembershipBookings();
+    const membershipInflateables = await loadMembershipInflateables();
+    
+    // Get all weekdays (Mon-Thu) in the specified month
+    const weekdaysInMonth = getWeekdaysInMonth(month, year);
+    
+    const availability: any = {};
+    
+    membershipInflateables.forEach(inflatable => {
+      const conflictingDates: string[] = [];
+      
+      // Check each weekday in the month for conflicts
+      weekdaysInMonth.forEach(date => {
+        const conflictingBookings = membershipBookings.filter(booking => {
+          if (booking.bookingStatus === 'cancelled' || booking.userId === excludeUserId) return false;
+          
+          const deliveryDate = booking.actualDeliveryDate 
+            ? new Date(booking.actualDeliveryDate).toDateString()
+            : calculateNextWeekdayDate(booking.selectedWeekday).toDateString();
+          
+          const checkDate = date.toDateString();
+          
+          return deliveryDate === checkDate && 
+                 (booking.inflatableName === inflatable.name || booking.inflatableType === inflatable.name);
+        });
+        
+        if (conflictingBookings.length > 0) {
+          conflictingDates.push(date.toISOString().split('T')[0]);
+        }
+      });
+      
+      availability[inflatable.name] = {
+        available: conflictingDates.length === 0,
+        conflictingDates,
+        totalDeliveryDays: weekdaysInMonth.length,
+        bookedDeliveryDays: conflictingDates.length
+      };
+    });
+    
+    return availability;
+    
+  } catch (error) {
+    console.error('Error checking membership availability:', error);
+    return {};
+  }
+}
+
+/**
+ * Check availability for multiple items at once (used in checkout)
  */
 export async function checkMultipleItemsAvailability(
   items: Array<{name: string, quantity: number}>,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  excludeBookingId?: string
 ): Promise<Map<string, ItemAvailability>> {
   // Load inflateables data to get total quantities
   const inflateables = await loadInflateablesData();
@@ -118,7 +241,8 @@ export async function checkMultipleItemsAvailability(
         item.name,
         inflateable.quantity || 1,
         startDate,
-        endDate
+        endDate,
+        excludeBookingId
       );
       availabilityMap.set(item.name, availability);
     }
@@ -128,8 +252,189 @@ export async function checkMultipleItemsAvailability(
   return availabilityMap;
 }
 
+/**
+ * Get available membership inflatables for a specific weekday in the current month
+ * This function checks BOTH membership bookings AND regular bookings for conflicts
+ */
+export async function getAvailableMembershipInflateables(
+  weekday: string,
+  userId?: string
+): Promise<any[]> {
+  
+  try {
+    const membershipInflateables = await loadMembershipInflateables();
+    const [membershipBookings, regularBookings, legacyBookings] = await Promise.all([
+      loadMembershipBookings(),
+      loadRegularBookings(), 
+      loadLegacyBookings()
+    ]);
+    
+    // Use the same logic as calculateActualEventDate to find first occurrence of weekday in month
+    const nextDeliveryDate = calculateFirstWeekdayInMonth(weekday);
+    const deliveryDateString = nextDeliveryDate.toDateString();
+    
+    console.log('🔍 MEMBERSHIP AVAILABILITY DEBUG:', {
+      weekday,
+      nextDeliveryDate: deliveryDateString,
+      nextDeliveryDateISO: nextDeliveryDate.toISOString(),
+      userId,
+      membershipInflateablesCount: membershipInflateables.length,
+      regularBookingsCount: regularBookings.length,
+      membershipBookingsCount: membershipBookings.length,
+      legacyBookingsCount: legacyBookings.length
+    });
+    
+    // Debug regular bookings data
+    console.log('🔍 REGULAR BOOKINGS LOADED:', {
+      count: regularBookings.length,
+      bookings: regularBookings.map(booking => ({
+        id: booking.orderID || 'no-id',
+        status: booking.status,
+        eventDate: booking.orderDetails?.eventDate,
+        items: booking.orderDetails?.items?.map(item => item.name) || []
+      }))
+    });
+    
+    const availableInflateables = membershipInflateables.filter(inflatable => {
+      console.log(`\n🎈 Checking availability for: ${inflatable.name}`);
+      
+      // Check conflicts with OTHER membership bookings
+      const membershipConflict = membershipBookings.find(booking => {
+        // Only exclude cancelled bookings - all confirmed bookings use shared inventory
+        if (booking.bookingStatus === 'cancelled') return false;
+        
+        const bookingDeliveryDate = booking.actualDeliveryDate 
+          ? new Date(booking.actualDeliveryDate)
+          : calculateFirstWeekdayInMonth(booking.selectedWeekday);
+        
+        const isSameDate = bookingDeliveryDate.toDateString() === deliveryDateString;
+        const isSameInflatable = booking.inflatableName === inflatable.name || booking.inflatableType === inflatable.name;
+        
+        const conflict = isSameDate && isSameInflatable;
+        if (conflict) {
+          console.log(`❌ MEMBERSHIP CONFLICT: ${inflatable.name} - Date: ${bookingDeliveryDate.toDateString()}, Booking: ${booking.bookingId}`);
+        }
+        
+        return conflict;
+      });
+      
+      // Check conflicts with REGULAR bookings
+      const regularConflict = regularBookings.find(booking => {
+        // Only exclude cancelled bookings - don't exclude user's own regular bookings 
+        // because membership bookings should conflict with user's own regular bookings
+        if (booking.status === 'cancelled') return false;
+        
+        console.log(`  🔍 Checking regular booking: ${booking.orderID || 'no-id'} (status: ${booking.status}, customer: ${booking.customerID})`);
+        
+        // Parse event date - handle date range format "MM/DD/YYYY - MM/DD/YYYY"
+        let eventDateStr = booking.orderDetails?.eventDate || booking.createdAt;
+        if (eventDateStr && typeof eventDateStr === 'string' && eventDateStr.includes(' - ')) {
+          // Extract start date from range format
+          eventDateStr = eventDateStr.split(' - ')[0].trim();
+        }
+        
+        const bookingStart = new Date(eventDateStr);
+        const bookingEnd = new Date(bookingStart);
+        
+        // Add debugging for date parsing
+        if (isNaN(bookingStart.getTime())) {
+          console.log(`⚠️ Failed to parse regular booking date: "${booking.orderDetails?.eventDate}" -> "${eventDateStr}"`);
+          return false; // Skip invalid dates
+        }
+        
+        // Add duration if specified (default to 1 day)
+        const duration = parseDuration(booking.orderDetails?.duration);
+        bookingEnd.setDate(bookingEnd.getDate() + duration);
+        
+        // Check if delivery date falls within the regular booking period
+        const deliveryFallsInBooking = nextDeliveryDate >= bookingStart && nextDeliveryDate <= bookingEnd;
+        
+        console.log(`  📅 Regular booking date check:`, {
+          bookingId: booking.orderID,
+          rawEventDate: booking.orderDetails?.eventDate,
+          parsedEventDate: eventDateStr,
+          bookingPeriod: `${bookingStart.toDateString()} to ${bookingEnd.toDateString()}`,
+          membershipDelivery: nextDeliveryDate.toDateString(),
+          deliveryFallsInBooking
+        });
+        
+        if (deliveryFallsInBooking) {
+          // Check if this regular booking contains our inflatable
+          const itemQuantity = getBookedItemQuantity(booking.orderDetails?.items || [], inflatable.name);
+          const conflict = itemQuantity > 0;
+          if (conflict) {
+            console.log(`❌ REGULAR BOOKING CONFLICT: ${inflatable.name} - Booking: ${booking.orderID}, Period: ${bookingStart.toDateString()} to ${bookingEnd.toDateString()}, Quantity: ${itemQuantity}`);
+          }
+          return conflict;
+        }
+        
+        return false;
+      });
+      
+      // Check conflicts with LEGACY bookings
+      const legacyConflict = legacyBookings.find((booking: any) => {
+        // Only exclude cancelled bookings - all confirmed bookings use shared inventory
+        if (booking.status === 'cancelled') return false;
+        
+        // Parse event date - handle date range format "MM/DD/YYYY - MM/DD/YYYY"
+        let eventDateStr = booking.orderDetails?.eventDate || booking.contractDate;
+        if (eventDateStr && typeof eventDateStr === 'string' && eventDateStr.includes(' - ')) {
+          // Extract start date from range format
+          eventDateStr = eventDateStr.split(' - ')[0].trim();
+        }
+        
+        const bookingStart = new Date(eventDateStr);
+        const bookingEnd = new Date(bookingStart);
+        
+        // Add debugging for date parsing
+        if (isNaN(bookingStart.getTime())) {
+          console.log(`⚠️ Failed to parse legacy booking date: "${booking.orderDetails?.eventDate || booking.contractDate}" -> "${eventDateStr}"`);
+          return false; // Skip invalid dates
+        }
+        
+        // Add duration if specified (default to 1 day)
+        const duration = parseDuration(booking.orderDetails?.duration);
+        bookingEnd.setDate(bookingEnd.getDate() + duration);
+        
+        // Check if delivery date falls within the legacy booking period
+        const deliveryFallsInBooking = nextDeliveryDate >= bookingStart && nextDeliveryDate <= bookingEnd;
+        
+        if (deliveryFallsInBooking) {
+          // Check if this legacy booking contains our inflatable
+          const itemQuantity = getBookedItemQuantity(booking.orderDetails?.items || [], inflatable.name);
+          const conflict = itemQuantity > 0;
+          if (conflict) {
+            console.log(`❌ LEGACY BOOKING CONFLICT: ${inflatable.name} - Legacy Booking Period: ${bookingStart.toDateString()} to ${bookingEnd.toDateString()}, Quantity: ${itemQuantity}`);
+          }
+          return conflict;
+        }
+        
+        return false;
+      });
+      
+      // Available only if NO conflicts found with any booking type
+      const isAvailable = !membershipConflict && !regularConflict && !legacyConflict;
+      console.log(`${isAvailable ? '✅' : '❌'} ${inflatable.name}: Available = ${isAvailable}`);
+      
+      return isAvailable;
+    });
+    
+    console.log('📋 FINAL RESULTS:', {
+      availableCount: availableInflateables.length,
+      availableNames: availableInflateables.map(i => i.name)
+    });
+    
+    return availableInflateables;
+    
+  } catch (error) {
+    console.error('Error getting available membership inflatables:', error);
+    // On error, return empty array to prevent booking conflicts
+    return [];
+  }
+}
+
 // Helper functions
-async function loadNewBookings(): Promise<BookingData[]> {
+async function loadRegularBookings(): Promise<BookingData[]> {
   const database = getDatabase();
   const bookingsRef = ref(database, 'bookings');
   const snapshot = await get(bookingsRef);
@@ -137,7 +442,32 @@ async function loadNewBookings(): Promise<BookingData[]> {
   if (!snapshot.exists()) return [];
   
   const bookingsData = snapshot.val();
-  return Object.values(bookingsData) as BookingData[];
+  
+  // Filter out membershipBookings node and return only regular bookings
+  const regularBookings: BookingData[] = [];
+  Object.entries(bookingsData).forEach(([key, value]) => {
+    if (key !== 'membershipBookings' && value && typeof value === 'object') {
+      regularBookings.push(value as BookingData);
+    }
+  });
+  
+  return regularBookings;
+}
+
+async function loadMembershipBookings(): Promise<MembershipBooking[]> {
+  const database = getDatabase();
+  const membershipBookingsRef = ref(database, 'bookings/membershipBookings');
+  const snapshot = await get(membershipBookingsRef);
+  
+  if (!snapshot.exists()) return [];
+  
+  const bookingsData = snapshot.val();
+  return Object.values(bookingsData) as MembershipBooking[];
+}
+
+async function loadNewBookings(): Promise<BookingData[]> {
+  // This is now handled by loadRegularBookings
+  return await loadRegularBookings();
 }
 
 async function loadLegacyBookings(): Promise<any[]> {
@@ -175,7 +505,7 @@ async function loadInflateablesData(): Promise<any[]> {
     }
     
     // Filter items with quantity > 1
-    const itemsWithQuantity = result.filter(item => item.quantity && item.quantity > 1);
+    const itemsWithQuantity = result.filter((item: any) => item.quantity && item.quantity > 1);
     
     return result;
   } catch (error) {
@@ -183,11 +513,117 @@ async function loadInflateablesData(): Promise<any[]> {
   }
 }
 
+async function loadMembershipInflateables(): Promise<any[]> {
+  try {
+    const inflateables = await loadInflateablesData();
+    // Filter only items marked as membership: true
+    return inflateables.filter((item: any) => item.membership === true);
+  } catch (error) {
+    console.error('Error loading membership inflatables:', error);
+    return [];
+  }
+}
+
+function calculateNextWeekdayDate(weekday: string): Date {
+  const today = new Date();
+  const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const targetDay = weekdays.indexOf(weekday);
+  
+  if (targetDay === -1) {
+    // Invalid weekday, return today
+    return today;
+  }
+  
+  const currentDay = today.getDay();
+  let daysUntilTarget = (targetDay - currentDay + 7) % 7;
+  
+  // If today is the target day, get next week's occurrence
+  if (daysUntilTarget === 0) {
+    daysUntilTarget = 7;
+  }
+  
+  const nextDate = new Date(today);
+  nextDate.setDate(today.getDate() + daysUntilTarget);
+  
+  return nextDate;
+}
+
+// Function to calculate the first occurrence of weekday in the month (matching calculateActualEventDate logic)
+function calculateFirstWeekdayInMonth(weekday: string): Date {
+  console.log(`🗓️ calculateFirstWeekdayInMonth called with weekday: "${weekday}"`);
+  
+  const today = new Date();
+  const targetWeekday = ['monday', 'tuesday', 'wednesday', 'thursday'].indexOf(weekday.toLowerCase());
+  
+  console.log(`Target weekday index: ${targetWeekday} (${weekday.toLowerCase()})`);
+  
+  if (targetWeekday === -1) {
+    console.log('❌ Invalid weekday, returning today');
+    return today;
+  }
+  
+  // Start from today and find the next first occurrence of weekday in a month
+  let currentDate = new Date(today);
+  
+  // Look ahead up to 4 months
+  while (currentDate <= new Date(today.getTime() + 120 * 24 * 60 * 60 * 1000)) {
+    const dayOfWeek = currentDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const targetDay = targetWeekday + 1; // Convert to Date.getDay() format
+    const dayOfMonth = currentDate.getDate();
+    
+    // Check if this is the first occurrence of this weekday in the month (within first 7 days)
+    if (dayOfWeek === targetDay && dayOfMonth <= 7) {
+      // Check if it's at least 2 days in the future for delivery logistics
+      const diffInDays = Math.ceil((currentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      console.log(`✅ Found first ${weekday} in month: ${currentDate.toDateString()}, days from today: ${diffInDays}`);
+      
+      if (diffInDays >= 2) {
+        console.log(`✅ Date meets 2-day requirement, returning: ${currentDate.toDateString()}`);
+        return new Date(currentDate);
+      } else {
+        console.log(`❌ Date too soon (${diffInDays} days), continuing search...`);
+      }
+    }
+    
+    // Move to next day
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  
+  return today; // Fallback if no suitable date found
+}
+
+function getWeekdaysInMonth(month: number, year: number): Date[] {
+  const weekdays: Date[] = [];
+  const firstDay = new Date(year, month - 1, 1);
+  const lastDay = new Date(year, month, 0);
+  
+  for (let date = new Date(firstDay); date <= lastDay; date.setDate(date.getDate() + 1)) {
+    const dayOfWeek = date.getDay();
+    // Monday = 1, Tuesday = 2, Wednesday = 3, Thursday = 4
+    if (dayOfWeek >= 1 && dayOfWeek <= 4) {
+      weekdays.push(new Date(date));
+    }
+  }
+  
+  return weekdays;
+}
+
 function parseDuration(duration?: string): number {
   if (!duration) return 1;
   
-  const match = duration.match(/(\d+)/);
-  return match ? parseInt(match[1]) : 1;
+  // Extract number and unit from duration string
+  const match = duration.match(/(\d+)\s*(hours?|hrs?|days?|d)?/i);
+  if (!match) return 1;
+  
+  const value = parseInt(match[1]);
+  const unit = match[2]?.toLowerCase() || 'days';
+  
+  // Convert to days
+  if (unit.startsWith('hour') || unit.startsWith('hr')) {
+    return Math.max(1, Math.ceil(value / 24)); // Convert hours to days, minimum 1 day
+  } else {
+    return value; // Already in days
+  }
 }
 
 function datesOverlap(
@@ -200,6 +636,6 @@ function datesOverlap(
 }
 
 function getBookedItemQuantity(items: any[], itemName: string): number {
-  const item = items.find(item => item.name === itemName);
+  const item = items.find((item: any) => item.name === itemName);
   return item ? (item.quantity || 1) : 0;
 }
