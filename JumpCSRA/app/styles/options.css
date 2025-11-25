@@ -172,6 +172,10 @@
   display: flex;
   justify-content: center;
 }
+
+.swiper-wrapper {
+  display: flex !important;
+}
 .wetdry-box {
   background: var(  --lightBlue);
   color: var(--coral);

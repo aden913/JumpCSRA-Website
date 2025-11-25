@@ -54,53 +54,49 @@ export default function SubscriptionSuccess() {
             const currentData = subscriptionDoc.data();
             setSubscriptionData(currentData);
             
-            // If subscription is still pending, try to activate it
-            if ((currentData.status === 'approval-pending' || currentData.status === 'PENDING_APPROVAL') && currentData.subscriptionId) {
+            // Always call activation when success page loads to ensure:
+            // 1. Subscription status is updated from pending to active  
+            // 2. Welcome email is sent
+            console.log('🎉 SUCCESS PAGE: Calling activation for subscription:', currentData.subscriptionId);
+            
+            setActivationStatus('pending');
+            setActivationMessage('Activating your subscription and sending welcome email...');
+            
+            try {
+              const functions = getFunctions();
+              const activateSubscription = httpsCallable(functions, 'activateSubscription');
               
-              setActivationStatus('pending');
-              setActivationMessage('Contacting PayPal to activate your subscription...');
+              const result = await activateSubscription({
+                subscriptionId: currentData.subscriptionId,
+                baToken: baToken
+              });
               
-              try {
-                const functions = getFunctions();
-                const activateSubscription = httpsCallable(functions, 'activateSubscription');
+              if (result.data && (result.data as any).success) {
+                setActivationStatus('success');
+                setActivationMessage('Subscription activated and welcome email sent!');
+                console.log('✅ SUCCESS PAGE: Activation completed successfully');
                 
-                const result = await activateSubscription({
-                  subscriptionId: currentData.subscriptionId,
-                  baToken: baToken
-                });
+                // Reload subscription data to get updated status
+                const updatedQuery = query(activeSubscriptionsRef, limit(10));
+                const updatedSnapshot = await getDocs(updatedQuery);
                 
-                
-                if (result.data && (result.data as any).success) {
-                  setActivationStatus('success');
-                  setActivationMessage((result.data as any).message || 'Subscription activated successfully!');
-                  
-                  // Reload subscription data to get updated status
-                  const updatedQuery = query(activeSubscriptionsRef, limit(10));
-                  const updatedSnapshot = await getDocs(updatedQuery);
-                  
-                  if (!updatedSnapshot.empty) {
-                    const updatedDoc = updatedSnapshot.docs[0];
-                    const updatedData = updatedDoc.data();
-                    setSubscriptionData(updatedData);
-                  } else {
-                    console.error('❌ SUCCESS PAGE: Updated subscription document not found after activation');
-                  }
+                if (!updatedSnapshot.empty) {
+                  const updatedDoc = updatedSnapshot.docs[0];
+                  const updatedData = updatedDoc.data();
+                  setSubscriptionData(updatedData);
+                  console.log('✅ SUCCESS PAGE: Subscription data refreshed, new status:', updatedData.status);
                 } else {
-                  console.error('❌ SUCCESS PAGE: Activation failed:', result.data);
-                  setActivationStatus('error');
-                  setActivationMessage((result.data as any).message || 'Failed to activate subscription');
+                  console.error('❌ SUCCESS PAGE: Updated subscription document not found after activation');
                 }
-              } catch (functionError) {
-                console.error('❌ SUCCESS PAGE: Error calling activation function:', functionError);
+              } else {
+                console.error('❌ SUCCESS PAGE: Activation failed:', result.data);
                 setActivationStatus('error');
-                setActivationMessage(`Function error: ${functionError instanceof Error ? functionError.message : 'Unknown error'}`);
+                setActivationMessage((result.data as any).message || 'Failed to activate subscription');
               }
-            } else if (currentData.status === 'Active') {
-              setActivationStatus('success');
-              setActivationMessage('Subscription is already active!');
-            } else {
+            } catch (activationError) {
+              console.error('❌ SUCCESS PAGE: Error calling activation function:', activationError);
               setActivationStatus('error');
-              setActivationMessage(`Unexpected subscription status: ${currentData.status}`);
+              setActivationMessage(`Activation error: ${activationError instanceof Error ? activationError.message : 'Unknown error'}`);
             }
           } else {
             // No subscription document found, but we have subscription data from PayPal

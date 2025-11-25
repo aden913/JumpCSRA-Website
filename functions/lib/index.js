@@ -1,7 +1,7 @@
 "use strict";
 var _a, _b;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createMembershipBooking = exports.dailySubscriptionCleanup = exports.triggerPayPalSetup = exports.debugSubscriptionDatabase = exports.activateSubscription = exports.reactivatePayPalSubscription = exports.cancelPayPalSubscription = exports.getPayPalSubscriptionDetails = exports.paypalSubscriptionWebhook = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.sendAccountDeletionEmail = exports.autoCompleteBookings = exports.autoCancelPendingOrders = exports.processScheduledEmails = exports.triggerTestEmail = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.testPayPalDebug = exports.setupPayPalPlansStandalone = exports.testFunction = exports.debugEnvironment = void 0;
+exports.createMembershipBooking = exports.dailySubscriptionCleanup = exports.triggerPayPalSetup = exports.debugSubscriptionDatabase = exports.activateSubscription = exports.reactivatePayPalSubscription = exports.cancelPayPalSubscription = exports.getPayPalSubscriptionDetails = exports.paypalSubscriptionWebhook = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.sendMembershipCancellationEmail = exports.testMembershipConfirmationEmail = exports.sendAccountDeletionEmail = exports.autoCompleteBookings = exports.autoCancelPendingOrders = exports.processScheduledEmails = exports.triggerTestEmail = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendMembershipWelcomeEmail = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.testPayPalDebug = exports.setupPayPalPlansStandalone = exports.testFunction = exports.debugEnvironment = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const sgMail = require("@sendgrid/mail");
@@ -787,6 +787,55 @@ exports.sendGiftCardEmailOnCreate = functions.firestore
         }
     }
 });
+// Standalone callable function to send membership welcome email
+exports.sendMembershipWelcomeEmail = functions.https.onCall(async (data, context) => {
+    // Verify that the user is authenticated
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to send welcome emails.');
+    }
+    try {
+        console.log('🎉 STANDALONE WELCOME EMAIL: Starting for subscription:', data.subscriptionId);
+        // Get user document to retrieve subscription data
+        const userDocRef = admin.firestore().collection('users').doc(data.userId);
+        const userDocSnapshot = await userDocRef.get();
+        if (!userDocSnapshot.exists) {
+            console.error('❌ STANDALONE WELCOME EMAIL: User document not found');
+            throw new functions.https.HttpsError('not-found', 'User document not found');
+        }
+        const userData = userDocSnapshot.data();
+        // Check if welcome email already sent to avoid duplicates
+        if (userData === null || userData === void 0 ? void 0 : userData.welcomeEmailSent) {
+            console.log('ℹ️ STANDALONE WELCOME EMAIL: Welcome email already sent, skipping');
+            return { success: true, message: 'Welcome email already sent' };
+        }
+        // Get subscription data from the user's activeSubscriptions subcollection
+        const subscriptionRef = admin.firestore()
+            .collection('users')
+            .doc(data.userId)
+            .collection('activeSubscriptions')
+            .doc(data.subscriptionId);
+        const subscriptionDoc = await subscriptionRef.get();
+        if (!subscriptionDoc.exists) {
+            console.error('❌ STANDALONE WELCOME EMAIL: Subscription not found in users/${data.userId}/activeSubscriptions/${data.subscriptionId}');
+            throw new functions.https.HttpsError('not-found', 'Subscription not found');
+        }
+        const subscriptionData = subscriptionDoc.data();
+        // Send the welcome email using our existing internal function
+        // Pass the userEmail from the frontend as a fallback
+        await sendMembershipWelcomeEmailInternal(subscriptionData, data.subscriptionId, data.userEmail);
+        // Mark welcome email as sent
+        await userDocRef.update({
+            welcomeEmailSent: true,
+            welcomeEmailSentAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        console.log('✅ STANDALONE WELCOME EMAIL: Sent successfully');
+        return { success: true, message: 'Welcome email sent successfully' };
+    }
+    catch (error) {
+        console.error('❌ STANDALONE WELCOME EMAIL: Error:', error);
+        throw new functions.https.HttpsError('internal', `Failed to send welcome email: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+});
 // Cloud Function to send order confirmation email
 // Enhanced SendGrid Email System - Replace PayPal Invoicing
 exports.sendEnhancedOrderConfirmation = functions.https.onCall(async (data, context) => {
@@ -1374,6 +1423,414 @@ async function sendRebookingReminderEmail(booking, bookingId) {
     }
 }
 // ============================================================================
+// MEMBERSHIP BOOKING EMAIL FUNCTIONS - For Jump Club monthly deliveries
+// ============================================================================
+// Helper function to extract inflatable name from booking data
+function getInflatableName(booking) {
+    // Try multiple possible sources for the inflatable name
+    if (booking.selectedInflatable) {
+        // If selectedInflatable is an object, get the name property
+        if (typeof booking.selectedInflatable === 'object' && booking.selectedInflatable.name) {
+            return booking.selectedInflatable.name;
+        }
+        // If selectedInflatable is already a string, use it
+        if (typeof booking.selectedInflatable === 'string') {
+            return booking.selectedInflatable;
+        }
+    }
+    // Fallback to inflatableName
+    if (booking.inflatableName && typeof booking.inflatableName === 'string') {
+        return booking.inflatableName;
+    }
+    // Final fallback
+    return 'Your selected inflatable';
+}
+// Subscription welcome email (sent when subscription is first activated)
+async function sendMembershipWelcomeEmailInternal(subscriptionData, subscriptionId, fallbackEmail) {
+    try {
+        console.log('🎉 WELCOME EMAIL: Starting sendMembershipWelcomeEmailInternal...');
+        console.log('🎉 WELCOME EMAIL: Subscription data:', JSON.stringify(subscriptionData, null, 2));
+        console.log('🎉 WELCOME EMAIL: SubscriptionId:', subscriptionId);
+        // Use fallback email if subscription doesn't have email fields
+        const recipientEmail = subscriptionData.customerEmail || subscriptionData.userEmail || fallbackEmail;
+        console.log('🎉 WELCOME EMAIL: Target email:', recipientEmail);
+        if (!recipientEmail) {
+            throw new Error('No recipient email available');
+        }
+        // Check if SendGrid API key is available
+        if (!sendGridApiKey) {
+            throw new Error('SendGrid API key not configured');
+        }
+        console.log('🎉 WELCOME EMAIL: SendGrid API key is configured');
+        const msg = {
+            to: recipientEmail,
+            from: 'jumpcsra@gmail.com',
+            subject: `🎪 Welcome to Jump Club! Your Monthly Subscription is Active`,
+            html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f4f4; }
+            .container { max-width: 600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 10px; }
+            .header { text-align: center; color: #ff6b35; margin-bottom: 20px; }
+            .content { line-height: 1.6; color: #333; }
+            .highlight { background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 15px 0; }
+            .success { background-color: #d4edda; padding: 15px; border-radius: 5px; margin: 15px 0; color: #155724; }
+            .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>🎪 Welcome to Jump Club! 🎪</h1>
+              <p style="font-size: 18px; color: #28a745;">Your Monthly Subscription is Now Active!</p>
+            </div>
+            <div class="content">
+              <p>Hi ${subscriptionData.customerName || subscriptionData.userName || 'Jump Club Member'}!</p>
+              
+              <div class="success">
+                <h3>🎉 Congratulations! Your Jump Club subscription is now active!</h3>
+                <p>You're now part of our exclusive monthly inflatable delivery service. Get ready for endless bouncing fun delivered right to your door!</p>
+              </div>
+              
+              <div class="highlight">
+                <h3>📋 Your Subscription Details:</h3>
+                <p><strong>💳 Plan:</strong> Jump Club Monthly Membership</p>
+                <p><strong>📅 Billing:</strong> Monthly</p>
+                <p><strong>🆔 Subscription ID:</strong> ${subscriptionId}</p>
+                <p><strong>✅ Status:</strong> Active</p>
+              </div>
+              
+              <p><strong>What happens next?</strong></p>
+              <ol>
+                <li><strong>📱 Complete Your Profile:</strong> Visit your member dashboard to select your preferred delivery day and first inflatable</li>
+                <li><strong>🎈 Choose Your Inflatable:</strong> Browse our amazing selection of bounce houses, slides, and more</li>
+                <li><strong>📅 Schedule Delivery:</strong> Pick your perfect day for monthly deliveries</li>
+                <li><strong>🎪 Start Bouncing:</strong> Enjoy premium inflatable fun every month!</li>
+              </ol>
+              
+              <div class="highlight">
+                <h3>🎁 Member Benefits:</h3>
+                <ul>
+                  <li>Monthly premium inflatable delivery</li>
+                  <li>Priority booking for special events</li>
+                  <li>Exclusive member discounts</li>
+                  <li>Free setup and takedown</li>
+                  <li>24/7 member support</li>
+                </ul>
+              </div>
+              
+              <p>Ready to get started? Log in to your account and complete your delivery preferences!</p>
+              
+              <p><strong>Questions?</strong> Reply to this email or contact our member support team anytime.</p>
+              
+              <p>Welcome to the Jump Club family! 🚀</p>
+              <p><strong>The Jump Club Team</strong></p>
+            </div>
+            <div class="footer">
+              <p>Jump Club - Making Every Day Bouncy! 🎪</p>
+              <p>Questions? Reply to this email or contact us anytime!</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+            categories: ['membership-welcome', 'transactional']
+        };
+        console.log('🎉 WELCOME EMAIL: Email message prepared:', JSON.stringify({ to: msg.to, subject: msg.subject }, null, 2));
+        console.log('🎉 WELCOME EMAIL: Attempting to send via SendGrid...');
+        await sgMail.send(msg);
+        console.log('✅ WELCOME EMAIL: SendGrid send successful!');
+    }
+    catch (error) {
+        console.error('❌ Error sending membership welcome email:', error);
+        throw error;
+    }
+}
+// Membership booking confirmation email (sent immediately)
+async function sendMembershipConfirmationEmail(booking, bookingId) {
+    try {
+        console.log('📧 MEMBERSHIP EMAIL: Starting sendMembershipConfirmationEmail...');
+        console.log('📧 MEMBERSHIP EMAIL: Booking data:', JSON.stringify(booking, null, 2));
+        console.log('📧 MEMBERSHIP EMAIL: BookingId:', bookingId);
+        console.log('📧 MEMBERSHIP EMAIL: Target email:', booking.customerEmail || booking.userEmail);
+        // Check if SendGrid API key is available
+        if (!sendGridApiKey) {
+            throw new Error('SendGrid API key not configured');
+        }
+        console.log('📧 MEMBERSHIP EMAIL: SendGrid API key is configured');
+        const deliveryDate = booking.actualDeliveryDate ?
+            new Date(booking.actualDeliveryDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) :
+            `${booking.selectedWeekday}s`;
+        console.log('📧 MEMBERSHIP EMAIL: Delivery date formatted:', deliveryDate);
+        // Get the correct inflatable name
+        const inflatableName = getInflatableName(booking);
+        console.log('📧 MEMBERSHIP EMAIL: Inflatable name extracted:', inflatableName);
+        const msg = {
+            to: booking.customerEmail || booking.userEmail,
+            from: 'jumpcsra@gmail.com',
+            subject: `Jump Club Booking Confirmed! 🎪 Your Monthly Delivery is Scheduled`,
+            html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #ff6b6b, #4ecdc4); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="margin: 0; font-size: 28px;">🎪 Jump Club Booking Confirmed!</h1>
+            <p style="margin: 10px 0 0 0; font-size: 18px;">Your monthly inflatable is on the way!</p>
+          </div>
+          
+          <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h2 style="color: #333; margin-top: 0;">Hi ${booking.customerName || booking.userName || 'Jump Club Member'}!</h2>
+            
+            <p style="font-size: 16px; line-height: 1.6;">Great news! Your Jump Club membership booking has been confirmed. Get ready for some bouncing fun!</p>
+            
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #ff6b6b; margin-top: 0;">📦 Your Delivery Details</h3>
+              <p><strong>Inflatable:</strong> ${inflatableName}</p>
+              <p><strong>Delivery Date:</strong> ${deliveryDate}</p>
+              <p><strong>Address:</strong> ${booking.deliveryAddress}</p>
+              <p><strong>Surface:</strong> ${booking.selectedSurface || booking.surfaceType || 'As discussed'}</p>
+              <p><strong>Setup:</strong> ${booking.selectedStakesOrSandbags || booking.anchoringMethod || 'As discussed'}</p>
+              <p><strong>Booking ID:</strong> ${bookingId}</p>
+            </div>
+            
+            <div style="background: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #2e8b2e; margin-top: 0;">🎈 What's Next?</h3>
+              <ul style="margin: 10px 0; padding-left: 20px;">
+                <li>We'll send you a reminder 3 days before delivery</li>
+                <li>Our team will contact you to confirm delivery details</li>
+                <li>Enjoy your monthly inflatable adventure!</li>
+              </ul>
+            </div>
+            
+            <p style="font-size: 16px; line-height: 1.6;">Thank you for being a Jump Club member! If you have any questions, just reply to this email.</p>
+            
+            <div style="text-align: center; margin-top: 30px; padding: 20px; background: #333; color: white; border-radius: 8px;">
+              <p><strong>Jump Club Rental & Sales</strong></p>
+              <p>📧 jumpcsra@gmail.com</p>
+              <p>Making memories one bounce at a time!</p>
+            </div>
+          </div>
+        </div>
+      `,
+            categories: ['membership-confirmation', 'transactional']
+        };
+        console.log('📧 MEMBERSHIP EMAIL: Email message prepared:', JSON.stringify(msg, null, 2));
+        console.log('📧 MEMBERSHIP EMAIL: Attempting to send via SendGrid...');
+        await sgMail.send(msg);
+        console.log('✅ MEMBERSHIP EMAIL: SendGrid send successful!');
+        console.log('✅ Membership booking confirmation email sent successfully');
+    }
+    catch (error) {
+        console.error('❌ MEMBERSHIP EMAIL: Error in sendMembershipConfirmationEmail:', error);
+        console.error('❌ MEMBERSHIP EMAIL: Error details:', JSON.stringify(error, null, 2));
+        throw error;
+    }
+}
+// Membership event confirmation email (sent 3 days before)
+async function sendMembershipEventConfirmationEmail(booking, bookingId) {
+    try {
+        console.log('📧 Sending membership event confirmation email to:', booking.customerEmail || booking.userEmail);
+        const deliveryDate = booking.actualDeliveryDate ?
+            new Date(booking.actualDeliveryDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) :
+            'your scheduled delivery day';
+        // Get the correct inflatable name
+        const inflatableName = getInflatableName(booking);
+        console.log('📧 EVENT EMAIL: Inflatable name extracted:', inflatableName);
+        const msg = {
+            to: booking.customerEmail || booking.userEmail,
+            from: 'jumpcsra@gmail.com',
+            subject: `Jump Club Delivery in 3 Days! 🚚 ${inflatableName}`,
+            html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #4ecdc4, #44a08d); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="margin: 0; font-size: 28px;">🚚 Delivery in 3 Days!</h1>
+            <p style="margin: 10px 0 0 0; font-size: 18px;">Your Jump Club inflatable is almost here!</p>
+          </div>
+          
+          <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h2 style="color: #333; margin-top: 0;">Hi ${booking.customerName || booking.userName || 'Jump Club Member'}!</h2>
+            
+            <p style="font-size: 16px; line-height: 1.6;">Get ready! Your monthly inflatable delivery is just 3 days away.</p>
+            
+            <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4ecdc4;">
+              <h3 style="color: #4ecdc4; margin-top: 0;">📦 Delivery Reminder</h3>
+              <p><strong>What's Coming:</strong> ${inflatableName}</p>
+              <p><strong>When:</strong> ${deliveryDate}</p>
+              <p><strong>Where:</strong> ${booking.deliveryAddress}</p>
+              <p><strong>Surface:</strong> ${booking.selectedSurface || booking.surfaceType || 'As discussed'}</p>
+            </div>
+            
+            <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #ffc107;">
+              <h3 style="color: #856404; margin-top: 0;">📋 Please Prepare</h3>
+              <ul style="margin: 10px 0; padding-left: 20px; color: #856404;">
+                <li>Clear the setup area of any obstacles</li>
+                <li>Ensure easy access for our delivery team</li>
+                <li>Have water access available if needed</li>
+                <li>Be available during the delivery window</li>
+              </ul>
+            </div>
+            
+            <p style="font-size: 16px; line-height: 1.6;">Need to reschedule or have questions? Contact us right away!</p>
+            
+            <div style="text-align: center; margin-top: 30px; padding: 20px; background: #333; color: white; border-radius: 8px;">
+              <p><strong>Jump Club Rental & Sales</strong></p>
+              <p>📧 jumpcsra@gmail.com</p>
+              <p>Making memories one bounce at a time!</p>
+            </div>
+          </div>
+        </div>
+      `,
+            categories: ['membership-event-confirmation', 'scheduled']
+        };
+        await sgMail.send(msg);
+        console.log('✅ Membership event confirmation email sent successfully');
+    }
+    catch (error) {
+        console.error('❌ Error sending membership event confirmation email:', error);
+        throw error;
+    }
+}
+// Membership post-event thank you email (sent 1 day after)
+async function sendMembershipPostEventThanksEmail(booking, bookingId) {
+    try {
+        console.log('📧 Sending membership post-event thank you email to:', booking.customerEmail || booking.userEmail);
+        // Get the correct inflatable name
+        const inflatableName = getInflatableName(booking);
+        console.log('📧 POST-EVENT EMAIL: Inflatable name extracted:', inflatableName);
+        const msg = {
+            to: booking.customerEmail || booking.userEmail,
+            from: 'jumpcsra@gmail.com',
+            subject: `Hope You're Bouncing with Joy! 🎈 Jump Club Check-in`,
+            html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #ff9a9e, #fad0c4); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="margin: 0; font-size: 28px;">🎈 Hope You Had a Blast!</h1>
+            <p style="margin: 10px 0 0 0; font-size: 18px;">Thanks for being an awesome Jump Club member!</p>
+          </div>
+          
+          <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h2 style="color: #333; margin-top: 0;">Hi ${booking.customerName || booking.userName || 'Jump Club Member'}!</h2>
+            
+            <p style="font-size: 16px; line-height: 1.6;">We hope you had an amazing time with your ${inflatableName}! There's nothing quite like seeing the joy on everyone's faces during a bounce-filled day.</p>
+            
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #ff6b6b; margin-top: 0;">🌟 How Did We Do?</h3>
+              <p>Your feedback helps us improve our service and ensures every Jump Club member has the best experience possible.</p>
+              <div style="text-align: center; margin: 15px 0;">
+                <a href="https://jumpcsra.com/feedback?booking=${bookingId}" style="background: #ff6b6b; color: white; padding: 12px 25px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">Share Your Feedback</a>
+              </div>
+            </div>
+            
+            <div style="background: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #2e8b2e; margin-top: 0;">📱 Share Your Fun!</h3>
+              <p>Got some great photos or videos? We'd love to see them! Tag us on social media or send them our way - with your permission, we might feature them to inspire other families!</p>
+            </div>
+            
+            <div style="background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #856404; margin-top: 0;">🎪 Your Next Adventure</h3>
+              <p>As a Jump Club member, your next monthly inflatable is already being planned! Keep an eye out for our delivery confirmation in the coming weeks.</p>
+            </div>
+            
+            <p style="font-size: 16px; line-height: 1.6;">Thank you for choosing Jump Club for your family's fun! We can't wait to bring more joy to your next celebration.</p>
+            
+            <div style="text-align: center; margin-top: 30px; padding: 20px; background: #333; color: white; border-radius: 8px;">
+              <p><strong>Jump Club Rental & Sales</strong></p>
+              <p>📧 jumpcsra@gmail.com</p>
+              <p>Making memories one bounce at a time!</p>
+            </div>
+          </div>
+        </div>
+      `,
+            categories: ['membership-post-event', 'marketing']
+        };
+        await sgMail.send(msg);
+        console.log('✅ Membership post-event thank you email sent successfully');
+    }
+    catch (error) {
+        console.error('❌ Error sending membership post-event thank you email:', error);
+        throw error;
+    }
+}
+// Membership cancellation confirmation email
+async function sendMembershipCancellationEmailInternal(membershipData, membershipId) {
+    try {
+        console.log('📧 Sending membership cancellation email to:', membershipData.customerEmail || membershipData.userEmail);
+        // Check if SendGrid API key is available
+        if (!sendGridApiKey) {
+            throw new Error('SendGrid API key not configured');
+        }
+        console.log('📧 CANCELLATION EMAIL: SendGrid API key is configured');
+        const cancellationDate = new Date().toLocaleDateString('en-US', {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+        });
+        // Calculate billing period end (assuming monthly billing)
+        const billingPeriodEnd = membershipData.nextBillingDate ?
+            new Date(membershipData.nextBillingDate).toLocaleDateString('en-US', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+            }) :
+            new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+            });
+        // Get the correct inflatable name
+        const inflatableName = getInflatableName(membershipData);
+        console.log('📧 CANCELLATION EMAIL: Inflatable name extracted:', inflatableName);
+        const msg = {
+            to: membershipData.customerEmail || membershipData.userEmail,
+            from: 'jumpcsra@gmail.com',
+            subject: `Jump Club Membership Cancelled 💔 We'll Miss You!`,
+            html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <div style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+            <h1 style="margin: 0; font-size: 28px;">💔 We're Sorry to See You Go</h1>
+            <p style="margin: 10px 0 0 0; font-size: 18px;">Your Jump Club membership has been cancelled</p>
+          </div>
+          
+          <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+            <h2 style="color: #333; margin-top: 0;">Hi ${membershipData.customerName || membershipData.userName || 'Jump Club Member'}!</h2>
+            
+            <p style="font-size: 16px; line-height: 1.6;">We've processed your membership cancellation request as of ${cancellationDate}. While we're sad to see you go, we completely understand that circumstances change.</p>
+            
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #ff6b6b; margin-top: 0;">📋 Cancellation Details</h3>
+              <p><strong>Membership ID:</strong> ${membershipId}</p>
+              <p><strong>Cancellation Date:</strong> ${cancellationDate}</p>
+              <p><strong>Your Plan:</strong> ${membershipData.plan || membershipData.selectedPlan || 'Jump Club Membership'}</p>
+              ${membershipData.lastDeliveryDate ? `<p><strong>Last Delivery:</strong> ${membershipData.lastDeliveryDate}</p>` : ''}
+              <p><strong>Billing Period Ends:</strong> ${billingPeriodEnd}</p>
+              ${membershipData.refundAmount ? `<p><strong>Refund Amount:</strong> $${membershipData.refundAmount}</p>` : ''}
+            </div>
+            
+            <div style="background: #e7f3ff; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <h3 style="color: #0066cc; margin-top: 0;">🔄 What Happens Next?</h3>
+              <ul style="margin: 0; padding-left: 20px;">
+                <li>Your membership will remain active until ${billingPeriodEnd}</li>
+                <li>No further charges will be processed</li>
+                ${membershipData.refundAmount ? '<li>Your refund will be processed within 5-7 business days</li>' : ''}
+                <li>You can still contact us if you have any questions</li>
+              </ul>
+            </div>
+            
+            <p style="font-size: 16px; line-height: 1.6;">Thank you for being part of the Jump Club family! If you ever want to bounce back into the fun, we'll be here with open arms (and awesome inflatables!).</p>
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <p style="font-size: 18px; color: #ff6b6b; margin: 0;"><strong>Keep bouncing! 🎪</strong></p>
+              <p style="margin: 5px 0 0 0;">The Jump Club Team</p>
+            </div>
+          </div>
+        </div>
+      `
+        };
+        console.log('📧 CANCELLATION EMAIL: Sending message with SendGrid...');
+        console.log('📧 CANCELLATION EMAIL: Message details:', JSON.stringify({ to: msg.to, subject: msg.subject }, null, 2));
+        await sgMail.send(msg);
+        console.log('✅ Membership cancellation email sent successfully via SendGrid');
+    }
+    catch (error) {
+        console.error('❌ Error sending membership cancellation email:', error);
+        throw error;
+    }
+}
+// ============================================================================
 // EMAIL TEMPLATE GENERATORS - HTML templates for scheduled emails
 // ============================================================================
 // Cart abandonment email template
@@ -1787,6 +2244,36 @@ exports.triggerTestEmail = functions.https.onCall(async (data, context) => {
                     return { success: true, message: 'Rebooking reminder email sent' };
                 }
                 throw new Error('Booking not found');
+            case 'membership-confirmation':
+                if (!data.bookingId)
+                    throw new Error('bookingId required for membership confirmation email');
+                const membershipBookingRef = db.ref(`bookings/membershipBookings/${data.bookingId}`);
+                const membershipBookingSnapshot = await membershipBookingRef.once('value');
+                if (membershipBookingSnapshot.exists()) {
+                    await sendMembershipConfirmationEmail(membershipBookingSnapshot.val(), data.bookingId);
+                    return { success: true, message: 'Membership confirmation email sent' };
+                }
+                throw new Error('Membership booking not found');
+            case 'membership-event-confirmation':
+                if (!data.bookingId)
+                    throw new Error('bookingId required for membership event confirmation email');
+                const membershipEventBookingRef = db.ref(`bookings/membershipBookings/${data.bookingId}`);
+                const membershipEventBookingSnapshot = await membershipEventBookingRef.once('value');
+                if (membershipEventBookingSnapshot.exists()) {
+                    await sendMembershipEventConfirmationEmail(membershipEventBookingSnapshot.val(), data.bookingId);
+                    return { success: true, message: 'Membership event confirmation email sent' };
+                }
+                throw new Error('Membership booking not found');
+            case 'membership-post-event-thanks':
+                if (!data.bookingId)
+                    throw new Error('bookingId required for membership post-event email');
+                const membershipPostEventBookingRef = db.ref(`bookings/membershipBookings/${data.bookingId}`);
+                const membershipPostEventBookingSnapshot = await membershipPostEventBookingRef.once('value');
+                if (membershipPostEventBookingSnapshot.exists()) {
+                    await sendMembershipPostEventThanksEmail(membershipPostEventBookingSnapshot.val(), data.bookingId);
+                    return { success: true, message: 'Membership post-event thank you email sent' };
+                }
+                throw new Error('Membership booking not found');
             case 'process-all-scheduled':
                 const now = Date.now();
                 await processCartAbandonmentEmails(db, now);
@@ -1794,9 +2281,11 @@ exports.triggerTestEmail = functions.https.onCall(async (data, context) => {
                 await processEventConfirmationEmails(db, now);
                 await processPostEventEmails(db, now);
                 await processRebookingReminderEmails(db, now);
-                return { success: true, message: 'All scheduled emails processed' };
+                await processMembershipEventConfirmationEmails(db, now);
+                await processMembershipPostEventEmails(db, now);
+                return { success: true, message: 'All scheduled emails processed (including membership)' };
             default:
-                throw new Error('Invalid email type. Use: cart-abandonment, deposit-reminder, event-confirmation, post-event-thanks, rebooking-reminder, or process-all-scheduled');
+                throw new Error('Invalid email type. Use: cart-abandonment, deposit-reminder, event-confirmation, post-event-thanks, rebooking-reminder, membership-confirmation, membership-event-confirmation, membership-post-event-thanks, or process-all-scheduled');
         }
     }
     catch (error) {
@@ -1847,6 +2336,9 @@ exports.processScheduledEmails = functions.pubsub
         await processPostEventEmails(db, now);
         // Process rebooking reminder emails
         await processRebookingReminderEmails(db, now);
+        // Process membership booking emails
+        await processMembershipEventConfirmationEmails(db, now);
+        await processMembershipPostEventEmails(db, now);
         console.log('✅ SCHEDULER: All scheduled emails processed successfully');
     }
     catch (error) {
@@ -2041,6 +2533,123 @@ async function processRebookingReminderEmails(db, now) {
     catch (error) {
         console.error('❌ SCHEDULER: Error processing rebooking reminder emails:', error);
     }
+}
+// ============================================================================
+// MEMBERSHIP BOOKING EMAIL PROCESSING - For Jump Club monthly deliveries
+// ============================================================================
+// Helper function to process membership event confirmation emails
+async function processMembershipEventConfirmationEmails(db, now) {
+    try {
+        console.log('📧 SCHEDULER: Checking membership event confirmation emails...');
+        const membershipBookingsRef = db.ref('bookings/membershipBookings');
+        const snapshot = await membershipBookingsRef.once('value');
+        if (!snapshot.exists()) {
+            console.log('📧 SCHEDULER: No membership bookings found');
+            return;
+        }
+        const membershipBookings = snapshot.val();
+        let emailsSent = 0;
+        for (const [bookingId, bookingData] of Object.entries(membershipBookings)) {
+            const booking = bookingData;
+            // Only process confirmed membership bookings
+            if (booking.bookingStatus !== 'confirmed')
+                continue;
+            // Calculate event date from actualDeliveryDate
+            let eventDate = null;
+            if (booking.actualDeliveryDate) {
+                eventDate = new Date(booking.actualDeliveryDate);
+            }
+            else if (booking.selectedWeekday) {
+                // Calculate next delivery date based on weekday
+                eventDate = calculateNextWeekdayDate(booking.selectedWeekday);
+            }
+            if (!eventDate)
+                continue;
+            const eventDateTime = eventDate.getTime();
+            const timeUntilEvent = eventDateTime - now;
+            // Send confirmation 3 days before delivery
+            if (timeUntilEvent <= EMAIL_TIMING.EVENT_CONFIRMATION && timeUntilEvent > 0) {
+                const emailSentKey = `membershipEventConfirmation_${bookingId}`;
+                const emailRef = db.ref(`emailsSent/${emailSentKey}`);
+                const emailSentSnapshot = await emailRef.once('value');
+                if (!emailSentSnapshot.exists()) {
+                    await sendMembershipEventConfirmationEmail(booking, bookingId);
+                    await emailRef.set({ sentAt: now, type: 'membership-event-confirmation' });
+                    emailsSent++;
+                }
+            }
+        }
+        console.log(`📧 SCHEDULER: Sent ${emailsSent} membership event confirmation emails`);
+    }
+    catch (error) {
+        console.error('❌ SCHEDULER: Error processing membership event confirmation emails:', error);
+    }
+}
+// Helper function to process membership post-event thank you emails
+async function processMembershipPostEventEmails(db, now) {
+    try {
+        console.log('📧 SCHEDULER: Checking membership post-event emails...');
+        const membershipBookingsRef = db.ref('bookings/membershipBookings');
+        const snapshot = await membershipBookingsRef.once('value');
+        if (!snapshot.exists()) {
+            console.log('📧 SCHEDULER: No membership bookings found');
+            return;
+        }
+        const membershipBookings = snapshot.val();
+        let emailsSent = 0;
+        for (const [bookingId, bookingData] of Object.entries(membershipBookings)) {
+            const booking = bookingData;
+            // Only process confirmed membership bookings
+            if (booking.bookingStatus !== 'confirmed')
+                continue;
+            // Calculate event date from actualDeliveryDate
+            let eventDate = null;
+            if (booking.actualDeliveryDate) {
+                eventDate = new Date(booking.actualDeliveryDate);
+            }
+            else if (booking.selectedWeekday) {
+                // Calculate delivery date based on weekday
+                eventDate = calculateNextWeekdayDate(booking.selectedWeekday);
+            }
+            if (!eventDate)
+                continue;
+            const eventDateTime = eventDate.getTime();
+            const timeSinceEvent = now - eventDateTime;
+            // Send thank you 1 day after delivery
+            if (timeSinceEvent >= EMAIL_TIMING.POST_EVENT_THANKS) {
+                const emailSentKey = `membershipPostEventThanks_${bookingId}`;
+                const emailRef = db.ref(`emailsSent/${emailSentKey}`);
+                const emailSentSnapshot = await emailRef.once('value');
+                if (!emailSentSnapshot.exists()) {
+                    await sendMembershipPostEventThanksEmail(booking, bookingId);
+                    await emailRef.set({ sentAt: now, type: 'membership-post-event-thanks' });
+                    emailsSent++;
+                }
+            }
+        }
+        console.log(`📧 SCHEDULER: Sent ${emailsSent} membership post-event emails`);
+    }
+    catch (error) {
+        console.error('❌ SCHEDULER: Error processing membership post-event emails:', error);
+    }
+}
+// Helper function to calculate next delivery date for a weekday
+function calculateNextWeekdayDate(weekday) {
+    const weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    const targetWeekday = weekdays.indexOf(weekday.toLowerCase());
+    if (targetWeekday === -1) {
+        throw new Error(`Invalid weekday: ${weekday}`);
+    }
+    const today = new Date();
+    const currentWeekday = today.getDay();
+    let daysUntilTarget = targetWeekday - currentWeekday;
+    if (daysUntilTarget <= 0) {
+        daysUntilTarget += 7; // Next week
+    }
+    const targetDate = new Date(today);
+    targetDate.setDate(today.getDate() + daysUntilTarget);
+    targetDate.setHours(10, 0, 0, 0); // Default to 10 AM delivery
+    return targetDate;
 }
 // Scheduled function to auto-cancel pending orders on event day
 exports.autoCancelPendingOrders = functions.pubsub
@@ -2377,6 +2986,70 @@ exports.sendAccountDeletionEmail = functions.https.onCall(async (data, context) 
             console.error('SendGrid error response:', (_a = error.response) === null || _a === void 0 ? void 0 : _a.body);
         }
         throw new functions.https.HttpsError('internal', 'Failed to send account deletion email.');
+    }
+});
+// Test function to manually trigger membership confirmation email
+exports.testMembershipConfirmationEmail = functions.https.onCall(async (data, context) => {
+    try {
+        const testBooking = {
+            customerEmail: data.email || 'test@example.com',
+            customerName: 'Test User',
+            userName: 'Test User',
+            selectedInflatable: 'Castle Bounce House',
+            inflatableName: 'Castle Bounce House',
+            selectedWeekday: 'Saturday',
+            deliveryAddress: '123 Test Street, Test City, TS 12345',
+            selectedSurface: 'Grass',
+            surfaceType: 'Grass',
+            selectedStakesOrSandbags: 'Stakes',
+            anchoringMethod: 'Stakes'
+        };
+        // Also send a simple test email to check basic delivery
+        if (data.email) {
+            console.log('📧 TEST: Sending simple email to check delivery...');
+            const simpleMsg = {
+                to: data.email,
+                from: 'jumpcsra@gmail.com',
+                subject: 'Simple Test Email - Jump Club',
+                text: 'This is a simple text email to test if emails are reaching you. If you receive this, email delivery is working.',
+                html: '<p>This is a simple HTML email to test delivery. If you receive this, email delivery is working.</p>'
+            };
+            await sgMail.send(simpleMsg);
+            console.log('✅ TEST: Simple email sent');
+        }
+        await sendMembershipConfirmationEmail(testBooking, 'test-booking-123');
+        return {
+            success: true,
+            message: 'Test membership confirmation email sent',
+            sentTo: testBooking.customerEmail
+        };
+    }
+    catch (error) {
+        console.error('Error in test membership confirmation email:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        throw new functions.https.HttpsError('internal', 'Failed to send test email: ' + errorMessage);
+    }
+});
+// Send membership cancellation confirmation email
+exports.sendMembershipCancellationEmail = functions.https.onCall(async (data, context) => {
+    var _a;
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to send cancellation email.');
+    }
+    try {
+        await sendMembershipCancellationEmailInternal(data.membershipData, data.membershipId);
+        console.log(`Membership cancellation email sent successfully for membership ${data.membershipId}`);
+        return {
+            success: true,
+            message: 'Membership cancellation email sent successfully'
+        };
+    }
+    catch (error) {
+        console.error('Error sending membership cancellation email:', error);
+        if (error && typeof error === 'object' && 'response' in error) {
+            console.error('SendGrid error response:', (_a = error.response) === null || _a === void 0 ? void 0 : _a.body);
+        }
+        throw new functions.https.HttpsError('internal', 'Failed to send membership cancellation email.');
     }
 });
 // ============================================
@@ -2798,7 +3471,7 @@ exports.getPayPalSubscriptionDetails = functions.https.onCall(async (data, conte
 });
 // Cancel PayPal subscription
 exports.cancelPayPalSubscription = functions.region('us-central1').https.onCall(async (data, context) => {
-    var _a, _b, _c;
+    var _a, _b, _c, _d, _e, _f, _g;
     console.log('🚨 CANCEL BACKEND: Function called with data:', JSON.stringify(data, null, 2));
     console.log('🚨 CANCEL BACKEND: Context auth:', (_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid);
     try {
@@ -2855,6 +3528,37 @@ exports.cancelPayPalSubscription = functions.region('us-central1').https.onCall(
             endsAt: new Date(Date.now() + (30 * 24 * 60 * 60 * 1000))
         });
         console.log('✅ CANCEL BACKEND: Subscription marked as cancelled in activeSubscriptions:', subscriptionId);
+        // Send cancellation confirmation email - v2
+        try {
+            console.log('📧 CANCEL BACKEND: Preparing to send cancellation email...');
+            // Get subscription data for email
+            const subscriptionDoc = await db.collection('users').doc(userId).collection('activeSubscriptions').doc(subscriptionId).get();
+            if (subscriptionDoc.exists) {
+                const membershipData = subscriptionDoc.data();
+                if (membershipData) {
+                    // Add user email if not present
+                    if (!membershipData.customerEmail && !membershipData.userEmail && ((_d = (_c = context.auth) === null || _c === void 0 ? void 0 : _c.token) === null || _d === void 0 ? void 0 : _d.email)) {
+                        membershipData.customerEmail = context.auth.token.email;
+                    }
+                    if (!membershipData.customerName && !membershipData.userName && ((_f = (_e = context.auth) === null || _e === void 0 ? void 0 : _e.token) === null || _f === void 0 ? void 0 : _f.name)) {
+                        membershipData.customerName = context.auth.token.name;
+                    }
+                    console.log('📧 CANCEL BACKEND: Calling cancellation email function...');
+                    await sendMembershipCancellationEmailInternal(membershipData, subscriptionId);
+                    console.log('✅ CANCEL BACKEND: Cancellation email sent successfully');
+                }
+                else {
+                    console.warn('⚠️ CANCEL BACKEND: Subscription data is empty, skipping email');
+                }
+            }
+            else {
+                console.warn('⚠️ CANCEL BACKEND: Subscription document not found for email, skipping');
+            }
+        }
+        catch (emailError) {
+            console.error('❌ CANCEL BACKEND: Failed to send cancellation email:', emailError);
+            // Don't fail the cancellation if email fails - just log the error
+        }
         console.log('✅ CANCEL BACKEND: Subscription cancelled successfully:', subscriptionId);
         return {
             success: true,
@@ -2866,7 +3570,7 @@ exports.cancelPayPalSubscription = functions.region('us-central1').https.onCall(
         console.error('💥 CANCEL BACKEND: Error details:', {
             message: error.message,
             stack: error.stack,
-            userId: (_c = context.auth) === null || _c === void 0 ? void 0 : _c.uid,
+            userId: (_g = context.auth) === null || _g === void 0 ? void 0 : _g.uid,
             subscriptionId: data === null || data === void 0 ? void 0 : data.subscriptionId
         });
         throw new functions.https.HttpsError('internal', 'Failed to cancel subscription', { error: error.message });
@@ -3183,6 +3887,32 @@ exports.activateSubscription = functions.region('us-central1').https.onCall(asyn
         }
         console.log('🎉 ACTIVATE SUBSCRIPTION: Successfully processed subscription in activeSubscriptions');
         console.log('✅ ACTIVATE SUBSCRIPTION: Document should now exist at users/' + context.auth.uid + '/activeSubscriptions/' + subscriptionId);
+        console.log('🔔 ACTIVATE SUBSCRIPTION: About to check if should send email, finalStatus:', finalStatus);
+        // Send membership confirmation email if subscription is active OR if it was already active
+        // (This handles cases where PayPal subscription was already active when user reached success page)
+        if (finalStatus === 'Active' || subscriptionDetails.status === 'ACTIVE') {
+            try {
+                console.log('📧 ACTIVATE SUBSCRIPTION: Sending membership confirmation email...');
+                // Check if we already sent a welcome email for this subscription
+                const hasWelcomeEmailSent = updateData.welcomeEmailSent || false;
+                if (!hasWelcomeEmailSent) {
+                    console.log('📧 ACTIVATE SUBSCRIPTION: First time activation, sending welcome email...');
+                    // Get user email from auth context as fallback
+                    const userEmail = context.auth.token.email;
+                    await sendMembershipWelcomeEmailInternal(updateData, subscriptionId, userEmail);
+                    console.log('✅ ACTIVATE SUBSCRIPTION: Membership welcome email sent successfully');
+                    // Mark that we sent the welcome email
+                    await activeDocRef.update({ welcomeEmailSent: true, welcomeEmailSentAt: admin.firestore.FieldValue.serverTimestamp() });
+                }
+                else {
+                    console.log('📧 ACTIVATE SUBSCRIPTION: Welcome email already sent for this subscription');
+                }
+            }
+            catch (emailError) {
+                console.error('❌ ACTIVATE SUBSCRIPTION: Failed to send confirmation email:', emailError);
+                // Don't fail the activation if email fails - just log it
+            }
+        }
         return {
             success: true,
             status: finalStatus,
@@ -3422,6 +4152,7 @@ exports.dailySubscriptionCleanup = functions.pubsub.schedule('0 2 * * *')
 });
 // Create membership booking
 exports.createMembershipBooking = functions.region('us-central1').https.onCall(async (data, context) => {
+    var _a, _b, _c, _d;
     console.log('📋 CREATE MEMBERSHIP BOOKING: Function called', data);
     if (!context.auth) {
         console.error('❌ CREATE MEMBERSHIP BOOKING: User not authenticated');
@@ -3449,15 +4180,23 @@ exports.createMembershipBooking = functions.region('us-central1').https.onCall(a
             userId: userId,
             subscriptionId: subscriptionId,
             bookingType: 'membership_monthly',
+            // User Information (for emails)
+            customerEmail: ((_a = context.auth.token) === null || _a === void 0 ? void 0 : _a.email) || '',
+            userEmail: ((_b = context.auth.token) === null || _b === void 0 ? void 0 : _b.email) || '',
+            customerName: ((_c = context.auth.token) === null || _c === void 0 ? void 0 : _c.name) || 'Jump Club Member',
+            userName: ((_d = context.auth.token) === null || _d === void 0 ? void 0 : _d.name) || 'Jump Club Member',
             // Delivery Details
             selectedWeekday: selectedWeekday,
+            selectedInflatable: selectedInflatable,
             actualDeliveryDate: actualDeliveryDate || null,
             deliveryAddress: deliveryAddress,
             // Inflatable Details
             inflatableType: selectedInflatable || '',
             inflatableName: selectedInflatable || '',
             // Setup Details
+            selectedSurface: selectedSurface || 'grass',
             surfaceType: selectedSurface || 'grass',
+            selectedStakesOrSandbags: selectedStakesOrSandbags || null,
             anchoringMethod: selectedStakesOrSandbags || null,
             additionalFee: additionalFee || 0,
             // Status
@@ -3475,7 +4214,15 @@ exports.createMembershipBooking = functions.region('us-central1').https.onCall(a
         // Save booking to Realtime Database: bookings/membershipBookings/{bookingId}
         await rtdb.ref(`bookings/membershipBookings/${bookingId}`).set(bookingData);
         console.log('✅ CREATE MEMBERSHIP BOOKING: Booking saved to Realtime Database at bookings/membershipBookings/' + bookingId);
-        // TODO: Send confirmation email
+        // Send immediate confirmation email
+        try {
+            await sendMembershipConfirmationEmail(bookingData, bookingId);
+            console.log('✅ CREATE MEMBERSHIP BOOKING: Confirmation email sent successfully');
+        }
+        catch (emailError) {
+            console.error('❌ CREATE MEMBERSHIP BOOKING: Failed to send confirmation email:', emailError);
+            // Don't fail the entire booking if email fails - just log the error
+        }
         // TODO: Notify admin systems
         return {
             success: true,

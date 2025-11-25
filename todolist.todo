@@ -673,6 +673,29 @@
           "done": false,
           "start": 1763437315638
         }
+      },
+      {
+        "key": 1764002588940,
+        "children": [
+          {
+            "key": 1764002600010,
+            "children": [],
+            "todo": {
+              "content": "have the whole card be clickable to show details adn the order now button add to cart",
+              "id": 1764002600010,
+              "level": "default",
+              "done": false,
+              "start": 1764002600010
+            }
+          }
+        ],
+        "todo": {
+          "content": "option card adjustments",
+          "id": 1764002588940,
+          "level": "default",
+          "done": false,
+          "start": 1764002588940
+        }
       }
     ],
     "expandKeys": [
@@ -707,7 +730,8 @@
       1761757731623,
       1762023399287,
       1763437315638,
-      1763437402069
+      1763437402069,
+      1764002588940
     ],
     "schema": "https://github.com/Saber2pr/vsc-ext-todolist/blob/master/src/api/type.ts#L3",
     "add_mode": "bottom",
@@ -720,6 +744,6 @@
     "showEndTime": false,
     "simpleMode": false,
     "lang": "en",
-    "version": "1763437489025"
+    "version": "1764002822147"
   }
 }

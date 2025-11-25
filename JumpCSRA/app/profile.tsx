@@ -2859,7 +2859,8 @@ export default function Profile() {
                               <div style={{
                                 backgroundColor: 'white',
                                 borderRadius: '12px',
-                                maxWidth: '90vw',
+                                width: '95vw',
+                                maxWidth: '1200px', // Increased max width for horizontal layout
                                 maxHeight: '80vh',
                                 overflow: 'hidden',
                                 display: 'flex',
@@ -2890,7 +2891,8 @@ export default function Profile() {
                                 <div style={{ 
                                   padding: '1rem',
                                   overflow: 'auto',
-                                  flex: 1
+                                  flex: 1,
+                                  minWidth: 0 // Ensure container can shrink if needed
                                 }}>
                                   {loadingMembershipAvailability ? (
                                     <div style={{ 
