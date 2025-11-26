@@ -2933,9 +2933,6 @@ export default function Checkout() {
                 <span className={`progress-step-label ${currentStepOrder.indexOf(currentStep) >= index ? 'active' : 'inactive'} ${currentStep === step ? 'current' : ''}`}>
                   {stepTitles[step]}
                 </span>
-                {index < currentStepOrder.length - 1 && (
-                  <div className={`progress-step-connector ${currentStepOrder.indexOf(currentStep) > index ? 'active' : 'inactive'}`} />
-                )}
               </div>
             ));
           })()}

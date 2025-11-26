@@ -41,6 +41,18 @@
   position: relative;
 }
 
+/* Add connecting line like in checkout-progress */
+.progress-steps::before {
+  content: '';
+  position: absolute;
+  top: 20px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #e9ecef;
+  z-index: 1;
+}
+
 .progress-step {
   display: flex;
   flex-direction: column;
@@ -48,6 +60,7 @@
   flex: 1;
   min-width: 80px; /* Minimum width per step */
   position: relative;
+  z-index: 2;
 }
 
 .progress-step-circle {
@@ -60,19 +73,19 @@
   font-weight: bold;
   font-size: 14px;
   position: relative;
-  z-index: 2;
   margin-bottom: 0.5rem;
   transition: all 0.3s ease;
+  background: #e9ecef;
+  color: #6c757d;
 }
 
 .progress-step-circle.active {
-  background-color: #007bff;
+  background: #007bff;
   color: white;
-  transform: scale(1.1);
 }
 
 .progress-step-circle.inactive {
-  background-color: #e9ecef;
+  background: #e9ecef;
   color: #6c757d;
 }
 
@@ -83,6 +96,7 @@
   word-break: break-word;
   max-width: 100px;
   transition: all 0.3s ease;
+  color: #6c757d;
 }
 
 .progress-step-label.active {
@@ -191,24 +205,6 @@
   margin-top: 1rem;
   padding-top: 1rem;
   border-top: 2px solid #ddd;
-}
-
-.progress-step-connector {
-  position: absolute;
-  top: 20px; /* Center vertically with circle */
-  left: 50%;
-  right: -50%;
-  height: 3px;
-  z-index: 1;
-  transition: all 0.3s ease;
-}
-
-.progress-step-connector.active {
-  background-color: #007bff;
-}
-
-.progress-step-connector.inactive {
-  background-color: #e9ecef;
 }
 
 /* Delivery Section Styles */
@@ -366,6 +362,10 @@
     padding: 0 0.5rem;
   }
 
+  .progress-steps::before {
+    top: 17px; /* Adjust for smaller circle */
+  }
+
   .progress-step {
     min-width: 70px;
   }
@@ -380,10 +380,6 @@
     font-size: 11px;
     max-width: 80px;
   }
-
-  .progress-step-connector {
-    top: 17px; /* Adjust for smaller circle */
-  }
 }
 
 @media (max-width: 480px) {
@@ -395,6 +391,11 @@
   .progress-steps {
     min-width: 400px;
     padding: 0 0.25rem;
+  }
+
+  .progress-steps::before {
+    top: 15px; /* Adjust for smallest circle */
+    height: 2px;
   }
 
   .progress-step {
@@ -410,10 +411,5 @@
   .progress-step-label {
     font-size: 10px;
     max-width: 60px;
-  }
-
-  .progress-step-connector {
-    top: 15px; /* Adjust for smallest circle */
-    height: 2px;
   }
 }
