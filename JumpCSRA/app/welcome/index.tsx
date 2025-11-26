@@ -25,6 +25,7 @@ import { BannerCarousel } from "../components/BannerCarousel";
 import { SearchBar } from "../components/SearchBar";
 import { RouterNav } from "../components/RouterNav";
 import { CartSidebar } from "../components/CartSidebar";
+import ChatWidget from "../components/ChatWidget";
 import type { CartItem } from "../components/CartSidebar";
 import { Link } from "react-router";
 
@@ -606,10 +607,12 @@ export function Welcome() {
               return {
                 ...opt,
                 unavailable: isUnavailable,
-                onOrder: () => logic.handleOrderNow(opt)
+                onOrder: () => logic.addToCart(opt), // Order button adds directly to cart
               };
             })}
             onPurchase={logic.addToCart}
+            onCardClick={logic.handleOrderNow} // Card click shows details popup
+            isLandingPage={true} // Identify this as landing page
           />
           
           {/* Specials Card */}
@@ -711,6 +714,9 @@ export function Welcome() {
           </div>
         </footer>
       </div>
+      
+      {/* Chat Widget */}
+      <ChatWidget />
     </MantineProvider>
     </>
   );

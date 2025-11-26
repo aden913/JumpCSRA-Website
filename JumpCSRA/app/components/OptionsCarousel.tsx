@@ -20,10 +20,12 @@ export type OptionCardProps = {
   weekdayWaterPrice?: number;
   weekendWaterPrice?: number;
   onOrder?: (product: OptionCardProps) => void;
+  onCardClick?: (product: OptionCardProps) => void; // New prop for card click behavior
   wetDry?: string;
   category?: string;
   unavailable?: boolean;
   directSelection?: boolean; // New prop to control selection behavior
+  isLandingPage?: boolean; // New prop to identify landing page context
 };
 
 function OptionCard({
@@ -39,8 +41,10 @@ function OptionCard({
   weekdayWaterPrice,
   weekendWaterPrice,
   onOrder,
+  onCardClick,
   unavailable,
   directSelection,
+  isLandingPage,
 }: OptionCardProps) {
   let fontSize = "1.5rem";
   if (name.length > 18) fontSize = "1.25rem";
@@ -51,53 +55,54 @@ function OptionCard({
   else if (wet === false && dry === true) wetDryLabel = "Dry Only";
   else if (wet === true && dry === true) wetDryLabel = "Wet and Dry";
 
-  const handleOrder = () => {
-    if (unavailable) {
-      return;
-    }
+  const productData = {
+    name,
+    img,
+    price,
+    description,
+    dimensions,
+    wet,
+    dry,
+    weekdayPrice,
+    weekendPrice,
+    weekdayWaterPrice,
+    weekendWaterPrice,
+    unavailable,
+    directSelection,
+    isLandingPage,
+  };
+
+  const handleCardClick = () => {
+    if (unavailable) return;
     
-    // If directSelection is true, call onOrder immediately without modal
-    if (directSelection && onOrder) {
-      onOrder({
-        name,
-        img,
-        price,
-        description,
-        dimensions,
-        wet,
-        dry,
-        weekdayPrice,
-        weekendPrice,
-        weekdayWaterPrice,
-        weekendWaterPrice,
-        unavailable,
-        directSelection,
-      });
-      return;
+    if (isLandingPage && onCardClick) {
+      // Landing page: card click shows details popup
+      onCardClick(productData);
+    } else if (onOrder) {
+      // Other locations: card click behaves like order button
+      onOrder(productData);
     }
+  };
+
+  const handleOrderClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click event
+    if (unavailable) return;
     
-    // Otherwise, use the original modal behavior
-    if (onOrder) {
-      onOrder({
-        name,
-        img,
-        price,
-        description,
-        dimensions,
-        wet,
-        dry,
-        weekdayPrice,
-        weekendPrice,
-        weekdayWaterPrice,
-        weekendWaterPrice,
-        unavailable,
-        directSelection,
-      });
+    if (isLandingPage && onOrder) {
+      // Landing page: order button adds directly to cart
+      onOrder(productData);
+    } else if (onOrder) {
+      // Other locations: order button shows details popup (existing behavior)
+      onOrder(productData);
     }
   };
 
   return (
-    <div className={`option-card${unavailable ? " option-card-unavailable" : ""}`}>
+    <div 
+      className={`option-card${unavailable ? " option-card-unavailable" : ""}`}
+      onClick={handleCardClick}
+      style={{ cursor: unavailable ? "not-allowed" : "pointer" }}
+    >
       <div className="option-title marquee-container" style={{ fontSize }}>
         <span>{name}</span>
       </div>
@@ -111,7 +116,7 @@ function OptionCard({
       {wetDryLabel && <div className="wetdry-box">{wetDryLabel}</div>}
       <button
         className="order-btn"
-        onClick={handleOrder}
+        onClick={handleOrderClick}
         disabled={unavailable}
         style={unavailable ? { backgroundColor: "#ccc", cursor: "not-allowed" } : {}}
       >
@@ -124,7 +129,9 @@ function OptionCard({
 export type OptionsCarouselProps = {
   options: OptionCardProps[];
   onPurchase?: (product: OptionCardProps) => void;
+  onCardClick?: (product: OptionCardProps) => void; // New prop for handling card clicks
   disableModal?: boolean; // New prop to disable modal behavior
+  isLandingPage?: boolean; // New prop to identify landing page context
 };
 
 export interface OptionsCarouselRef {
@@ -132,7 +139,7 @@ export interface OptionsCarouselRef {
 }
 
 export const OptionsCarousel = React.forwardRef<OptionsCarouselRef, OptionsCarouselProps>(
-  ({ options, onPurchase, disableModal = false }, ref) => {
+  ({ options, onPurchase, onCardClick, disableModal = false, isLandingPage = false }, ref) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<OptionCardProps | null>(null);
   const [leftMaskWidth, setLeftMaskWidth] = useState(37);
@@ -162,9 +169,30 @@ export const OptionsCarousel = React.forwardRef<OptionsCarouselRef, OptionsCarou
       return;
     }
     
-    // Otherwise, show the modal
+    // For landing page, order button adds directly to cart
+    if (isLandingPage) {
+      if (onPurchase) onPurchase(product);
+      return;
+    }
+    
+    // Otherwise, show the modal (for other locations)
     setSelectedProduct({ ...product });
     setModalOpen(true);
+  };
+
+  const handleCardClick = (product: OptionCardProps) => {
+    // Don't open modal for unavailable items
+    if (product.unavailable) {
+      return;
+    }
+    
+    if (onCardClick) {
+      onCardClick(product);
+    } else if (!isLandingPage) {
+      // For non-landing pages, card click shows modal (existing behavior)
+      setSelectedProduct({ ...product });
+      setModalOpen(true);
+    }
   };
 
   const handlePurchase = (product: OptionCardProps) => {
@@ -275,7 +303,12 @@ export const OptionsCarousel = React.forwardRef<OptionsCarouselRef, OptionsCarou
         >
           {options.map((opt: OptionCardProps) => (
             <SwiperSlide key={opt.name}>
-              <OptionCard {...opt} onOrder={() => handleOrderNow({ ...opt })} />
+              <OptionCard 
+                {...opt} 
+                onOrder={() => handleOrderNow({ ...opt })} 
+                onCardClick={() => handleCardClick({ ...opt })}
+                isLandingPage={isLandingPage}
+              />
             </SwiperSlide>
           ))}
         </Swiper>

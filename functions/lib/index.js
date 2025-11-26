@@ -1,7 +1,7 @@
 "use strict";
-var _a, _b;
+var _a, _b, _c, _d, _e, _f;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createMembershipBooking = exports.dailySubscriptionCleanup = exports.triggerPayPalSetup = exports.debugSubscriptionDatabase = exports.activateSubscription = exports.reactivatePayPalSubscription = exports.cancelPayPalSubscription = exports.getPayPalSubscriptionDetails = exports.paypalSubscriptionWebhook = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.sendMembershipCancellationEmail = exports.testMembershipConfirmationEmail = exports.sendAccountDeletionEmail = exports.autoCompleteBookings = exports.autoCancelPendingOrders = exports.processScheduledEmails = exports.triggerTestEmail = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendMembershipWelcomeEmail = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.testPayPalDebug = exports.setupPayPalPlansStandalone = exports.testFunction = exports.debugEnvironment = void 0;
+exports.sendChatMessage = exports.createMembershipBooking = exports.dailySubscriptionCleanup = exports.triggerPayPalSetup = exports.debugSubscriptionDatabase = exports.activateSubscription = exports.reactivatePayPalSubscription = exports.cancelPayPalSubscription = exports.getPayPalSubscriptionDetails = exports.paypalSubscriptionWebhook = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.sendMembershipCancellationEmail = exports.testMembershipConfirmationEmail = exports.sendAccountDeletionEmail = exports.autoCompleteBookings = exports.autoCancelPendingOrders = exports.processScheduledEmails = exports.triggerTestEmail = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendMembershipWelcomeEmail = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.testPayPalDebug = exports.setupPayPalPlansStandalone = exports.testFunction = exports.debugEnvironment = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const sgMail = require("@sendgrid/mail");
@@ -4233,6 +4233,94 @@ exports.createMembershipBooking = functions.region('us-central1').https.onCall(a
     catch (error) {
         console.error('❌ CREATE MEMBERSHIP BOOKING: Error:', error);
         throw new functions.https.HttpsError('internal', 'Failed to create membership booking', { error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+});
+// ============================================================================
+// CHAT SUPPORT - Twilio SMS Integration
+// ============================================================================
+// Get Twilio configuration from environment variables
+const twilioAccountSid = (_c = functions.config().twilio) === null || _c === void 0 ? void 0 : _c.account_sid;
+const twilioAuthToken = (_d = functions.config().twilio) === null || _d === void 0 ? void 0 : _d.auth_token;
+const twilioFromNumber = ((_e = functions.config().twilio) === null || _e === void 0 ? void 0 : _e.from_number) || '+18032210466';
+const twilioToNumber = ((_f = functions.config().twilio) === null || _f === void 0 ? void 0 : _f.to_number) || '+18039913236'; // Testing number
+// Initialize Twilio client
+let twilioClient = null;
+if (twilioAccountSid && twilioAuthToken) {
+    const twilio = require('twilio');
+    twilioClient = twilio(twilioAccountSid, twilioAuthToken);
+}
+// Cloud Function to send chat messages via SMS
+exports.sendChatMessage = functions.https.onCall(async (data, context) => {
+    // Verify that the user is authenticated
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to send messages.');
+    }
+    try {
+        console.log('💬 CHAT MESSAGE: Received message from user:', context.auth.uid);
+        console.log('📧 CHAT MESSAGE: User email:', data.userEmail);
+        console.log('📱 CHAT MESSAGE: User phone:', data.userPhone);
+        console.log('💭 CHAT MESSAGE: Message:', data.message);
+        // Validate input data
+        if (!data.message || !data.message.trim()) {
+            throw new functions.https.HttpsError('invalid-argument', 'Message is required');
+        }
+        if (!data.userEmail) {
+            throw new functions.https.HttpsError('invalid-argument', 'User email is required');
+        }
+        // Check if Twilio is configured
+        if (!twilioClient) {
+            console.error('❌ CHAT MESSAGE: Twilio not configured');
+            throw new functions.https.HttpsError('failed-precondition', 'SMS service not configured');
+        }
+        // Format the message for SMS (shortened for trial account)
+        const smsMessage = `JumpCSRA Chat: ${data.userName} (${data.userEmail}) says: "${data.message}"`.substring(0, 140);
+        console.log('📤 CHAT MESSAGE: Sending SMS to:', twilioToNumber);
+        console.log('📝 CHAT MESSAGE: SHORTENED SMS (v2):', smsMessage);
+        console.log('📏 CHAT MESSAGE: Message length:', smsMessage.length, 'characters');
+        // Send SMS via Twilio
+        const message = await twilioClient.messages.create({
+            body: smsMessage,
+            from: twilioFromNumber,
+            to: twilioToNumber
+        });
+        console.log('✅ CHAT MESSAGE: SMS sent successfully, SID:', message.sid);
+        console.log('📊 CHAT MESSAGE: Message status:', message.status);
+        console.log('📊 CHAT MESSAGE: Message URI:', message.uri);
+        // Wait a moment and check delivery status
+        setTimeout(async () => {
+            try {
+                const updatedMessage = await twilioClient.messages(message.sid).fetch();
+                console.log('📈 CHAT MESSAGE: Updated status:', updatedMessage.status);
+                console.log('📈 CHAT MESSAGE: Error code:', updatedMessage.errorCode);
+                console.log('📈 CHAT MESSAGE: Error message:', updatedMessage.errorMessage);
+                if (updatedMessage.status === 'failed' || updatedMessage.status === 'undelivered') {
+                    console.error('❌ CHAT MESSAGE: Delivery failed!');
+                    console.error('❌ CHAT MESSAGE: Error details:', {
+                        status: updatedMessage.status,
+                        errorCode: updatedMessage.errorCode,
+                        errorMessage: updatedMessage.errorMessage
+                    });
+                }
+            }
+            catch (statusError) {
+                console.error('⚠️ CHAT MESSAGE: Could not fetch message status:', statusError);
+            }
+        }, 5000); // Check status after 5 seconds
+        return {
+            success: true,
+            message: 'Message sent successfully! We\'ll get back to you soon.',
+            messageSid: message.sid
+        };
+    }
+    catch (error) {
+        console.error('❌ CHAT MESSAGE: Error sending SMS:', error);
+        // Return user-friendly error
+        if (error instanceof functions.https.HttpsError) {
+            throw error;
+        }
+        else {
+            throw new functions.https.HttpsError('internal', 'Failed to send message. Please try again or call us directly.', { error: error instanceof Error ? error.message : 'Unknown error' });
+        }
     }
 });
 //# sourceMappingURL=index.js.map
