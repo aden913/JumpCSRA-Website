@@ -182,7 +182,7 @@ gap: 2rem;
 
 .modal-close {
   position: absolute;
-  top: 1rem;
+  top: 0;
   right: 1rem;
   background-color: var(--coral);
   border: none;
@@ -194,7 +194,7 @@ gap: 2rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: 30%;
 }
 
 .modal-close:hover {
