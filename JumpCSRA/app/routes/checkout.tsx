@@ -2927,12 +2927,12 @@ export default function Checkout() {
             const currentStepOrder = getStepOrder();
             return currentStepOrder.map((step, index) => (
               <div key={step} className="progress-step">
-                <div className={`progress-step-circle ${currentStepOrder.indexOf(currentStep) >= index ? 'active' : 'inactive'}`}>
+                <span className={`progress-step-circle ${currentStepOrder.indexOf(currentStep) >= index ? 'active' : 'inactive'}`}>
                   {index + 1}
-                </div>
-                <span className={`progress-step-label ${currentStepOrder.indexOf(currentStep) >= index ? 'active' : 'inactive'} ${currentStep === step ? 'current' : ''}`}>
-                  {stepTitles[step]}
                 </span>
+                <label className="progress-step-label">
+                  {stepTitles[step]}
+                </label>
               </div>
             ));
           })()}

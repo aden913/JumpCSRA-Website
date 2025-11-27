@@ -184,13 +184,13 @@ gap: 2rem;
   position: absolute;
   top: 1rem;
   right: 1rem;
-  background: none;
+  background-color: var(--coral);
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
   color: var(--darkBlue);
-  width: 30px;
-  height: 30px;
+  width: 2rem;
+  
   display: flex;
   align-items: center;
   justify-content: center;

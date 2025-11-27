@@ -31,7 +31,16 @@
   box-shadow: 0 0 0 9999px rgb(0, 0, 0);
   pointer-events: none;
 }
+
+
+.popup::-webkit-scrollbar {
+  display: none;                
+}
+
 .popup {
+  overflow: auto;
+  scrollbar-width: none;       
+  -ms-overflow-style: none; 
   position: relative;
   background: #354d65;
   border-radius: 24px;
