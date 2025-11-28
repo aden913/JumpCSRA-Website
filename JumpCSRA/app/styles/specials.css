@@ -1,3 +1,6 @@
+/* Import centralized responsive breakpoints */
+@import './responsive.css';
+
 /* Specials card styles */
 .specials-card {
   background: #0b020237;
@@ -25,13 +28,4 @@
   font-weight: bold;
   text-shadow: 1px 2px 1px var(--darkBlue);
   z-index: 1;
-}
-@media (max-width: 900px) {
-.specials-card {
-  width:90%;
-}
-.specials-text {
-  font-size: 1.5rem;
-}
-
 }

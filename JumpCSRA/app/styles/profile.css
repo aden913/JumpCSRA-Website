@@ -1,3 +1,6 @@
+/* Import centralized responsive breakpoints */
+@import './responsive.css';
+
 html, body{ background-color: white;}
 .profile-container {
   display: flex;
@@ -135,17 +138,6 @@ html, body{ background-color: white;}
   box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
 }
 
-@media (max-width: 768px) {
-  .booking-filters {
-    flex-direction: column;
-    gap: 1rem;
-  }
-  
-  .filter-group {
-    width: 100%;
-  }
-}
-
 .profile-events-placeholder {
   color: #888;
   font-size: 1.1rem;
@@ -198,7 +190,6 @@ html, body{ background-color: white;}
   padding: 0.5rem 1.5rem;
   border-radius: 6px;
 }
-
 
 /* Booking History Styles */
 .bookings-container {
@@ -503,8 +494,6 @@ html, body{ background-color: white;}
   font-size: 1.4rem;
 }
 
-
-
 .modal-content {
   padding: 1.5rem;
 }
@@ -795,65 +784,6 @@ html, body{ background-color: white;}
 }
 
 /* Print styles for contract */
-@media print {
-  .contract-modal {
-    box-shadow: none;
-    border: none;
-    max-width: none;
-    width: 100%;
-  }
-  
-  .modal-header, .modal-actions {
-    display: none;
-  }
-  
-  .contract-content {
-    padding: 0;
-  }
-  
-  .section-status {
-    page-break-inside: avoid;
-  }
-}
-
-@media (max-width: 900px) {
-  .profile-container {
-    flex-direction: column;
-    margin: 1rem;
-  }
-
-  .profile-left {
-    width: 100%;
-    padding: 1rem;
-  }
-
-  .profile-tabs {
-    display: flex;
-    overflow-x: auto;
-  }
-
-  .profile-tab {
-    min-width: 120px;
-    text-align: center;
-  }
-
-  .profile-right {
-    padding: 1.5rem;
-  }
-
-  .detail-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .booking-actions {
-    flex-direction: column;
-  }
-
-  .booking-modal {
-    width: 95vw;
-    margin: 1rem;
-  }
-}
 
 /* Membership Tab Styles */
 .profile-membership {
@@ -930,17 +860,6 @@ html, body{ background-color: white;}
 
 .btn-become-member:hover {
   background: #0056b3;
-}
-
-@media (max-width: 768px) {
-  .membership-content {
-    gap: 1rem;
-  }
-  
-  .membership-status,
-  .membership-benefits {
-    padding: 1rem;
-  }
 }
 
 /* Enhanced Membership Interface Styles */
@@ -1115,27 +1034,6 @@ html, body{ background-color: white;}
 }
 
 /* Responsive design for membership section */
-@media (max-width: 768px) {
-  .membership-content {
-    gap: 1rem;
-  }
-  
-  .membership-status-card,
-  .membership-benefits-card,
-  .membership-action-card {
-    padding: 1rem;
-  }
-  
-  .info-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.25rem;
-  }
-  
-  .info-row strong {
-    min-width: auto;
-  }
-}
 
 /* Membership Booking Form Styles */
 .membership-booking-card {
@@ -1241,23 +1139,4 @@ html, body{ background-color: white;}
   justify-content: center;
   font-weight: bold;
   font-size: 0.8rem;
-}
-
-/* Responsive design for booking steps */
-@media (max-width: 768px) {
-  .booking-step {
-    padding: 1rem;
-  }
-  
-  .booking-step h5 {
-    font-size: 1rem;
-  }
-  
-  .booking-step::before {
-    top: 0.75rem;
-    right: 0.75rem;
-    width: 20px;
-    height: 20px;
-    font-size: 0.7rem;
-  }
 }

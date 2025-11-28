@@ -1,0 +1,56 @@
+/* Mobile-First Responsive Breakpoints */
+
+/* Mobile devices (< 480px) */
+@media (max-width: 479px) {
+  .landing-page {
+    font-size: 0.75rem;
+  }
+  .main-section {
+    width: 95%;
+    padding: 0.8rem 0;
+  }
+}
+
+/* Tablets ( 768px) */  
+@media (min-width: 768px) {
+  .landing-page {
+    font-size: 0.8rem;
+  }
+  .main-section {
+    width: 90%;
+    padding: 1rem 0;
+  }
+}
+
+/* Small laptops ( 1024px) */
+@media (min-width: 1024px) {
+  .landing-page {
+    font-size: 0.85rem;
+  }
+  .main-section {
+    width: 85%;
+    padding: 1.2rem 0;
+  }
+}
+
+/* Desktop ( 1280px) */
+@media (min-width: 1280px) {
+  .landing-page {
+    font-size: 0.9rem;
+  }
+  .main-section {
+    width: 80%;
+    padding: 1.5rem 0;
+  }
+}
+
+/* Large desktop ( 1536px) */
+@media (min-width: 1536px) {
+  .landing-page {
+    font-size: 0.95rem;
+  }
+  .main-section {
+    width: 75%;
+    padding: 1.8rem 0;
+  }
+}

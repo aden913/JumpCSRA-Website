@@ -1,3 +1,6 @@
+/* Import centralized responsive breakpoints */
+@import './responsive.css';
+
 /* Navigation bar styles */
 .nav-bar {
   padding: 0.5rem 0;
@@ -17,55 +20,7 @@
 }
 
 /* Responsive navbar spacing */
-@media (max-width: 768px) {
-  .nav-bar ul {
-    gap: 1.5rem;
-    padding: 0 1rem;
-  }
-  
-  /* Override fixed width on tablets for better fit */
-  .navbar-search-container {
-    max-width: 20rem !important;
-    min-width: 15rem !important;
-    width: 20rem !important;
-  }
-  
-  .navbar-search-container .search-bar-container {
-    max-width: 20rem !important;
-    min-width: 15rem !important;
-  }
-  
-  .navbar-search-container .search-bar-input {
-    width: 100% !important;
-    max-width: 20rem !important;
-    min-width: 15rem !important;
-  }
-}
 
-@media (max-width: 480px) {
-  .nav-bar ul {
-    gap: 1rem;
-    padding: 0 0.5rem;
-  }
-  
-  /* Further reduce width on mobile phones */
-  .navbar-search-container {
-    max-width: 15rem !important;
-    min-width: 10rem !important;
-    width: 15rem !important;
-  }
-  
-  .navbar-search-container .search-bar-container {
-    max-width: 15rem !important;
-    min-width: 10rem !important;
-  }
-  
-  .navbar-search-container .search-bar-input {
-    width: 100% !important;
-    max-width: 15rem !important;
-    min-width: 10rem !important;
-  }
-}
 .cart-icon {
   width:3rem;
   height: 3rem;
@@ -77,27 +32,7 @@
 }
 
 /* Responsive icon sizes */
-@media (max-width: 768px) {
-  .cart-icon {
-    width: 2.5rem;
-    height: 2.5rem;
-  }
-  
-  .nav-logo {
-    width: 5rem;
-  }
-}
 
-@media (max-width: 480px) {
-  .cart-icon {
-    width: 2.2rem;
-    height: 2.2rem;
-  }
-  
-  .nav-logo {
-    width: 4.5rem;
-  }
-}
 .nav-bar li {
   font-size: 1.3rem;
   font-weight: bolder;
@@ -134,17 +69,6 @@
 }
 
 /* Responsive icon spacing */
-@media (max-width: 768px) {
-  .navbar-right-icons {
-    gap: 0.7rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .navbar-right-icons {
-    gap: 0.5rem;
-  }
-}
 
 /* Navbar Category Dropdown Styles */
 .navbar-category-dropdown-container {
@@ -256,67 +180,4 @@
 
 .navbar-search-container .search-suggestion-item:last-child {
   border-bottom: none;
-}
-
-
-@media (max-width: 600px) {
-  .nav-logo {
-    display: none;
-  }
-  
-  .nav-bar ul {
-    width: 100vw;
-    padding: 0 0.5rem;
-    margin: 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0;
-    position: static;
-  }
-  
-  .nav-bar li {
-    flex: none;
-    display: flex;
-    align-items: center;
-    position: static;
-  }
-  
-  .navbar-right-icons {
-    gap: 0.3rem;
-  }
-  
-  /* Mobile styles for category dropdown */
-  .navbar-category-dropdown-container {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 10;
-  }
-  
-  .navbar-category-dropdown {
-    font-size: 0.9rem;
-    padding: 0.4rem 0.8rem;
-    min-width: 150px;
-  }
-  
-  /* Mobile styles for search container */
-  .navbar-search-container {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 10;
-    max-width: 400px;
-    width: 80%;
-    margin: 0;
-  }
-  
-  .navbar-search-container .search-bar-input {
-    font-size: 0.9rem !important;
-    padding: 0.5rem 0.8rem !important;
-  }
-  
-  .navbar-search-container .search-suggestion-item {
-    padding: 10px !important;
-  }
 }

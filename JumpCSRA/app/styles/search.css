@@ -1,3 +1,6 @@
+/* Import centralized responsive breakpoints */
+@import './responsive.css';
+
 /* Search promo and card styles */
 .search-promo {
   display: flex;
@@ -91,13 +94,4 @@
 
 .search-suggestion-item:last-child {
   border-bottom: none;
-}
-
-
-@media (max-width: 900px) {
-
-.search-card {
-  width:90% !important;
-}
-
 }

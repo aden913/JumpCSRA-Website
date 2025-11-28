@@ -4470,6 +4470,7 @@ export default function Profile() {
               style={{ layout: "vertical" }}
               createOrder={async (data, actions) => {
                 return actions.order.create({
+                  intent: "CAPTURE",
                   purchase_units: [{
                     amount: {
                       value: "20.00",

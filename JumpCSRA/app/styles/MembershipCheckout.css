@@ -1,3 +1,6 @@
+/* Import centralized responsive breakpoints */
+@import './responsive.css';
+
 /* MembershipCheckout.css */
 .membership-checkout {
   max-width: 800px;
@@ -406,33 +409,4 @@
 .membership-checkout-loading, .membership-checkout-error {
   text-align: center;
   padding: 3rem;
-}
-
-@media (max-width: 768px) {
-  .membership-checkout {
-    margin: 1rem;
-    padding: 1rem;
-  }
-
-  .checkout-progress {
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .checkout-progress::before {
-    display: none;
-  }
-
-  .step-actions, .success-actions {
-    flex-direction: column;
-  }
-
-  .benefit-item {
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .membership-price .price {
-    font-size: 2rem;
-  }
 }

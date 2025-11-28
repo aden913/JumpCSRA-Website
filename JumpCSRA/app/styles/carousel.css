@@ -1,3 +1,6 @@
+/* Import centralized responsive breakpoints */
+@import './responsive.css';
+
 /* Swiper carousel styles */
 .swiper {
   width: 100%;
@@ -14,9 +17,4 @@
 .banner-carousel {
   font-size: 1.5rem;
 
-}
-@media (max-width: 900px) {
-  .banner-carousel {
-    font-size: .9rem;
-  }
 }

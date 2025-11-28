@@ -44,6 +44,41 @@ import {
   addWalletTransaction
 } from "../utils/databaseUtils";
 import type { BookingData, ContractData, UserWallet } from "../utils/databaseUtils";
+
+// Define ContractMetadata type for legacy bookings
+interface ContractMetadata {
+  contractId: string;
+  orderId?: string;
+  userId: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  eventDate?: string;
+  eventEndDate?: string;
+  deliveryDate?: string;
+  deliveryTime?: string;
+  deliveryAddress?: string;
+  contractStatus?: 'pending' | 'signed' | 'completed';
+  status?: 'deferred' | 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  deposit?: number;
+  customerInfo?: {
+    firstName?: string;
+    lastName?: string;
+    name?: string;
+    email?: string;
+  };
+  contractDate?: string;
+  createdAt?: string;
+  agreementSections?: any[];
+  signature?: {
+    signatureData: string;
+    signedAt: string;
+    signatureMethod: string;
+  };
+  initials?: string;
+  orderDetails?: any;
+}
 import { checkItemAvailability, type ItemAvailability } from "../utils/availabilityUtils";
 import '@mantine/notifications/styles.css';
 import '../styles/checkout-buttons.css';
@@ -160,6 +195,17 @@ export default function Checkout() {
   
   // Email state for promotional gift cards
   const [promotionalGiftCardEmail, setPromotionalGiftCardEmail] = useState<string>("");
+  
+  // Contract state variables
+  const [customerInitials, setCustomerInitials] = useState<string>("");
+  const [typedSignature, setTypedSignature] = useState<string>("");
+  const [contractSections, setContractSections] = useState<any[]>([]);
+  const [contractMetadata, setContractMetadata] = useState<any>(null);
+  
+  // Contract helper function
+  const allSectionsInitialed = (): boolean => {
+    return contractSections.length > 0 && contractSections.every(section => section.initialed);
+  };
   
   // Helper function to get the current cart for display
   // Uses completed order cart if payment is done, otherwise uses active cart
@@ -2404,7 +2450,8 @@ export default function Checkout() {
         agreementSections: contractSections,
         signature: {
           signatureData: typedSignature,
-          signedAt: new Date().toISOString()
+          signedAt: new Date().toISOString(),
+          signatureMethod: 'typed'
         },
         contractDate: new Date().toLocaleDateString(),
         initials: customerInitials
@@ -2713,7 +2760,8 @@ export default function Checkout() {
         agreementSections: contractSections,
         signature: {
           signatureData: typedSignature,
-          signedAt: new Date().toISOString()
+          signedAt: new Date().toISOString(),
+          signatureMethod: 'typed'
         },
         contractDate: new Date().toLocaleDateString(),
         initials: customerInitials

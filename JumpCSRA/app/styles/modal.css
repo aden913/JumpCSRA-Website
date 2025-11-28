@@ -1,3 +1,6 @@
+/* Import centralized responsive breakpoints */
+@import './responsive.css';
+
 :root {
   --darkBlue: #354D65;
   --coral: #FA6C6C;
@@ -31,7 +34,6 @@
   box-shadow: 0 0 0 9999px rgb(0, 0, 0);
   pointer-events: none;
 }
-
 
 .popup::-webkit-scrollbar {
   display: none;                
@@ -104,22 +106,4 @@
 .modal-purchase:hover {
   background-color: var(--golden-brown, #d7be82);
   color: var(--dark-green, #515a47);
-}
-
-@media (max-width: 900px) {
-.popup{
-    flex-direction: column;
-    align-items: center;
-}
-.modal-div {
-  flex-direction: column !important;
-  align-items: center;
-  padding:5rem;
-}
-
-.modal-info {
-  margin-top: 1rem;
-  text-align: left;
-  width:50%;
-}
 }
