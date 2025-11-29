@@ -14,9 +14,10 @@ type RouterNavProps = {
   searchBarComponent?: React.ReactNode; // Custom component to render in place of dropdown
   hideNavbarDropdown?: boolean; // Hide the navbar category dropdown
   walletBalance?: number; // User's wallet balance to display
+  hideMobileSidebar?: boolean; // Hide mobile hamburger button and sidebar
 };
 
-export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [], onCategoryChange, hideIcons = false, hideCartIcon = false, searchBarComponent, hideNavbarDropdown = false, walletBalance }: RouterNavProps) {
+export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [], onCategoryChange, hideIcons = false, hideCartIcon = false, searchBarComponent, hideNavbarDropdown = false, walletBalance, hideMobileSidebar = false }: RouterNavProps) {
   const formatDate = (date: Date | null) => date ? date.toLocaleDateString() : "--";
   const navigate = useNavigate();
   const location = useLocation();
@@ -83,7 +84,7 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
   return (
     <>
       {/* Standalone Mobile Menu Toggle Button - Outside of navbar */}
-      {isMobile && (
+      {isMobile && !hideMobileSidebar && (
         <button 
           className={`mobile-menu-toggle ${isMobileSidebarOpen ? 'sidebar-open' : ''}`}
           onClick={toggleMobileSidebar}
@@ -245,7 +246,7 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
       </nav>
 
       {/* Mobile Sidebar */}
-      {isMobile && (
+      {isMobile && !hideMobileSidebar && (
         <>
           <div className={`mobile-sidebar ${isMobileSidebarOpen ? 'open' : ''}`}>
             {/* Profile and Cart Buttons */}

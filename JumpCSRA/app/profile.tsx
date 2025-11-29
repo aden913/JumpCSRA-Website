@@ -78,6 +78,10 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [guest, setGuest] = useState(false);
 
+  // Mobile profile sidebar state
+  const [isProfileSidebarOpen, setIsProfileSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
   // New states for email verification flow
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [showVerifyNewEmail, setShowVerifyNewEmail] = useState(false);
@@ -204,6 +208,17 @@ export default function Profile() {
       setActiveTab(adjustedTab);
     }
   }, [isActiveSubscriber]);
+
+  // Check if device is mobile/tablet
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Helper function to get the tab index based on subscription status
   const getTabIndex = (tabName: string) => {
@@ -978,6 +993,20 @@ export default function Profile() {
     
     setProfile(prev => ({ ...prev, address: value }));
     // No validation here - we'll only validate on save
+  };
+
+  // Mobile profile sidebar handlers
+  const toggleProfileSidebar = () => {
+    setIsProfileSidebarOpen(!isProfileSidebarOpen);
+  };
+
+  const closeProfileSidebar = () => {
+    setIsProfileSidebarOpen(false);
+  };
+
+  const handleTabChange = (tabIndex: number) => {
+    setActiveTab(tabIndex);
+    closeProfileSidebar(); // Auto-close sidebar after selecting a tab
   };
 
   const handleSave = async () => {
@@ -1785,23 +1814,59 @@ export default function Profile() {
 
   return (
     <>
-      <RouterNav hideIcons={true} />
-      <div className="profile-container">
-        
+      <RouterNav hideIcons={true} hideMobileSidebar={true} />
 
-        <div className="profile-left">
-        <div className="profile-tabs">
-          {TABS.map((tab, idx) => (
-            <button
-              key={tab}
-              className={`profile-tab${activeTab === idx ? " active" : ""}`}
-              onClick={() => setActiveTab(idx)}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Mobile Profile Menu Toggle Button */}
+      {isMobile && (
+        <button 
+          className={`profile-menu-toggle ${isProfileSidebarOpen ? 'sidebar-open' : ''}`}
+          onClick={toggleProfileSidebar}
+          aria-label="Toggle profile menu"
+        >
+          {isProfileSidebarOpen ? '✕' : '☰'}
+        </button>
+      )}
+
+      {/* Mobile Profile Sidebar */}
+      {isMobile && (
+        <>
+          <div className={`profile-mobile-sidebar ${isProfileSidebarOpen ? 'open' : ''}`}>
+            <div className="profile-mobile-tabs">
+              {TABS.map((tab, idx) => (
+                <button
+                  key={tab}
+                  className={`profile-mobile-tab${activeTab === idx ? " active" : ""}`}
+                  onClick={() => handleTabChange(idx)}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div 
+            className={`profile-mobile-sidebar-overlay ${isProfileSidebarOpen ? 'open' : ''}`}
+            onClick={closeProfileSidebar}
+          ></div>
+        </>
+      )}
+
+      <div className="profile-container">
+        {/* Desktop Profile Sidebar - Hidden on Mobile/Tablet */}
+        {!isMobile && (
+          <div className="profile-left">
+            <div className="profile-tabs">
+              {TABS.map((tab, idx) => (
+                <button
+                  key={tab}
+                  className={`profile-tab${activeTab === idx ? " active" : ""}`}
+                  onClick={() => setActiveTab(idx)}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
       <div className="profile-right">
         {/* Profile Information Tab */}
