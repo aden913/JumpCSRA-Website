@@ -3,6 +3,23 @@
 /* Mobile devices (< 480px) */
 @media (max-width: 479px) {
 
+
+  .membership-status-card{
+    width: 100% !important;
+    margin:0;
+  }
+.profile-back-btn {
+  margin-top:20%;
+  font-size: .8rem;
+}
+.profile-right {
+  margin-top:20%;
+  font-size: .8rem;
+}
+.profile-row {
+  flex-direction: column !important;
+  align-items: flex-start;
+}
 .sidebar-action-buttons {
     flex-direction: column;
   gap: 1rem;
