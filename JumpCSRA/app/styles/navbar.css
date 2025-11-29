@@ -19,6 +19,35 @@
   gap: 2rem;
 }
 
+/* Mobile menu toggle - hidden by default, shown in responsive.css */
+.mobile-menu-toggle {
+  display: none;
+}
+
+/* Mobile text labels - hidden by default, shown in responsive.css */
+.cart-text,
+.profile-text {
+  display: none;
+  color: var(--darkBlue);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 0.5rem 0.8rem;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.cart-text:hover,
+.profile-text:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Mobile sidebar - hidden by default, styled in responsive.css */
+.mobile-sidebar,
+.mobile-sidebar-overlay {
+  display: none;
+}
+
 /* Responsive navbar spacing */
 
 .cart-icon {
@@ -66,6 +95,21 @@
 .icon-container {
   display: flex;
   align-items: center;
+}
+
+/* Cart count badge */
+.cart-count {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: red;
+  color: white;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 0.8rem;
+  min-width: 18px;
+  text-align: center;
+  font-weight: bold;
 }
 
 /* Responsive icon spacing */

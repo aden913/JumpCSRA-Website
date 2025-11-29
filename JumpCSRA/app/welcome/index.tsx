@@ -371,9 +371,10 @@ export function Welcome() {
         defer
       ></script>
       <MantineProvider>
-        <ViewportDebugger />
-        <DevModeToggle />
-        <LocalStorageDebugger />
+        {/* Dev Tools - Hidden for mobile testing */}
+        {/* <ViewportDebugger /> */}
+        {/* <DevModeToggle /> */}
+        {/* <LocalStorageDebugger /> */}
         <Notifications position="top-right" />
         
         {/* Booking Recovery Notification */}

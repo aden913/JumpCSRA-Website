@@ -2815,7 +2815,8 @@ export default function Checkout() {
     <>
       <MantineProvider>
         <Notifications position="top-right" />
-        <LocalStorageDebugger />
+        {/* Dev Tools - Hidden for mobile testing */}
+        {/* <LocalStorageDebugger /> */}
         
         {/* Conditional rendering for membership checkout */}
         {isMembershipCheckout ? (
