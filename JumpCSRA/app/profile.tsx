@@ -2836,16 +2836,7 @@ export default function Profile() {
                           
                           {/* Selected Inflatable Display */}
                           {selectedInflatable && (
-                            <div style={{
-                              border: '2px solid #4CAF50',
-                              backgroundColor: '#e8f5e8',
-                              borderRadius: '12px',
-                              padding: '1rem',
-                              marginBottom: '1rem',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '1rem'
-                            }}>
+                            <div className="inflateable-container">
                               <img
                                 src={selectedInflatable.img}
                                 alt={selectedInflatable.name}
@@ -4453,7 +4444,7 @@ export default function Profile() {
           boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
           zIndex: 10001
         }}>
-          <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 'bold' }}>📋 Rental Contract Agreement</h2>
+          <h2 className="membership-booking-contract-title"> Rental Contract Agreement</h2>
           <button 
             onClick={() => setShowContractModal(false)}
             style={{

@@ -1140,3 +1140,18 @@ html, body{ background-color: white;}
   font-weight: bold;
   font-size: 0.8rem;
 }
+.inflateable-container {
+border: 2px solid #4CAF50;
+background-color: #e8f5e8;
+border-radius: 12px;
+padding: 1rem;
+margin-bottom: 1rem;
+display: flex;
+align-items: center;
+gap: 1rem;                         
+}
+.membership-booking-contract-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: bold;
+  }

@@ -3,7 +3,40 @@
 /* Mobile devices (< 480px) */
 @media (max-width: 479px) {
 
+.signature-section {
+            grid-template-columns: repeat(1, 1fr) !important;
 
+  }
+
+
+.membership-booking-contract-title {
+    font-size: .8rem;
+  }
+  .inflateable-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+.carousel-container .option-card {
+
+    width: 10rem !important;
+    height: auto !important;
+  }
+  .carousel-container .option-card img {
+    width: 6rem !important;
+    height: 6rem !important;
+  }
+  .carousel-container .option-card span {
+    font-size: 1rem !important;
+  }
+.marquee-container {
+    width: auto !important;
+  }
+.weekday-selection {
+        grid-template-columns: repeat(2, 1fr) !important;
+
+  }
 .contract-container {
 padding:.8rem !important;
   }
