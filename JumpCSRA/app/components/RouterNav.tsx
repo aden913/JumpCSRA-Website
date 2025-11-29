@@ -275,7 +275,6 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
 
             {/* Search Bar in Sidebar */}
             <div className="sidebar-search-container">
-              <h3>Search</h3>
               {searchBarComponent ? (
                 <div style={{ width: '100%' }}>
                   {searchBarComponent}
