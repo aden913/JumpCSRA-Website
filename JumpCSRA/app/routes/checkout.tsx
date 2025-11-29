@@ -2971,15 +2971,18 @@ export default function Checkout() {
 
       {/* Progress Indicator */}
       <div className="progress-indicator">
-        <div className="progress-steps">
+        <div className="progress-steps" data-current-step={(() => {
+          const currentStepOrder = getStepOrder();
+          return currentStepOrder.indexOf(currentStep);
+        })()}>
           {(() => {
             const currentStepOrder = getStepOrder();
             return currentStepOrder.map((step, index) => (
-              <div key={step} className="progress-step">
+              <div key={step} className="progress-step" data-step-index={index}>
                 <span className={`progress-step-circle ${currentStepOrder.indexOf(currentStep) >= index ? 'active' : 'inactive'}`}>
                   {index + 1}
                 </span>
-                <label className="progress-step-label">
+                <label className={`progress-step-label ${currentStepOrder.indexOf(currentStep) >= index ? 'active' : 'inactive'}`}>
                   {stepTitles[step]}
                 </label>
               </div>

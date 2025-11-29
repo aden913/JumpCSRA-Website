@@ -42,6 +42,116 @@
   align-items: center;
   min-width: 600px; /* Minimum width to prevent cramping */
   position: relative;
+  transition: transform 0.3s ease;
+}
+
+/* Mobile carousel-style progress indicator */
+@media (max-width: 768px) {
+  .progress-indicator {
+    overflow: hidden;
+    padding: 1rem 0;
+  }
+  
+  .progress-steps {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    min-width: unset;
+    gap: 0;
+    transition: transform 0.3s ease;
+    position: relative;
+  }
+  
+  /* Position the carousel based on current step */
+  .progress-steps[data-current-step="0"] {
+    transform: translateX(calc(50vw - 90px)); /* Center first item */
+  }
+  
+  .progress-steps[data-current-step="1"] {
+    transform: translateX(calc(50vw - 180px)); /* Center second item */
+  }
+  
+  .progress-steps[data-current-step="2"] {
+    transform: translateX(calc(50vw - 270px)); /* Center third item */
+  }
+  
+  .progress-steps[data-current-step="3"] {
+    transform: translateX(calc(50vw - 360px)); /* Center fourth item */
+  }
+  
+  .progress-steps[data-current-step="4"] {
+    transform: translateX(calc(50vw - 450px)); /* Center fifth item */
+  }
+  
+  .progress-step {
+    flex-shrink: 0;
+    width: 90px;
+    margin: 0 10px;
+    opacity: 0.4;
+    transform: scale(0.8);
+    transition: all 0.3s ease;
+  }
+  
+  /* Active step (center) styling */
+  .progress-step[data-step-index="0"] {
+    opacity: 1;
+    transform: scale(1);
+  }
+  
+  .progress-steps[data-current-step="0"] .progress-step[data-step-index="0"],
+  .progress-steps[data-current-step="1"] .progress-step[data-step-index="1"],
+  .progress-steps[data-current-step="2"] .progress-step[data-step-index="2"],
+  .progress-steps[data-current-step="3"] .progress-step[data-step-index="3"],
+  .progress-steps[data-current-step="4"] .progress-step[data-step-index="4"] {
+    opacity: 1;
+    transform: scale(1);
+  }
+  
+  /* Adjacent steps (partially visible) styling */
+  .progress-steps[data-current-step="0"] .progress-step[data-step-index="1"],
+  .progress-steps[data-current-step="1"] .progress-step[data-step-index="0"],
+  .progress-steps[data-current-step="1"] .progress-step[data-step-index="2"],
+  .progress-steps[data-current-step="2"] .progress-step[data-step-index="1"],
+  .progress-steps[data-current-step="2"] .progress-step[data-step-index="3"],
+  .progress-steps[data-current-step="3"] .progress-step[data-step-index="2"],
+  .progress-steps[data-current-step="3"] .progress-step[data-step-index="4"],
+  .progress-steps[data-current-step="4"] .progress-step[data-step-index="3"] {
+    opacity: 0.6;
+    transform: scale(0.85);
+  }
+  
+  /* Hide connecting line on mobile */
+  .progress-steps::before {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .progress-step {
+    width: 80px;
+    margin: 0 8px;
+  }
+  
+  /* Adjust transforms for smaller screens */
+  .progress-steps[data-current-step="0"] {
+    transform: translateX(calc(50vw - 80px));
+  }
+  
+  .progress-steps[data-current-step="1"] {
+    transform: translateX(calc(50vw - 160px));
+  }
+  
+  .progress-steps[data-current-step="2"] {
+    transform: translateX(calc(50vw - 240px));
+  }
+  
+  .progress-steps[data-current-step="3"] {
+    transform: translateX(calc(50vw - 320px));
+  }
+  
+  .progress-steps[data-current-step="4"] {
+    transform: translateX(calc(50vw - 400px));
+  }
 }
 
 /* Add connecting line like in checkout-progress */
