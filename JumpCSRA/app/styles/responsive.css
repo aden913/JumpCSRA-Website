@@ -3,7 +3,32 @@
 /* Mobile devices (< 480px) */
 @media (max-width: 479px) {
 
+.contract-container {
+padding:.8rem !important;
+  }
+.contract-container p{
+    font-size: .9rem !important;
+    
+  }
+.contract-title {
+    font-size: 1.2rem !important;
 
+  }
+  #btn-back-order-summary, #btn-back-delivery, #btn-back-order-review, #btn-back-contract, #btn-forward-quick-add, #btn-main-flow, #btn-forward-delivery, #btn-calculate-distance {
+    margin-right: 1rem;
+    font-size: 0.8rem !important;
+    padding: .5rem 1rem;
+  }
+  .event-details {
+    margin-top:3rem;
+  }
+  .pricing-breakdown {
+    margin-top:3rem !important;
+  }
+.order-item{
+  flex-direction: column;
+  gap: 1rem;
+}
   .membership-status-card{
     width: 100% !important;
     margin:0;
