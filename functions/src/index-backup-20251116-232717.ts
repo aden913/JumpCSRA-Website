@@ -3451,9 +3451,7 @@ export const debugSubscriptionDatabase = functions.https.onCall(async (data, con
     
     // Also check if user document exists
     const userDoc = await db.collection('users').doc(targetUserId).get();
-    console.log('👤 DEBUG: User document exists:', userDoc.exists);
     if (userDoc.exists) {
-      console.log('👤 DEBUG: User document data:', JSON.stringify(userDoc.data(), null, 2));
     }
     
     return {

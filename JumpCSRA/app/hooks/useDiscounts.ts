@@ -274,7 +274,6 @@ export function useDiscounts() {
     
     // Check if user can use this discount
     const isAuthenticated = isUserAuthenticated();
-    console.log('👤 User authenticated:', isAuthenticated);
     
     if (!isAuthenticated) {
 

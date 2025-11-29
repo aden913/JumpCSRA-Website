@@ -2,8 +2,12 @@
 
 /* Mobile devices (< 480px) */
 @media (max-width: 479px) {
-
-
+.cart-sidebar {
+  width: 100%;
+}
+.cart-sidebar .close-btn {
+  top:0;
+}
 .membership-cta h3 {
     font-size: 1.2rem;
 }
@@ -44,6 +48,7 @@ font-size: .9rem;
     height:auto;
     width:13rem;
     margin:.5rem;
+
   }
   .wetdry-box {
     width:8rem;
@@ -74,27 +79,31 @@ font-size: .9rem;
   /* Standalone sticky mobile menu toggle */
   .mobile-menu-toggle {
     display: block !important;
-    width:22rem;
     position: fixed;
     top: 1rem;
     left: 1rem;
     z-index: 1001;
-    background: var(--lightBlue);
-    border: 2px solid var(--darkBlue);
-    border-radius: 8px;
     font-size: 1.5rem;
-    color: var(--darkBlue);
+    color: var(--coral);
     cursor: pointer;
     padding: 0.7rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
+    width: 3rem;
+    height: 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  .mobile-menu-toggle:hover {
-    background: var(--coral);
-    transform: scale(1.05);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  
+  /* When sidebar is open, slide the hamburger button to the right */
+  .mobile-sidebar.open ~ .mobile-menu-toggle,
+  .mobile-menu-toggle.sidebar-open {
+    left: 21rem; /* 320px sidebar width + 1rem margin */
+    transform: rotate(90deg);
   }
+
 
   /* Hide ALL regular navbar items on mobile */
   .navbar-category-dropdown-container,
@@ -372,13 +381,24 @@ font-size: .9rem;
     cursor: pointer;
     padding: 0.8rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
+    width: 3.5rem;
+    height: 3.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .mobile-menu-toggle:hover {
     background: var(--coral);
+    color: white;
     transform: scale(1.05);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  }
+
+  /* When sidebar is open, slide the hamburger button to the right */
+  .mobile-menu-toggle.sidebar-open {
+    left: 21rem; /* 320px sidebar width + 1rem margin */
+    transform: rotate(90deg);
   }
 
   /* Hide regular navbar items on small tablets */
@@ -582,13 +602,24 @@ font-size: .9rem;
     cursor: pointer;
     padding: 0.8rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
+    width: 3.5rem;
+    height: 3.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .mobile-menu-toggle:hover {
     background: var(--coral);
+    color: white;
     transform: scale(1.05);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  }
+
+  /* When sidebar is open, slide the hamburger button to the right */
+  .mobile-menu-toggle.sidebar-open {
+    left: 21rem; /* 320px sidebar width + 1rem margin */
+    transform: rotate(90deg);
   }
 
   /* Show mobile sidebar elements on tablets */

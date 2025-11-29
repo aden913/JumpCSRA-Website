@@ -44,7 +44,6 @@ if (typeof firebase === 'undefined') {
                 console.log('📊 Results:', result.data);
                 
                 if (result.data.success) {
-                    console.log('👤 User ID:', result.data.userId);
                     console.log('📝 Total subscriptions found:', result.data.totalSubscriptions);
                     console.log('📋 User document exists:', result.data.userDocumentExists);
                     
@@ -61,7 +60,6 @@ if (typeof firebase === 'undefined') {
                     }
                     
                     if (result.data.userDocumentData) {
-                        console.log('👤 User document data:');
                         console.log('   Name:', result.data.userDocumentData.name || result.data.userDocumentData.displayName);
                         console.log('   Email:', result.data.userDocumentData.email);
                         console.log('   Created:', result.data.userDocumentData.createdAt);

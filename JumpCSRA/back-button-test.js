@@ -102,7 +102,6 @@ console.log('🏠 Welcome page loaded with:', {
 // Step 2: User makes selections on welcome page
 console.log('\n📍 STEP 2: User makes cart selections');
 console.log('-'.repeat(50));
-console.log('👤 User selecting: 4hours duration, grass-stakes surface, 8am delivery, personal home');
 welcomeSettings1.setDuration('4hours');
 welcomeSettings1.setSurface('grass-stakes');
 welcomeSettings1.setDeliveryTime('8am');

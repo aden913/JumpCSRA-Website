@@ -82,21 +82,19 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
 
   return (
     <>
+      {/* Standalone Mobile Menu Toggle Button - Outside of navbar */}
+      {isMobile && (
+        <button 
+          className={`mobile-menu-toggle ${isMobileSidebarOpen ? 'sidebar-open' : ''}`}
+          onClick={toggleMobileSidebar}
+          aria-label="Toggle menu"
+        >
+          {isMobileSidebarOpen ? '✕' : '☰'}
+        </button>
+      )}
+
       <nav className="nav-bar">
         <ul>
-          {/* Mobile Menu Toggle Button */}
-          {isMobile && (
-            <li>
-              <button 
-                className="mobile-menu-toggle" 
-                onClick={toggleMobileSidebar}
-                aria-label="Toggle menu"
-              >
-                ☰
-              </button>
-            </li>
-          )}
-
           {/* Logo */}
           <li>
             <Link to="/home" style={{ display: "inline-block" }}>
@@ -258,7 +256,7 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
                   className="sidebar-action-btn sidebar-profile-btn"
                   onClick={closeMobileSidebar}
                 >
-                  👤 Profile
+                   Profile
                 </Link>
               )}
               {!hideIcons && !hideCartIcon && (
@@ -270,7 +268,7 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
                     closeMobileSidebar();
                   }}
                 >
-                  🛒 Cart{cartCount && cartCount > 0 && ` (${cartCount})`}
+                   Cart{cartCount && cartCount > 0 && ` (${cartCount})`}
                 </button>
               )}
             </div>
