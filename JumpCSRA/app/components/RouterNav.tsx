@@ -28,7 +28,7 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
   // Check if device is mobile
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
+      setIsMobile(window.innerWidth < 769);
     };
     
     checkMobile();
