@@ -1,0 +1,357 @@
+/* Contract Signing Component Styles */
+
+.contract-header {
+  margin-bottom: 2rem;
+}
+
+.contract-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-align: center;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+}
+
+.contract-date {
+  text-align: center;
+  font-style: italic;
+  color: #666;
+  margin: 0;
+}
+
+.contract-details {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+}
+
+.contract-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  font-size: 0.95rem;
+}
+
+.contract-details-item {
+  margin: 0.25rem 0;
+}
+
+.contract-details-item strong {
+  font-weight: bold;
+}
+
+.terms-section {
+  margin-bottom: 2rem;
+}
+
+.terms-title {
+  margin: 0 0 1rem 0;
+  font-size: 1.3rem;
+  text-align: center;
+  text-transform: uppercase;
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 0.5rem;
+}
+
+.terms-subtitle {
+  margin-bottom: 1.5rem;
+  font-style: italic;
+  text-align: center;
+  color: #666;
+}
+
+.contract-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #fff;
+  position: relative;
+}
+
+.contract-section.initialed {
+  border: 2px solid #28a745;
+  background-color: #f8fff8;
+}
+
+.section-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.initial-section {
+  min-width: 80px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 0.5rem;
+}
+
+.initial-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  gap: 0.5rem;
+}
+
+.initial-box {
+  display: inline-block;
+  min-width: 50px;
+  padding: 0.25rem 0.5rem;
+  border: 2px solid #000;
+  border-radius: 0px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  background-color: #fff;
+  text-align: center;
+  font-family: Times, serif;
+}
+
+.initial-box.filled {
+  background-color: #e8f5e8;
+}
+
+.initial-label {
+  font-size: 0.7rem;
+  color: #666;
+  text-align: center;
+}
+
+.section-text {
+  flex: 1;
+}
+
+.section-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: #333;
+}
+
+.section-content-text {
+  margin: 0;
+  color: #333;
+  line-height: 1.5;
+  font-size: 0.95rem;
+  text-align: justify;
+}
+
+.fine-print-section {
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background-color: #f9f9f9;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.fine-print-title {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  text-align: center;
+  text-transform: uppercase;
+  color: #666;
+}
+
+.fine-print-item {
+  margin-bottom: 1rem;
+}
+
+.fine-print-item-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.fine-print-item-text {
+  margin: 0;
+  color: #555;
+  line-height: 1.4;
+  font-size: 0.85rem;
+  text-align: justify;
+}
+
+.signature-section {
+  margin-bottom: 2rem;
+  padding: 2rem;
+  border: 2px solid #000;
+  border-radius: 0px;
+  background-color: #fff;
+}
+
+.signature-title {
+  margin: 0 0 1rem 0;
+  font-size: 1.3rem;
+  text-align: center;
+  text-transform: uppercase;
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 0.5rem;
+}
+
+.signature-disclaimer {
+  margin-bottom: 2rem;
+  text-align: center;
+  color: #666;
+  font-style: italic;
+}
+
+.signature-input-container {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.signature-input-section {
+  flex: 1;
+}
+
+.signature-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+.signature-input {
+  width: 100%;
+  padding: 1rem;
+  border: none;
+  border-bottom: 2px solid #000;
+  border-radius: 0px;
+  font-size: 1.3rem;
+  font-family: cursive;
+  background-color: transparent;
+  text-align: center;
+}
+
+.signature-date-section {
+  min-width: 150px;
+  text-align: center;
+}
+
+.signature-date-display {
+  padding: 1rem;
+  border-bottom: 2px solid #000;
+  font-size: 1.1rem;
+  font-family: Times, serif;
+}
+
+.signature-buttons {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.clear-signature-btn {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.signature-status {
+  color: #28a745;
+  font-size: 0.9rem;
+}
+
+.completion-status {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 0px;
+  text-align: center;
+}
+
+.completion-status-title {
+  margin: 0 0 1rem 0;
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: 1.1rem;
+}
+
+.completion-status-items {
+  display: flex;
+  justify-content: space-around;
+  gap: 2rem;
+}
+
+.status-item {
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.status-item.complete {
+  color: #28a745;
+}
+
+.status-item.incomplete {
+  color: #dc3545;
+}
+
+.contract-completion {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.completion-button {
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.completion-button.enabled {
+  background-color: #28a745;
+  cursor: pointer;
+}
+
+.completion-button.disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .contract-details-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .section-content {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .initial-section {
+    min-width: auto;
+    flex-direction: row;
+    justify-content: center;
+    padding-top: 0;
+  }
+  
+  .signature-input-container {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .signature-date-section {
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .completion-status-items {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}

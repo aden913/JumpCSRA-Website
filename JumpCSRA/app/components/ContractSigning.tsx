@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import '../styles/ContractSigning.css';
 
 // Contract interfaces
 interface ContractSection {
@@ -190,107 +191,54 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
       </div>
 
       {/* Contract Details */}
-      <div style={{ 
-        marginBottom: '2rem',
-        padding: '1rem',
-        backgroundColor: '#f8f9fa',
-        border: '1px solid #ddd'
-      }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.95rem' }}>
+      <div className="contract-details">
+        <div className="contract-details-grid">
           <div>
-            <p style={{ margin: '0.25rem 0' }}><strong>Agreement Date:</strong> {new Date().toLocaleDateString()}</p>
-            <p style={{ margin: '0.25rem 0' }}><strong>Customer:</strong> {
+            <p className="contract-details-item"><strong>Agreement Date:</strong> {new Date().toLocaleDateString()}</p>
+            <p className="contract-details-item"><strong>Customer:</strong> {
               userProfile?.firstName && userProfile?.lastName 
                 ? `${userProfile.firstName} ${userProfile.lastName}`
                 : userProfile?.name || user?.displayName || user?.email
             }</p>
-            <p style={{ margin: '0.25rem 0' }}><strong>Email:</strong> {user?.email}</p>
+            <p className="contract-details-item"><strong>Email:</strong> {user?.email}</p>
           </div>
           <div>
-            <p style={{ margin: '0.25rem 0' }}><strong>Event Date:</strong> {calendarDateRange?.[0]?.toLocaleDateString() || 'TBD'} - {calendarDateRange?.[1]?.toLocaleDateString() || 'TBD'}</p>
-            <p style={{ margin: '0.25rem 0' }}><strong>Delivery Address:</strong> {deliveryAddress || 'TBD'}</p>
-            <p style={{ margin: '0.25rem 0' }}><strong>Total Amount:</strong> ${(total || 0).toFixed(2)}</p>
+            <p className="contract-details-item"><strong>Event Date:</strong> {calendarDateRange?.[0]?.toLocaleDateString() || 'TBD'} - {calendarDateRange?.[1]?.toLocaleDateString() || 'TBD'}</p>
+            <p className="contract-details-item"><strong>Delivery Address:</strong> {deliveryAddress || 'TBD'}</p>
+            <p className="contract-details-item"><strong>Total Amount:</strong> ${(total || 0).toFixed(2)}</p>
           </div>
         </div>
       </div>
 
       {/* Main Agreement Terms */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h3 style={{ 
-          margin: '0 0 1rem 0', 
-          fontSize: '1.3rem',
-          textAlign: 'center',
-          textTransform: 'uppercase',
-          borderBottom: '1px solid #ccc',
-          paddingBottom: '0.5rem'
-        }}>
+      <div className="terms-section">
+        <h3 className="terms-title">
           Terms and Conditions
         </h3>
         
-        <p style={{ marginBottom: '1.5rem', fontStyle: 'italic', textAlign: 'center', color: '#666' }}>
+        <p className="terms-subtitle">
           By initialing each section below, the Customer acknowledges understanding and agreement to these terms:
         </p>
 
         {contractSections.filter(section => !section.isFinePrint).map((section, index) => (
-          <div key={section.id} style={{ 
-            marginBottom: '1.5rem',
-            padding: '1rem',
-            border: section.isInitialed ? '2px solid #28a745' : '1px solid #ddd',
-            borderRadius: '4px',
-            backgroundColor: section.isInitialed ? '#f8fff8' : '#fff',
-            position: 'relative'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
-              <div style={{ 
-                minWidth: '80px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                paddingTop: '0.5rem'
-              }}>
-                <div style={{ 
-                  display: 'flex', 
-                  flexDirection: 'column',
-                  alignItems: 'center', 
-                  cursor: 'pointer',
-                  gap: '0.5rem'
-                }}
-                onClick={() => handleSectionInitial(section.id)}
+          <div key={section.id} className={`contract-section ${section.isInitialed ? 'initialed' : ''}`}>
+            <div className="section-content">
+              <div className="initial-section">
+                <div 
+                  className="initial-container"
+                  onClick={() => handleSectionInitial(section.id)}
                 >
-                  <div style={{ 
-                    display: 'inline-block',
-                    minWidth: '50px',
-                    padding: '0.25rem 0.5rem',
-                    border: '2px solid #000',
-                    borderRadius: '0px',
-                    fontSize: '0.9rem',
-                    fontWeight: 'bold',
-                    backgroundColor: section.isInitialed ? '#e8f5e8' : '#fff',
-                    textAlign: 'center',
-                    fontFamily: 'Times, serif'
-                  }}>
+                  <div className={`initial-box ${section.isInitialed ? 'filled' : ''}`}>
                     {section.isInitialed ? customerInitials : '____'}
                   </div>
                 </div>
-                <small style={{ fontSize: '0.7rem', color: '#666', textAlign: 'center' }}>Initial</small>
+                <small className="initial-label">Initial</small>
               </div>
-              <div style={{ flex: 1 }}>
-                <h4 style={{ 
-                  margin: '0 0 0.5rem 0', 
-                  fontSize: '1.1rem',
-                  fontWeight: 'bold',
-                  textTransform: 'uppercase',
-                  color: '#333'
-                }}>
+              <div className="section-text">
+                <h4 className="section-title">
                   {index + 1}. {section.title}
                 </h4>
-                <p style={{ 
-                  margin: 0, 
-                  color: '#333', 
-                  lineHeight: '1.5',
-                  fontSize: '0.95rem',
-                  textAlign: 'justify'
-                }}>
+                <p className="section-content-text">
                   {section.content}
                 </p>
               </div>
@@ -300,40 +248,17 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
       </div>
 
       {/* Fine Print Section */}
-      <div style={{ 
-        marginBottom: '2rem',
-        padding: '1rem',
-        backgroundColor: '#f9f9f9',
-        border: '1px solid #ccc',
-        borderRadius: '4px'
-      }}>
-        <h4 style={{ 
-          margin: '0 0 1rem 0', 
-          fontSize: '1.1rem',
-          textAlign: 'center',
-          textTransform: 'uppercase',
-          color: '#666'
-        }}>
+      <div className="fine-print-section">
+        <h4 className="fine-print-title">
           Additional Legal Terms and Conditions
         </h4>
         
         {contractSections.filter(section => section.isFinePrint).map((section, index) => (
-          <div key={section.id} style={{ marginBottom: '1rem' }}>
-            <h5 style={{ 
-              margin: '0 0 0.5rem 0', 
-              fontSize: '1rem',
-              fontWeight: 'bold',
-              color: '#333'
-            }}>
+          <div key={section.id} className="fine-print-item">
+            <h5 className="fine-print-item-title">
               {section.title}
             </h5>
-            <p style={{ 
-              margin: 0, 
-              color: '#555', 
-              lineHeight: '1.4',
-              fontSize: '0.85rem',
-              textAlign: 'justify'
-            }}>
+            <p className="fine-print-item-text">
               {section.content}
             </p>
           </div>
@@ -341,46 +266,18 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
       </div>
 
       {/* Signature Section */}
-      <div style={{ 
-        marginBottom: '2rem',
-        padding: '2rem',
-        border: '2px solid #000',
-        borderRadius: '0px',
-        backgroundColor: '#fff'
-      }}>
-        <h3 style={{ 
-          margin: '0 0 1rem 0', 
-          fontSize: '1.3rem',
-          textAlign: 'center',
-          textTransform: 'uppercase',
-          borderBottom: '1px solid #ccc',
-          paddingBottom: '0.5rem'
-        }}>
+      <div className="signature-section">
+        <h3 className="signature-title">
           Customer Signature
         </h3>
         
-        <p style={{ 
-          marginBottom: '2rem', 
-          textAlign: 'center',
-          color: '#666',
-          fontStyle: 'italic'
-        }}>
+        <p className="signature-disclaimer">
           By signing below, I acknowledge that I have read, understood, and agree to all terms and conditions outlined in this agreement.
         </p>
         
-        <div style={{ 
-          display: 'flex',
-          alignItems: 'center',
-          gap: '2rem',
-          marginBottom: '2rem'
-        }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ 
-              display: 'block',
-              marginBottom: '0.5rem',
-              fontWeight: 'bold',
-              fontSize: '1rem'
-            }}>
+        <div className="signature-input-container">
+          <div className="signature-input-section">
+            <label className="signature-label">
               Customer Signature:
             </label>
             <input
@@ -389,94 +286,44 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
               onChange={(e) => setTypedSignature(e.target.value)}
               onClick={handleSignatureClick}
               placeholder="Type your full name here"
-              style={{
-                width: '100%',
-                padding: '1rem',
-                border: 'none',
-                borderBottom: '2px solid #000',
-                borderRadius: '0px',
-                fontSize: '1.3rem',
-                fontFamily: 'cursive',
-                backgroundColor: 'transparent',
-                textAlign: 'center'
-              }}
+              className="signature-input"
             />
           </div>
-          <div style={{ 
-            minWidth: '150px',
-            textAlign: 'center'
-          }}>
-            <label style={{ 
-              display: 'block',
-              marginBottom: '0.5rem',
-              fontWeight: 'bold',
-              fontSize: '1rem'
-            }}>
+          <div className="signature-date-section">
+            <label className="signature-label">
               Date:
             </label>
-            <div style={{
-              padding: '1rem',
-              borderBottom: '2px solid #000',
-              fontSize: '1.1rem',
-              fontFamily: 'Times, serif'
-            }}>
+            <div className="signature-date-display">
               {new Date().toLocaleDateString()}
             </div>
           </div>
         </div>
         
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="signature-buttons">
           <button
             onClick={clearSignature}
-            style={{
-              backgroundColor: '#6c757d',
-              color: 'white',
-              border: 'none',
-              padding: '0.5rem 1rem',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
+            className="clear-signature-btn"
           >
             Clear Signature
           </button>
           
           {typedSignature.trim() && (
-            <span style={{ color: '#28a745', fontSize: '0.9rem' }}>
+            <span className="signature-status">
               ✓ Signature entered
             </span>
           )}
         </div>
 
         {/* Contract Completion Status */}
-        <div style={{ 
-          marginTop: '2rem', 
-          padding: '1.5rem', 
-          backgroundColor: '#f8f9fa',
-          border: '1px solid #ddd',
-          borderRadius: '0px',
-          textAlign: 'center'
-        }}>
-          <h4 style={{ 
-            margin: '0 0 1rem 0', 
-            fontWeight: 'bold',
-            textTransform: 'uppercase',
-            fontSize: '1.1rem'
-          }}>
+        <div className="completion-status">
+          <h4 className="completion-status-title">
             Contract Completion Status
           </h4>
-          <div style={{ display: 'flex', justifyContent: 'space-around', gap: '2rem' }}>
-            <div style={{ 
-              color: allSectionsInitialed() ? '#28a745' : '#dc3545',
-              fontSize: '1rem',
-              fontWeight: 'bold'
-            }}>
+          <div className="completion-status-items">
+            <div className={`status-item ${allSectionsInitialed() ? 'complete' : 'incomplete'}`}>
               ✓ Sections Initialed: {contractSections.filter(s => !s.isFinePrint && s.isInitialed).length} / {contractSections.filter(s => !s.isFinePrint).length}
             </div>
-            <div style={{ 
-              color: typedSignature.trim() ? '#28a745' : '#dc3545',
-              fontSize: '1rem',
-              fontWeight: 'bold'
-            }}>
+            <div className={`status-item ${typedSignature.trim() ? 'complete' : 'incomplete'}`}>
               ✓ Signature: {typedSignature.trim() ? 'Complete' : 'Required'}
             </div>
           </div>
@@ -484,7 +331,7 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
       </div>
 
       {/* Contract Completion Button */}
-      <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+      <div className="contract-completion">
         <button
           onClick={() => onContractComplete({
             sections: contractSections,
@@ -492,16 +339,7 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
             initials: customerInitials
           })}
           disabled={!allSectionsInitialed() || !typedSignature.trim()}
-          style={{
-            backgroundColor: allSectionsInitialed() && typedSignature.trim() ? '#28a745' : '#6c757d',
-            color: 'white',
-            border: 'none',
-            padding: '1rem 2rem',
-            borderRadius: '8px',
-            cursor: allSectionsInitialed() && typedSignature.trim() ? 'pointer' : 'not-allowed',
-            fontSize: '1.1rem',
-            fontWeight: 'bold'
-          }}
+          className={`completion-button ${allSectionsInitialed() && typedSignature.trim() ? 'enabled' : 'disabled'}`}
         >
           {allSectionsInitialed() && typedSignature.trim() 
             ? 'Complete Contract & Proceed to Payment' 
