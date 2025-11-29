@@ -501,29 +501,16 @@ font-size: .9rem;
     display: block;
     width: 100%;
     padding: 1rem;
-    background: var(--lightBlue);
     border: 2px solid var(--darkBlue);
-    border-radius: 8px;
     color: var(--darkBlue);
     font-weight: 600;
     text-decoration: none;
     text-align: center;
     transition: all 0.2s ease;
-    cursor: pointer;
     font-size: 1rem;
   }
 
-  .profile-mobile-tab:hover {
-    background: var(--coral);
-    color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  }
-
-  .profile-mobile-tab.active {
-    background: var(--coral);
-    color: white;
-  }
+  
 
   /* Hide desktop profile sidebar on mobile */
   .profile-left {
