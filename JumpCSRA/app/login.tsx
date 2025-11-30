@@ -669,17 +669,8 @@ useEffect(() => {
       
     
       
-      <h2 className="login-title">{isSignUp ? "Sign Up" : "Sign In"}</h2>
-      <button
-        className="toggle-btn"
-        onClick={() => {
-          setIsSignUp(!isSignUp);
-          setStep("email");
-          setError(null);
-        }}
-      >
-        {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
-      </button>
+      {/* <h2 className="login-title">{isSignUp ? "Sign Up" : "Sign In"}</h2> */}
+      
      
       {/* Forgot Password Modal */}
       {showForgotPw && (
@@ -886,7 +877,6 @@ useEffect(() => {
       {/* Sign In Form */}
       {!showVerifyMsg && !isSignUp && (
         <form className="signup-form" onSubmit={handleSignIn}>
-          <h2 className="login-title">Login To See Past Events</h2>
           {error && <div className="login-error">{error}</div>}
           <input
             className="identifier-input"
@@ -950,16 +940,6 @@ useEffect(() => {
             Sign in with Google
           </button>
 
-         
-            <button
-              type="button"
-              className="forgot-pw-link"
-              
-              onClick={() => setShowForgotPw(true)}
-            >
-              Forgot password?
-            </button>
-
               {/* Back button */}
       <button
         className="back-btn"
@@ -976,6 +956,32 @@ useEffect(() => {
         </form>
       )}
 
+      {/* Toggle and Forgot Password buttons - positioned together outside of conditional forms */}
+      {showSignInForm && !showVerifyMsg && !needsProfile && !showForgotPw && (
+        <div className="auth-action-buttons">
+          <button
+            className="toggle-btn"
+            onClick={() => {
+              setIsSignUp(!isSignUp);
+              setStep("email");
+              setError(null);
+            }}
+          >
+            {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
+          </button>
+          
+          {/* Forgot password button - only show during sign-in mode */}
+          {!isSignUp && (
+            <button
+              type="button"
+              className="forgot-pw-link"
+              onClick={() => setShowForgotPw(true)}
+            >
+              Forgot password?
+            </button>
+          )}
+        </div>
+      )}
 
     </div>
   );

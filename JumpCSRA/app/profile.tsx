@@ -76,7 +76,6 @@ export default function Profile() {
   });
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [guest, setGuest] = useState(false);
 
   // Mobile profile sidebar state
   const [isProfileSidebarOpen, setIsProfileSidebarOpen] = useState(false);
@@ -690,8 +689,7 @@ export default function Profile() {
   }
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       if (!u) {
-        setGuest(true);
-        setLoading(false);
+        navigate("/?signin=true");
         return;
       }
 
@@ -1796,21 +1794,6 @@ export default function Profile() {
   }, [activeTab, user, passwordVerified]);
 
   if (loading) return <div className="profile-loading">Loading...</div>;
-  if (guest) {
-    return (
-      <div className="profile-guest">
-        <h2>Sign in to view your profile</h2>
-        <div style={{ display: "flex", gap: "1rem", justifyContent: "center" }}>
-          <button className="profile-signin-btn" onClick={() => navigate("/")}>
-            Sign In
-          </button>
-          <button className="profile-signin-btn" onClick={() => navigate("/home")}>
-            ← Back
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <>

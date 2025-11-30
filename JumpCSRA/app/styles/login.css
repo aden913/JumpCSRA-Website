@@ -270,3 +270,27 @@ text-decoration: underline;
     .back-btn:hover {
     color: var(--coral);
 }
+
+/* Auth action buttons container (toggle and forgot password) */
+.auth-action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    width: 100%;
+    align-items: center;
+}
+
+.toggle-btn {
+    background: none;
+    border: none;
+    color: var(--darkBlue);
+    font-size: 1rem;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0.5rem;
+}
+
+.toggle-btn:hover {
+    color: var(--coral);
+}
