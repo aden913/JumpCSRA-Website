@@ -81,6 +81,7 @@ interface ContractMetadata {
 }
 import { checkItemAvailability, type ItemAvailability } from "../utils/availabilityUtils";
 import '@mantine/notifications/styles.css';
+import '../styles/notifications-center.css';
 import '../styles/checkout-buttons.css';
 import '../styles/checkout.css';
 

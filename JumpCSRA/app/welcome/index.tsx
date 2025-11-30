@@ -38,6 +38,7 @@ import "../styles/specials.css";
 import "swiper/css";
 import "swiper/css/navigation";
 import '@mantine/notifications/styles.css';
+import "../styles/notifications-center.css";
 
 import { MantineProvider } from "@mantine/core";
 import { useWelcomeLogic } from './useWelcomeLogic';

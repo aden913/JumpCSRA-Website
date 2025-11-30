@@ -1,0 +1,35 @@
+/* Right-side Mantine Notifications */
+
+.mantine-Notifications-root {
+  position: fixed !important;
+  top: 50% !important;
+  right: 20px !important;
+  transform: translateY(-50%) !important;
+  width: auto !important;
+  max-width: 500px !important;
+  z-index: 99999 !important;
+  pointer-events: none !important; /* Allow clicks to pass through the container */
+}
+
+.mantine-Notification-root {
+  margin: 10px auto !important;
+  width: 100% !important;
+  max-width: 500px !important;
+  min-width: 300px !important;
+  pointer-events: auto !important; /* Enable clicks only on actual notifications */
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+  .mantine-Notifications-root {
+    right: 10px !important;
+    max-width: calc(100vw - 40px) !important;
+    min-width: 280px !important;
+    pointer-events: none !important; /* Ensure clicks pass through on mobile too */
+  }
+  
+  .mantine-Notification-root {
+    min-width: 280px !important;
+    pointer-events: auto !important; /* Enable clicks on notifications */
+  }
+}
