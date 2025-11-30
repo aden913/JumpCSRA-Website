@@ -787,11 +787,9 @@ font-size: .9rem;
     top: 1rem;
     left: 1rem;
     z-index: 1002;
-    background: var(--lightBlue);
-    border: 2px solid var(--darkBlue);
     border-radius: 8px;
     font-size: 1.6rem;
-    color: var(--darkBlue);
+    color: var(--coral);
     cursor: pointer;
     padding: 0.8rem;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -803,11 +801,7 @@ font-size: .9rem;
     justify-content: center;
   }
 
-  .profile-menu-toggle:hover {
-    background: var(--coral);
-    color: white;
-    transform: scale(1.05);
-  }
+  
 
   .profile-menu-toggle.sidebar-open {
     left: 21rem;
@@ -858,7 +852,6 @@ font-size: .9rem;
     display: block;
     width: 100%;
     padding: 1rem;
-    background: var(--lightBlue);
     border: 2px solid var(--darkBlue);
     border-radius: 8px;
     color: var(--darkBlue);
@@ -869,17 +862,8 @@ font-size: .9rem;
     font-size: 1rem;
   }
 
-  .profile-mobile-tab:hover {
-    background: var(--coral);
-    color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  }
+ 
 
-  .profile-mobile-tab.active {
-    background: var(--coral);
-    color: white;
-  }
 
   /* Hide desktop profile sidebar on small tablets */
   .profile-left {
