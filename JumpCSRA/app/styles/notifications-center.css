@@ -31,5 +31,13 @@
   .mantine-Notification-root {
     min-width: 280px !important;
     pointer-events: auto !important; /* Enable clicks on notifications */
+   
+  }
+  .mantine-Notification-description {
+    font-size: 1.2rem !important;
+  }
+
+  .mantine-Notification-title {
+    font-size: 1.5rem !important;
   }
 }
