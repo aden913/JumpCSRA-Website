@@ -3,6 +3,13 @@
 /* Mobile devices (< 480px) */
 @media (max-width: 479px) {
 
+
+  .order-btn {
+    font-size: 0.7rem !important;
+  }
+.nav-logo {
+    display: none !important;
+  }
 .signature-section {
   grid-template-columns: repeat(1, 1fr) !important;
   }
@@ -17,12 +24,12 @@
   }
 .carousel-container .option-card {
 
-    width: 10rem !important;
+    width: 13rem !important;
     height: auto !important;
   }
   .carousel-container .option-card img {
-    width: 6rem !important;
-    height: 6rem !important;
+    width: 100% !important;
+    height: auto !important;
   }
   .carousel-container .option-card span {
     font-size: 1rem !important;
@@ -156,10 +163,10 @@ font-size: .9rem;
   .wetdry-box {
     width:8rem;
     font-size:.8rem;
+    padding:.1rem;
   }
   .option-card img {
     border-radius: 5%;
-    width:100%;
   }
 .option-card span{
     font-size: 1rem;
@@ -176,7 +183,6 @@ font-size: .9rem;
 
   /* Hide the entire navbar on mobile */
   .nav-bar {
-    display: none !important;
   }
 
   /* Standalone sticky mobile menu toggle */
@@ -207,10 +213,16 @@ font-size: .9rem;
     transform: rotate(90deg);
   }
 
-
+  .navbar-search-container, .search-bar-input{
+    width: 100% !important;
+  }
+  .nav-bar ul{
+    margin:0;
+    padding: 0;
+    gap:0;
+  }
   /* Hide ALL regular navbar items on mobile */
   .navbar-category-dropdown-container,
-  .navbar-search-container,
   .icon-container,
   .calendar-btn,
   .wallet-balance-display {

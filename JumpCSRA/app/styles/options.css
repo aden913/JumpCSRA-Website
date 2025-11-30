@@ -106,7 +106,7 @@
   flex-wrap: wrap;
 }
 .option-card {
-    background: var(--coral);
+    background: rgba(255, 255, 255, 0.583);
   color: var(--darkBlue);
   border-radius: 56px;
   padding: 1.8rem 1.2rem 1.2rem 1.2rem;
@@ -178,7 +178,7 @@
 }
 .wetdry-box {
   background: var(  --lightBlue);
-  color: var(--coral);
+  color: var(--darkBlue);
   border-radius: 24px;
   padding: 0.6rem 1.2rem;
   font-size: 1.8rem;

@@ -1,5 +1,6 @@
 import { Link, useNavigate, useLocation } from "react-router";
 import React, { useState, useEffect } from "react";
+import { AnimatedCartIcon, StaticCartIcon } from "./AnimatedCartIcon";
 import "../styles/navbar.css";
 import "../styles/cart.css";
 
@@ -15,9 +16,10 @@ type RouterNavProps = {
   hideNavbarDropdown?: boolean; // Hide the navbar category dropdown
   walletBalance?: number; // User's wallet balance to display
   hideMobileSidebar?: boolean; // Hide mobile hamburger button and sidebar
+  useMobileBottomMenu?: boolean; // Use new bottom menu instead of sidebar
 };
 
-export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [], onCategoryChange, hideIcons = false, hideCartIcon = false, searchBarComponent, hideNavbarDropdown = false, walletBalance, hideMobileSidebar = false }: RouterNavProps) {
+export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [], onCategoryChange, hideIcons = false, hideCartIcon = false, searchBarComponent, hideNavbarDropdown = false, walletBalance, hideMobileSidebar = false, useMobileBottomMenu = false }: RouterNavProps) {
   const formatDate = (date: Date | null) => date ? date.toLocaleDateString() : "--";
   const navigate = useNavigate();
   const location = useLocation();
@@ -84,7 +86,7 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
   return (
     <>
       {/* Standalone Mobile Menu Toggle Button - Outside of navbar */}
-      {isMobile && !hideMobileSidebar && (
+      {isMobile && !hideMobileSidebar && !useMobileBottomMenu && (
         <button 
           className={`mobile-menu-toggle ${isMobileSidebarOpen ? 'sidebar-open' : ''}`}
           onClick={toggleMobileSidebar}
@@ -103,8 +105,8 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
             </Link>
           </li>
           
-          {/* Mobile Cart & Profile Links */}
-          {isMobile && (
+          {/* Mobile Cart & Profile Links - Only show when not using bottom menu */}
+          {isMobile && !useMobileBottomMenu && (
             <div className="mobile-nav-actions">
               {!hideIcons && !hideCartIcon && (
                 <button 
@@ -123,8 +125,9 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
             </div>
           )}
           
-          {/* Category Dropdown or Custom Component - Hidden on Mobile */}
+          {/* Search Bar or Category Dropdown */}
           {!isMobile && (
+            // Desktop behavior (unchanged)
             <>
               {searchBarComponent ? (
                 <div className="navbar-search-container">
@@ -150,9 +153,16 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
               )}
             </>
           )}
+          
+          {/* Mobile search bar when using bottom menu */}
+          {isMobile && useMobileBottomMenu && searchBarComponent && (
+            <div className="navbar-search-container">
+              {searchBarComponent}
+            </div>
+          )}
 
-          {/* Right side icons container */}
-          <div className="navbar-right-icons">
+          {/* Right side icons container - Hide on mobile when using bottom menu */}
+          <div className={`navbar-right-icons ${isMobile && useMobileBottomMenu ? 'mobile-hidden' : ''}`}>
             {/* Calendar Icon - Hidden on Mobile */}
             {!isMobile && (
               <div className="icon-container">
@@ -196,7 +206,7 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
                     {isMobile ? (
                       <span className="cart-text">Cart</span>
                     ) : (
-                      <img src="/white-cart.png" alt="Cart" className="cart-icon" />
+                      <AnimatedCartIcon width={108} height={108} className="cart-icon" />
                     )}
                     {cartCount && cartCount > 0 && (
                       <span className="cart-count" style={{}}>{cartCount}</span>
@@ -245,8 +255,8 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
         </ul>
       </nav>
 
-      {/* Mobile Sidebar */}
-      {isMobile && !hideMobileSidebar && (
+      {/* Mobile Sidebar - Only show when not using bottom menu */}
+      {isMobile && !hideMobileSidebar && !useMobileBottomMenu && (
         <>
           <div className={`mobile-sidebar ${isMobileSidebarOpen ? 'open' : ''}`}>
             {/* Profile and Cart Buttons */}

@@ -75,7 +75,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
     <div className="search-bar-container">
       <input
         type="text"
-        placeholder="Search..."
+        placeholder="Search by Name..."
         value={searchTerm}
         onChange={e => {
           setSearchTerm(e.target.value);

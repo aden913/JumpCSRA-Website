@@ -159,20 +159,17 @@
   align-items: center;
   justify-content: center;
   max-width: 32rem !important;
-  min-width: 32rem !important;
-  width: 32rem !important;
+  width: 32rem;
 }
 
 .navbar-search-container .search-bar-container {
   width: 100%;
   max-width: 32rem !important;
-  min-width: 32rem !important;
 }
 
 .navbar-search-container .search-bar-input {
-  width: 32rem !important;
+  width: 32rem;
   max-width: 32rem !important;
-  min-width: 32rem !important;
   padding: 0.5rem 0.8rem !important;
   font-size: 0.9rem !important;
   border: 2px solid var(--darkBlue) !important;

@@ -2,6 +2,7 @@ import { ModalCarousel } from "../components/ModalCarousel";
 import { OptionsCarousel, OptionsCarouselRef } from "../components/OptionsCarousel";
 import { ProductDetailModal } from "../components/ProductDetailModal";
 import { CalendarSidebar } from "../components/CalendarSidebar";
+import { MobileBottomMenu } from "../components/MobileBottomMenu";
 import { Notifications } from '@mantine/notifications';
 import { notifications } from '@mantine/notifications';
 import { useInflateables } from '../hooks/useInflateables';
@@ -39,6 +40,7 @@ import "swiper/css";
 import "swiper/css/navigation";
 import '@mantine/notifications/styles.css';
 import "../styles/notifications-center.css";
+import "../styles/mobile-bottom-menu.css";
 
 import { MantineProvider } from "@mantine/core";
 import { useWelcomeLogic } from './useWelcomeLogic';
@@ -461,6 +463,7 @@ export function Welcome() {
           categories={logic.categories}
           onCategoryChange={handleCategoryChange}
           hideNavbarDropdown={true}
+          useMobileBottomMenu={true}
           searchBarComponent={
             <SearchBar
               inflateables={logic.inflateables}
@@ -716,6 +719,15 @@ export function Welcome() {
           </div>
         </footer>
       </div>
+      
+      {/* Mobile Bottom Menu */}
+      <MobileBottomMenu
+        user={user}
+        selectedDates={logic.calendarDateRange}
+        onCalendarClick={() => logic.handleNavClick("Calendar")}
+        cartCount={logic.cart.reduce((sum: number, item: CartItem) => sum + item.quantity, 0)}
+        onCartClick={() => logic.handleNavClick("Cart")}
+      />
       
       {/* Chat Widget */}
       <ChatWidget />

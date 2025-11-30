@@ -30,7 +30,7 @@
 
 .mantine-DatePicker-day[data-selected] {
   background: #51CBC2 !important; /* orange for selected */
-  color: #51CBC2 !important;
+  color: white!important;
   font-weight: bolder;
 }
 

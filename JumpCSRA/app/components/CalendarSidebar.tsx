@@ -43,10 +43,8 @@ export function CalendarSidebar({ open, onClose, value, onChange }: CalendarSide
           <div className="calendar-overlay open" onClick={onClose}></div>
           <div className="calendar-sidebar open">
             <div className="topCalendar">
-              <button className="close-btn" onClick={onClose}>
-                X
-              </button>
-              <h2 className="calendar-sidebar-title">Select Event Date Range</h2>
+              
+              <h2 className="calendar-sidebar-title">Event Start Date</h2>
             </div>
             <DatePicker
               type="default"
@@ -62,15 +60,12 @@ export function CalendarSidebar({ open, onClose, value, onChange }: CalendarSide
               size="lg"
             />
             <div style={{ marginTop: "2rem", textAlign: "center", fontSize: "1.1rem" }}>
-              <strong>Selected Date:</strong><br />
-              {value[0] ? value[0].toLocaleDateString() : "--"}
-              <br />
               {value[0] && (
                 <button
-                  style={{ marginTop: "1rem", padding: "0.5rem 1.5rem", fontSize: "1rem", background: "#2e8b57", color: "white", border: "none", borderRadius: "6px", cursor: "pointer" }}
+                  style={{ marginTop: "1rem", padding: "0.5rem 1.5rem", fontSize: "1rem", background: "var(--lightBlue)", color: "white", border: "none", borderRadius: "6px", cursor: "pointer" }}
                   onClick={onClose}
                 >
-                  Close Sidebar
+                  Confirm
                 </button>
               )}
             </div>

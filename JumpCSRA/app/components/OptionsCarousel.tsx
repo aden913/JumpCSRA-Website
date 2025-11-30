@@ -296,7 +296,7 @@ export const OptionsCarousel = React.forwardRef<OptionsCarouselRef, OptionsCarou
           breakpoints={{
             1024: { slidesPerView: 'auto', spaceBetween: 20 },
             768: { slidesPerView: 'auto', spaceBetween: 15 },
-            464: { slidesPerView: 'auto', spaceBetween: 15 },
+            464: { slidesPerView: 1, spaceBetween: 10 },
             0: { slidesPerView: 1, spaceBetween: 0 },
           }}
           style={{ padding: ".5rem 0" }}

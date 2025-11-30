@@ -1,0 +1,184 @@
+/* Mobile Bottom Menu Styles */
+
+.mobile-bottom-menu {
+  display: none;
+}
+
+/* Hide navbar right icons on mobile when using bottom menu */
+@media (max-width: 768px) {
+  .navbar-right-icons.mobile-hidden {
+    display: none !important;
+  }
+  
+  /* Make sure search bar takes full width on mobile */
+  .navbar-search-container {
+    flex: 1;
+    max-width: none;
+    margin: 0 1rem;
+  }
+}
+
+/* Show only on mobile devices */
+@media (max-width: 768px) {
+  .mobile-bottom-menu {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--lightBlue);
+    border-top: 2px solid var(--darkBlue);
+    padding: 8px 16px 12px;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 1000;
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .bottom-menu-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    flex: 1;
+    max-width: 90px;
+    min-height: 50px;
+    transition: all 0.2s ease;
+  }
+
+  .bottom-menu-item.clickable {
+    cursor: pointer;
+  }
+
+  .bottom-menu-item.clickable:hover {
+    transform: translateY(-2px);
+  }
+
+  .bottom-menu-item.clickable:active {
+    transform: translateY(0);
+  }
+
+  .bottom-menu-icon {
+    position: relative;
+    font-size: 1.5rem;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+  }
+
+  .menu-icon-img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+  }
+
+  .cart-icon-container {
+    position: relative;
+  }
+
+  .animated-cart-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .cart-count-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ff4757;
+    color: white;
+    border-radius: 50%;
+    min-width: 20px;
+    height: 20px;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    border: 2px solid var(--lightBlue);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .bottom-menu-text {
+    font-size: 0.75rem;
+    color: var(--darkBlue);
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .date-button-text {
+    font-size: 0.8rem;
+    font-weight: 800;
+    color: white;
+    text-align: center;
+    margin-top: 8px;
+  }
+
+  .name-button-text {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-align: center;
+    margin-top: 8px;
+  }
+
+  .user-name {
+    color: var(--darkBlue);
+    font-weight: 700;
+  }
+
+  .guest-text {
+    color: #666;
+    font-weight: 600;
+  }
+
+  .user-name-button {
+    cursor: default;
+  }
+
+  .signin-text {
+    color: white;
+    font-weight: 900;
+  }
+
+ 
+
+  .date-display {
+    text-align: center;
+    font-weight: 700;
+    color: var(--darkBlue);
+  }
+
+  .date-range {
+    font-weight: 700;
+    color: var(--darkBlue);
+    margin-bottom: 2px;
+    font-size: 0.7rem;
+  }
+
+  .date-subtext {
+    font-size: 0.65rem;
+    color: #666;
+    opacity: 0.8;
+  }
+
+  /* Add bottom padding to main content to prevent overlap */
+  .landing-page {
+    padding-bottom: 80px;
+  }
+}
+
+/* Ensure no overlap on larger screens */
+@media (min-width: 769px) {
+  .mobile-bottom-menu {
+    display: none !important;
+  }
+  
+  .landing-page {
+    padding-bottom: 0;
+  }
+}
