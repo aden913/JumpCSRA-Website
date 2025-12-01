@@ -20,6 +20,7 @@
   justify-content: center;
   background: rgba(0,0,0,0.25);
   animation: fadeIn 0.3s;
+  overflow: hidden;
 }
 .fade-in {
   animation: fadeIn 0.3s;
@@ -40,7 +41,8 @@
 }
 
 .popup {
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-width: none;       
   -ms-overflow-style: none; 
   position: relative;
@@ -56,6 +58,7 @@
   flex-direction: column;
   align-items: center;
   animation: popupFadeIn 0.3s;
+  box-sizing: border-box;
 }
 @keyframes popupFadeIn {
   from { transform: scale(0.95); opacity: 0; }
@@ -106,4 +109,42 @@
 .modal-purchase:hover {
   background-color: var(--golden-brown, #d7be82);
   color: var(--dark-green, #515a47);
+}
+
+/* Mobile-specific modal constraints */
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding: 0;
+    overflow: hidden;
+  }
+  
+  .popup {
+    min-width: 95vw;
+    max-width: 95vw;
+    width: 95vw;
+    max-height: 90vh;
+    margin: 0 auto;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  
+  .modal-content {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  
+  .modal-div {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
+  }
+  
+  .modal-info {
+    width: 100%;
+    max-width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
 }
