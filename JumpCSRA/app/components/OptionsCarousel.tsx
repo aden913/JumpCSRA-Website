@@ -58,7 +58,7 @@ function OptionCard({
   let wetDryLabel = "";
   if (wet === true && dry === false) wetDryLabel = "Wet Only";
   else if (wet === false && dry === true) wetDryLabel = "Dry Only";
-  else if (wet === true && dry === true) wetDryLabel = "Wet and Dry";
+  else if (wet === true && dry === true) wetDryLabel = "Wet or Dry";
 
   const productData = {
     name,
@@ -127,15 +127,17 @@ function OptionCard({
         className="option-img" 
         style={unavailable ? { filter: "grayscale(1)", opacity: 0.6 } : {}}
       />
-      {wetDryLabel && <div className="wetdry-box">{wetDryLabel}</div>}
-      <button
-        className="order-btn"
-        onClick={handleOrderClick}
-        disabled={unavailable}
-        style={unavailable ? { backgroundColor: "#ccc", cursor: "not-allowed" } : {}}
-      >
-        {unavailable ? "UNAVAILABLE" : (directSelection ? "SELECT" : "ORDER NOW")}
-      </button>
+      <div className="option-card-bottom">
+        {wetDryLabel && <div className="wetdry-box">{wetDryLabel}</div>}
+        <button
+          className="order-btn"
+          onClick={handleOrderClick}
+          disabled={unavailable}
+          style={unavailable ? { backgroundColor: "#ccc", cursor: "not-allowed" } : {}}
+        >
+          {unavailable ? "UNAVAILABLE" : (directSelection ? "SELECT" : "ORDER NOW")}
+        </button>
+      </div>
     </div>
   );
 }
