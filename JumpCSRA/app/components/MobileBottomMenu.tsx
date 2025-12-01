@@ -56,7 +56,7 @@ export function MobileBottomMenu({
       <div className="bottom-menu-item clickable" onClick={onCartClick}>
         <div className="bottom-menu-icon cart-icon-container">
           <img src="/white-cart.png" alt="Cart" className="menu-icon-img cart-icon" />
-          {(cartCount && Number(cartCount) > 0) && (
+          {cartCount != null && cartCount > 0 && (
             <div className="cart-count-badge">{cartCount}</div>
           )}
         </div>

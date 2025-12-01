@@ -114,7 +114,7 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
                   className="mobile-cart-link" 
                   onClick={() => onNavClick && onNavClick("Cart")}
                 >
-                  Cart{cartCount && cartCount > 0 && ` (${cartCount})`}
+                  Cart{(cartCount && Number(cartCount) > 0) && ` (${cartCount})`}
                 </button>
               )}
               {!hideIcons && (
@@ -208,7 +208,7 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
                     ) : (
                       <AnimatedCartIcon width={108} height={108} className="cart-icon" />
                     )}
-                    {cartCount && cartCount > 0 && (
+                    {(cartCount && Number(cartCount) > 0) && (
                       <span className="cart-count" style={{}}>{cartCount}</span>
                     )}
                   </button>
@@ -279,7 +279,7 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
                     closeMobileSidebar();
                   }}
                 >
-                   Cart{cartCount && cartCount > 0 && ` (${cartCount})`}
+                   Cart{(cartCount && Number(cartCount) > 0) && ` (${cartCount})`}
                 </button>
               )}
             </div>
