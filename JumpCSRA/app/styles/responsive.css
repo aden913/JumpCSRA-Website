@@ -44,6 +44,9 @@
     color: white; 
     height: auto !important;
   }
+  .option-card img {
+    border-radius: 5px !important;
+  }
   .carousel-container .option-card img {
     width: 100% !important;
     height: auto !important;
