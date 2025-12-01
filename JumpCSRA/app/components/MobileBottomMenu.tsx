@@ -1,8 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router';
 import { User } from 'firebase/auth';
-import { AnimatedCartIcon } from './AnimatedCartIcon';
-import { AnimatedSettingsIcon } from './AnimatedSettingsIcon';
 import '../styles/mobile-bottom-menu.css';
 
 type MobileBottomMenuProps = {
@@ -39,7 +37,7 @@ export function MobileBottomMenu({
       {/* Profile Icon Button */}
       <div className="bottom-menu-item clickable" onClick={handleProfileClick}>
         <div className="bottom-menu-icon">
-          <AnimatedSettingsIcon width={84} height={84} className="animated-settings-icon" />
+          <img src="/profile-icon-white.png" alt="Profile" className="menu-icon-img" />
         </div>
       </div>
 
@@ -56,7 +54,7 @@ export function MobileBottomMenu({
       {/* Cart Button */}
       <div className="bottom-menu-item clickable" onClick={onCartClick}>
         <div className="bottom-menu-icon cart-icon-container">
-          <AnimatedCartIcon width={84} height={84} className="animated-cart-icon" />
+          <img src="/white-cart.png" alt="Cart" className="menu-icon-img cart-icon" />
           {cartCount && cartCount > 0 && (
             <div className="cart-count-badge">{cartCount}</div>
           )}
