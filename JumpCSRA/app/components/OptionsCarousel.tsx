@@ -45,7 +45,12 @@ function OptionCard({
   unavailable,
   directSelection,
   isLandingPage,
-}: OptionCardProps) {
+  cardRef,
+  normalizedDimensions,
+}: OptionCardProps & { 
+  cardRef?: (element: HTMLDivElement | null) => void; 
+  normalizedDimensions?: {width: number, height: number} | null;
+}) {
   let fontSize = "1.5rem";
   if (name.length > 18) fontSize = "1.25rem";
   if (name.length > 28) fontSize = "1rem";
@@ -99,9 +104,18 @@ function OptionCard({
 
   return (
     <div 
+      ref={cardRef}
       className={`option-card${unavailable ? " option-card-unavailable" : ""}`}
       onClick={handleCardClick}
-      style={{ cursor: unavailable ? "not-allowed" : "pointer" }}
+      style={{ 
+        cursor: unavailable ? "not-allowed" : "pointer",
+        ...(normalizedDimensions ? {
+          minWidth: `${normalizedDimensions.width}px`,
+          minHeight: `${normalizedDimensions.height}px`,
+          width: `${normalizedDimensions.width}px`,
+          height: `${normalizedDimensions.height}px`
+        } : {})
+      }}
     >
       <div className="option-title marquee-container" style={{ fontSize }}>
         <span>{name}</span>
@@ -145,8 +159,10 @@ export const OptionsCarousel = React.forwardRef<OptionsCarouselRef, OptionsCarou
   const [leftMaskWidth, setLeftMaskWidth] = useState(37);
   const [isBeginning, setIsBeginning] = useState(true);
   const [isEnd, setIsEnd] = useState(false);
+  const [cardDimensions, setCardDimensions] = useState<{width: number, height: number} | null>(null);
   const swiperRef = useRef<SwiperType | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // Expose reset method to parent components
   useImperativeHandle(ref, () => ({
@@ -256,6 +272,53 @@ export const OptionsCarousel = React.forwardRef<OptionsCarouselRef, OptionsCarou
     };
   }, []);
 
+  // Effect to measure and normalize card dimensions
+  useEffect(() => {
+    const measureCards = () => {
+      if (cardRefs.current.length === 0) return;
+
+      let maxWidth = 0;
+      let maxHeight = 0;
+
+      // Measure all cards to find the largest dimensions
+      cardRefs.current.forEach(cardElement => {
+        if (cardElement) {
+          const rect = cardElement.getBoundingClientRect();
+          maxWidth = Math.max(maxWidth, rect.width);
+          maxHeight = Math.max(maxHeight, rect.height);
+        }
+      });
+
+      // Only update if we have valid measurements and they've changed
+      if (maxWidth > 0 && maxHeight > 0) {
+        const newDimensions = { width: maxWidth, height: maxHeight };
+        setCardDimensions(prev => {
+          if (!prev || prev.width !== maxWidth || prev.height !== maxHeight) {
+            return newDimensions;
+          }
+          return prev;
+        });
+      }
+    };
+
+    // Measure after initial render
+    const timer = setTimeout(measureCards, 100);
+
+    // Set up resize observer for responsive changes
+    const resizeObserver = new ResizeObserver(measureCards);
+    
+    cardRefs.current.forEach(cardElement => {
+      if (cardElement) {
+        resizeObserver.observe(cardElement);
+      }
+    });
+
+    return () => {
+      clearTimeout(timer);
+      resizeObserver.disconnect();
+    };
+  }, [options]); // Re-measure when options change
+
   return (
     <>
       <div className="carousel-container" ref={containerRef}>
@@ -278,9 +341,9 @@ export const OptionsCarousel = React.forwardRef<OptionsCarouselRef, OptionsCarou
         
         <Swiper
           modules={[Navigation]}
-          slidesPerView={'auto'}
-          spaceBetween={20}
           loop={false}
+          centeredSlides={true}
+          centerInsufficientSlides={true}
           navigation={false}
           watchOverflow={true}
           onSwiper={(swiper) => {
@@ -294,23 +357,33 @@ export const OptionsCarousel = React.forwardRef<OptionsCarouselRef, OptionsCarou
             setIsEnd(swiper.isEnd);
           }}
           breakpoints={{
+            0: { slidesPerView: 1, spaceBetween: 10 },
+            480: { slidesPerView: 2, spaceBetween: 15 },
             1024: { slidesPerView: 'auto', spaceBetween: 20 },
-            768: { slidesPerView: 'auto', spaceBetween: 15 },
-            464: { slidesPerView: 1, spaceBetween: 10 },
-            0: { slidesPerView: 1, spaceBetween: 0 },
           }}
           style={{ padding: ".5rem 0" }}
         >
-          {options.map((opt: OptionCardProps) => (
-            <SwiperSlide key={opt.name}>
-              <OptionCard 
-                {...opt} 
-                onOrder={() => handleOrderNow({ ...opt })} 
-                onCardClick={() => handleCardClick({ ...opt })}
-                isLandingPage={isLandingPage}
-              />
-            </SwiperSlide>
-          ))}
+          {options.map((opt: OptionCardProps, index: number) => {
+            // Ensure we have a ref for this card
+            if (!cardRefs.current[index]) {
+              cardRefs.current[index] = null;
+            }
+
+            return (
+              <SwiperSlide key={opt.name}>
+                <OptionCard 
+                  {...opt} 
+                  onOrder={() => handleOrderNow({ ...opt })} 
+                  onCardClick={() => handleCardClick({ ...opt })}
+                  isLandingPage={isLandingPage}
+                  cardRef={(element: HTMLDivElement | null) => {
+                    cardRefs.current[index] = element;
+                  }}
+                  normalizedDimensions={cardDimensions}
+                />
+              </SwiperSlide>
+            );
+          })}
         </Swiper>
       </div>
 

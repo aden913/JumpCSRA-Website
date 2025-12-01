@@ -8,7 +8,7 @@
   margin: 0 auto;
 }
 .swiper-slide {
-  display: flex;
+  display: flex !important;
   justify-content: center;
   align-items: stretch;
   height: auto;
