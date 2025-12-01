@@ -20,9 +20,6 @@ export function MobileBottomMenu({
 }: MobileBottomMenuProps) {
   const navigate = useNavigate();
   
-  // Debug cart count
-  console.log("MobileBottomMenu cartCount:", cartCount, "type:", typeof cartCount);
-  
   const formatDate = (date: Date | null) => date ? date.toLocaleDateString() : "Select Date";
 
   const handleProfileClick = () => {
