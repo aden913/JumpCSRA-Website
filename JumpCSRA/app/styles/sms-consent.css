@@ -1,0 +1,166 @@
+.sms-consent-page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  line-height: 1.6;
+  background-color: #f9f9f9;
+  min-height: 100vh;
+}
+
+.consent-container {
+  background: white;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.consent-header {
+  text-align: center;
+  border-bottom: 2px solid #e74c3c;
+  padding-bottom: 20px;
+  margin-bottom: 30px;
+}
+
+.consent-header h1 {
+  color: #2c3e50;
+  margin-bottom: 10px;
+  font-size: 2.5em;
+  font-weight: bold;
+}
+
+.company-info {
+  font-size: 1.3em;
+  color: #e74c3c;
+  font-weight: bold;
+  margin: 10px 0;
+}
+
+.address {
+  color: #7f8c8d;
+  font-size: 1.1em;
+  margin: 5px 0;
+}
+
+.consent-content {
+  margin-bottom: 40px;
+}
+
+.consent-content h2 {
+  color: #2c3e50;
+  font-size: 2em;
+  margin-bottom: 20px;
+  border-bottom: 1px solid #bdc3c7;
+  padding-bottom: 10px;
+}
+
+.consent-content h3 {
+  color: #34495e;
+  font-size: 1.4em;
+  margin-top: 25px;
+  margin-bottom: 15px;
+}
+
+.usage-explanation,
+.forwarding-policy,
+.consent-details,
+.privacy-assurance,
+.contact-info {
+  margin-bottom: 30px;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-left: 4px solid #e74c3c;
+  border-radius: 4px;
+}
+
+.consent-content ul {
+  padding-left: 20px;
+  margin: 15px 0;
+}
+
+.consent-content li {
+  margin-bottom: 8px;
+  color: #2c3e50;
+}
+
+.consent-content li strong {
+  color: #e74c3c;
+}
+
+.consent-content p {
+  margin-bottom: 15px;
+  color: #2c3e50;
+  font-size: 1.05em;
+}
+
+.consent-footer {
+  text-align: center;
+  border-top: 2px solid #e74c3c;
+  padding-top: 20px;
+  color: #7f8c8d;
+}
+
+.last-updated {
+  font-size: 1.1em;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.company-footer {
+  font-size: 1em;
+  margin: 0;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .sms-consent-page {
+    padding: 10px;
+  }
+  
+  .consent-container {
+    padding: 20px;
+  }
+  
+  .consent-header h1 {
+    font-size: 2em;
+  }
+  
+  .company-info {
+    font-size: 1.1em;
+  }
+  
+  .consent-content h2 {
+    font-size: 1.6em;
+  }
+  
+  .consent-content h3 {
+    font-size: 1.2em;
+  }
+  
+  .usage-explanation,
+  .forwarding-policy,
+  .consent-details,
+  .privacy-assurance,
+  .contact-info {
+    padding: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .consent-header h1 {
+    font-size: 1.8em;
+  }
+  
+  .consent-content h2 {
+    font-size: 1.4em;
+  }
+  
+  .usage-explanation,
+  .forwarding-policy,
+  .consent-details,
+  .privacy-assurance,
+  .contact-info {
+    padding: 10px;
+    margin-bottom: 20px;
+  }
+}
