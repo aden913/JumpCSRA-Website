@@ -19,6 +19,10 @@ export function MobileBottomMenu({
   onCartClick 
 }: MobileBottomMenuProps) {
   const navigate = useNavigate();
+  
+  // Debug cart count
+  console.log("MobileBottomMenu cartCount:", cartCount, "type:", typeof cartCount);
+  
   const formatDate = (date: Date | null) => date ? date.toLocaleDateString() : "Select Date";
 
   const handleProfileClick = () => {
@@ -55,7 +59,7 @@ export function MobileBottomMenu({
       <div className="bottom-menu-item clickable" onClick={onCartClick}>
         <div className="bottom-menu-icon cart-icon-container">
           <img src="/white-cart.png" alt="Cart" className="menu-icon-img cart-icon" />
-          {cartCount && cartCount > 0 && (
+          {(cartCount && Number(cartCount) > 0) && (
             <div className="cart-count-badge">{cartCount}</div>
           )}
         </div>
