@@ -321,6 +321,34 @@ export const OptionsCarousel = React.forwardRef<OptionsCarouselRef, OptionsCarou
     };
   }, [options]); // Re-measure when options change
 
+  // Effect to properly initialize navigation state after Swiper is ready
+  useEffect(() => {
+    const updateNavigationState = () => {
+      if (swiperRef.current) {
+        const swiper = swiperRef.current;
+        // Force Swiper to update its state
+        swiper.update();
+        setIsBeginning(swiper.isBeginning);
+        setIsEnd(swiper.isEnd);
+      }
+    };
+
+    // Update navigation state after a short delay to ensure Swiper is fully initialized
+    const timer = setTimeout(updateNavigationState, 200);
+    
+    // Also update on window resize
+    const handleResize = () => {
+      setTimeout(updateNavigationState, 100);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [options]); // Re-run when options change
+
   return (
     <>
       <div className="carousel-container" ref={containerRef}>
@@ -352,6 +380,13 @@ export const OptionsCarousel = React.forwardRef<OptionsCarouselRef, OptionsCarou
             swiperRef.current = swiper;
             setIsBeginning(swiper.isBeginning);
             setIsEnd(swiper.isEnd);
+            
+            // Update state again after a short delay to ensure accuracy
+            setTimeout(() => {
+              swiper.update();
+              setIsBeginning(swiper.isBeginning);
+              setIsEnd(swiper.isEnd);
+            }, 100);
           }}
           onSlideChange={(swiper) => {
             updateMaskWidth();
