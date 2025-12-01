@@ -157,6 +157,30 @@ font-size: .9rem;
   height: 100%;
   padding:0;
 }
+
+/* Login Modal Styles */
+.login-modal {
+  width: 90%;
+  max-width: 500px;
+  height: auto;
+  max-height: 90vh;
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  position: relative;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+@media (max-width: 768px) {
+  .login-modal {
+    width: 95%;
+    padding: 1rem;
+    max-height: 95vh;
+    border-radius: 8px;
+  }
+}
+
 .modal-close{
   width:1rem;
   background: none;

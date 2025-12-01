@@ -130,7 +130,7 @@
 .option-title {
     font-size: 1.5rem;
     font-weight: bold;
-    margin-bottom: 3px;}
+    margin-bottom: .5rem;}
 /* Option Card Title Marquee */
 .option-title.marquee-container {
   position: relative;
@@ -178,13 +178,6 @@
   }
 }
 
-.option-card-bottom {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-top: auto; /* Push to bottom */
-}
-
 @media (max-width: 480px) {
   .option-card {
     width: 90vw;
@@ -196,23 +189,19 @@
     width: 100%;
     height: 60%;
     object-fit: cover;
-    margin-bottom: 0.5rem; /* Small gap before bottom section */
+    margin-bottom: auto; /* Push subsequent elements to bottom */
   }
   
-  /* Bottom container takes remaining space and aligns to bottom */
-  .option-card-bottom {
-    margin-top: auto;
-    padding-top: 0.5rem;
-  }
-  
-  /* Adjust spacing for mobile */
-  .option-card-bottom .wetdry-box {
+  /* Create a bottom container for wetdry box and order button */
+  .option-card .wetdry-box {
     margin-top: 0;
     margin-bottom: 0.5rem;
+    order: 2; /* Move to bottom area */
   }
   
-  .option-card-bottom .order-btn {
+  .option-card .order-btn {
     margin-top: 0;
+    order: 3; /* Place at very bottom */
   }
 }
 

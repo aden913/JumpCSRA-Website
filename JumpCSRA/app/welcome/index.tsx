@@ -12,6 +12,7 @@ import { useCategories } from '../hooks/useCategories';
 import { useProductDetails } from '../hooks/useProductDetails';
 import { useCart } from '../hooks/useCart';
 import { useDiscounts, getPromoCardDiscount, getDiscountDescription } from '../hooks/useDiscounts';
+import Login from "../login";
 
 import React, { useEffect, useLayoutEffect, useState, useRef, useMemo } from "react";
 import { useSearchParams, useNavigate } from "react-router";
@@ -152,6 +153,7 @@ export function Welcome() {
   const [user, setUser] = useState<User | null>(null);
   const [incompleteBookings, setIncompleteBookings] = useState<BookingData[]>([]);
   const [showBookingRecovery, setShowBookingRecovery] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // Initialize Firebase Auth
   const auth = getAuth();
@@ -317,6 +319,16 @@ export function Welcome() {
     const category = searchParams.get('category');
     const productName = searchParams.get('product');
     const focus = searchParams.get('focus');
+    const signin = searchParams.get('signin');
+    
+    // Handle signin parameter
+    if (signin === 'true') {
+      setShowLoginModal(true);
+      // Clear the signin parameter from URL
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('signin');
+      setSearchParams(newParams);
+    }
     
     if (category) {
       // Set the selected category and reset carousel
@@ -690,6 +702,19 @@ export function Welcome() {
               <button className="modal-close" onClick={() => logic.setMembershipOpen(false)}>
                 ×
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Login Modal */}
+        {showLoginModal && (
+          <div className="modal-overlay fade-in" onClick={() => setShowLoginModal(false)}>
+            <div className="modal-shadow" />
+            <div className="login-modal" onClick={(e) => e.stopPropagation()}>
+              <button className="modal-close" onClick={() => setShowLoginModal(false)}>
+                ×
+              </button>
+              <Login />
             </div>
           </div>
         )}
