@@ -26,7 +26,6 @@ import { Swiper, SwiperSlide } from "swiper/react";
 import { BannerCarousel } from "../components/BannerCarousel";
 import { SearchBar } from "../components/SearchBar";
 import { RouterNav } from "../components/RouterNav";
-import { CartSidebar } from "../components/CartSidebar";
 import ChatWidget from "../components/ChatWidget";
 import type { CartItem } from "../components/CartSidebar";
 import { Link } from "react-router";
@@ -655,16 +654,7 @@ export function Welcome() {
           onPurchase={logic.addToCart}
         />
 
-        {/* Cart Sidebar */}
-        <CartSidebar 
-          open={logic.cartOpen} 
-          onClose={() => logic.setCartOpen(false)} 
-          cart={logic.cart} 
-          setCart={logic.setCart}
-          calendarDateRange={logic.calendarDateRange}
-          discountLogic={discountLogic}
-          cartSettings={logic.cartSettings}
-        />
+        {/* Cart Sidebar - Removed: Cart button now navigates directly to checkout */}
 
         {/* Membership Modal */}
         {logic.membershipOpen && (

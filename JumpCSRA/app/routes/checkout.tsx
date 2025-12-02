@@ -175,10 +175,17 @@ export default function Checkout() {
   const [useWalletFirst, setUseWalletFirst] = useState<boolean>(false);
   const [walletAppliedAmount, setWalletAppliedAmount] = useState<number>(0);
   
-  // Checkout step management
+  // Checkout step management - dynamically determine starting step
   type CheckoutStep = 'order-summary' | 'delivery' | 'quick-add-totals' | 'contract' | 'payment';
-  const [currentStep, setCurrentStep] = useState<CheckoutStep>('order-summary');
-  const [visitedSteps, setVisitedSteps] = useState<Set<CheckoutStep>>(new Set(['order-summary']));
+  
+  // Initialize starting step based on cart contents
+  const getInitialStep = (): CheckoutStep => {
+    const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
+    return hasInflateables ? 'quick-add-totals' : 'order-summary';
+  };
+  
+  const [currentStep, setCurrentStep] = useState<CheckoutStep>(getInitialStep());
+  const [visitedSteps, setVisitedSteps] = useState<Set<CheckoutStep>>(() => new Set([getInitialStep()]));
   
   // Google Places validation state
   const [googlePlacesAddresses, setGooglePlacesAddresses] = useState<Set<string>>(new Set());
@@ -234,6 +241,66 @@ export default function Checkout() {
   // Base location for distance calculation
   const BASE_LOCATION = "410 Carolina Springs Rd, North Augusta, SC 29841";
 
+  // Cart settings helper functions and constants
+  const locationOptions = [
+    "personal home",
+    "someone else's home",
+    "business",
+    "park",
+    "church/school",
+  ];
+
+  const getAvailableDeliveryTimes = () => {
+    const allTimeOptions = [
+      { value: "8am", label: "8am", hour: 8 },
+      { value: "9am", label: "9am", hour: 9 },
+      { value: "10am", label: "10am", hour: 10 },
+      { value: "11am", label: "11am", hour: 11 },
+      { value: "12pm", label: "12pm", hour: 12 }
+    ];
+    
+    // If no date selected or not booking for today, show all options
+    if (!calendarDateRange[0]) {
+      return allTimeOptions;
+    }
+    
+    const bookingDate = new Date(calendarDateRange[0]);
+    const today = new Date();
+    
+    // Reset time for accurate date comparison
+    const bookingDateOnly = new Date(bookingDate.getFullYear(), bookingDate.getMonth(), bookingDate.getDate());
+    const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    
+    // If booking is not for today, show all options
+    if (bookingDateOnly.getTime() !== todayOnly.getTime()) {
+      return allTimeOptions;
+    }
+    
+    // Booking is for today - filter times that are at least 2 hours from now
+    const currentHour = today.getHours();
+    const currentMinutes = today.getMinutes();
+    const currentTimeInMinutes = currentHour * 60 + currentMinutes;
+    const twoHoursFromNow = currentTimeInMinutes + 120; // 2 hours = 120 minutes
+    
+    return allTimeOptions.filter(timeOption => {
+      const deliveryTimeInMinutes = timeOption.hour * 60;
+      return deliveryTimeInMinutes >= twoHoursFromNow;
+    });
+  };
+
+  // Check if all wet/dry selections are complete
+  const areWetDrySelectionsComplete = () => {
+    return cart.every((item, idx) => {
+      // Skip items that don't need wet/dry selection
+      if (item.isGiftCard || item.isMembership || item.wetDry !== "Wet/Dry") {
+        return true;
+      }
+      // Check if this item has a wet/dry selection
+      return cartSettings.wetDrySelections[idx] && 
+             (cartSettings.wetDrySelections[idx] === "Wet" || cartSettings.wetDrySelections[idx] === "Dry");
+    });
+  };
+
   // Checkout step management functions
   const getStepOrder = (): CheckoutStep[] => {
     const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
@@ -242,8 +309,8 @@ export default function Checkout() {
       // Gift cards and/or memberships only: skip delivery, contract, and quick-add entirely
       return ['order-summary', 'payment'];
     } else {
-      // Has inflateables: include delivery and contract but put quick-add before delivery
-      return ['order-summary', 'quick-add-totals', 'delivery', 'contract', 'payment'];
+      // Has inflateables: new order - quick-add first, then delivery, then order-summary, contract, payment
+      return ['quick-add-totals', 'delivery', 'order-summary', 'contract', 'payment'];
     }
   };
   
@@ -313,14 +380,20 @@ export default function Checkout() {
     
     switch (currentStep) {
       case 'order-summary':
-        return cart.length > 0; // Must have items in cart
+        // Must have items in cart
+        if (cart.length === 0) return false;
+        // If has inflateables, must have all event settings completed
+        if (hasInflateables) {
+          return cartSettings.duration && cartSettings.surface && cartSettings.deliveryTime && cartSettings.location;
+        }
+        return true;
       case 'delivery':
         // If delivery is skipped for development, don't require address validation
         if (deliverySkipped) return true;
         return deliveryAddress.trim() !== '' && deliveryCost > 0;
       case 'quick-add-totals':
-        // Quick-add step now comes before delivery, so no delivery validation needed
-        return cart.length > 0;
+        // Must have items in cart and all wet/dry selections complete
+        return cart.length > 0 && areWetDrySelectionsComplete();
       case 'contract':
         return contractSigned; // Allow progression when contract is signed
       default:
@@ -349,14 +422,20 @@ export default function Checkout() {
     const result = (() => {
       switch (currentStep) {
         case 'order-summary':
-          return cart.length > 0;
+          // Must have items in cart
+          if (cart.length === 0) return false;
+          // If has inflateables, must have all event settings completed
+          if (hasInflateables) {
+            return cartSettings.duration && cartSettings.surface && cartSettings.deliveryTime && cartSettings.location;
+          }
+          return true;
         case 'delivery':
           // If delivery is skipped for development, don't require address validation
           if (deliverySkipped) return true;
           return deliveryAddress.trim() !== '' && deliveryCost > 0;
         case 'quick-add-totals':
-          // Quick-add step now comes before delivery, so no delivery validation needed
-          return cart.length > 0;
+          // Must have items in cart and all wet/dry selections complete
+          return cart.length > 0 && areWetDrySelectionsComplete();
         default:
           return false;
       }
@@ -3051,12 +3130,84 @@ export default function Checkout() {
           const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
           return hasInflateables ? (
             <div className="event-details">
-              <h3>Event Details:</h3>
-              <p><strong>Date:</strong> {calendarDateRange[0]?.toLocaleDateString()} - {calendarDateRange[1]?.toLocaleDateString()}</p>
-              <p><strong>Duration:</strong> {cartSettings.duration}</p>
-              <p><strong>Surface:</strong> {cartSettings.surface}</p>
-              <p><strong>Delivery Time:</strong> {cartSettings.deliveryTime}</p>
-              <p><strong>Location Type:</strong> {cartSettings.location}</p>
+              <h3>Event Settings:</h3>
+              <div className="cart-dropdowns" style={{ margin: '1rem 0' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+                  Event Duration:
+                  <select 
+                    value={cartSettings.duration} 
+                    onChange={e => cartSettings.setDuration(e.target.value)} 
+                    required 
+                    style={{ marginLeft: '0.5rem' }}
+                  >
+                    <option value="">Select duration</option>
+                    <option value="4hours">4 Hours (-10%)</option>
+                    <option value="24hours">24 Hours (Standard)</option>
+                    <option value="48hours">48 Hours (+50%)</option>
+                  </select>
+                </label>
+                <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+                  Surface:
+                  <select 
+                    value={cartSettings.surface} 
+                    onChange={e => cartSettings.setSurface(e.target.value)} 
+                    required 
+                    style={{ marginLeft: '0.5rem' }}
+                  >
+                    <option value="">Select surface</option>
+                    <option value="grass-stakes">Grass (stakes)</option>
+                    <option value="grass-sandbags">Grass (sandbags)</option>
+                    <option value="concrete">Concrete/Pavement</option>
+                    <option value="indoor">Indoor</option>
+                  </select>
+                </label>
+                <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+                  Delivery Time:
+                  <select 
+                    value={cartSettings.deliveryTime} 
+                    onChange={e => cartSettings.setDeliveryTime(e.target.value)} 
+                    required 
+                    style={{ marginLeft: '0.5rem' }}
+                  >
+                    <option value="">Select time</option>
+                    {getAvailableDeliveryTimes().map(timeOption => (
+                      <option key={timeOption.value} value={timeOption.value}>
+                        {timeOption.label}
+                      </option>
+                    ))}
+                    {getAvailableDeliveryTimes().length === 0 && (
+                      <option value="" disabled>
+                        No times available (booking too soon)
+                      </option>
+                    )}
+                  </select>
+                  {getAvailableDeliveryTimes().length === 0 && calendarDateRange[0] && (
+                    <div style={{ 
+                      color: '#dc3545', 
+                      fontSize: '0.8rem', 
+                      marginTop: '0.25rem',
+                      fontStyle: 'italic'
+                    }}>
+                      Same-day bookings require at least 2 hours notice. Please select a different date or call (803) 221-0466 for urgent requests.
+                    </div>
+                  )}
+                </label>
+                <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+                  Location:
+                  <select 
+                    value={cartSettings.location} 
+                    onChange={e => cartSettings.setLocation(e.target.value)} 
+                    required 
+                    style={{ marginLeft: '0.5rem' }}
+                  >
+                    <option value="">Select location</option>
+                    {locationOptions.map(loc => (
+                      <option key={loc} value={loc}>{loc}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <p><strong>Selected Date:</strong> {calendarDateRange[0]?.toLocaleDateString()} - {calendarDateRange[1]?.toLocaleDateString()}</p>
             </div>
           ) : null;
         })()}
@@ -3250,10 +3401,79 @@ export default function Checkout() {
         <div className={currentStep === 'contract' ? 'contract-container' : 'step-container'}>
           {currentStep === 'quick-add-totals' && (
             <>
-              <h2 className="step-title">Add Party Essentials</h2>
+              <h2 className="step-title">Cart Items & Party Essentials</h2>
               <p className="quick-add-description">
-                Need any last-minute additions? Add party essentials to complete your event setup.
+                Complete your cart item selections and add any last-minute party essentials.
               </p>
+
+              {/* Cart Items Wet/Dry Selection Section */}
+              <div className="cart-items-section">
+                <h3>Cart Items - Wet/Dry Selection</h3>
+                <div className="cart-items-wetdry">
+                  {getDisplayCart().map((item, idx) => {
+                    // Skip items that don't need wet/dry selection
+                    if (item.isGiftCard || item.isMembership || item.wetDry !== "Wet/Dry") {
+                      return null;
+                    }
+
+                    // Find original index for wetDrySelections
+                    const originalIdx = cart.findIndex(cartItem => cartItem.id === item.id);
+                    const currentSelection = cartSettings.wetDrySelections[originalIdx] || "";
+
+                    return (
+                      <div key={idx} className="cart-item-wetdry-selection">
+                        <div className="cart-item-info">
+                          <img 
+                            src={getProductImage(item.name)} 
+                            alt={item.name}
+                            className="cart-item-image-small"
+                            onError={(e) => {
+                              e.currentTarget.src = '/assets/inflateables/default.png';
+                            }}
+                          />
+                          <div className="cart-item-details">
+                            <div className="cart-item-name">{item.name}</div>
+                            <div className="cart-item-quantity">Quantity: {item.quantity}</div>
+                          </div>
+                        </div>
+                        
+                        <div className="wetdry-toggle-container">
+                          <label className="wetdry-toggle-label">Select Option:</label>
+                          <div className="wetdry-toggle-buttons">
+                            <button
+                              type="button"
+                              className={`wetdry-toggle-btn ${currentSelection === 'Dry' ? 'active' : ''}`}
+                              onClick={() => {
+                                const newSelections = { ...cartSettings.wetDrySelections, [originalIdx]: 'Dry' };
+                                cartSettings.setWetDrySelections(newSelections);
+                              }}
+                            >
+                              Dry
+                            </button>
+                            <button
+                              type="button"
+                              className={`wetdry-toggle-btn ${currentSelection === 'Wet' ? 'active' : ''}`}
+                              onClick={() => {
+                                const newSelections = { ...cartSettings.wetDrySelections, [originalIdx]: 'Wet' };
+                                cartSettings.setWetDrySelections(newSelections);
+                              }}
+                            >
+                              Wet (+$50)
+                            </button>
+                          </div>
+                          {!currentSelection && (
+                            <div className="wetdry-validation-message">
+                              Please select Wet or Dry option
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              <h3>Add Party Essentials</h3>
             </>
           )}
           

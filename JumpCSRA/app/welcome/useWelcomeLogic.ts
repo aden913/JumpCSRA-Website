@@ -10,6 +10,7 @@ import { useState, useRef, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '../components/FirebaseConfig';
 import { isUserMember } from '../utils/databaseUtils';
+import { useNavigate } from 'react-router';
 import type { CartItem } from '../components/CartSidebar';
 import type { UserMembership } from '../utils/databaseUtils';
 
@@ -23,10 +24,10 @@ function filterOptions(inflateables: any[], selectedCategory: string): any[] {
 }
 
 export function useWelcomeLogic() {
+  const navigate = useNavigate();
+  
   // Cart, modal, membership state
   const {
-    cartOpen,
-    setCartOpen,
     selectedProduct,
     setSelectedProduct,
     productOpen,
@@ -94,7 +95,7 @@ export function useWelcomeLogic() {
 
   function handleNavClick(type: string) {
     if (type === "Cart") {
-      setCartOpen(true);
+      navigate('/checkout');
       return;
     }
     if (type === "Calendar") {
@@ -223,8 +224,6 @@ export function useWelcomeLogic() {
   };
 
   return {
-    cartOpen,
-    setCartOpen,
     selectedProduct,
     setSelectedProduct,
     productOpen,
