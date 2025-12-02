@@ -73,7 +73,18 @@
 
 .nav-btn {
   cursor: pointer;
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0;
 }
+
+.nav-btn.cart-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .nav-btn:hover {
   color: var(--coral);
 }
@@ -110,6 +121,51 @@
   min-width: 18px;
   text-align: center;
   font-weight: bold;
+}
+
+/* Desktop cart container styles */
+.desktop-cart-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.cart-icon-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.desktop-cart-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: var(--coral);
+  color: white;
+  border-radius: 50%;
+  min-width: 22px;
+  height: 22px;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  border: 2px solid var(--lightBlue);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.cart-subtotal {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--darkBlue);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--darkBlue);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
 }
 
 /* Responsive icon spacing */

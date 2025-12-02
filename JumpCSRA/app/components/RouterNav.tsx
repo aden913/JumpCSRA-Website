@@ -1,12 +1,12 @@
 import { Link, useNavigate, useLocation } from "react-router";
 import React, { useState, useEffect } from "react";
-import { AnimatedCartIcon, StaticCartIcon } from "./AnimatedCartIcon";
 import "../styles/navbar.css";
 import "../styles/cart.css";
 
 type RouterNavProps = {
   onNavClick?: (type: string) => void;
   cartCount?: number;
+  cartSubtotal?: number; // Add subtotal prop
   selectedDates?: [Date | null, Date | null];
   categories?: string[];
   onCategoryChange?: (category: string) => void;
@@ -19,7 +19,7 @@ type RouterNavProps = {
   useMobileBottomMenu?: boolean; // Use new bottom menu instead of sidebar
 };
 
-export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [], onCategoryChange, hideIcons = false, hideCartIcon = false, searchBarComponent, hideNavbarDropdown = false, walletBalance, hideMobileSidebar = false, useMobileBottomMenu = false }: RouterNavProps) {
+export function RouterNav({ onNavClick, cartCount, cartSubtotal, selectedDates, categories = [], onCategoryChange, hideIcons = false, hideCartIcon = false, searchBarComponent, hideNavbarDropdown = false, walletBalance, hideMobileSidebar = false, useMobileBottomMenu = false }: RouterNavProps) {
   const formatDate = (date: Date | null) => date ? date.toLocaleDateString() : "--";
   const navigate = useNavigate();
   const location = useLocation();
@@ -199,17 +199,24 @@ export function RouterNav({ onNavClick, cartCount, selectedDates, categories = [
             {!hideIcons && !hideCartIcon && (
               <div className="icon-container">
                 <li style={{ position: "relative" }} className="right-icon">
-                  <button type="button" className="nav-btn" onClick={() => {
+                  <button type="button" className="nav-btn cart-btn" onClick={() => {
                     console.log("Cart icon clicked");
                     onNavClick && onNavClick("Cart");
                   }}>
                     {isMobile ? (
                       <span className="cart-text">Cart</span>
                     ) : (
-                      <AnimatedCartIcon width={108} height={108} className="cart-icon" />
-                    )}
-                    {(cartCount && Number(cartCount) > 0) && (
-                      <span className="cart-count" style={{}}>{cartCount}</span>
+                      <div className="desktop-cart-container">
+                        <div className="cart-icon-container">
+                          <img src="/white-cart.png" alt="Cart" className="cart-icon" />
+                          {cartCount != null && cartCount > 0 && (
+                            <div className="cart-count-badge desktop-cart-badge">{cartCount}</div>
+                          )}
+                        </div>
+                        {cartSubtotal != null && cartSubtotal > 0 && (
+                          <div className="cart-subtotal">${cartSubtotal.toFixed(2)}</div>
+                        )}
+                      </div>
                     )}
                   </button>
                 </li>
