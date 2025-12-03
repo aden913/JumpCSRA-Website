@@ -3,7 +3,9 @@
 /* Mobile devices (< 480px) */
 @media (max-width: 479px) {
 
-
+.option-title {
+    color: white !important;
+  }
 .promo-card:hover {
   color: white !important;
 }
@@ -20,6 +22,14 @@
     font-size: 0.8rem !important;
     color:white;
     background-color: var(--coral);
+    width: 90%;
+  }
+  .option-card-bottom {
+    width: 100%;
+    display:flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
   }
 .nav-logo {
     display: none !important;
@@ -221,7 +231,7 @@ font-size: .9rem;
     border-radius: 5px;
   }
   .wetdry-box {
-    width:8rem;
+    width: 90%;
     color:white;
     font-size:.8rem;
     padding:.1rem;
