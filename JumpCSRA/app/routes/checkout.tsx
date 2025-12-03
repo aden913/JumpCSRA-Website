@@ -186,6 +186,15 @@ export default function Checkout() {
   
   const [currentStep, setCurrentStep] = useState<CheckoutStep>(getInitialStep());
   const [visitedSteps, setVisitedSteps] = useState<Set<CheckoutStep>>(() => new Set([getInitialStep()]));
+
+  // Update step when cart loads from localStorage
+  useEffect(() => {
+    if (!loading && user && cart.length > 0) {
+      const correctStep = getInitialStep();
+      setCurrentStep(correctStep);
+      setVisitedSteps(new Set([correctStep]));
+    }
+  }, [loading, user, cart]);
   
   // Google Places validation state
   const [googlePlacesAddresses, setGooglePlacesAddresses] = useState<Set<string>>(new Set());
@@ -295,9 +304,9 @@ export default function Checkout() {
       if (item.isGiftCard || item.isMembership || item.wetDry !== "Wet/Dry") {
         return true;
       }
-      // Check if this item has a wet/dry selection
-      return cartSettings.wetDrySelections[idx] && 
-             (cartSettings.wetDrySelections[idx] === "Wet" || cartSettings.wetDrySelections[idx] === "Dry");
+      // Check if this item has a wet/dry selection (default to "Dry" if not set)
+      const selection = cartSettings.wetDrySelections[idx] || "Dry";
+      return selection === "Wet" || selection === "Dry";
     });
   };
 
@@ -392,6 +401,9 @@ export default function Checkout() {
         if (deliverySkipped) return true;
         return deliveryAddress.trim() !== '' && deliveryCost > 0;
       case 'quick-add-totals':
+        // Must have items in cart
+        return cart.length > 0;
+      case 'order-summary':
         // Must have items in cart and all wet/dry selections complete
         return cart.length > 0 && areWetDrySelectionsComplete();
       case 'contract':
@@ -405,12 +417,14 @@ export default function Checkout() {
     const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
     
     switch (currentStep) {
-      case 'order-summary':
-        return hasInflateables ? 'Continue to Quick Add' : 'Proceed to Payment';
       case 'quick-add-totals':
-        return hasInflateables ? 'Continue to Delivery' : 'Proceed to Payment';
+        return 'Continue to Delivery';
       case 'delivery':
+        return 'Continue to Order Summary';
+      case 'order-summary':
         return 'Proceed to Contract';
+      case 'contract':
+        return 'Proceed to Payment';
       default:
         return 'Next';
     }
@@ -424,6 +438,8 @@ export default function Checkout() {
         case 'order-summary':
           // Must have items in cart
           if (cart.length === 0) return false;
+          // Must have all wet/dry selections complete
+          if (!areWetDrySelectionsComplete()) return false;
           // If has inflateables, must have all event settings completed
           if (hasInflateables) {
             return cartSettings.duration && cartSettings.surface && cartSettings.deliveryTime && cartSettings.location;
@@ -434,8 +450,8 @@ export default function Checkout() {
           if (deliverySkipped) return true;
           return deliveryAddress.trim() !== '' && deliveryCost > 0;
         case 'quick-add-totals':
-          // Must have items in cart and all wet/dry selections complete
-          return cart.length > 0 && areWetDrySelectionsComplete();
+          // Must have items in cart
+          return cart.length > 0;
         default:
           return false;
       }
@@ -3125,6 +3141,76 @@ export default function Checkout() {
           ))}
         </div>
 
+        {/* Cart Items Wet/Dry Selection Section */}
+        {(() => {
+          const hasWetDryItems = cart.some(item => !item.isGiftCard && !item.isMembership && item.wetDry === "Wet/Dry");
+          return hasWetDryItems ? (
+            <div className="cart-items-section">
+              <h3>Wet/Dry Selection</h3>
+              <p style={{ marginBottom: '1rem', color: '#666', fontSize: '0.9rem' }}>
+                Please select wet or dry option for each inflatable item.
+              </p>
+              <div className="cart-items-wetdry">
+                {getDisplayCart().map((item, idx) => {
+                  // Skip items that don't need wet/dry selection
+                  if (item.isGiftCard || item.isMembership || item.wetDry !== "Wet/Dry") {
+                    return null;
+                  }
+
+                  // Find original index for wetDrySelections
+                  const originalIdx = cart.findIndex(cartItem => cartItem.id === item.id);
+                  const currentSelection = cartSettings.wetDrySelections[originalIdx] || "Dry";
+
+                  return (
+                    <div key={idx} className="cart-item-wetdry-selection">
+                      <div className="cart-item-info">
+                        <img 
+                          src={getProductImage(item.name)} 
+                          alt={item.name}
+                          className="cart-item-image-small"
+                          onError={(e) => {
+                            e.currentTarget.src = '/assets/inflateables/default.png';
+                          }}
+                        />
+                        <div className="cart-item-details">
+                          <div className="cart-item-name">{item.name}</div>
+                          <div className="cart-item-quantity">Quantity: {item.quantity}</div>
+                        </div>
+                      </div>
+                      
+                      <div className="wetdry-toggle-container">
+                        <label className="wetdry-toggle-label">Select Option:</label>
+                        <div className="wetdry-toggle-buttons">
+                          <button
+                            type="button"
+                            className={`wetdry-toggle-btn ${currentSelection === 'Dry' ? 'active' : ''}`}
+                            onClick={() => {
+                              const newSelections = { ...cartSettings.wetDrySelections, [originalIdx]: 'Dry' };
+                              cartSettings.setWetDrySelections(newSelections);
+                            }}
+                          >
+                            Dry
+                          </button>
+                          <button
+                            type="button"
+                            className={`wetdry-toggle-btn ${currentSelection === 'Wet' ? 'active' : ''}`}
+                            onClick={() => {
+                              const newSelections = { ...cartSettings.wetDrySelections, [originalIdx]: 'Wet' };
+                              cartSettings.setWetDrySelections(newSelections);
+                            }}
+                          >
+                            Wet (+$50)
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null;
+        })()}
+
         {/* Event Details - only show when cart has inflateables */}
         {(() => {
           const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
@@ -3406,73 +3492,6 @@ export default function Checkout() {
                 Complete your cart item selections and add any last-minute party essentials.
               </p>
 
-              {/* Cart Items Wet/Dry Selection Section */}
-              <div className="cart-items-section">
-                <h3>Cart Items - Wet/Dry Selection</h3>
-                <div className="cart-items-wetdry">
-                  {getDisplayCart().map((item, idx) => {
-                    // Skip items that don't need wet/dry selection
-                    if (item.isGiftCard || item.isMembership || item.wetDry !== "Wet/Dry") {
-                      return null;
-                    }
-
-                    // Find original index for wetDrySelections
-                    const originalIdx = cart.findIndex(cartItem => cartItem.id === item.id);
-                    const currentSelection = cartSettings.wetDrySelections[originalIdx] || "";
-
-                    return (
-                      <div key={idx} className="cart-item-wetdry-selection">
-                        <div className="cart-item-info">
-                          <img 
-                            src={getProductImage(item.name)} 
-                            alt={item.name}
-                            className="cart-item-image-small"
-                            onError={(e) => {
-                              e.currentTarget.src = '/assets/inflateables/default.png';
-                            }}
-                          />
-                          <div className="cart-item-details">
-                            <div className="cart-item-name">{item.name}</div>
-                            <div className="cart-item-quantity">Quantity: {item.quantity}</div>
-                          </div>
-                        </div>
-                        
-                        <div className="wetdry-toggle-container">
-                          <label className="wetdry-toggle-label">Select Option:</label>
-                          <div className="wetdry-toggle-buttons">
-                            <button
-                              type="button"
-                              className={`wetdry-toggle-btn ${currentSelection === 'Dry' ? 'active' : ''}`}
-                              onClick={() => {
-                                const newSelections = { ...cartSettings.wetDrySelections, [originalIdx]: 'Dry' };
-                                cartSettings.setWetDrySelections(newSelections);
-                              }}
-                            >
-                              Dry
-                            </button>
-                            <button
-                              type="button"
-                              className={`wetdry-toggle-btn ${currentSelection === 'Wet' ? 'active' : ''}`}
-                              onClick={() => {
-                                const newSelections = { ...cartSettings.wetDrySelections, [originalIdx]: 'Wet' };
-                                cartSettings.setWetDrySelections(newSelections);
-                              }}
-                            >
-                              Wet (+$50)
-                            </button>
-                          </div>
-                          {!currentSelection && (
-                            <div className="wetdry-validation-message">
-                              Please select Wet or Dry option
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-              
               <h3>Add Party Essentials</h3>
             </>
           )}
