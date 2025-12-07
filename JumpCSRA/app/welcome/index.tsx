@@ -631,13 +631,7 @@ export function Welcome() {
             isLandingPage={true} // Identify this as landing page
           />
           
-          {/* Specials Card */}
-          <div className="specials-card">
-            <div className="specials-img">
-              <img src="/assets/kids-bg.png" alt="End of Summer Specials" />
-            </div>
-            <div className="specials-text">End of Summer Specials</div>
-          </div>
+        
         </section>
 
         {/* Modal for carousel */}
