@@ -1858,6 +1858,12 @@ export default function Profile() {
                 </button>
               ))}
             </div>
+            <button 
+              className="profile-mobile-back-button"
+              onClick={() => navigate('/')}
+            >
+              ← Back to Home
+            </button>
           </div>
           <div 
             className={`profile-mobile-sidebar-overlay ${isProfileSidebarOpen ? 'open' : ''}`}

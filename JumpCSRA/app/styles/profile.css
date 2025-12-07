@@ -1155,3 +1155,131 @@ gap: 1rem;
     font-size: 1.5rem;
     font-weight: bold;
   }
+
+/* Mobile Profile Sidebar Styles */
+.profile-menu-toggle {
+  position: fixed;
+  top: 80px;
+  left: 1rem;
+  z-index: 1001;
+  background: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  width: 48px;
+  height: 48px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  transition: all 0.3s ease;
+}
+
+.profile-menu-toggle:hover {
+  background: #1565c0;
+  transform: scale(1.05);
+}
+
+.profile-menu-toggle.sidebar-open {
+  background: #d32f2f;
+}
+
+.profile-mobile-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 280px;
+  height: 100vh;
+  background: white;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+  z-index: 1000;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-mobile-sidebar.open {
+  transform: translateX(0);
+}
+
+.profile-mobile-tabs {
+  margin-top: 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.profile-mobile-tab {
+  width: 100%;
+  padding: 1rem;
+  background: #f5f5f5;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  text-align: left;
+  cursor: pointer;
+  color: #333;
+  transition: all 0.2s ease;
+}
+
+.profile-mobile-tab.active {
+  background: #e6f0ff;
+  color: #1976d2;
+  font-weight: bold;
+}
+
+.profile-mobile-tab:hover {
+  background: #e0e0e0;
+}
+
+.profile-mobile-back-button {
+  width: 100%;
+  padding: 1rem;
+  background: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-top: 1rem;
+  transition: background 0.2s ease;
+}
+
+.profile-mobile-back-button:hover {
+  background: #1565c0;
+}
+
+.profile-mobile-sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.profile-mobile-sidebar-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Hide desktop sidebar on mobile */
+@media (max-width: 1023px) {
+  .profile-left {
+    display: none;
+  }
+  
+  .profile-container {
+    margin: 1rem;
+    border-radius: 12px;
+  }
+  
+  .profile-right {
+    padding: 1.5rem;
+  }
+}
