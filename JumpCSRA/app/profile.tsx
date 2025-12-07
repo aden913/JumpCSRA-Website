@@ -77,9 +77,15 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
 
-  // Mobile profile sidebar state
-  const [isProfileSidebarOpen, setIsProfileSidebarOpen] = useState(false);
+  // Mobile profile sidebar state - open by default on mobile
+  const [isProfileSidebarOpen, setIsProfileSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 1024; // Open by default if on mobile
+    }
+    return false;
+  });
   const [isMobile, setIsMobile] = useState(false);
+  const [sidebarManuallyClosed, setSidebarManuallyClosed] = useState(false); // Track if user manually closed sidebar
 
   // New states for email verification flow
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
@@ -211,13 +217,25 @@ export default function Profile() {
   // Check if device is mobile/tablet
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024);
+      const isMobileView = window.innerWidth < 1024;
+      setIsMobile(isMobileView);
+      
+      // Only open sidebar automatically on mobile if user hasn't manually closed it
+      // This allows the sidebar to open by default on mobile while respecting user's choice to close it
+      if (isMobileView && !isProfileSidebarOpen && !sidebarManuallyClosed) {
+        setIsProfileSidebarOpen(true);
+      }
+      // Close sidebar when switching to desktop view and reset manual close state
+      else if (!isMobileView && isProfileSidebarOpen) {
+        setIsProfileSidebarOpen(false);
+        setSidebarManuallyClosed(false); // Reset manual close state when going to desktop
+      }
     };
     
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  }, []); // No dependencies to prevent re-running when sidebar state changes
 
   // Helper function to get the tab index based on subscription status
   const getTabIndex = (tabName: string) => {
@@ -995,11 +1013,26 @@ export default function Profile() {
 
   // Mobile profile sidebar handlers
   const toggleProfileSidebar = () => {
-    setIsProfileSidebarOpen(!isProfileSidebarOpen);
+    const newState = !isProfileSidebarOpen;
+    setIsProfileSidebarOpen(newState);
+    
+    // If closing the sidebar on mobile, mark as manually closed
+    if (!newState && isMobile) {
+      setSidebarManuallyClosed(true);
+    }
+    // If opening the sidebar, reset manual close flag
+    if (newState) {
+      setSidebarManuallyClosed(false);
+    }
   };
 
   const closeProfileSidebar = () => {
     setIsProfileSidebarOpen(false);
+    
+    // If on mobile, mark as manually closed to prevent auto-reopening
+    if (isMobile) {
+      setSidebarManuallyClosed(true);
+    }
   };
 
   const handleTabChange = (tabIndex: number) => {
