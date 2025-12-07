@@ -6,7 +6,8 @@
 .option-title {
     color: white !important;
   }
-.promo-card:hover {
+.promo-card {
+  background-color: var(--darkBlue) !important;
   color: white !important;
 }
 .options-section {
