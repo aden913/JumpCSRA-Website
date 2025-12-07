@@ -470,6 +470,7 @@ export function Welcome() {
         <RouterNav
           onNavClick={logic.handleNavClick}
           cartCount={logic.cart.reduce((sum: number, item: CartItem) => sum + item.quantity, 0)}
+          cartSubtotal={logic.cart.reduce((sum: number, item: CartItem) => sum + (item.price * item.quantity), 0)}
           selectedDates={logic.calendarDateRange}
           categories={logic.categories}
           onCategoryChange={handleCategoryChange}
@@ -735,6 +736,7 @@ export function Welcome() {
         selectedDates={logic.calendarDateRange}
         onCalendarClick={() => logic.handleNavClick("Calendar")}
         cartCount={logic.cart.reduce((sum: number, item: CartItem) => sum + item.quantity, 0)}
+        cartSubtotal={logic.cart.reduce((sum: number, item: CartItem) => sum + (item.price * item.quantity), 0)}
         onCartClick={() => logic.handleNavClick("Cart")}
       />
       

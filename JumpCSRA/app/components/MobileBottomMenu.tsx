@@ -8,6 +8,7 @@ type MobileBottomMenuProps = {
   selectedDates?: [Date | null, Date | null];
   onCalendarClick?: () => void;
   cartCount?: number;
+  cartSubtotal?: number; // Add cart subtotal prop
   onCartClick: () => void; // Made required since we always want 4 buttons
 };
 
@@ -16,6 +17,7 @@ export function MobileBottomMenu({
   selectedDates, 
   onCalendarClick, 
   cartCount, 
+  cartSubtotal,
   onCartClick 
 }: MobileBottomMenuProps) {
   const navigate = useNavigate();
@@ -58,6 +60,9 @@ export function MobileBottomMenu({
           <img src="/white-cart.png" alt="Cart" className="menu-icon-img cart-icon" />
           {cartCount != null && cartCount > 0 && (
             <div className="cart-count-badge">{cartCount}</div>
+          )}
+          {cartSubtotal != null && cartSubtotal > 0 && (
+            <div className="cart-subtotal-mobile">${cartSubtotal.toFixed(2)}</div>
           )}
         </div>
       </div>
