@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { validateGiftCard } from '../hooks/useDiscounts';
 import { addWalletTransaction } from '../utils/databaseUtils';
+import { useModalScrollLock } from '../hooks/useModalScrollLock';
 import { getDatabase, ref, get, set } from 'firebase/database';
 
 interface WalletFundingModalProps {
@@ -20,6 +21,9 @@ export function WalletFundingModal({ isOpen, onClose, userId, onSuccess, onError
   const [paypalAmount, setPaypalAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
+
+  // Prevent background scrolling when modal is open
+  useModalScrollLock(isOpen);
 
   if (!isOpen) return null;
 

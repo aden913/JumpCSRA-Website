@@ -1,6 +1,7 @@
 import React from "react";
 import { OptionsCarousel } from "./OptionsCarousel";
 import type { OptionCardProps } from "./OptionsCarousel";
+import { useModalScrollLock } from "../hooks/useModalScrollLock";
 import "../styles/modal.css";
 
 
@@ -13,6 +14,10 @@ type ModalCarouselProps = {
 
 export function ModalCarousel({ open, onClose, options, title }: ModalCarouselProps) {
   const dragRef = React.useRef(false);
+  
+  // Prevent background scrolling when modal is open
+  useModalScrollLock(open);
+  
   if (!open) return null;
   // Only close modal if mouse/touch is not a drag
   const handleOverlayMouseDown = () => { dragRef.current = false; };

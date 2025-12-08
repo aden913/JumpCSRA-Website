@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ProductImageGallery } from "./ProductImageGallery";
 import type { OptionCardProps } from "./OptionsCarousel";
+import { useModalScrollLock } from "../hooks/useModalScrollLock";
 import "../styles/modal.css";
 
 export type ProductDetailModalProps = {
@@ -12,6 +13,9 @@ export type ProductDetailModalProps = {
 
 export function ProductDetailModal({ open, product, onClose, onPurchase }: ProductDetailModalProps) {
   const [detailImagesManifest, setDetailImagesManifest] = useState<{ [key: string]: string[] }>({});
+
+  // Prevent background scrolling when modal is open
+  useModalScrollLock(open);
 
   useEffect(() => {
     if (open) {
@@ -45,19 +49,8 @@ export function ProductDetailModal({ open, product, onClose, onPurchase }: Produ
         <div className="modal-div" style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
           <ProductImageGallery images={images.filter(Boolean)} />
           <div className="modal-info">
-            <strong>Prices:</strong>
-            <br />
-            Weekday (Dry): {typeof product.weekdayPrice === "number" ? `$${product.weekdayPrice}` : "N/A"}
-            <br />
-            Weekend (Dry): {typeof product.weekendPrice === "number" ? `$${product.weekendPrice}` : "N/A"}
-            <br />
-            Weekday (Wet): {typeof product.weekdayWaterPrice === "number" ? `$${product.weekdayWaterPrice}` : "N/A"}
-            <br />
-            Weekend (Wet): {typeof product.weekendWaterPrice === "number" ? `$${product.weekendWaterPrice}` : "N/A"}
-            <br />
             <strong>Dimensions:</strong> {product.dimensions || "N/A"}
             <br />
-            {wetDryLabel && <div className="wetdry-box">{wetDryLabel}</div>}
             <br />
             <strong>Description:</strong> {product.description || "No description yet."}
           </div>
