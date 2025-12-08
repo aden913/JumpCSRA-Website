@@ -14,13 +14,26 @@ import { useNavigate } from 'react-router';
 import type { CartItem } from '../components/CartSidebar';
 import type { UserMembership } from '../utils/databaseUtils';
 
-function filterOptions(inflateables: any[], selectedCategory: string): any[] {
-  if (selectedCategory.toLowerCase() === 'all') return inflateables;
-  return inflateables.filter((item: any) =>
-    Array.isArray(item.category)
-      ? item.category.some((cat: string) => cat.toLowerCase() === selectedCategory.toLowerCase())
-      : item.category?.toLowerCase() === selectedCategory.toLowerCase()
-  );
+function filterOptions(inflateables: any[], selectedCategory: string, selectedWetDry: string): any[] {
+  let filtered = inflateables;
+  
+  // Apply category filter
+  if (selectedCategory.toLowerCase() !== 'all') {
+    filtered = filtered.filter((item: any) =>
+      Array.isArray(item.category)
+        ? item.category.some((cat: string) => cat.toLowerCase() === selectedCategory.toLowerCase())
+        : item.category?.toLowerCase() === selectedCategory.toLowerCase()
+    );
+  }
+  
+  // Apply wet/dry filter
+  if (selectedWetDry === 'wet') {
+    filtered = filtered.filter((item: any) => item.wet === true);
+  } else if (selectedWetDry === 'dry') {
+    filtered = filtered.filter((item: any) => item.dry === true);
+  }
+  
+  return filtered;
 }
 
 export function useWelcomeLogic() {
@@ -89,7 +102,8 @@ export function useWelcomeLogic() {
   // Firebase data
   const inflateables = useInflateables();
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const filteredOptions = filterOptions(inflateables, selectedCategory);
+  const [selectedWetDry, setSelectedWetDry] = useState('dry'); // Default to dry
+  const filteredOptions = filterOptions(inflateables, selectedCategory, selectedWetDry);
   const categories = useCategories(inflateables);
   const productDetails = useProductDetails(selectedProduct, inflateables);
 
@@ -241,6 +255,8 @@ export function useWelcomeLogic() {
     inflateables,
     selectedCategory,
     setSelectedCategory,
+    selectedWetDry,
+    setSelectedWetDry,
     filteredOptions,
     categories,
     productDetails,

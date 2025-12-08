@@ -2571,7 +2571,7 @@ export default function Profile() {
                 
                 {/* Membership Status Section */}
                 <div className="membership-status-card">
-                  <h4>🎪 Membership Status</h4>
+                  <h4> Membership Status</h4>
                   
                   {userSubscription ? (
                     <div className="subscription-details">
@@ -2625,7 +2625,7 @@ export default function Profile() {
                           <>
                             <div className="membership-benefits-highlight">
                               <p style={{ color: '#2e7d32', fontWeight: 'bold', textAlign: 'center', margin: '1rem 0' }}>
-                                🎉 You're enjoying 25% off all rentals plus monthly inflatable delivery!
+                                 You're enjoying 25% off all rentals plus monthly inflatable delivery!
                               </p>
                             </div>
                             
@@ -2657,7 +2657,7 @@ export default function Profile() {
         {(userSubscription.status === 'CANCELLED' || userSubscription.status === 'Cancelled') && (
           <div className="cancelled-notice">
             <p style={{ color: '#ff9800', fontWeight: 'bold', textAlign: 'center', margin: '1rem 0' }}>
-              📅 Your membership is cancelled but still active
+               Your membership is cancelled but still active
             </p>
             <p style={{ textAlign: 'center', marginBottom: '1rem', color: '#666' }}>
               You'll continue to enjoy all membership benefits including 25% off rentals and monthly delivery until your next billing cycle.
@@ -2674,7 +2674,7 @@ export default function Profile() {
         )}                        {userSubscription.status === 'PENDING_APPROVAL' && (
                           <div className="pending-notice">
                             <p style={{ color: '#ff9800', fontWeight: 'bold', textAlign: 'center', margin: '1rem 0' }}>
-                              ⏳ Your membership is pending PayPal approval
+                               Your membership is pending PayPal approval
                             </p>
                             <p style={{ textAlign: 'center', color: '#666' }}>
                               Please complete the payment process in PayPal to activate your membership.
@@ -2686,7 +2686,7 @@ export default function Profile() {
                   ) : userMembership && userMembership.jumpClub ? (
                     <div className="legacy-membership">
                       <div style={{ color: '#4CAF50', marginBottom: '0.5rem' }}>
-                        ✅ <strong>Jump Club Member</strong> - You have an active membership!
+                         <strong>Jump Club Member</strong> - You have an active membership!
                       </div>
                       <p style={{ color: '#2e7d32', fontStyle: 'italic' }}>
                         Enjoy 25% off all rental items with your active membership!
@@ -2707,14 +2707,14 @@ export default function Profile() {
                 {/* Membership Benefits - Only show for non-active subscribers */}
                 {!isActiveSubscriber && (
                   <div className="membership-benefits-card">
-                    <h4>🎯 Membership Benefits</h4>
+                    <h4> Membership Benefits</h4>
                     <ul className="benefits-list">
-                      <li>📦 Monthly inflatable delivery to your home</li>
-                      <li>💰 25% off all other reservations</li>
-                      <li>🔧 No setup or takedown hassle</li>
-                      <li>⭐ Priority booking for special events</li>
-                      <li>🆕 Fresh new inflatable each month</li>
-                      <li>📞 Dedicated member support</li>
+                      <li> Monthly inflatable delivery to your home</li>
+                      <li> 25% off all other reservations</li>
+                      <li> No setup or takedown hassle</li>
+                      <li> Priority booking for special events</li>
+                      <li> Fresh new inflatable each month</li>
+                      <li> Dedicated member support</li>
                     </ul>
                   </div>
                 )}
@@ -2724,12 +2724,12 @@ export default function Profile() {
                   <div className="membership-booking-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                       <div>
-                        <h4 style={{ margin: 0 }}>🎪 Monthly Membership Booking</h4>
+                        <h4 style={{ margin: 0 }}> Monthly Membership Booking</h4>
                         <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.9rem' }}>Schedule your monthly inflatable delivery!</p>
                       </div>
                       <button
                         onClick={async () => {
-                          console.log('🔄 Manual refresh of booking validation...');
+                          console.log(' Manual refresh of booking validation...');
                           await checkExistingMembershipBookings();
                         }}
                         style={{
@@ -2742,7 +2742,7 @@ export default function Profile() {
                           fontSize: '0.8rem'
                         }}
                       >
-                        🔄 Refresh
+                         Refresh
                       </button>
                     </div>
                     
@@ -2815,7 +2815,7 @@ export default function Profile() {
                     <div className="membership-booking-form">
                       {/* Step 1: Weekday Selection */}
                       <div className={`booking-step ${selectedWeekday ? 'completed' : 'active'}`}>
-                        <h5>📅 Step 1: Choose Delivery Day</h5>
+                        <h5> Step 1: Choose Delivery Day</h5>
                         <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.75rem' }}>
                           Select your preferred delivery day of the week (Monday-Thursday only)
                         </p>
@@ -2851,7 +2851,7 @@ export default function Profile() {
                       {/* Step 2: Inflatable Selection */}
                       {selectedWeekday && (
                         <div className={`booking-step ${selectedInflatable ? 'completed' : 'active'}`}>
-                          <h5>🎈 Step 2: Choose Your Inflatable</h5>
+                          <h5> Step 2: Choose Your Inflatable</h5>
                           <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.75rem' }}>
                             Select which inflatable you'd like for your monthly delivery
                           </p>
@@ -2915,7 +2915,7 @@ export default function Profile() {
                                 marginBottom: '1rem'
                               }}
                             >
-                              🎪 Browse Available Inflatables
+                               Browse Available Inflatables
                             </button>
                           )}
                           
@@ -2951,7 +2951,7 @@ export default function Profile() {
                                   justifyContent: 'space-between',
                                   alignItems: 'center'
                                 }}>
-                                  <h3 style={{ margin: 0 }}>🎈 Choose Your Membership Inflatable</h3>
+                                  <h3 style={{ margin: 0 }}> Choose Your Membership Inflatable</h3>
                                   <button
                                     onClick={() => setShowInflatableModal(false)}
                                     style={{
@@ -2980,7 +2980,7 @@ export default function Profile() {
                                       padding: '2rem',
                                       color: '#666'
                                     }}>
-                                      <div>🔄 Checking availability for {selectedWeekday}...</div>
+                                      <div> Checking availability for {selectedWeekday}...</div>
                                     </div>
                                   ) : selectedWeekday ? (
                                     <div>
@@ -3033,7 +3033,7 @@ export default function Profile() {
                       {/* Step 3: Surface and Anchoring Selection */}
                       {selectedWeekday && selectedInflatable && (
                         <div className={`booking-step ${selectedSurface ? 'completed' : 'active'}`}>
-                          <h5>🏠 Step 3: Surface Type & Setup</h5>
+                          <h5> Step 3: Surface Type & Setup</h5>
                           <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.75rem' }}>
                             Select the surface where the inflatable will be set up
                           </p>
@@ -3107,7 +3107,7 @@ export default function Profile() {
                       {/* Address Validation */}
                       {selectedSurface && (
                         <div className={`booking-step ${profile.address ? 'completed' : 'active'}`}>
-                          <h5>📍 Step 4: Delivery Address</h5>
+                          <h5> Step 4: Delivery Address</h5>
                           <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.75rem' }}>
                             Confirm your delivery address
                           </p>
@@ -3121,7 +3121,7 @@ export default function Profile() {
                               marginBottom: '1rem'
                             }}>
                               <div style={{ fontWeight: 'bold', marginBottom: '0.25rem' }}>
-                                📍 Delivery Address:
+                                 Delivery Address:
                               </div>
                               <div>{profile.address}</div>
                               <button
@@ -3179,7 +3179,7 @@ export default function Profile() {
                       {/* Summary and Submit */}
                       {profile.address && selectedSurface && (
                         <div className="booking-step active">
-                          <h5>📋 Step 5: Review & Book</h5>
+                          <h5> Step 5: Review & Book</h5>
                           
                           {(() => {
                             const validationError = validateMembershipBooking();
@@ -3193,7 +3193,7 @@ export default function Profile() {
                                   color: '#c62828',
                                   marginBottom: '1rem'
                                 }}>
-                                  ⚠️ {validationError}
+                                   {validationError}
                                 </div>
                               );
                             }
@@ -3233,15 +3233,15 @@ export default function Profile() {
                                 }}>
                                   <h6 style={{ margin: '0 0 0.5rem 0' }}>Booking Summary</h6>
                                   <div style={{ fontSize: '0.9rem', lineHeight: '1.4' }}>
-                                    <div>📅 <strong>Preferred Day:</strong> {selectedWeekday}s (first of each month)</div>
-                                    <div>� <strong>Inflatable:</strong> {inflateables.find(inf => inf.id === selectedInflatable)?.name || 'None selected'}</div>
-                                    <div>�🏠 <strong>Surface & Setup:</strong> {
+                                    <div> <strong>Preferred Day:</strong> {selectedWeekday}s (first of each month)</div>
+                                    <div> <strong>Inflatable:</strong> {selectedInflatable?.name || 'None selected'}</div>
+                                    <div> <strong>Surface & Setup:</strong> {
                                       selectedSurface === 'grass' ? 
                                         `Grass with ${selectedStakesOrSandbags === 'stakes' ? 'Stakes' : 'Sandbags'}` : 
                                         'Concrete/Pavement'
                                     }</div>
-                                    <div>📍 <strong>Address:</strong> {profile.address}</div>
-                                    <div>💰 <strong>Additional Fee:</strong> {surfaceFee > 0 ? `$${surfaceFee} (concrete surface)` : 'None'}</div>
+                                    <div> <strong>Address:</strong> {profile.address}</div>
+                                    <div> <strong>Additional Fee:</strong> {surfaceFee > 0 ? `$${surfaceFee} (concrete surface)` : 'None'}</div>
                                   </div>
                                 </div>
                                 
@@ -3273,7 +3273,7 @@ export default function Profile() {
                                     fontWeight: 'bold'
                                   }}
                                 >
-                                  📋 Review Contract & Book
+                                   Review Contract & Book
                                 </button>
                               </div>
                             );

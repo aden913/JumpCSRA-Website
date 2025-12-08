@@ -217,15 +217,28 @@ font-size: .9rem;
     font-size: 1.5rem;
   }
   .category-dropdown-container {
-    border:none;
-    color:white;
+    border: none;
+    color: white;
     background-color: var(--darkBlue);
     border-radius: 5px;
+    width: 90%;
   }
-  #category-dropdown {
+  
+  .filter-dropdowns {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .filter-group {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.25rem;
+  }
+  
+  #category-dropdown, #wetdry-dropdown {
     color: white !important;
-        background-color: var(--darkBlue);
-
+    background-color: var(--coral);
+    border-radius: 2px;
   }
 
   .option-card {

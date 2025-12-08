@@ -259,11 +259,29 @@ html, body {
   font-weight: bolder;
   outline: none;
 }
-#category-dropdown{
+
+.filter-dropdowns {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#category-dropdown, #wetdry-dropdown{
   background: var(--coral);
   color: var(--darkBlue);
   font-weight: bolder;
-  border:none;
+  border: none;
+  padding: 0.5rem;
+  font-size: 1rem;
 } 
 #category-dropdown option::hover{
   background-color: red;
