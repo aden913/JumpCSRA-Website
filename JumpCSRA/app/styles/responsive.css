@@ -142,6 +142,15 @@ margin-top: 20%;
 .image-gallery {
   margin-right: 0;
 }
+
+/* Mobile Image Gallery Aspect Ratios (4:3 - better for mobile viewing) */
+.image-gallery .image-gallery-slide img {
+  aspect-ratio: 4 / 3 !important;
+}
+
+.image-gallery .image-gallery-thumbnail img {
+  aspect-ratio: 4 / 3 !important;
+}
   .cart-item{
     flex-direction: column;
     gap: 1rem;
@@ -247,9 +256,7 @@ font-size: .9rem;
     padding: 0.8rem 0;
   }
 
-  /* Hide the entire navbar on mobile */
-  .nav-bar {
-  }
+
 
   /* Standalone sticky mobile menu toggle */
   .mobile-menu-toggle {
@@ -644,9 +651,14 @@ font-size: .9rem;
 /* Small Tablets (≥ 480px and < 768px) */
 @media (min-width: 480px) and (max-width: 768px) {
 
+  /* Small Tablet Image Gallery Aspect Ratios (3:2 - balanced for small tablets) */
+  .image-gallery .image-gallery-slide img {
+    aspect-ratio: 3 / 2 !important;
+  }
 
-
-
+  .image-gallery .image-gallery-thumbnail img {
+    aspect-ratio: 3 / 2 !important;
+  }
 
   .cart-sidebar {
     width: 70%;
@@ -966,6 +978,15 @@ font-size: .9rem;
 
 /* Tablets (≥ 768px and < 1024px) */  
 @media (min-width: 769px) and (max-width: 1023px) {
+  /* Tablet Image Gallery Aspect Ratios (5:4 - wider for better tablet viewing) */
+  .image-gallery .image-gallery-slide img {
+    aspect-ratio: 5 / 4 !important;
+  }
+
+  .image-gallery .image-gallery-thumbnail img {
+    aspect-ratio: 5 / 4 !important;
+  }
+
   .landing-page {
     font-size: 0.8rem;
   }

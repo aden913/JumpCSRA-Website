@@ -3346,7 +3346,7 @@ export default function Checkout() {
         <h2 className="step-title">Delivery Address</h2>
         <p className="delivery-description">
           Enter the address where you want your rental items delivered. 
-          Delivery cost is $6 per mile from our location in North Augusta, SC.
+          
         </p>
         
         <div className="delivery-input-section">
@@ -3354,7 +3354,7 @@ export default function Checkout() {
             value={deliveryAddress}
             onChange={handleAddressChange}
             onPlaceSelected={handlePlaceSelected}
-            placeholder="Select delivery address from Google Places suggestions"
+            placeholder="Select delivery address..."
             inputRef={addressInputRef}
             style={{ 
               width: '100%', 

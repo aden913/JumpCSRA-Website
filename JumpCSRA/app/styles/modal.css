@@ -93,6 +93,35 @@
   width:50%;
   margin-right: 3rem;
 }
+
+/* Image Gallery Aspect Ratio Styles */
+.image-gallery .image-gallery-slide img {
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.image-gallery .image-gallery-thumbnail img {
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+/* Ensure thumbnail container maintains aspect ratio */
+.image-gallery .image-gallery-thumbnail {
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* Main slide container */
+.image-gallery .image-gallery-slide {
+  border-radius: 8px;
+  overflow: hidden;
+}
 .modal-close{
   color:white;
   background:none;
