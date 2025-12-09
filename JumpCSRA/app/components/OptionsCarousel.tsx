@@ -135,7 +135,7 @@ function OptionCard({
           disabled={unavailable}
           style={unavailable ? { backgroundColor: "#ccc", cursor: "not-allowed" } : {}}
         >
-          {unavailable ? "UNAVAILABLE" : (directSelection ? "SELECT" : "ORDER NOW")}
+          {unavailable ? "UNAVAILABLE" : (directSelection ? "SELECT" : "ADD TO CART")}
         </button>
       </div>
     </div>

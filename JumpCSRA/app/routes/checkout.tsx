@@ -3310,12 +3310,7 @@ export default function Checkout() {
               <span>${surfaceAdj.toFixed(2)}</span>
             </div>
           )}
-          {timeAdj > 0 && (
-            <div className="pricing-row">
-              <span>Time Adjustment:</span>
-              <span>${timeAdj.toFixed(2)}</span>
-            </div>
-          )}
+          
           {deliveryCost > 0 && (
             <div className="pricing-row">
               <span>Delivery Cost:</span>

@@ -113,7 +113,7 @@ function OptionCard({ name, img, onOrder, unavailable }: OptionCardProps) {
         disabled={unavailable}
         style={unavailable ? { backgroundColor: "#ccc", cursor: "not-allowed" } : {}}
       >
-        {unavailable ? "UNAVAILABLE" : "ORDER NOW"}
+        {unavailable ? "UNAVAILABLE" : "ADD TO CART"}
       </button>
     </div>
   );

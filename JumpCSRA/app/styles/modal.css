@@ -49,7 +49,7 @@
   scrollbar-width: none;       
   -ms-overflow-style: none; 
   position: relative;
-  background: #354d65;
+  background: #ffffff;
   border-radius: 24px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.25);
   padding: 2.5rem 2rem 2rem 2rem;
@@ -75,7 +75,7 @@
   font-size: 2rem;
   font-weight: bold;
   margin-bottom: 1.5rem;
-  color: var(--coral);
+  color: var(--darkBlue);
 }
 .modal-close, .modal-addcart {
   margin-top: 2rem;
@@ -129,9 +129,11 @@
   top:0;
   right:0;
 }
+.modal-info {    color: var(--darkBlue) !important;
+}
 .modal-purchase {
-  background-color: var(--coral);
-  color: var(--darkBlue);
+  background-color: var(--lightBlue);
+  color: white;
   padding: 10px 20px;
   border: none;
   border-radius: 5px;

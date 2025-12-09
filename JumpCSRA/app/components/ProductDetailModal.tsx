@@ -49,10 +49,11 @@ export function ProductDetailModal({ open, product, onClose, onPurchase }: Produ
         <div className="modal-div" style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
           <ProductImageGallery images={images.filter(Boolean)} />
           <div className="modal-info">
+                        <strong>Description:</strong> {product.description || "No description yet."}
+
+            <br />
+            <br />
             <strong>Dimensions:</strong> {product.dimensions || "N/A"}
-            <br />
-            <br />
-            <strong>Description:</strong> {product.description || "No description yet."}
           </div>
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginTop: "2rem" }}>
