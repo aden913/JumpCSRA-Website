@@ -259,15 +259,6 @@ export function Welcome() {
     }, 100);
   };
 
-  // Wrapper function to handle wet/dry change and reset carousel
-  const handleWetDryChange = (wetDry: string) => {
-    logic.setSelectedWetDry(wetDry);
-    // Reset carousel to beginning after a short delay to allow re-render
-    setTimeout(() => {
-      optionsCarouselRef.current?.resetToBeginning();
-    }, 100);
-  };
-
   // Fetch unavailable inflateables whenever date range changes
   useEffect(() => {
     async function fetchUnavailable() {
@@ -507,6 +498,8 @@ export function Welcome() {
           onClose={logic.handleCalendarClose}
           value={logic.calendarDateRange}
           onChange={logic.setCalendarDateRange}
+          selectedWetDry={logic.selectedWetDry}
+          onWetDryChange={logic.setSelectedWetDry}
         />
         {/* Main Section */}
         <section className="main-section">
@@ -608,40 +601,21 @@ export function Welcome() {
             className="category-dropdown-container"
             style={{ marginBottom: "1rem", textAlign: "center" }}
           >
-            <div className="filter-dropdowns">
-              <div className="filter-group">
-                <label htmlFor="category-dropdown" style={{ marginRight: "0.5rem" }}>
-                  Filter by Category:
-                </label>
-                <select
-                  id="category-dropdown"
-                  value={logic.selectedCategory}
-                  onChange={(e) => handleCategoryChange(e.target.value)}
-                  style={{ padding: "0.5rem", fontSize: "1rem" }}
-                >
-                  {logic.categories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="filter-group">
-                <label htmlFor="wetdry-dropdown" style={{ marginRight: "0.5rem" }}>
-                  Filter by Type:
-                </label>
-                <select
-                  id="wetdry-dropdown"
-                  value={logic.selectedWetDry}
-                  onChange={(e) => handleWetDryChange(e.target.value)}
-                  style={{ padding: "0.5rem", fontSize: "1rem" }}
-                >
-                  <option value="dry">Dry</option>
-                  <option value="wet">Wet</option>
-                </select>
-              </div>
-            </div>
+            <label htmlFor="category-dropdown" style={{ marginRight: "0.5rem" }}>
+              Filter by Category:
+            </label>
+            <select
+              id="category-dropdown"
+              value={logic.selectedCategory}
+              onChange={(e) => handleCategoryChange(e.target.value)}
+              style={{ padding: "0.5rem", fontSize: "1rem" }}
+            >
+              {logic.categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                </option>
+              ))}
+            </select>
           </div>
           <h2>SWIPE FOR MORE FUN</h2>
 
@@ -658,6 +632,7 @@ export function Welcome() {
             onPurchase={logic.addToCart}
             onCardClick={logic.handleOrderNow} // Card click shows details popup
             isLandingPage={true} // Identify this as landing page
+            selectedDates={logic.calendarDateRange}
           />
           
         
@@ -742,9 +717,22 @@ export function Welcome() {
             North Augusta, SC. 29841
           </div>
           <div>
-            803-221-0466
+            <a 
+              href="tel:+18032210466" 
+              id="phone-link"
+              title="Call us now"
+              rel="noopener"
+            >
+              803-221-0466
+            </a>
             <br />
-            JumpCSRA@gmail.com
+            <a 
+              href="mailto:JumpCSRA@gmail.com" 
+              id="email-link"
+              title="Send us an email"
+            >
+              JumpCSRA@gmail.com
+            </a>
           </div>
           <div className="social-icons">
             <a href="https://www.instagram.com/jumpcsra/" target="_blank" rel="noopener noreferrer">

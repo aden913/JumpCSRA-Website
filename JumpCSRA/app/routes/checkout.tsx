@@ -391,19 +391,15 @@ export default function Checkout() {
       case 'order-summary':
         // Must have items in cart
         if (cart.length === 0) return false;
-        // If has inflateables, must have all event settings completed
+        // If has inflateables, must have all event settings completed (except location, which is now in delivery step)
         if (hasInflateables) {
-          return cartSettings.duration && cartSettings.surface && cartSettings.deliveryTime && cartSettings.location;
+          return cartSettings.duration && cartSettings.surface && cartSettings.deliveryTime;
         }
         return true;
       case 'delivery':
-        // If delivery is skipped for development, don't require address validation
-        if (deliverySkipped) return true;
-        return deliveryAddress.trim() !== '' && deliveryCost > 0;
+        // Must have delivery address and location type
+        return deliveryAddress.trim().length > 0 && cartSettings.location.trim().length > 0;
       case 'quick-add-totals':
-        // Must have items in cart
-        return cart.length > 0;
-      case 'order-summary':
         // Must have items in cart and all wet/dry selections complete
         return cart.length > 0 && areWetDrySelectionsComplete();
       case 'contract':
@@ -440,15 +436,14 @@ export default function Checkout() {
           if (cart.length === 0) return false;
           // Must have all wet/dry selections complete
           if (!areWetDrySelectionsComplete()) return false;
-          // If has inflateables, must have all event settings completed
+          // If has inflateables, must have all event settings completed (except location, which is now in delivery step)
           if (hasInflateables) {
-            return cartSettings.duration && cartSettings.surface && cartSettings.deliveryTime && cartSettings.location;
+            return cartSettings.duration && cartSettings.surface && cartSettings.deliveryTime;
           }
           return true;
         case 'delivery':
-          // If delivery is skipped for development, don't require address validation
-          if (deliverySkipped) return true;
-          return deliveryAddress.trim() !== '' && deliveryCost > 0;
+          // Must have delivery address and location type
+          return deliveryAddress.trim().length > 0 && cartSettings.location.trim().length > 0;
         case 'quick-add-totals':
           // Must have items in cart
           return cart.length > 0;
@@ -1126,17 +1121,17 @@ export default function Checkout() {
   // Pricing calculations (copied from CartSidebar logic)
   const surfacePrices: Record<string, number> = {
     "grass-stakes": 0,
-    "grass-sandbags": 50,
-    "concrete": 50,
-    "indoor": 40,
+    "grass-sandbags": 25,
+    "concrete": 25,
+    "indoor": 25,
   };
   
   const timePrices: Record<string, number> = {
-    "8am": 50,
-    "9am": 40,
-    "10am": 30,
-    "11am": 20,
-    "12pm": 10,
+    "8am": 40,
+    "9am": 30,
+    "10am": 20,
+    "11am": 10,
+    "12pm": 0,
     "": 0,
   };
   
@@ -1193,8 +1188,16 @@ export default function Checkout() {
     return sum;
   }, 0);
   
-  const surfaceAdj = cartSettings.surface ? surfacePrices[cartSettings.surface] || 0 : 0;
-  const timeAdj = cartSettings.deliveryTime ? timePrices[cartSettings.deliveryTime] || 0 : 0;
+  // Calculate number of non-gift card items for per-item pricing
+  const nonGiftCardItemCount = cart.reduce((count, item) => {
+    if (!item.isGiftCard) {
+      return count + item.quantity;
+    }
+    return count;
+  }, 0);
+  
+  const surfaceAdj = cartSettings.surface ? (surfacePrices[cartSettings.surface] || 0) * nonGiftCardItemCount : 0;
+  const timeAdj = cartSettings.deliveryTime ? (timePrices[cartSettings.deliveryTime] || 0) * nonGiftCardItemCount : 0;
   const subtotal = cartTotal + lastMinuteTotal + surfaceAdj + timeAdj;
   const total = subtotal + deliveryCost;
 
@@ -3278,20 +3281,6 @@ export default function Checkout() {
                     </div>
                   )}
                 </label>
-                <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-                  Location:
-                  <select 
-                    value={cartSettings.location} 
-                    onChange={e => cartSettings.setLocation(e.target.value)} 
-                    required 
-                    style={{ marginLeft: '0.5rem' }}
-                  >
-                    <option value="">Select location</option>
-                    {locationOptions.map(loc => (
-                      <option key={loc} value={loc}>{loc}</option>
-                    ))}
-                  </select>
-                </label>
               </div>
               <p><strong>Selected Date:</strong> {calendarDateRange[0]?.toLocaleDateString()} - {calendarDateRange[1]?.toLocaleDateString()}</p>
             </div>
@@ -3306,7 +3295,7 @@ export default function Checkout() {
           </div>
           {surfaceAdj > 0 && (
             <div className="pricing-row">
-              <span>Surface Adjustment:</span>
+              <span>Surface Adjustment (per item):</span>
               <span>${surfaceAdj.toFixed(2)}</span>
             </div>
           )}
@@ -3338,27 +3327,51 @@ export default function Checkout() {
 
       {currentStep === 'delivery' && (
       <div className="step-container">
-        <h2 className="step-title">Delivery Address</h2>
+        <h2 className="step-title">Delivery Information</h2>
         <p className="delivery-description">
-          Enter the address where you want your rental items delivered. 
-          
+          Enter the address where you want your rental items delivered and select the event location type.
         </p>
         
         <div className="delivery-input-section">
-          <GooglePlacesAutocomplete
-            value={deliveryAddress}
-            onChange={handleAddressChange}
-            onPlaceSelected={handlePlaceSelected}
-            placeholder="Select delivery address..."
-            inputRef={addressInputRef}
-            style={{ 
-              width: '100%', 
-              padding: '0.75rem', 
-              fontSize: '1rem',
-              border: '1px solid #ddd',
-              borderRadius: '4px'
-            }}
-          />
+          <label style={{ display: 'block', marginBottom: '1rem' }}>
+            Delivery Address:
+            <GooglePlacesAutocomplete
+              value={deliveryAddress}
+              onChange={handleAddressChange}
+              onPlaceSelected={handlePlaceSelected}
+              placeholder="Select delivery address..."
+              inputRef={addressInputRef}
+              style={{ 
+                width: '100%', 
+                padding: '0.75rem', 
+                fontSize: '1rem',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                marginTop: '0.5rem'
+              }}
+            />
+          </label>
+          
+          <label style={{ display: 'block', marginBottom: '1rem' }}>
+            Event Location:
+            <select 
+              value={cartSettings.location} 
+              onChange={e => cartSettings.setLocation(e.target.value)} 
+              required 
+              style={{ 
+                marginLeft: '0.5rem',
+                padding: '0.75rem', 
+                fontSize: '1rem',
+                border: '1px solid #ddd',
+                borderRadius: '4px'
+              }}
+            >
+              <option value="">Select location type</option>
+              {locationOptions.map(loc => (
+                <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
+          </label>
         </div>
         
         <button
@@ -3399,65 +3412,80 @@ export default function Checkout() {
             }
           }}
           disabled={calculatingDistance || !deliveryAddress.trim()}
+          style={{ display: 'none' }}
         >
           {calculatingDistance ? 'Calculating...' : 'Calculate Delivery Cost'}
         </button>
         
         {/* Development Skip Button */}
-        <button
-          id="btn-skip-delivery"
-          onClick={() => {
-            console.log('🚀 SKIPPING DELIVERY CALCULATION FOR DEVELOPMENT');
-            console.log('Before skip - deliverySkipped:', deliverySkipped);
-            console.log('Before skip - deliveryCost:', deliveryCost);
-            console.log('Before skip - canShowNextButton():', canShowNextButton());
-            
-            setDeliveryCost(0);
-            setDeliverySkipped(true); // Mark delivery as skipped
-            setCalculatingDistance(false);
-            
-            // Use setTimeout to check state after React updates
-            setTimeout(() => {
-              console.log('After skip - deliverySkipped should be true');
-              console.log('After skip - deliveryCost:', deliveryCost);
-            }, 100);
-            
-            notifications.show({
-              title: '🚀 Development Mode',
-              message: 'Delivery calculation skipped - you can now proceed to next step',
-              color: 'blue',
-              autoClose: 3000,
-            });
-          }}
-          style={{
-            backgroundColor: '#007bff',
-            color: 'white',
-            border: 'none',
-            padding: '0.75rem 1rem',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            marginLeft: '1rem',
-            fontSize: '0.9rem'
-          }}
-        >
-          Skip Delivery (Dev)
-        </button>
+        {import.meta.env.DEV && (
+          <button
+            id="btn-skip-delivery"
+            onClick={() => {
+              console.log('🚀 SKIPPING DELIVERY CALCULATION FOR DEVELOPMENT');
+              console.log('Before skip - deliverySkipped:', deliverySkipped);
+              console.log('Before skip - deliveryCost:', deliveryCost);
+              console.log('Before skip - canShowNextButton():', canShowNextButton());
+              
+              // Set a default address if none exists
+              if (!deliveryAddress.trim()) {
+                setDeliveryAddress('123 Test Street, Test City, SC 29841');
+              }
+              
+              // Set default location if not selected
+              if (!cartSettings.location) {
+                cartSettings.setLocation('personal home');
+              }
+              
+              setDeliveryCost(0);
+              setDeliverySkipped(true); // Mark delivery as skipped
+              setCalculatingDistance(false);
+              
+              // Use setTimeout to check state after React updates
+              setTimeout(() => {
+                console.log('After skip - deliverySkipped should be true');
+                console.log('After skip - deliveryCost:', deliveryCost);
+              }, 100);
+              
+              notifications.show({
+                title: '🚀 Development Mode',
+                message: 'Delivery calculation skipped - you can now proceed to next step',
+                color: 'blue',
+                autoClose: 3000,
+              });
+            }}
+            style={{
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              padding: '0.75rem 1rem',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              marginTop: '1rem',
+              marginBottom: '1rem'
+            }}
+          >
+            Skip Delivery (Dev)
+          </button>
+        )}
         
-        {deliveryCost > 0 && (
-          <div style={{
-            marginTop: '1rem',
-            padding: '1rem',
-            backgroundColor: '#e8f5e8',
-            border: '1px solid #4caf50',
-            borderRadius: '4px'
-          }}>
-            <strong>Delivery Cost Calculated: ${deliveryCost}</strong>
-            <br />
-            <small style={{ color: '#666' }}>
-              This cost has been added to your total below.
-            </small>
+        {/* Automatically calculate delivery in the background */}
+        {deliveryAddress.trim() && (
+          <div style={{ display: 'none' }}>
+            {(() => {
+              // Automatically trigger delivery calculation when address is entered
+              setTimeout(() => {
+                if (!calculatingDistance && deliveryCost === 0) {
+                  calculateDeliveryDistance(deliveryAddress);
+                }
+              }, 500);
+              return null;
+            })()}
           </div>
         )}
+        
+        {/* Hide the delivery cost display - it will be included in the total automatically */}
         
         {/* Navigation Buttons */}
         <div className="checkout-navigation-buttons">
@@ -3650,13 +3678,13 @@ export default function Checkout() {
             )}
             {surfaceAdj > 0 && (
               <div className="pricing-row">
-                <span>Surface Adjustment:</span>
+                <span>Surface Adjustment (per item):</span>
                 <span>${surfaceAdj.toFixed(2)}</span>
               </div>
             )}
             {timeAdj > 0 && (
               <div className="pricing-row">
-                <span>Time Adjustment:</span>
+                <span>Delivery Time Adjustment (per item):</span>
                 <span>${timeAdj.toFixed(2)}</span>
               </div>
             )}

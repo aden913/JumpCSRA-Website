@@ -229,11 +229,10 @@ const updateExistingBooking = async (
     };
     
     const durationMultiplier = durationMultipliers[cartSettings.duration] || 1.0;
-    const surfaceAdj = surfacePrices[cartSettings.surface] || 0;
-    const timeAdj = timePrices[cartSettings.deliveryTime] || 0;
     
     // Calculate cart total
     let cartTotal = 0;
+    let nonGiftCardItemCount = 0;
     const updatedItems = cartItems.map((item, index) => {
       let itemTotal;
       
@@ -241,6 +240,7 @@ const updateExistingBooking = async (
         itemTotal = (item.giftCardValue || item.price) * item.quantity;
       } else {
         itemTotal = item.price * item.quantity * durationMultiplier;
+        nonGiftCardItemCount += item.quantity; // Count non-gift card items for per-item pricing
         
         // Add wet surcharge if applicable
         if (item.wetDry === "Wet/Dry" && wetDrySelections[index] === "Wet") {
@@ -256,6 +256,10 @@ const updateExistingBooking = async (
         price: item.isGiftCard ? (item.giftCardValue || item.price) : item.price
       };
     });
+    
+    // Calculate per-item adjustments for surface and time (excluding gift cards)
+    const surfaceAdj = (surfacePrices[cartSettings.surface] || 0) * nonGiftCardItemCount;
+    const timeAdj = (timePrices[cartSettings.deliveryTime] || 0) * nonGiftCardItemCount;
     
     const newTotalAmount = cartTotal + surfaceAdj + timeAdj;
     
@@ -786,8 +790,21 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
     return sum + itemTotal;
   }, 0);
   
-  const surfaceAdj = surface ? surfacePrices[surface] || 0 : 0;
-  const timeAdj = deliveryTime ? timePrices[deliveryTime] || 0 : 0;
+  // Count non-gift card items for per-item pricing adjustments
+  const nonGiftCardItemCount = displayCart.reduce((count, item) => {
+    // Skip unavailable items
+    if (unavailableItems.has(item.id)) {
+      return count;
+    }
+    // Skip gift cards
+    if (isGiftCard(item)) {
+      return count;
+    }
+    return count + item.quantity;
+  }, 0);
+  
+  const surfaceAdj = surface ? (surfacePrices[surface] || 0) * nonGiftCardItemCount : 0;
+  const timeAdj = deliveryTime ? (timePrices[deliveryTime] || 0) * nonGiftCardItemCount : 0;
   
   // Apply discount to total
   const subtotal = cartTotal + surfaceAdj + timeAdj;

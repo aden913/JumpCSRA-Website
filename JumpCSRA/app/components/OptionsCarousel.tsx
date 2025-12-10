@@ -26,6 +26,7 @@ export type OptionCardProps = {
   unavailable?: boolean;
   directSelection?: boolean; // New prop to control selection behavior
   isLandingPage?: boolean; // New prop to identify landing page context
+  selectedDates?: [Date | null, Date | null]; // New prop for pricing calculation
 };
 
 function OptionCard({
@@ -45,6 +46,7 @@ function OptionCard({
   unavailable,
   directSelection,
   isLandingPage,
+  selectedDates,
   cardRef,
   normalizedDimensions,
 }: OptionCardProps & { 
@@ -55,10 +57,20 @@ function OptionCard({
   if (name.length > 18) fontSize = "1.25rem";
   if (name.length > 28) fontSize = "1rem";
 
-  let wetDryLabel = "";
-  if (wet === true && dry === false) wetDryLabel = "Wet Only";
-  else if (wet === false && dry === true) wetDryLabel = "Dry Only";
-  else if (wet === true && dry === true) wetDryLabel = "Wet or Dry";
+  // Calculate pricing based on selected dates
+  const calculateDisplayPrice = () => {
+    if (!selectedDates || !selectedDates[0] || !weekdayPrice || !weekendPrice) {
+      return null;
+    }
+
+    const selectedDate = selectedDates[0];
+    const dayOfWeek = selectedDate.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday = 0, Saturday = 6
+
+    return isWeekend ? weekendPrice : weekdayPrice;
+  };
+
+  const displayPrice = calculateDisplayPrice();
 
   const productData = {
     name,
@@ -75,6 +87,7 @@ function OptionCard({
     unavailable,
     directSelection,
     isLandingPage,
+    selectedDates,
   };
 
   const handleCardClick = () => {
@@ -128,7 +141,7 @@ function OptionCard({
         style={unavailable ? { filter: "grayscale(1)", opacity: 0.6 } : {}}
       />
       <div className="option-card-bottom">
-        {wetDryLabel && <div className="wetdry-box">{wetDryLabel}</div>}
+        {displayPrice && <div className="price-box">${displayPrice}</div>}
         <button
           className="order-btn"
           onClick={handleOrderClick}
@@ -148,6 +161,7 @@ export type OptionsCarouselProps = {
   onCardClick?: (product: OptionCardProps) => void; // New prop for handling card clicks
   disableModal?: boolean; // New prop to disable modal behavior
   isLandingPage?: boolean; // New prop to identify landing page context
+  selectedDates?: [Date | null, Date | null]; // New prop for pricing calculation
 };
 
 export interface OptionsCarouselRef {
@@ -155,7 +169,7 @@ export interface OptionsCarouselRef {
 }
 
 export const OptionsCarousel = React.forwardRef<OptionsCarouselRef, OptionsCarouselProps>(
-  ({ options, onPurchase, onCardClick, disableModal = false, isLandingPage = false }, ref) => {
+  ({ options, onPurchase, onCardClick, disableModal = false, isLandingPage = false, selectedDates }, ref) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<OptionCardProps | null>(null);
   const [leftMaskWidth, setLeftMaskWidth] = useState(37);
@@ -413,6 +427,7 @@ export const OptionsCarousel = React.forwardRef<OptionsCarouselRef, OptionsCarou
                   onOrder={() => handleOrderNow({ ...opt })} 
                   onCardClick={() => handleCardClick({ ...opt })}
                   isLandingPage={isLandingPage}
+                  selectedDates={selectedDates}
                   cardRef={(element: HTMLDivElement | null) => {
                     cardRefs.current[index] = element;
                   }}

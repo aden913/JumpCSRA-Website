@@ -125,7 +125,7 @@
   height: 60%;
   object-fit: cover;
   margin-bottom: 0.8rem;
-  border-radius: 48px;
+  border-radius: 5px;
 }
 .option-title {
     font-size: 1.5rem;
@@ -191,8 +191,8 @@
     margin-bottom: auto; /* Push subsequent elements to bottom */
   }
   
-  /* Create a bottom container for wetdry box and order button */
-  .option-card .wetdry-box {
+  /* Create a bottom container for price box and order button */
+  .option-card .price-box {
     margin-top: 0;
     margin-bottom: 0.5rem;
     order: 2; /* Move to bottom area */
@@ -207,13 +207,14 @@
 .swiper-wrapper {
   display: flex !important;
 }
-.wetdry-box {
-  background: var(  --lightBlue);
-  color: var(--darkBlue);
+.price-box {
+  color: var(--lightBlue);
   border-radius: 24px;
   padding: 0.6rem 1.2rem;
   font-size: 1.8rem;
+  font-weight: bold;
   margin-top: 1rem;
   margin-bottom: .4rem;
   max-width: 18rem;
+  text-align: center;
 }

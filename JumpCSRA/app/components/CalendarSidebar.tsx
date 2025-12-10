@@ -8,9 +8,11 @@ export type CalendarSidebarProps = {
   onClose: () => void;
   value: [Date | null, Date | null];
   onChange: (value: [Date | null, Date | null]) => void;
+  selectedWetDry: string;
+  onWetDryChange: (wetDry: string) => void;
 };
 
-export function CalendarSidebar({ open, onClose, value, onChange }: CalendarSidebarProps) {
+export function CalendarSidebar({ open, onClose, value, onChange, selectedWetDry, onWetDryChange }: CalendarSidebarProps) {
   // Convert Date[] to string[] for DatePicker
   const stringValue: [string | null, string | null] = [
     value[0] ? value[0].toISOString().slice(0, 10) : null,
@@ -59,10 +61,45 @@ export function CalendarSidebar({ open, onClose, value, onChange }: CalendarSide
               minDate={new Date()}
               size="lg"
             />
-            <div style={{ marginTop: "2rem", textAlign: "center", fontSize: "1.1rem" }}>
+            
+            {/* Wet/Dry Selection - shown after date is selected */}
+            {value[0] && (
+              <div className="wetdry-selection-container">
+                <h3 className="wetdry-selection-title">
+                  What type of inflatables are you looking for?
+                </h3>
+                <div className="wetdry-options-container">
+                  <label className={`wetdry-option-label ${selectedWetDry === 'dry' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="wetDry"
+                      value="dry"
+                      checked={selectedWetDry === 'dry'}
+                      onChange={(e) => onWetDryChange(e.target.value)}
+                      className="wetdry-option-input"
+                    />
+                    Dry
+                  </label>
+                  <div className="wetdry-divider"></div>
+                  <label className={`wetdry-option-label ${selectedWetDry === 'wet' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="wetDry"
+                      value="wet"
+                      checked={selectedWetDry === 'wet'}
+                      onChange={(e) => onWetDryChange(e.target.value)}
+                      className="wetdry-option-input"
+                    />
+                    Wet
+                  </label>
+                </div>
+              </div>
+            )}
+            
+            <div className="confirm-section">
               {value[0] && (
                 <button
-                  style={{ marginTop: "1rem", padding: "0.5rem 1.5rem", fontSize: "1rem", background: "var(--lightBlue)", color: "white", border: "none", borderRadius: "6px", cursor: "pointer" }}
+                  className="confirm-button"
                   onClick={onClose}
                 >
                   Confirm
