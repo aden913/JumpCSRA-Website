@@ -3312,8 +3312,14 @@ export default function Checkout() {
           </div>
         </div>
         
-        {/* Continue to Delivery Button */}
-        <div className="checkout-main-button-container">
+        {/* Navigation Buttons */}
+        <div className="checkout-navigation-buttons">
+          <button
+            id="btn-back-delivery"
+            onClick={goToPreviousStep}
+          >
+            Back to Delivery
+          </button>
           <button
             id="btn-main-flow"
             onClick={() => goToNextStep()}
@@ -3490,10 +3496,10 @@ export default function Checkout() {
         {/* Navigation Buttons */}
         <div className="checkout-navigation-buttons">
           <button
-            id="btn-back-order-summary"
+            id="btn-back-quick-add"
             onClick={goToPreviousStep}
           >
-            Back to Order Summary
+            Back to Quick Add
           </button>
           <button
             id="btn-forward-delivery"
@@ -3722,12 +3728,6 @@ export default function Checkout() {
             {currentStep === 'quick-add-totals' && (
               <>
                 <button
-                  id="btn-back-delivery"
-                  onClick={goToPreviousStep}
-                >
-                  Back to Delivery
-                </button>
-                <button
                   id="btn-forward-quick-add"
                   onClick={() => goToNextStep()}
                   disabled={!canShowNextButton()}
@@ -3739,7 +3739,7 @@ export default function Checkout() {
             {currentStep === 'contract' && (
               <>
                 <button
-                  id="btn-back-order-review"
+                  id="btn-back-order-summary"
                   onClick={goToPreviousStep}
                   style={{
                     backgroundColor: '#6c757d',
@@ -3751,7 +3751,7 @@ export default function Checkout() {
                     cursor: 'pointer'
                   }}
                 >
-                  ← Back to Order Review
+                  ← Back to Order Summary
                 </button>
               </>
             )}

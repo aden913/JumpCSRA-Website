@@ -21,8 +21,6 @@
     top:0;
     margin-top: 0;
     font-size: 0.8rem !important;
-    color:white;
-    background-color: var(--coral);
     width: 90%;
   }
   .option-card-bottom {
@@ -233,10 +231,10 @@ font-size: .9rem;
     text-align: center;
     gap: 0.25rem;
   }
-  
-  #category-dropdown, #wetdry-dropdown {
-    color: white !important;
-    background-color: var(--coral);
+  .price-box {color:white;}
+  #category-dropdown {
+     color: var(--darkBlue) !important;
+    background-color:var(--lightBlue);
     border-radius: 2px;
   }
 
