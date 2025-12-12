@@ -474,7 +474,21 @@ export const updateBookingStatusBasedOnPayment = async (orderID: string, deposit
     await set(ref(database, `bookings/${orderID}/status`), newStatus);
     await set(ref(database, `bookings/${orderID}/paymentDetails/depositAmount`), depositAmount);
     await set(ref(database, `bookings/${orderID}/paymentDetails/remainingBalance`), totalAmount - depositAmount);
+    
+    // Update payment status based on whether full payment is complete
+    if (depositAmount >= totalAmount) {
+      // Full payment complete
+      await set(ref(database, `bookings/${orderID}/paymentDetails/paymentStatus`), 'completed');
+      await set(ref(database, `bookings/${orderID}/paymentDetails/paymentDate`), new Date().toISOString());
+    } else if (depositAmount > 0) {
+      // Partial payment (deposit) completed
+      await set(ref(database, `bookings/${orderID}/paymentDetails/paymentStatus`), 'completed');
+      await set(ref(database, `bookings/${orderID}/paymentDetails/paymentDate`), new Date().toISOString());
+    }
+    
     await set(ref(database, `bookings/${orderID}/updatedAt`), new Date().toISOString());
+    
+    console.log(`✅ Booking status updated: ${orderID} -> ${newStatus}, payment: ${depositAmount >= totalAmount ? 'full' : 'partial'}`);
     
     return true;
   } catch (error) {
@@ -779,30 +793,83 @@ export const addSavedPaymentMethod = async (
 // Get incomplete bookings for a user (for booking recovery)
 export async function getIncompleteBookingsForUser(userId: string): Promise<BookingData[]> {
   try {
+    console.log('🔍 Checking for incomplete bookings for user:', userId);
     const db = getDatabase();
     const bookingsRef = ref(db, 'bookings');
     const snapshot = await get(bookingsRef);
     
     if (!snapshot.exists()) {
+      console.log('📭 No bookings found in database');
       return [];
     }
     
     const allBookings = snapshot.val();
     const incompleteBookings: BookingData[] = [];
+    const userBookings = Object.keys(allBookings).filter(bookingId => allBookings[bookingId].customerID === userId);
     
-    // Find bookings for this user that are incomplete (pending/deferred and no payment)
+    console.log(`📋 Found ${userBookings.length} total bookings for user`);
+    
+    // Find bookings for this user that are truly incomplete
     Object.keys(allBookings).forEach(bookingId => {
       const booking = allBookings[bookingId];
-      if (booking.customerID === userId && 
-          (booking.status === 'pending' || booking.status === 'deferred') &&
-          (!booking.paymentDetails.paymentStatus || booking.paymentDetails.paymentStatus === 'pending')) {
+      
+      // Only include bookings for this user
+      if (booking.customerID !== userId) {
+        return;
+      }
+      
+      console.log(`🔍 Analyzing booking ${bookingId}:`, {
+        status: booking.status,
+        paymentStatus: booking.paymentDetails?.paymentStatus,
+        depositAmount: booking.paymentDetails?.depositAmount || 0,
+        totalAmount: booking.paymentDetails?.totalAmount || 0,
+        remainingBalance: booking.paymentDetails?.remainingBalance || 0
+      });
+      
+      // Exclude cancelled or completed bookings
+      if (booking.status === 'cancelled' || booking.status === 'completed') {
+        console.log(`❌ Excluding booking ${bookingId}: status is ${booking.status}`);
+        return;
+      }
+      
+      // Check if payment is truly incomplete
+      const paymentDetails = booking.paymentDetails;
+      const hasCompletedPayment = paymentDetails?.paymentStatus === 'completed';
+      
+      if (hasCompletedPayment) {
+        // If payment is completed, check if this is a deposit scenario requiring more action
+        const paidAmount = (paymentDetails.depositAmount || 0);
+        const totalAmount = paymentDetails.totalAmount || 0;
+        const remainingBalance = paymentDetails.remainingBalance || 0;
+        
+        // If full payment is complete (paid amount equals total or no remaining balance)
+        if (paidAmount >= totalAmount || remainingBalance <= 0) {
+          // Full payment complete - this booking doesn't need continuation
+          console.log(`✅ Excluding booking ${bookingId}: full payment complete (paid: $${paidAmount}, total: $${totalAmount}, remaining: $${remainingBalance})`);
+          return;
+        }
+        
+        console.log(`💰 Booking ${bookingId} has partial payment - including for completion`);
+        // If it's a deposit payment with remaining balance, still include it
+        // because user needs to complete the remaining payment
+      }
+      
+      // Include bookings that are:
+      // 1. Status is pending/deferred with no payment completed yet, OR
+      // 2. Status is pending/deferred with only partial payment (deposit) completed
+      if ((booking.status === 'pending' || booking.status === 'deferred') &&
+          (!hasCompletedPayment || (hasCompletedPayment && (paymentDetails.remainingBalance || 0) > 0))) {
+        console.log(`📝 Including incomplete booking ${bookingId}`);
         incompleteBookings.push(booking);
+      } else {
+        console.log(`❌ Excluding booking ${bookingId}: doesn't meet incomplete criteria`);
       }
     });
     
     // Sort by creation date (most recent first)
     incompleteBookings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     
+    console.log(`📊 Final result: ${incompleteBookings.length} incomplete bookings found`);
     return incompleteBookings;
   } catch (error) {
     console.error('Error getting incomplete bookings for user:', error);
