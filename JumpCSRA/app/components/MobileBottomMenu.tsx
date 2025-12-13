@@ -37,10 +37,20 @@ export function MobileBottomMenu({
 
   return (
     <div className="mobile-bottom-menu">
-      {/* Profile Icon Button */}
-      <div className="bottom-menu-item clickable" onClick={handleProfileClick}>
-        <div className="bottom-menu-icon">
-          <img src="/profile-icon-white.png" alt="Profile" className="menu-icon-img" />
+      
+{/* User Name Button */}
+      <div 
+        className={`bottom-menu-item ${!user ? 'clickable' : 'user-name-button'}`}
+        onClick={handleNameClick}
+      >
+        <div className="bottom-menu-text name-button-text">
+          {user ? (
+            <span className="user-name">
+              {user.displayName || user.email?.split('@')[0] || 'User'}
+            </span>
+          ) : (
+            <span className="signin-text">Sign In</span>
+          )}
         </div>
       </div>
 
@@ -67,19 +77,12 @@ export function MobileBottomMenu({
         </div>
       </div>
 
-      {/* User Name Button */}
-      <div 
-        className={`bottom-menu-item ${!user ? 'clickable' : 'user-name-button'}`}
-        onClick={handleNameClick}
-      >
-        <div className="bottom-menu-text name-button-text">
-          {user ? (
-            <span className="user-name">
-              {user.displayName || user.email?.split('@')[0] || 'User'}
-            </span>
-          ) : (
-            <span className="signin-text">Sign In</span>
-          )}
+      
+
+      {/* Hamburger Menu Button */}
+      <div className="bottom-menu-item clickable" onClick={handleProfileClick}>
+        <div className="bottom-menu-icon">
+          <span className="menu-icon-text">☰</span>
         </div>
       </div>
     </div>

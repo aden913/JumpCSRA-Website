@@ -1118,6 +1118,51 @@ export default function Checkout() {
     checkAvailability();
   }, [calendarDateRange[0], cartSettings.duration, cart, lastMinuteAdditions, partyEssentials.length]);
 
+  // Validate and clean cart when dates change
+  useEffect(() => {
+    const validateCart = async () => {
+      // Only validate if we have both start and end dates and cart items
+      if (calendarDateRange[0] && calendarDateRange[1] && cart.length > 0) {
+        console.log('🛒 Validating cart for date change:', calendarDateRange[0].toLocaleDateString(), '-', calendarDateRange[1].toLocaleDateString());
+        
+        try {
+          // Import the validation function
+          const { validateAndCleanCart } = await import('../utils/bookingUtils');
+          
+          const validatedCart = await validateAndCleanCart(
+            cart,
+            calendarDateRange[0],
+            calendarDateRange[1],
+            (removedItems) => {
+              // Show notification about removed items
+              if (removedItems.length > 0) {
+                const itemNames = removedItems.map(item => item.name).join(', ');
+                notifications.show({
+                  title: '⚠️ Items Removed from Cart',
+                  message: `The following items were removed because they are not available for your selected dates: ${itemNames}`,
+                  color: 'yellow',
+                  autoClose: 8000,
+                });
+              }
+            }
+          );
+          
+          // Update cart if items were removed
+          if (validatedCart.length !== cart.length) {
+            setCart(validatedCart);
+            localStorage.setItem('cart', JSON.stringify(validatedCart));
+            console.log('✅ Cart updated after validation:', validatedCart.length, 'items remaining');
+          }
+          
+        } catch (error) {
+          console.error('❌ Error validating cart:', error);
+        }
+      }
+    };
+    
+    validateCart();
+  }, [calendarDateRange[0], calendarDateRange[1]]); // Only trigger when dates change, not cart changes to avoid infinite loops
+
   // Pricing calculations (copied from CartSidebar logic)
   const surfacePrices: Record<string, number> = {
     "grass-stakes": 0,
