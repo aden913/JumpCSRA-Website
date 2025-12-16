@@ -48,8 +48,8 @@ export default function Login() {
   const [showVerifyMsg, setShowVerifyMsg] = useState(false);
   const [pendingUser, setPendingUser] = useState<any>(null);
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(true);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(true);
   const [showSignInPassword, setShowSignInPassword] = useState(false);
   const [forgotPwEmail, setForgotPwEmail] = useState("");
   const [showForgotPw, setShowForgotPw] = useState(false);
@@ -157,6 +157,11 @@ const handleCompleteProfile = async (e: React.FormEvent) => {
 
   if (password.length < 6 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
     setError("Password must be at least 6 chars, with a number & uppercase.");
+    return;
+  }
+
+  if (password !== confirmPassword) {
+    setError("Passwords do not match.");
     return;
   }
 
@@ -646,14 +651,54 @@ useEffect(() => {
             required
             placeholder="Enter your last name"
           />
-          <input
-            className="identifier-input"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            placeholder="Set a password for future logins"
-          />
+          <div style={{ position: "relative" }}>
+            <input
+              className="identifier-input"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="Set a password for future logins"
+              style={{ paddingRight: "2rem" }}
+            />
+            <span
+              style={{
+                position: "absolute",
+                right: "0.5rem",
+                top: "50%",
+                transform: "translateY(-50%)",
+                cursor: "pointer",
+              }}
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? EyeOpen : EyeClosed}
+            </span>
+          </div>
+          <div style={{ position: "relative" }}>
+            <input
+              className="identifier-input"
+              type={showConfirmPassword ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              placeholder="Confirm password"
+              style={{ paddingRight: "2rem" }}
+            />
+            <span
+              style={{
+                position: "absolute",
+                right: "0.5rem",
+                top: "50%",
+                transform: "translateY(-50%)",
+                cursor: "pointer",
+              }}
+              onClick={() => setShowConfirmPassword((v) => !v)}
+              aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+            >
+              {showConfirmPassword ? EyeOpen : EyeClosed}
+            </span>
+          </div>
           <button className="sign-up-btn" type="submit">
             Save Profile
           </button>

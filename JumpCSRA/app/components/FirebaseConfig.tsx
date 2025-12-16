@@ -4,6 +4,7 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 import { getDatabase, connectDatabaseEmulator } from "firebase/database";
+import { getStorage } from "firebase/storage";
 
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -25,6 +26,7 @@ const auth = getAuth(app);
 const firestore = getFirestore(app);
 const functions = getFunctions(app);
 const database = getDatabase(app);
+const storage = getStorage(app);
 
 // Connect to emulators in development (only in browser environment)
 if (false && typeof window !== 'undefined' && window.location.hostname === 'localhost') {
@@ -38,4 +40,4 @@ if (false && typeof window !== 'undefined' && window.location.hostname === 'loca
   // Note: Database emulator not configured, using production database
 }
 
-export { app, auth, firestore, functions, database };
+export { app, auth, firestore, functions, database, storage };

@@ -18,10 +18,41 @@ serverFiles/logs/
 .env.*
 !.env.example
 !.env.template
+
+# Firebase service account keys (security sensitive)
+firebase-service-account-key.json
+*-service-account-key.json
+*-firebase-adminsdk-*.json
+pppro-b060e-firebase-adminsdk-fbsvc-7639e39990.json
+
+# Environment variables in subdirectories
 serverFiles/.env
 serverFiles/.env.*
 !serverFiles/.env.example
 !serverFiles/.env.template
+functions/.env
+functions/.env.*
+!functions/.env.example
+!functions/.env.template
+
+# Sensitive backup files and data dumps
+backup.json
+*-backup.json
+*.backup
+database-dump.json
+data-export.json
+
+# Debug and test files with potential secrets
+debug-*.js
+test-*.js
+inspect-*.js
+fix-*.js
+*-debug.js
+*-test.js
+
+# Project-specific sensitive files
+jumpcsrainfo.txt
+.jumpcsrainfo.txt
 
 # OS generated files
 .DS_Store
@@ -60,4 +91,14 @@ firebase-debug.log
 # Vite cache
 .vite/
 
-.jumpcsrainfo.txt
+# Upload and migration scripts (may contain sensitive paths)
+upload-*.js
+update-*.js
+migrate-*.js
+
+# Configuration files that might contain secrets
+config.json
+*-config.json
+!vite.config.*
+!jest.config.*
+!react-router.config.*

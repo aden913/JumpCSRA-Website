@@ -1,204 +1,205 @@
 {
   "Adrenaline Rush": [
-    "/assets/inflateables/detail-images/Adrenaline Rush/adrenaline-rush-2.png",
-    "/assets/inflateables/detail-images/Adrenaline Rush/adrenaline-rush-3.png",
-    "/assets/inflateables/detail-images/Adrenaline Rush/adrenaline-rush-4.png",
-    "/assets/inflateables/detail-images/Adrenaline Rush/adrenaline-rush-5.png",
-    "/assets/inflateables/detail-images/Adrenaline Rush/adrenaline-rush-6.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Adrenaline Rush/adrenaline-rush-2.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Adrenaline Rush/adrenaline-rush-3.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Adrenaline Rush/adrenaline-rush-4.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Adrenaline Rush/adrenaline-rush-5.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Adrenaline Rush/adrenaline-rush-6.webp"
   ],
   "Adventure Island": [
-    "/assets/inflateables/detail-images/Adventure Island/adventure-island-2.png",
-    "/assets/inflateables/detail-images/Adventure Island/adventure-island-3.png",
-    "/assets/inflateables/detail-images/Adventure Island/adventure-island-5.png",
-    "/assets/inflateables/detail-images/Adventure Island/adventure-island-7.png",
-    "/assets/inflateables/detail-images/Adventure Island/adventure-island-8.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Adventure Island/adventure-island-2.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Adventure Island/adventure-island-3.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Adventure Island/adventure-island-5.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Adventure Island/adventure-island-7.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Adventure Island/adventure-island-8.webp"
   ],
   "Beach Blast": [
-    "/assets/inflateables/detail-images/Beach Blast/beach-blast-1.png",
-    "/assets/inflateables/detail-images/Beach Blast/beach-blast-3.png",
-    "/assets/inflateables/detail-images/Beach Blast/beach-blast-4.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Beach Blast/beach-blast-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Beach Blast/beach-blast-3.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Beach Blast/beach-blast-4.webp"
   ],
   "Beer Pong": [
-    "/assets/inflateables/detail-images/Beer Pong/beer-pong-1.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Beer Pong/beer-pong-1.webp"
   ],
   "Castle Tower": [
-    "/assets/inflateables/detail-images/Castle Tower/castle-tower-1.png",
-    "/assets/inflateables/detail-images/Castle Tower/castle-tower-2.png",
-    "/assets/inflateables/detail-images/Castle Tower/castle-tower-3.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Castle Tower/castle-tower-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Castle Tower/castle-tower-2.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Castle Tower/castle-tower-3.webp"
   ],
   "Chair": [
-    "/assets/inflateables/detail-images/Chair/chair-1.png"],
+    "/assets/inflateables/detail-images/Chair/chair-1.png"
+  ],
   "Color Blast Castle": [
-    "/assets/inflateables/detail-images/Color Blast Castle/color-blast-castle-1.png",
-    "/assets/inflateables/detail-images/Color Blast Castle/color-blast-castle-3.png",
-    "/assets/inflateables/detail-images/Color Blast Castle/color-blast-castle-4.png",
-    "/assets/inflateables/detail-images/Color Blast Castle/color-blast-castle-5.png",
-    "/assets/inflateables/detail-images/Color Blast Castle/color-blast-castle-6.png",
-    "/assets/inflateables/detail-images/Color Blast Castle/color-blast-castle-7.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Color Blast Castle/color-blast-castle-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Color Blast Castle/color-blast-castle-3.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Color Blast Castle/color-blast-castle-4.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Color Blast Castle/color-blast-castle-5.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Color Blast Castle/color-blast-castle-6.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Color Blast Castle/color-blast-castle-7.webp"
   ],
   "Color Chaos": [
-    "/assets/inflateables/detail-images/Color Chaos/color-chaos-1.png",
-    "/assets/inflateables/detail-images/Color Chaos/color-chaos-2.png",
-    "/assets/inflateables/detail-images/Color Chaos/color-chaos-3.png",
-    "/assets/inflateables/detail-images/Color Chaos/color-chaos-4.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Color Chaos/color-chaos-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Color Chaos/color-chaos-2.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Color Chaos/color-chaos-3.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Color Chaos/color-chaos-4.webp"
   ],
   "Cotton Candy Castle": [
-    "/assets/inflateables/detail-images/Cotton Candy Castle/cotton-candy-castle-1.png",
-    "/assets/inflateables/detail-images/Cotton Candy Castle/cotton-candy-castle-2.png",
-    "/assets/inflateables/detail-images/Cotton Candy Castle/cotton-candy-castle-4.png",
-    "/assets/inflateables/detail-images/Cotton Candy Castle/cotton-candy-castle-5.png",
-    "/assets/inflateables/detail-images/Cotton Candy Castle/cotton-candy-castle-6.png",
-    "/assets/inflateables/detail-images/Cotton Candy Castle/cotton-candy-castle-8.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Cotton Candy Castle/cotton-candy-castle-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Cotton Candy Castle/cotton-candy-castle-2.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Cotton Candy Castle/cotton-candy-castle-4.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Cotton Candy Castle/cotton-candy-castle-5.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Cotton Candy Castle/cotton-candy-castle-6.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Cotton Candy Castle/cotton-candy-castle-8.webp"
   ],
   "Custom Theme": [
-    "/assets/inflateables/detail-images/Custom Theme/custom-theme-1.png",
-    "/assets/inflateables/detail-images/Custom Theme/custom-theme-3.png",
-    "/assets/inflateables/detail-images/Custom Theme/custom-theme-4.png",
-    "/assets/inflateables/detail-images/Custom Theme/custom-theme-5.png",
-    "/assets/inflateables/detail-images/Custom Theme/custom-theme-6.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Custom Theme/custom-theme-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Custom Theme/custom-theme-3.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Custom Theme/custom-theme-4.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Custom Theme/custom-theme-5.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Custom Theme/custom-theme-6.webp"
   ],
   "Double Jump Shot": [
-    "/assets/inflateables/detail-images/Double Jump Shot/double-jump-shot-1.png",
-    "/assets/inflateables/detail-images/Double Jump Shot/double-jump-shot-3.png",
-    "/assets/inflateables/detail-images/Double Jump Shot/double-jump-shot-4.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Double Jump Shot/double-jump-shot-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Double Jump Shot/double-jump-shot-3.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Double Jump Shot/double-jump-shot-4.webp"
   ],
   "Fire and Ice": [
-    "/assets/inflateables/detail-images/Fire and Ice/fire-and-ice-2.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Fire and Ice/fire-and-ice-2.webp"
   ],
   "Fun Factory": [
-    "/assets/inflateables/detail-images/Fun Factory/fun-factory-1.png",
-    "/assets/inflateables/detail-images/Fun Factory/fun-factory-2.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Fun Factory/fun-factory-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Fun Factory/fun-factory-2.webp"
   ],
   "Fun in the Sun": [
-    "/assets/inflateables/detail-images/Fun in the Sun/fun-in-the-sun-2.png",
-    "/assets/inflateables/detail-images/Fun in the Sun/fun-in-the-sun-3.png",
-    "/assets/inflateables/detail-images/Fun in the Sun/fun-in-the-sun-4.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Fun in the Sun/fun-in-the-sun-2.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Fun in the Sun/fun-in-the-sun-3.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Fun in the Sun/fun-in-the-sun-4.webp"
   ],
   "Gladiator Joust": [
-    "/assets/inflateables/detail-images/Gladiator Joust/gladiator-joust-1.png",
-    "/assets/inflateables/detail-images/Gladiator Joust/gladiator-joust-2.png",
-    "/assets/inflateables/detail-images/Gladiator Joust/gladiator-joust-3.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Gladiator Joust/gladiator-joust-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Gladiator Joust/gladiator-joust-2.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Gladiator Joust/gladiator-joust-3.webp"
   ],
   "H20 Slip n Slide": [
-    "/assets/inflateables/detail-images/H20 Slip n Slide/h2o-slip-and-slide-1.png",
-    "/assets/inflateables/detail-images/H20 Slip n Slide/h2o-slip-and-slide-2.png",
-    "/assets/inflateables/detail-images/H20 Slip n Slide/h2o-slip-and-slide-3.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/H20 Slip n Slide/h2o-slip-and-slide-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/H20 Slip n Slide/h2o-slip-and-slide-2.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/H20 Slip n Slide/h2o-slip-and-slide-3.webp"
   ],
   "Hang Time": [
-    "/assets/inflateables/detail-images/Hang Time/hang-time-1.png",
-    "/assets/inflateables/detail-images/Hang Time/hang-time-2.png",
-    "/assets/inflateables/detail-images/Hang Time/hang-time-3.png",
-    "/assets/inflateables/detail-images/Hang Time/hang-time-4.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Hang Time/hang-time-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Hang Time/hang-time-2.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Hang Time/hang-time-3.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Hang Time/hang-time-4.webp"
   ],
   "High time to party": [
-    "/assets/inflateables/detail-images/High time to party/high-time-to-party-1.png",
-    "/assets/inflateables/detail-images/High time to party/high-time-to-party-2.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/High time to party/high-time-to-party-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/High time to party/high-time-to-party-2.webp"
   ],
   "High Velocity": [
-    "/assets/inflateables/detail-images/High Velocity/high-velocity-1.png",
-    "/assets/inflateables/detail-images/High Velocity/high-velocity-2.png",
-    "/assets/inflateables/detail-images/High Velocity/high-velocity-3.png",
-    "/assets/inflateables/detail-images/High Velocity/high-velocity-4.png",
-    "/assets/inflateables/detail-images/High Velocity/high-velocity-5.png",
-    "/assets/inflateables/detail-images/High Velocity/high-velocity-6.png",
-    "/assets/inflateables/detail-images/High Velocity/high-velocity-7.png",
-    "/assets/inflateables/detail-images/High Velocity/IMG_9454.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/High Velocity/high-velocity-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/High Velocity/high-velocity-2.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/High Velocity/high-velocity-3.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/High Velocity/high-velocity-4.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/High Velocity/high-velocity-5.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/High Velocity/high-velocity-6.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/High Velocity/high-velocity-7.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/High Velocity/IMG_9454.webp"
   ],
   "Mega Rush": [
-    "/assets/inflateables/detail-images/Mega Rush/mega-rush-1.png",
-    "/assets/inflateables/detail-images/Mega Rush/mega-rush-2.png",
-    "/assets/inflateables/detail-images/Mega Rush/mega-rush-3.png",
-    "/assets/inflateables/detail-images/Mega Rush/mega-rush-4.png",
-    "/assets/inflateables/detail-images/Mega Rush/mega-rush-5.png",
-    "/assets/inflateables/detail-images/Mega Rush/mega-rush-6.png",
-    "/assets/inflateables/detail-images/Mega Rush/mega-rush-7.png",
-    "/assets/inflateables/detail-images/Mega Rush/mega-rush-8.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Mega Rush/mega-rush-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Mega Rush/mega-rush-2.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Mega Rush/mega-rush-3.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Mega Rush/mega-rush-4.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Mega Rush/mega-rush-5.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Mega Rush/mega-rush-6.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Mega Rush/mega-rush-7.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Mega Rush/mega-rush-8.webp"
   ],
   "Nitro Clash": [
-    "/assets/inflateables/detail-images/Nitro Clash/nitro-clash-1.png",
-    "/assets/inflateables/detail-images/Nitro Clash/nitro-clash-2.png",
-    "/assets/inflateables/detail-images/Nitro Clash/nitro-clash-3.png",
-    "/assets/inflateables/detail-images/Nitro Clash/nitro-clash-4.png",
-    "/assets/inflateables/detail-images/Nitro Clash/nitro-clash-5.png",
-    "/assets/inflateables/detail-images/Nitro Clash/nitro-clash-6.png",
-    "/assets/inflateables/detail-images/Nitro Clash/nitro-clash-7.png",
-    "/assets/inflateables/detail-images/Nitro Clash/nitro-clash-8.png",
-    "/assets/inflateables/detail-images/Nitro Clash/nitro-clash-9.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Nitro Clash/nitro-clash-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Nitro Clash/nitro-clash-2.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Nitro Clash/nitro-clash-3.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Nitro Clash/nitro-clash-4.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Nitro Clash/nitro-clash-5.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Nitro Clash/nitro-clash-6.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Nitro Clash/nitro-clash-7.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Nitro Clash/nitro-clash-8.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Nitro Clash/nitro-clash-9.webp"
   ],
   "Party with the Stars": [
-    "/assets/inflateables/detail-images/Party with the Stars/party-with-the-stars-1.png",
-    "/assets/inflateables/detail-images/Party with the Stars/party-with-the-stars-2.png",
-    "/assets/inflateables/detail-images/Party with the Stars/party-with-the-stars-3.png",
-    "/assets/inflateables/detail-images/Party with the Stars/party-with-the-stars-4.png",
-    "/assets/inflateables/detail-images/Party with the Stars/party-with-the-stars-5.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Party with the Stars/party-with-the-stars-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Party with the Stars/party-with-the-stars-2.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Party with the Stars/party-with-the-stars-3.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Party with the Stars/party-with-the-stars-4.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Party with the Stars/party-with-the-stars-5.webp"
   ],
   "Princess Castle": [
-    "/assets/inflateables/detail-images/Princess Castle/princess-castle-1.png",
-    "/assets/inflateables/detail-images/Princess Castle/princess-castle-2.png",
-    "/assets/inflateables/detail-images/Princess Castle/princess-castle-3.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Princess Castle/princess-castle-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Princess Castle/princess-castle-2.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Princess Castle/princess-castle-3.webp"
   ],
   "Princess Palace": [
-    "/assets/inflateables/detail-images/Princess Palace/princess-palace-1.png",
-    "/assets/inflateables/detail-images/Princess Palace/princess-palace-2.png",
-    "/assets/inflateables/detail-images/Princess Palace/princess-palace-3.png",
-    "/assets/inflateables/detail-images/Princess Palace/princess-palace-4.png",
-    "/assets/inflateables/detail-images/Princess Palace/princess-palace-5.png",
-    "/assets/inflateables/detail-images/Princess Palace/princess-palace-6.png",
-    "/assets/inflateables/detail-images/Princess Palace/princess-palace-7.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Princess Palace/princess-palace-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Princess Palace/princess-palace-2.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Princess Palace/princess-palace-3.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Princess Palace/princess-palace-4.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Princess Palace/princess-palace-5.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Princess Palace/princess-palace-6.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Princess Palace/princess-palace-7.webp"
   ],
   "SpongeBob Square Pants": [
-    "/assets/inflateables/detail-images/SpongeBob Square Pants/spongebob-1.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/SpongeBob Square Pants/spongebob-1.webp"
   ],
   "Sports Court": [
-    "/assets/inflateables/detail-images/Sports Court/sports-court-1.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Sports Court/sports-court-1.webp"
   ],
   "Surfs Up Slip N Slide": [
-    "/assets/inflateables/detail-images/Surfs Up Slip N Slide/surfs-up-slip-n-slide-1.png",
-    "/assets/inflateables/detail-images/Surfs Up Slip N Slide/surfs-up-slip-n-slide-2.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Surfs Up Slip N Slide/surfs-up-slip-n-slide-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Surfs Up Slip N Slide/surfs-up-slip-n-slide-2.webp"
   ],
   "Table": [
     "/assets/inflateables/detail-images/Table/black-table.png"
   ],
   "Tidal Wave": [
-    "/assets/inflateables/detail-images/Tidal Wave/tidal-wave-1.png",
-    "/assets/inflateables/detail-images/Tidal Wave/tidal-wave-3.png",
-    "/assets/inflateables/detail-images/Tidal Wave/tidal-wave-4.png",
-    "/assets/inflateables/detail-images/Tidal Wave/tidal-wave-5.png",
-    "/assets/inflateables/detail-images/Tidal Wave/tidal-wave-6.png",
-    "/assets/inflateables/detail-images/Tidal Wave/tidal-wave-7.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tidal Wave/tidal-wave-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tidal Wave/tidal-wave-3.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tidal Wave/tidal-wave-4.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tidal Wave/tidal-wave-5.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tidal Wave/tidal-wave-6.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tidal Wave/tidal-wave-7.webp"
   ],
   "Tiki Rush Slip n Slide": [
-    "/assets/inflateables/detail-images/Tiki Rush Slip n Slide/tiki-rush-slip-n-slide-1.png",
-    "/assets/inflateables/detail-images/Tiki Rush Slip n Slide/tiki-rush-slip-n-slide-2.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tiki Rush Slip n Slide/tiki-rush-slip-n-slide-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tiki Rush Slip n Slide/tiki-rush-slip-n-slide-2.webp"
   ],
   "Tropical Jungle": [
-    "/assets/inflateables/detail-images/Tropical Jungle/tropical-jungle-2.png",
-    "/assets/inflateables/detail-images/Tropical Jungle/tropical-jungle-3.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tropical Jungle/tropical-jungle-2.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tropical Jungle/tropical-jungle-3.webp"
   ],
   "Tunnel Tower": [
-    "/assets/inflateables/detail-images/Tunnel Tower/tunnel-tower-1.png",
-    "/assets/inflateables/detail-images/Tunnel Tower/tunnel-tower-2.png",
-    "/assets/inflateables/detail-images/Tunnel Tower/tunnel-tower-3.png",
-    "/assets/inflateables/detail-images/Tunnel Tower/tunnel-tower-4.png",
-    "/assets/inflateables/detail-images/Tunnel Tower/tunnel-tower-5.png",
-    "/assets/inflateables/detail-images/Tunnel Tower/tunnel-tower-6.png",
-    "/assets/inflateables/detail-images/Tunnel Tower/tunnel-tower-7.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tunnel Tower/tunnel-tower-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tunnel Tower/tunnel-tower-2.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tunnel Tower/tunnel-tower-3.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tunnel Tower/tunnel-tower-4.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tunnel Tower/tunnel-tower-5.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tunnel Tower/tunnel-tower-6.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tunnel Tower/tunnel-tower-7.webp"
   ],
   "Twinkle Tower": [
-    "/assets/inflateables/detail-images/Twinkle Tower/twinkle-tower-1.png",
-    "/assets/inflateables/detail-images/Twinkle Tower/twinkle-tower-2.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Twinkle Tower/twinkle-tower-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Twinkle Tower/twinkle-tower-2.webp"
   ],
   "Wave Rider": [
-    "/assets/inflateables/detail-images/Wave Rider/wave-rider-1.png",
-    "/assets/inflateables/detail-images/Wave Rider/wave-rider-2.png",
-    "/assets/inflateables/detail-images/Wave Rider/wave-rider-3.png",
-    "/assets/inflateables/detail-images/Wave Rider/wave-rider-4.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Wave Rider/wave-rider-1.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Wave Rider/wave-rider-2.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Wave Rider/wave-rider-3.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Wave Rider/wave-rider-4.webp"
   ],
   "Wrecking Ball": [
-    "/assets/inflateables/detail-images/Wrecking Ball/wrecking-ball-2.png",
-    "/assets/inflateables/detail-images/Wrecking Ball/wrecking-ball-3.png",
-    "/assets/inflateables/detail-images/Wrecking Ball/wrecking-ball-4.png",
-    "/assets/inflateables/detail-images/Wrecking Ball/wrecking-ball-5.png",
-    "/assets/inflateables/detail-images/Wrecking Ball/wrecking-ball-6.png"
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Wrecking Ball/wrecking-ball-2.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Wrecking Ball/wrecking-ball-3.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Wrecking Ball/wrecking-ball-4.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Wrecking Ball/wrecking-ball-5.webp",
+    "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Wrecking Ball/wrecking-ball-6.webp"
   ]
 }

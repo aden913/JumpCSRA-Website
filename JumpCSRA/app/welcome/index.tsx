@@ -138,8 +138,8 @@ function isDateRangeValid(range: [Date | null, Date | null]) {
 }
 export function getDetailImages(name: string) {
   const folder = name.replace(/ /g, "-").replace(/[^a-zA-Z0-9\-]/g, "").toLowerCase();
-  const basePath = `/assets/inflateables/detail-images/${name}/`;
-  return [1, 2, 3, 4, 5].map((i) => `${basePath}${folder}-${i}.png`);
+  const basePath = `https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/${name}/`;
+  return [1, 2, 3, 4, 5].map((i) => `${basePath}${folder}-${i}.webp`);
 }
 
 export function Welcome() {

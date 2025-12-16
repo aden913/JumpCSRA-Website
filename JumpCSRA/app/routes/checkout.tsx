@@ -114,7 +114,7 @@ export default function Checkout() {
   const getProductImage = (productName: string): string => {
     if (!productName) {
       console.warn('getProductImage: No product name provided');
-      return '/assets/inflateables/default.png';
+      return 'https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/default.webp';
     }
     
     const product = inflateables.find(item => 
@@ -123,12 +123,12 @@ export default function Checkout() {
     
     if (!product) {
       console.warn(`getProductImage: Product "${productName}" not found in inflateables data`);
-      return '/assets/inflateables/default.png';
+      return 'https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/default.webp';
     }
     
     if (!product.img) {
       console.warn(`getProductImage: Product "${productName}" has no image path`);
-      return '/assets/inflateables/default.png';
+      return 'https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/default.webp';
     }
     
     return product.img;
@@ -3153,7 +3153,7 @@ export default function Checkout() {
                   className="order-item-image"
                   onError={(e) => {
                     // Fallback if image fails to load
-                    e.currentTarget.src = '/assets/inflateables/default.png';
+                    e.currentTarget.src = 'https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/default.webp';
                   }}
                 />
                 
@@ -3217,7 +3217,7 @@ export default function Checkout() {
                           alt={item.name}
                           className="cart-item-image-small"
                           onError={(e) => {
-                            e.currentTarget.src = '/assets/inflateables/default.png';
+                            e.currentTarget.src = 'https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/default.webp';
                           }}
                         />
                         <div className="cart-item-details">
