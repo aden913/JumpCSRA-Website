@@ -19,6 +19,7 @@ export type OptionCardProps = {
   weekendPrice?: number;
   weekdayWaterPrice?: number;
   weekendWaterPrice?: number;
+  detailImages?: string[]; // Array of detail image URLs stored directly in the product
   onOrder?: (product: OptionCardProps) => void;
   onCardClick?: (product: OptionCardProps) => void; // New prop for card click behavior
   wetDry?: string;

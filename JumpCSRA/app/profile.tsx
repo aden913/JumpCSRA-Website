@@ -314,6 +314,7 @@ export default function Profile() {
       weekendPrice: inflatable.weekendPrice,
       weekdayWaterPrice: inflatable.weekdayWaterPrice,
       weekendWaterPrice: inflatable.weekendWaterPrice,
+      detailImages: inflatable.detailImages || [],
       category: inflatable.category,
       unavailable: !isAvailable, // Mark as unavailable if not available
       directSelection: true, // Enable direct selection for membership

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { ProductImageGallery } from "./ProductImageGallery";
 import type { OptionCardProps } from "./OptionsCarousel";
 import { useModalScrollLock } from "../hooks/useModalScrollLock";
@@ -12,25 +12,14 @@ export type ProductDetailModalProps = {
 };
 
 export function ProductDetailModal({ open, product, onClose, onPurchase }: ProductDetailModalProps) {
-  const [detailImagesManifest, setDetailImagesManifest] = useState<{ [key: string]: string[] }>({});
-
   // Prevent background scrolling when modal is open
   useModalScrollLock(open);
-
-  useEffect(() => {
-    if (open) {
-      fetch("/assets/inflateables-detail-images.json")
-        .then(res => res.json())
-        .then(data => setDetailImagesManifest(data))
-        .catch(() => setDetailImagesManifest({}));
-    }
-  }, [open]);
 
   if (!open || !product) return null;
 
   const mainImg = product.img;
-  const manifestImages = detailImagesManifest[product.name] || [];
-  const images = manifestImages.includes(mainImg) ? manifestImages : [mainImg, ...manifestImages];
+  const detailImages = product.detailImages || [];
+  const images = detailImages.includes(mainImg) ? detailImages : [mainImg, ...detailImages];
 
   let wetDryLabel = "";
   if (product.wet === true && product.dry === false) wetDryLabel = "Wet";

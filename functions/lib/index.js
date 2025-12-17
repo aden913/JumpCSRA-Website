@@ -4242,7 +4242,7 @@ exports.createMembershipBooking = functions.region('us-central1').https.onCall(a
 const twilioAccountSid = (_c = functions.config().twilio) === null || _c === void 0 ? void 0 : _c.account_sid;
 const twilioAuthToken = (_d = functions.config().twilio) === null || _d === void 0 ? void 0 : _d.auth_token;
 const twilioFromNumber = ((_e = functions.config().twilio) === null || _e === void 0 ? void 0 : _e.from_number) || '+18032210466';
-const twilioToNumber = ((_f = functions.config().twilio) === null || _f === void 0 ? void 0 : _f.to_number) || '+18039913236'; // Testing number
+const twilioToNumber = ((_f = functions.config().twilio) === null || _f === void 0 ? void 0 : _f.to_number) || '+18032920097'; // Testing number
 // Initialize Twilio client
 let twilioClient = null;
 if (twilioAccountSid && twilioAuthToken) {

@@ -4925,7 +4925,7 @@ export const createMembershipBooking = functions.region('us-central1').https.onC
 const twilioAccountSid = functions.config().twilio?.account_sid;
 const twilioAuthToken = functions.config().twilio?.auth_token;
 const twilioFromNumber = functions.config().twilio?.from_number || '+18032210466';
-const twilioToNumber = functions.config().twilio?.to_number || '+18039913236'; // Testing number
+const twilioToNumber = functions.config().twilio?.to_number || '+18032920097'; // Testing number
 
 // Initialize Twilio client
 let twilioClient: any = null;
