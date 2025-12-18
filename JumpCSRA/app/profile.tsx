@@ -1833,8 +1833,8 @@ export default function Profile() {
     <>
       <RouterNav hideIcons={true} hideMobileSidebar={true} />
 
-      {/* Mobile Profile Menu Toggle Button */}
-      {isMobile && (
+      {/* Mobile Profile Menu Toggle Button - Hide when sidebar is open */}
+      {isMobile && !isProfileSidebarOpen && (
         <button 
           className={`profile-menu-toggle ${isProfileSidebarOpen ? 'sidebar-open' : ''}`}
           onClick={toggleProfileSidebar}
@@ -1863,7 +1863,7 @@ export default function Profile() {
               className="profile-mobile-back-button"
               onClick={() => navigate('/')}
             >
-              ← Back to Home
+              Continue Shopping
             </button>
           </div>
           <div 

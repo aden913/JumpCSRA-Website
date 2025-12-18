@@ -181,7 +181,8 @@
 /* Navigation Button Containers */
 .checkout-navigation-buttons {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 1rem;
   margin-top: 2rem;
 }
 

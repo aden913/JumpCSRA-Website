@@ -5,6 +5,7 @@ import { LocalStorageDebugger } from "../components/LocalStorageDebugger";
 import { RouterNav } from "../components/RouterNav";
 import { SearchBar } from "../components/SearchBar";
 import { GooglePlacesAutocomplete } from "../components/GooglePlacesAutocomplete";
+import { MobileBottomMenu } from "../components/MobileBottomMenu";
 import MembershipCheckout from "../components/MembershipCheckout";
 import ContractSigning from "../components/ContractSigning";
 import { onAuthStateChanged } from "firebase/auth";
@@ -252,20 +253,28 @@ export default function Checkout() {
 
   // Cart settings helper functions and constants
   const locationOptions = [
-    "personal home",
-    "someone else's home",
-    "business",
-    "park",
-    "church/school",
+    "Personal home",
+    "Someone else's home",
+    "Business",
+    "Park",
+    "Church/school",
   ];
 
   const getAvailableDeliveryTimes = () => {
+    const timePrices: Record<string, number> = {
+      "8am": 40,
+      "9am": 30,
+      "10am": 20,
+      "11am": 10,
+      "12pm": 0,
+    };
+    
     const allTimeOptions = [
-      { value: "8am", label: "8am", hour: 8 },
-      { value: "9am", label: "9am", hour: 9 },
-      { value: "10am", label: "10am", hour: 10 },
-      { value: "11am", label: "11am", hour: 11 },
-      { value: "12pm", label: "12pm", hour: 12 }
+      { value: "8am", label: "8am (+$40)", hour: 8, price: timePrices["8am"] },
+      { value: "9am", label: "9am (+$30)", hour: 9, price: timePrices["9am"] },
+      { value: "10am", label: "10am (+$20)", hour: 10, price: timePrices["10am"] },
+      { value: "11am", label: "11am (+$10)", hour: 11, price: timePrices["11am"] },
+      { value: "12pm", label: "12pm", hour: 12, price: timePrices["12pm"] }
     ];
     
     // If no date selected or not booking for today, show all options
@@ -2970,6 +2979,7 @@ export default function Checkout() {
               onCategoryChange={() => {}} 
               hideCartIcon={true}
               hideNavbarDropdown={true}
+              hideMobileSidebar={true}
             />
             <div className="membership-checkout-wrapper">
               <MembershipCheckout onSuccess={() => navigate('/profile')} />
@@ -2982,6 +2992,7 @@ export default function Checkout() {
               onCategoryChange={() => {}} // No-op on checkout page since we don't filter products here
               hideCartIcon={true} // Hide cart icon on checkout page
               hideNavbarDropdown={true} // Hide the navbar category dropdown
+              hideMobileSidebar={true} // Hide mobile menu toggle on checkout page
           walletBalance={userWallet?.balance || 0}
           searchBarComponent={
             <SearchBar
@@ -3227,29 +3238,18 @@ export default function Checkout() {
                       </div>
                       
                       <div className="wetdry-toggle-container">
-                        <label className="wetdry-toggle-label">Select Option:</label>
-                        <div className="wetdry-toggle-buttons">
-                          <button
-                            type="button"
-                            className={`wetdry-toggle-btn ${currentSelection === 'Dry' ? 'active' : ''}`}
-                            onClick={() => {
-                              const newSelections = { ...cartSettings.wetDrySelections, [originalIdx]: 'Dry' };
-                              cartSettings.setWetDrySelections(newSelections);
-                            }}
-                          >
-                            Dry
-                          </button>
-                          <button
-                            type="button"
-                            className={`wetdry-toggle-btn ${currentSelection === 'Wet' ? 'active' : ''}`}
-                            onClick={() => {
-                              const newSelections = { ...cartSettings.wetDrySelections, [originalIdx]: 'Wet' };
-                              cartSettings.setWetDrySelections(newSelections);
-                            }}
-                          >
-                            Wet (+$50)
-                          </button>
-                        </div>
+                        <label className="wetdry-toggle-label">Option:</label>
+                        <select 
+                          className="wetdry-dropdown"
+                          value={currentSelection}
+                          onChange={(e) => {
+                            const newSelections = { ...cartSettings.wetDrySelections, [originalIdx]: e.target.value };
+                            cartSettings.setWetDrySelections(newSelections);
+                          }}
+                        >
+                          <option value="Dry">Dry</option>
+                          <option value="Wet">Wet (+$50)</option>
+                        </select>
                       </div>
                     </div>
                   );
@@ -3342,6 +3342,12 @@ export default function Checkout() {
             <div className="pricing-row">
               <span>Surface Adjustment (per item):</span>
               <span>${surfaceAdj.toFixed(2)}</span>
+            </div>
+          )}
+          {timeAdj > 0 && (
+            <div className="pricing-row">
+              <span>Early Delivery Surcharge:</span>
+              <span>${timeAdj.toFixed(2)}</span>
             </div>
           )}
           
@@ -3565,6 +3571,41 @@ export default function Checkout() {
               <p className="quick-add-description">
                 Complete your cart item selections and add any last-minute party essentials.
               </p>
+
+              {/* Display Current Cart Items */}
+              <div className="cart-items-display">
+                <h3>Your Cart Items</h3>
+                {cart.length > 0 ? (
+                  <div className="cart-items-list">
+                    {cart.map((item, index) => (
+                      <div key={index} className="cart-item-preview">
+                        <img 
+                          src={getProductImage(item.name)} 
+                          alt={item.name} 
+                          className="cart-item-image"
+                          onError={(e) => {
+                            e.currentTarget.src = 'https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/default.webp';
+                          }}
+                        />
+                        <div className="cart-item-info">
+                          <h4>{item.name}</h4>
+                          <p>Quantity: {item.quantity}</p>
+                          {item.selectedDates && (
+                            <p className="cart-item-dates">
+                              {item.selectedDates[0]?.toLocaleDateString()} - {item.selectedDates[1]?.toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                        <div className="cart-item-price">
+                          ${typeof item.price === 'number' ? item.price.toFixed(2) : item.price}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="no-cart-items">No items in cart</p>
+                )}
+              </div>
 
               <h3>Add Party Essentials</h3>
             </>
@@ -4553,7 +4594,55 @@ export default function Checkout() {
           ← Back to Shopping
         </button>
       </div>
+
+      {/* Footer */}
+      <footer className="footer">
+        <div>
+          <strong>Jump CSRA Party Rental</strong>
+          <br />
+          410 Carolina Springs Rd.
+          <br />
+          North Augusta, SC. 29841
+        </div>
+        <div>
+          <a 
+            href="tel:+18032210466" 
+            id="phone-link"
+            title="Call us now"
+            rel="noopener"
+          >
+            803-221-0466
+          </a>
+          <br />
+          <a 
+            href="mailto:JumpCSRA@gmail.com" 
+            id="email-link"
+            title="Send us an email"
+          >
+            JumpCSRA@gmail.com
+          </a>
+        </div>
+        <div className="social-icons">
+          <a href="https://www.instagram.com/jumpcsra/" target="_blank" rel="noopener noreferrer">
+            <img src="/assets/instagram-icon.avif" alt="Instagram Logo" className="footer-icons" />
+          </a>
+       
+          <a href="https://www.facebook.com/JUMPCSRA/" target="_blank" rel="noopener noreferrer">
+            <img src="/assets/fb-icon.avif" alt="Facebook Logo" className="footer-icons" />
+          </a>
+        </div>
+      </footer>
       </div>
+
+      {/* Mobile Bottom Menu */}
+      <MobileBottomMenu
+        user={user}
+        selectedDates={calendarDateRange}
+        onCalendarClick={() => {/* No calendar action needed on checkout */}}
+        cartCount={cart.reduce((sum: number, item: CartItem) => sum + item.quantity, 0)}
+        cartSubtotal={cart.reduce((sum: number, item: CartItem) => sum + (item.price * item.quantity), 0)}
+        onCartClick={() => navigate("/checkout")}
+      />
           </>
         )}
       </MantineProvider>

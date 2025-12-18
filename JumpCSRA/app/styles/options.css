@@ -128,8 +128,11 @@
   position: relative;
   width: 280px;
   height: 1.25em;
-   color: var(--primary-dark);
+  color: var(--primary-dark);
   background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .marquee-text {
   display: inline-block;

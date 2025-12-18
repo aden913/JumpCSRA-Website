@@ -14,7 +14,7 @@
 
 .contract-date {
   text-align: center;
-  font-style: italic;
+  font-style: normal; /* Remove italics */
   color: #666;
   margin: 0;
 }
@@ -56,7 +56,7 @@
 
 .terms-subtitle {
   margin-bottom: 1.5rem;
-  font-style: italic;
+  font-style: normal; /* Remove italics */
   text-align: center;
   color: #666;
 }
@@ -196,7 +196,7 @@
   margin-bottom: 2rem;
   text-align: center;
   color: #666;
-  font-style: italic;
+  font-style: normal; /* Remove italics */
 }
 
 .signature-input-container {
