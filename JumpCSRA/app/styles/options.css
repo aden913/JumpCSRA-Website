@@ -165,7 +165,7 @@
   gap: 0.5rem;
 }
 .order-btn {
-  
+  font-weight: bolder;
   border: none;
   border-radius: 44px;
   padding: 0.7rem 2rem;
