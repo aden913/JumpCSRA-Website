@@ -1,3 +1,6 @@
+/* Import centralized responsive breakpoints */
+@import './responsive.css';
+
 /*  max-width: 9rem;
 }and cards styles */
 :root {
@@ -101,7 +104,7 @@
   background: rgb(255, 255, 255);
   color: var(--darkBlue);
   border-radius: 12px;
-  padding: 1.8rem 1.2rem 1.2rem 1.2rem;
+  padding: 1.2rem;
   width: clamp(280px, 90vw, 350px);
   height: 420px;
   display: flex;
@@ -116,13 +119,19 @@
   width: 100%;
   height: 60%;
   object-fit: cover;
-  margin-bottom: 0.8rem;
   border-radius: 5px;
 }
 .option-title {
     font-size: 1.5rem;
     font-weight: bold;
-    margin-bottom: .5rem;}
+    height: 1.25em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    min-height: 0;
+    margin-bottom: 1.2rem;
+}
 /* Option Card Title Marquee */
 .marquee-container {
   position: relative;
@@ -149,6 +158,12 @@
     transform: translateX(-100%);
   }
 }
+.option-card-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
 .order-btn {
   background: var(--darkBlue);
   color: var(--coral);
@@ -158,7 +173,6 @@
   font-size: 1.8rem;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-  margin-top: auto;
 }
 .swiper-slide {
   flex-shrink: 0;
@@ -176,26 +190,19 @@
   .option-card {
     width: 90vw;
     height: 420px;
-    justify-content: flex-start; /* Start items from top */
+    /* Keep justify-content: space-between for consistent spacing */
   }
   
   .option-card img {
     width: 100%;
     height: 60%;
     object-fit: cover;
-    margin-bottom: auto; /* Push subsequent elements to bottom */
   }
   
-  /* Create a bottom container for price box and order button */
+  /* Remove specific ordering to allow natural flexbox flow */
   .option-card .price-box {
     margin-top: 0;
     margin-bottom: 0.5rem;
-    order: 2; /* Move to bottom area */
-  }
-  
-  .option-card .order-btn {
-    margin-top: 0;
-    order: 3; /* Place at very bottom */
   }
 }
 

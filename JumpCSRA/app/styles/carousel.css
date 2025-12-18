@@ -20,4 +20,8 @@
 }
 .option-title {
   color: var(--darkBlue) !important;
+  height: 1.25em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
