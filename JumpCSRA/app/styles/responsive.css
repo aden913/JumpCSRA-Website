@@ -560,7 +560,7 @@ font-size: .9rem;
     margin-top: 0;
   }
 
-  /* Mobile Profile Sidebar */
+  /* Mobile Profile Sidebar 
   .profile-menu-toggle {
     display: block !important;
     position: fixed;
@@ -569,20 +569,16 @@ font-size: .9rem;
     left: auto;
     z-index: 1002;
     font-size: 1.5rem;
-    color: var(--coral);
     cursor: pointer;
     padding: 0.7rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     transition: all 0.3s ease;
-    background: white;
-    border: 2px solid var(--coral);
     border-radius: 8px;
     width: 3rem;
     height: 3rem;
     display: flex;
     align-items: center;
     justify-content: center;
-  }
+  }*/
 
   .profile-menu-toggle:hover {
     background: var(--coral);
@@ -898,7 +894,7 @@ font-size: .9rem;
     margin-top: 60px;
   }
 
-  /* Mobile Profile Sidebar for Small Tablets */
+  /* Mobile Profile Sidebar for Small Tablets 
   .profile-menu-toggle {
     display: block !important;
     position: fixed;
@@ -918,7 +914,7 @@ font-size: .9rem;
     display: flex;
     align-items: center;
     justify-content: center;
-  }
+  }*/
 
   .profile-menu-toggle.sidebar-open {
     right: 1rem;
@@ -1180,7 +1176,7 @@ font-size: .9rem;
     line-height: 1.1rem !important;
   }
 
-  /* Mobile Profile Sidebar for Tablets */
+  /* Mobile Profile Sidebar for Tablets 
   .profile-menu-toggle {
     display: block !important;
     position: fixed;
@@ -1202,7 +1198,7 @@ font-size: .9rem;
     display: flex;
     align-items: center;
     justify-content: center;
-  }
+  }*/
 
   .profile-menu-toggle:hover {
     background: var(--coral);
