@@ -80,6 +80,27 @@ export function useCartSettings() {
     localStorage.setItem("cart_giftCardValues", JSON.stringify(newValues));
   };
 
+  // Helper function to update a single wet/dry selection
+  const updateWetDrySelection = (idx: number, selection: 'Wet' | 'Dry') => {
+    console.log('🔄 [WET/DRY] Updating selection for index', idx, 'to', selection);
+    console.log('🔄 [WET/DRY] Current selections:', wetDrySelections);
+    
+    const newSelections = { ...wetDrySelections, [idx]: selection };
+    console.log('🔄 [WET/DRY] New selections:', newSelections);
+    
+    setWetDrySelectionsState(newSelections);
+    localStorage.setItem("cart_wetDrySelections", JSON.stringify(newSelections));
+    
+    console.log('✅ [WET/DRY] Selection updated and saved to localStorage');
+  };
+
+  // Helper function to update a single gift card value
+  const updateGiftCardValue = (idx: number, value: number) => {
+    const newValues = { ...giftCardValues, [idx]: value };
+    setGiftCardValuesState(newValues);
+    localStorage.setItem("cart_giftCardValues", JSON.stringify(newValues));
+  };
+
   return {
     duration,
     setDuration,
@@ -91,7 +112,9 @@ export function useCartSettings() {
     setLocation,
     wetDrySelections,
     setWetDrySelections,
+    updateWetDrySelection,
     giftCardValues,
     setGiftCardValues,
+    updateGiftCardValue,
   };
 }

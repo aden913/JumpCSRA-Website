@@ -512,7 +512,14 @@ export function Welcome() {
           value={logic.calendarDateRange}
           onChange={logic.setCalendarDateRange}
           selectedWetDry={logic.selectedWetDry}
-          onWetDryChange={logic.setSelectedWetDry}
+          onWetDryChange={(wetDry: string) => {
+            console.log('🔄 [WET/DRY] Wet/Dry changing from', logic.selectedWetDry, 'to', wetDry);
+            logic.setSelectedWetDry(wetDry);
+            setTimeout(() => {
+              console.log('🔄 [WET/DRY] After state update - New value:', logic.selectedWetDry);
+              console.log('🔄 [WET/DRY] Filtered options count:', logic.filteredOptions.length);
+            }, 50);
+          }}
         />
         {/* Options Section */}
         <section className="options-section">

@@ -210,11 +210,10 @@
   max-width: 100px;
   transition: all 0.3s ease;
   color: #666; /* Match checkout-progress */
-  display: none; /* Hide progress step labels */
 }
 
 .progress-step label.active {
-  color: #ff6b6b; /* Match checkout-progress active */
+  color: var(--darkBlue); /* Match checkout-progress active */
   font-weight: bold;
 }
 
@@ -223,9 +222,11 @@
   font-weight: normal;
 }
 
-/* Hide progress step labels */
+/* Show progress step labels with dark blue color */
 .progress-step-label {
-  display: none !important;
+  color: darkblue;
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
 }
 
 /* Clickable progress steps */

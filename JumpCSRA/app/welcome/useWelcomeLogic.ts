@@ -71,9 +71,19 @@ function filterOptions(inflateables: any[], selectedCategory: string, selectedWe
   
   // Apply wet/dry filter
   if (selectedWetDry === 'wet') {
-    filtered = filtered.filter((item: any) => item.wet === true);
+    console.log('🌊 Applying WET filter...');
+    filtered = filtered.filter((item: any) => {
+      const isWet = item.wet === true;
+      console.log(`🌊 ${item.name}: wet=${item.wet}, keeping=${isWet}`);
+      return isWet;
+    });
   } else if (selectedWetDry === 'dry') {
-    filtered = filtered.filter((item: any) => item.dry === true);
+    console.log('☀️ Applying DRY filter...');
+    filtered = filtered.filter((item: any) => {
+      const isDry = item.dry === true;
+      console.log(`☀️ ${item.name}: dry=${item.dry}, keeping=${isDry}`);
+      return isDry;
+    });
   }
   
   console.log(`🔍 Final filtered result: ${filtered.length} items`, filtered.map(item => item.name));

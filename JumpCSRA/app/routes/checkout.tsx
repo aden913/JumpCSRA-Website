@@ -3253,7 +3253,7 @@ export default function Checkout() {
                           }}
                         >
                           <option value="Dry">Dry</option>
-                          <option value="Wet">Wet</option>
+                          <option value="Wet">Wet (+$50)</option>
                         </select>
                       </span>
                     ) : (
@@ -3282,65 +3282,6 @@ export default function Checkout() {
             </div>
           ))}
         </div>
-
-        {/* Cart Items Wet/Dry Selection Section */}
-        {(() => {
-          const hasWetDryItems = cart.some(item => !item.isGiftCard && !item.isMembership && item.wetDry === "Wet/Dry");
-          return hasWetDryItems ? (
-            <div className="cart-items-section">
-              <h3>Wet/Dry Selection</h3>
-              <p style={{ marginBottom: '1rem', color: '#666', fontSize: '0.9rem' }}>
-                Please select wet or dry option for each inflatable item.
-              </p>
-              <div className="cart-items-wetdry">
-                {getDisplayCart().map((item, idx) => {
-                  // Skip items that don't need wet/dry selection
-                  if (item.isGiftCard || item.isMembership || item.wetDry !== "Wet/Dry") {
-                    return null;
-                  }
-
-                  // Find original index for wetDrySelections
-                  const originalIdx = cart.findIndex(cartItem => cartItem.id === item.id);
-                  const currentSelection = cartSettings.wetDrySelections[originalIdx] || "Dry";
-
-                  return (
-                    <div key={idx} className="cart-item-wetdry-selection">
-                      <div className="cart-item-info">
-                        <img 
-                          src={getProductImage(item.name)} 
-                          alt={item.name}
-                          className="cart-item-image-small"
-                          onError={(e) => {
-                            e.currentTarget.src = 'https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/default.webp';
-                          }}
-                        />
-                        <div className="cart-item-details">
-                          <div className="cart-item-name">{item.name}</div>
-                          <div className="cart-item-quantity">Quantity: {item.quantity}</div>
-                        </div>
-                      </div>
-                      
-                      <div className="wetdry-toggle-container">
-                        <label className="wetdry-toggle-label">Option:</label>
-                        <select 
-                          className="wetdry-dropdown"
-                          value={currentSelection}
-                          onChange={(e) => {
-                            const newSelections = { ...cartSettings.wetDrySelections, [originalIdx]: e.target.value };
-                            cartSettings.setWetDrySelections(newSelections);
-                          }}
-                        >
-                          <option value="Dry">Dry</option>
-                          <option value="Wet">Wet (+$50)</option>
-                        </select>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null;
-        })()}
 
         {/* Event Details - only show when cart has inflateables */}
         {(() => {
@@ -3758,7 +3699,7 @@ export default function Checkout() {
                                 }}
                               >
                                 <option value="Dry">Dry</option>
-                                <option value="Wet">Wet</option>
+                                <option value="Wet">Wet (+$50)</option>
                               </select>
                             </div>
                           )}
@@ -3782,7 +3723,7 @@ export default function Checkout() {
                           }}
                           title={`Remove ${item.name} from cart`}
                         >
-                          🗑️
+                          Remove
                         </button>
                       </div>
                     ))}
