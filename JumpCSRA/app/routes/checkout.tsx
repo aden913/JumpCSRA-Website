@@ -155,6 +155,7 @@ export default function Checkout() {
   const [contractSigned, setContractSigned] = useState<boolean>(false);
   const [showContract, setShowContract] = useState<boolean>(false);
   const [calculatingDistance, setCalculatingDistance] = useState<boolean>(false);
+  const [failedAddresses, setFailedAddresses] = useState<Set<string>>(new Set()); // Track failed calculation attempts
   
   // Payment state
   const [paymentCompleted, setPaymentCompleted] = useState<boolean>(false);
@@ -715,7 +716,18 @@ export default function Checkout() {
       console.log('    - Base results count:', baseData.length, '| Destination results count:', destData.length);
 
       if (baseData.length === 0 || destData.length === 0) {
-        throw new Error("Could not find one or both addresses");
+        console.warn('⚠️ Geocoding failed - Base results:', baseData.length, 'Destination results:', destData.length);
+        
+        // Add this address to failed addresses to prevent infinite retries
+        setFailedAddresses(prev => new Set(prev).add(destinationAddress));
+        
+        notifications.show({
+          title: '⚠️ Address Verification',
+          message: 'Please enter a complete address with city and state (e.g., "123 Main St, Augusta, GA 30901")',
+          color: 'orange',
+          autoClose: 5000,
+        });
+        return;
       }
 
       const baseLat = parseFloat(baseData[0].lat);
@@ -845,6 +857,13 @@ export default function Checkout() {
     if (isSelectingGooglePlace) {
       console.log('  - BLOCKED: Google Place selection in progress, ignoring manual change');
       return;
+    }
+    
+    // Clear the failed addresses set when user changes the address
+    // This allows them to retry calculation with a corrected address
+    if (value !== deliveryAddress) {
+      setFailedAddresses(new Set());
+      setDeliveryCost(0); // Reset delivery cost for new address
     }
     
     setDeliveryAddress(value);
@@ -3577,6 +3596,11 @@ export default function Checkout() {
               setDeliverySkipped(true); // Mark delivery as skipped
               setCalculatingDistance(false);
               
+              // Add current address to failed addresses to prevent automatic retries
+              if (deliveryAddress.trim()) {
+                setFailedAddresses(prev => new Set(prev).add(deliveryAddress));
+              }
+              
               // Use setTimeout to check state after React updates
               setTimeout(() => {
                 console.log('After skip - deliverySkipped should be true');
@@ -3608,17 +3632,49 @@ export default function Checkout() {
         
         {/* Automatically calculate delivery in the background */}
         {deliveryAddress.trim() && (
+
           <div style={{ display: 'none' }}>
+
             {(() => {
+
               // Automatically trigger delivery calculation when address is entered
-              setTimeout(() => {
-                if (!calculatingDistance && deliveryCost === 0) {
-                  calculateDeliveryDistance(deliveryAddress);
-                }
-              }, 500);
+
+              // Only calculate if we have a valid address and haven't calculated yet
+
+              const isValidAddress = deliveryAddress.trim().length > 10 && 
+
+                (deliveryAddress.includes(',') || deliveryAddress.toLowerCase().includes('sc') || deliveryAddress.toLowerCase().includes('ga'));
+
+              
+
+              // Don't retry addresses that have already failed
+
+              const hasAlreadyFailed = failedAddresses.has(deliveryAddress);
+
+              
+
+              // Don't calculate if delivery was skipped or if address has failed
+
+              if (isValidAddress && !calculatingDistance && deliveryCost === 0 && !hasAlreadyFailed && !deliverySkipped) {
+
+                setTimeout(() => {
+
+                  if (!calculatingDistance && deliveryCost === 0 && !failedAddresses.has(deliveryAddress) && !deliverySkipped) {
+
+                    calculateDeliveryDistance(deliveryAddress);
+
+                  }
+
+                }, 500);
+
+              }
+
               return null;
+
             })()}
+
           </div>
+
         )}
         
         {/* Hide the delivery cost display - it will be included in the total automatically */}
@@ -4523,9 +4579,10 @@ export default function Checkout() {
               {(!useWalletFirst || calculatePayPalAmount() > 0) && (
                 <div style={{ 
                   display: 'flex', 
-                  justifyContent: 'center',
+                  flexDirection: 'column',
+                  gap: '1rem',
                   width: '100%',
-                  maxWidth: '400px',
+                  maxWidth: '500px',
                   margin: '0 auto'
                 }}>
                   <PayPalScriptProvider options={{ 
@@ -4536,19 +4593,47 @@ export default function Checkout() {
                     "enable-funding": "card,paylater",
                     "disable-funding": "venmo"
                   }}>
-                    <PayPalButtons
-                      style={{ 
-                        layout: "vertical",
-                        color: "blue",
-                        shape: "rect",
-                        label: "pay"
-                      }}
-                      fundingSource={undefined}
-                      createOrder={createPayPalOrder}
-                      onApprove={onPayPalApprove}
-                      onError={onPayPalError}
-                      disabled={processingPayment}
-                    />
+                    {/* Credit/Debit Card Button */}
+                    <div style={{ width: '100%' }}>
+                      <PayPalButtons
+                        style={{ 
+                          layout: "vertical",
+                          color: "black",
+                          shape: "rect",
+                          label: "pay",
+                          height: 45,
+                          tagline: false
+                        }}
+                        fundingSource="card"
+                        createOrder={createPayPalOrder}
+                        onApprove={onPayPalApprove}
+                        onError={onPayPalError}
+                        disabled={processingPayment}
+                        forceReRender={[calculatePayPalAmount()]}
+                        shippingPreference="NO_SHIPPING"
+                      />
+                    </div>
+                    
+                    {/* PayPal Button */}
+                    <div style={{ width: '100%' }}>
+                      <PayPalButtons
+                        style={{ 
+                          layout: "vertical",
+                          color: "gold",
+                          shape: "rect",
+                          label: "paypal",
+                          height: 45,
+                          tagline: false
+                        }}
+                        fundingSource="paypal"
+                        createOrder={createPayPalOrder}
+                        onApprove={onPayPalApprove}
+                        onError={onPayPalError}
+                        disabled={processingPayment}
+                        forceReRender={[calculatePayPalAmount()]}
+                        shippingPreference="NO_SHIPPING"
+                      />
+                    </div>
                   </PayPalScriptProvider>
                 </div>
               )}
