@@ -184,8 +184,21 @@ export const OptionsCarousel = React.forwardRef<OptionsCarouselRef, OptionsCarou
   // Expose reset method to parent components
   useImperativeHandle(ref, () => ({
     resetToBeginning: () => {
+      console.log('🔄 [SWIPER] Reset requested, checking swiper ref...');
       if (swiperRef.current) {
+        console.log('✅ [SWIPER] Swiper ref found, sliding to position 0');
         swiperRef.current.slideTo(0, 300); // Slide to first slide with 300ms animation
+        
+        // Update navigation states after reset
+        setTimeout(() => {
+          if (swiperRef.current) {
+            setIsBeginning(swiperRef.current.isBeginning);
+            setIsEnd(swiperRef.current.isEnd);
+            console.log('🔄 [SWIPER] Navigation states updated after reset');
+          }
+        }, 350); // Slightly after animation completes
+      } else {
+        console.warn('⚠️ [SWIPER] Swiper ref not available for reset');
       }
     }
   }), []);

@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from "react-router";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import "../styles/navbar.css";
 import "../styles/cart.css";
 
@@ -26,6 +26,8 @@ export function RouterNav({ onNavClick, cartCount, cartSubtotal, selectedDates, 
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarSearchTerm, setSidebarSearchTerm] = useState("");
+  const [isSticky, setIsSticky] = useState(false);
+  const navRef = useRef<HTMLElement>(null);
 
   // Check if device is mobile
   useEffect(() => {
@@ -36,6 +38,23 @@ export function RouterNav({ onNavClick, cartCount, cartSubtotal, selectedDates, 
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Handle navbar sticky behavior on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!navRef.current) return;
+      
+      const navHeight = navRef.current.offsetHeight;
+      const navOffsetTop = navRef.current.offsetTop;
+      const scrollPosition = window.pageYOffset;
+      
+      // Make navbar sticky when scrolled past its original position
+      setIsSticky(scrollPosition > navOffsetTop + navHeight);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   // Handle mobile sidebar toggle
@@ -96,7 +115,10 @@ export function RouterNav({ onNavClick, cartCount, cartSubtotal, selectedDates, 
         </button>
       )}
 
-      <nav className="nav-bar">
+      {/* Sticky navbar spacer to prevent layout shift */}
+      {isSticky && <div className="navbar-spacer" style={{ height: navRef.current?.offsetHeight || 0 }} />}
+
+      <nav ref={navRef} className={`nav-bar ${isSticky ? 'nav-bar-sticky' : ''}`}>
         <ul>
           {/* Logo */}
           <li>

@@ -228,6 +228,20 @@
   display: none !important;
 }
 
+/* Clickable progress steps */
+.progress-step.clickable {
+  transition: all 0.3s ease;
+}
+
+.progress-step.clickable:hover {
+  transform: translateY(-2px);
+}
+
+.progress-step.clickable:hover span {
+  background: var(--coral) !important;
+  box-shadow: 0 4px 8px rgba(255, 107, 107, 0.3);
+}
+
 /* Step content containers */
 .step-container {
   background-color: white;

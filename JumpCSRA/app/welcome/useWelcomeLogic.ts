@@ -14,17 +14,60 @@ import { useNavigate } from 'react-router';
 import type { CartItem } from '../components/CartSidebar';
 import type { UserMembership } from '../utils/databaseUtils';
 
+// Map display categories to database categories
+const categoryMapping: { [key: string]: string[] } = {
+  'all': [],
+  'bounce houses': ['bounce-house'],
+  'slides': ['slide'],
+  'obstacle courses': ['obstacle'],
+  'interactive games': ['game'],
+  'party essentials': ['party-essentials']
+};
+
 function filterOptions(inflateables: any[], selectedCategory: string, selectedWetDry: string): any[] {
+  console.log('🔍 FILTER DEBUG: Starting filter with', {
+    totalItems: inflateables.length,
+    selectedCategory,
+    selectedWetDry,
+    firstFewItems: inflateables.slice(0, 3).map(item => ({ 
+      name: item.name, 
+      category: item.category,
+      wet: item.wet,
+      dry: item.dry
+    }))
+  });
+  
   let filtered = inflateables;
   
   // Apply category filter
   if (selectedCategory.toLowerCase() !== 'all') {
-    filtered = filtered.filter((item: any) =>
-      Array.isArray(item.category)
-        ? item.category.some((cat: string) => cat.toLowerCase() === selectedCategory.toLowerCase())
-        : item.category?.toLowerCase() === selectedCategory.toLowerCase()
-    );
+    const dbCategories = categoryMapping[selectedCategory.toLowerCase()] || [];
+    console.log('🔍 Mapping category:', selectedCategory, '→', dbCategories);
+    
+    filtered = filtered.filter((item: any) => {
+      let matches = false;
+      
+      if (Array.isArray(item.category)) {
+        // Item has multiple categories
+        matches = item.category.some((cat: string) => 
+          dbCategories.includes(cat.toLowerCase())
+        );
+      } else if (item.category) {
+        // Item has single category
+        matches = dbCategories.includes(item.category.toLowerCase());
+      }
+      
+      if (!matches) {
+        console.log('❌ Item filtered out:', item.name, 'has category:', item.category, 'looking for DB categories:', dbCategories);
+      } else {
+        console.log('✅ Item kept:', item.name, 'has category:', item.category);
+      }
+      
+      return matches;
+    });
   }
+  
+  console.log(`🔍 After category filter: ${filtered.length} items`);
   
   // Apply wet/dry filter
   if (selectedWetDry === 'wet') {
@@ -32,6 +75,8 @@ function filterOptions(inflateables: any[], selectedCategory: string, selectedWe
   } else if (selectedWetDry === 'dry') {
     filtered = filtered.filter((item: any) => item.dry === true);
   }
+  
+  console.log(`🔍 Final filtered result: ${filtered.length} items`, filtered.map(item => item.name));
   
   return filtered;
 }

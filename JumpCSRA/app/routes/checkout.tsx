@@ -335,10 +335,10 @@ export default function Checkout() {
   const stepOrder = getStepOrder();
   
   const stepTitles = {
-    'order-summary': 'Order Summary',
-    'delivery': 'Delivery Information',
-    'quick-add-totals': 'Quick Add & Order Total',
-    'contract': 'Sign Contract',
+    'order-summary': 'Cart Summary',
+    'delivery': 'Delivery',
+    'quick-add-totals': 'Cart & Essentials',
+    'contract': 'Contract',
     'payment': 'Payment'
   };
 
@@ -894,17 +894,17 @@ export default function Checkout() {
       const resumeBookingId = localStorage.getItem('resumeBookingId');
       if (resumeBookingId && !pendingBookingId) {
         try {
-          console.log('Loading resumed booking:', resumeBookingId);
+          console.log('🔄 [RESUME] Loading resumed booking:', resumeBookingId);
           const booking = await loadBookingData(resumeBookingId);
           
           if (booking && booking.customerID === user.uid) {
             // Check if booking is already completed or confirmed - can't resume completed bookings
             // Pending and deferred bookings can be resumed
             const bookingStatus = booking.status || 'pending';
-            console.log('Resume booking status check:', bookingStatus);
+            console.log('🔍 [RESUME] Resume booking status check:', bookingStatus);
             
             if (bookingStatus === 'completed') {
-              console.warn('Cannot resume completed booking:', resumeBookingId, 'Status:', bookingStatus);
+              console.warn('⚠️ [RESUME] Cannot resume completed booking:', resumeBookingId, 'Status:', bookingStatus);
               localStorage.removeItem('resumeBookingId');
               
               notifications.show({
@@ -921,7 +921,7 @@ export default function Checkout() {
             // Check if booking is in a resumable state (pending, deferred, confirmed)
             // Note: confirmed bookings can be resumed if they need remaining payment (deposit scenario)
             if (bookingStatus === 'cancelled') {
-              console.warn('Booking is cancelled and cannot be resumed:', resumeBookingId, 'Status:', bookingStatus);
+              console.warn('⚠️ [RESUME] Booking is cancelled and cannot be resumed:', resumeBookingId, 'Status:', bookingStatus);
               localStorage.removeItem('resumeBookingId');
               
               notifications.show({
@@ -934,11 +934,12 @@ export default function Checkout() {
               return;
             }
             
+            console.log('✅ [RESUME] Valid booking found for resumption:', booking);
             setPendingBookingId(resumeBookingId);
             
             // Special handling for deferred bookings
             if (bookingStatus === 'deferred') {
-              console.log('Deferred booking resumed - showing phone call option');
+              console.log('🔄 [DEFERRED] Deferred booking resumed - showing phone call option');
               setIsDeferredBooking(true);
               
               notifications.show({
@@ -953,15 +954,16 @@ export default function Checkout() {
               setCurrentStep('order-summary');
               setContractSigned(false);
             } else {
+              console.log('🔄 [NORMAL] Normal booking resumed - proceeding to payment');
               setIsDeferredBooking(false);
-              // Set the step to payment since contract should already be signed
-              setCurrentStep('payment');
-              setContractSigned(true);
             }
             
-            // Restore cart from booking data if cart is empty
-            if (cart.length === 0 && booking.orderDetails?.items) {
-              console.log('Restoring cart from booking data:', booking.orderDetails.items);
+            // Restore cart from booking data - always try this for resumed bookings
+            console.log('🔍 [RESUME] Checking for cart restoration...');
+            if (booking.orderDetails?.items) {
+              console.log('🔄 [CART RESTORE] Restoring cart from booking data:', booking.orderDetails.items);
+              console.log('🔄 [CART RESTORE] Current cart length:', cart.length);
+              console.log('🔄 [CART RESTORE] Booking items count:', booking.orderDetails.items.length);
               
               // Convert booking items back to cart format
               const restoredCart = booking.orderDetails.items.map((item, index) => ({
@@ -970,14 +972,15 @@ export default function Checkout() {
                 price: item.price,
                 quantity: item.quantity,
                 category: 'inflateable', // Default category
-                wetDry: 'Wet/Dry', // Default wet/dry option
+                wetDry: item.wetDry || 'Wet/Dry', // Use saved wetDry or default
                 wet: true,
                 dry: true
               }));
               
+              console.log('🔄 [CART RESTORE] Restored cart format:', restoredCart);
               setCart(restoredCart);
               
-              console.log('Cart restored from booking:', restoredCart);
+              console.log('✅ [CART RESTORE] Cart restored from booking:', restoredCart);
               
               notifications.show({
                 title: '🛒 Cart Restored',
@@ -985,14 +988,22 @@ export default function Checkout() {
                 color: 'blue',
                 autoClose: 3000,
               });
+            } else {
+              console.warn('⚠️ [CART RESTORE] Cannot restore cart - no items in booking orderDetails');
+              console.log('🔍 [CART RESTORE] Booking structure:', booking);
             }
             
-            // Set the step to payment since contract should already be signed
-            setCurrentStep('payment');
-            setContractSigned(true);
+            // Set appropriate step based on booking type and status
+            if (!isDeferredBooking) {
+              // For normal bookings, go to payment step since contract is already signed
+              setCurrentStep('payment');
+              setContractSigned(true);
+              console.log('📍 [STEP] Set to payment step for normal booking');
+            }
             
             // Clear the resume flag
             localStorage.removeItem('resumeBookingId');
+            console.log('🗑️ [CLEANUP] Cleared resumeBookingId from localStorage');
             
             notifications.show({
               title: '📝 Booking Resumed',
@@ -1001,9 +1012,9 @@ export default function Checkout() {
               autoClose: 5000,
             });
             
-            console.log('Booking resumed successfully:', booking);
+            console.log('✅ [RESUME] Booking resumed successfully:', booking);
           } else {
-            console.warn('Resume booking not found or not owned by user:', resumeBookingId);
+            console.warn('❌ [RESUME] Resume booking not found or not owned by user:', resumeBookingId);
             localStorage.removeItem('resumeBookingId');
             
             notifications.show({
@@ -1014,7 +1025,7 @@ export default function Checkout() {
             });
           }
         } catch (error) {
-          console.error('Error resuming booking:', error);
+          console.error('❌ [RESUME] Error resuming booking:', error);
           localStorage.removeItem('resumeBookingId');
           
           notifications.show({
@@ -1047,19 +1058,51 @@ export default function Checkout() {
     loadWallet();
   }, [user]);
 
+  // Save delivery address to localStorage when it changes
+  useEffect(() => {
+    if (deliveryAddress.trim().length > 0) {
+      localStorage.setItem('deliveryAddress', deliveryAddress);
+      console.log('📍 Delivery address saved to localStorage:', deliveryAddress);
+    }
+  }, [deliveryAddress]);
+
+  // Load delivery address from localStorage on component mount
+  useEffect(() => {
+    if (!loading && user) {
+      const savedDeliveryAddress = localStorage.getItem('deliveryAddress');
+      if (savedDeliveryAddress && !deliveryAddress) {
+        setDeliveryAddress(savedDeliveryAddress);
+        console.log('📍 Delivery address loaded from localStorage:', savedDeliveryAddress);
+      }
+    }
+  }, [loading, user, deliveryAddress]);
+
 
   // Load cart and settings from localStorage
   useEffect(() => {
     if (!loading && user) {
+      console.log('📥 [CART LOAD] Loading cart and settings from localStorage');
+      
+      // Check if we're resuming a booking - if so, delay cart loading
+      const resumeBookingId = localStorage.getItem('resumeBookingId');
+      if (resumeBookingId) {
+        console.log('⏳ [CART LOAD] Resume booking detected, skipping localStorage cart load for now');
+        return; // Don't load cart from localStorage if resuming booking
+      }
+      
       // Load cart from localStorage
       const savedCart = localStorage.getItem("cart");
       if (savedCart) {
         try {
-          setCart(JSON.parse(savedCart));
+          const parsedCart = JSON.parse(savedCart);
+          console.log('📦 [CART LOAD] Loaded cart from localStorage:', parsedCart);
+          setCart(parsedCart);
         } catch (error) {
-          console.error("Error parsing cart from localStorage:", error);
+          console.error("❌ [CART LOAD] Error parsing cart from localStorage:", error);
           setCart([]);
         }
+      } else {
+        console.log('🔍 [CART LOAD] No cart found in localStorage');
       }
       
       // Load calendar date range from localStorage
@@ -1072,8 +1115,9 @@ export default function Checkout() {
             parsed[1] ? new Date(parsed[1]) : null,
           ];
           setCalendarDateRange(range);
+          console.log('📅 [CART LOAD] Loaded date range from localStorage:', range);
         } catch (error) {
-          console.error("Error parsing date range from localStorage:", error);
+          console.error("❌ [CART LOAD] Error parsing date range from localStorage:", error);
         }
       }
     }
@@ -3132,16 +3176,33 @@ export default function Checkout() {
         })()}>
           {(() => {
             const currentStepOrder = getStepOrder();
-            return currentStepOrder.map((step, index) => (
-              <div key={step} className="progress-step" data-step-index={index}>
-                <span className={`progress-step-circle ${currentStepOrder.indexOf(currentStep) >= index ? 'active' : 'inactive'}`}>
-                  {index + 1}
-                </span>
-                <label className={`progress-step-label ${currentStepOrder.indexOf(currentStep) >= index ? 'active' : 'inactive'}`}>
-                  {stepTitles[step]}
-                </label>
-              </div>
-            ));
+            return currentStepOrder.map((step, index) => {
+              const isCurrentOrPast = currentStepOrder.indexOf(currentStep) >= index;
+              const canGoBack = visitedSteps.has(step) && index < currentStepOrder.indexOf(currentStep);
+              
+              return (
+                <div 
+                  key={step} 
+                  className={`progress-step ${canGoBack ? 'clickable' : ''}`} 
+                  data-step-index={index}
+                  onClick={() => {
+                    if (canGoBack) {
+                      setCurrentStep(step);
+                    }
+                  }}
+                  style={{
+                    cursor: canGoBack ? 'pointer' : 'default'
+                  }}
+                >
+                  <span className={`progress-step-circle ${isCurrentOrPast ? 'active' : 'inactive'}`}>
+                    {index + 1}
+                  </span>
+                  <label className={`progress-step-label ${isCurrentOrPast ? 'active' : 'inactive'}`}>
+                    {stepTitles[step]}
+                  </label>
+                </div>
+              );
+            });
           })()}
         </div>
       </div>
@@ -3175,7 +3236,29 @@ export default function Checkout() {
                   </div>
                   <div className="order-item-info">
                     Quantity: {item.quantity}
-                    {item.isGiftCard ? ` ($${item.giftCardValue || item.price} each)` : ` (${item.wetDry})`}
+                    {item.isGiftCard ? (
+                      ` ($${item.giftCardValue || item.price} each)`
+                    ) : !item.isMembership && item.wetDry === "Wet/Dry" ? (
+                      <span>
+                        {' - '}
+                        <select
+                          value={cartSettings.wetDrySelections[idx] || 'Dry'}
+                          onChange={(e) => cartSettings.updateWetDrySelection(idx, e.target.value as 'Wet' | 'Dry')}
+                          style={{
+                            padding: '0.25rem',
+                            borderRadius: '4px',
+                            border: '1px solid #ddd',
+                            fontSize: '0.9rem',
+                            marginLeft: '0.25rem'
+                          }}
+                        >
+                          <option value="Dry">Dry</option>
+                          <option value="Wet">Wet</option>
+                        </select>
+                      </span>
+                    ) : (
+                      ''
+                    )}
                   </div>
                 </div>
               </div>
@@ -3327,7 +3410,25 @@ export default function Checkout() {
                   )}
                 </label>
               </div>
-              <p><strong>Selected Date:</strong> {calendarDateRange[0]?.toLocaleDateString()} - {calendarDateRange[1]?.toLocaleDateString()}</p>
+              <p><strong>Event Dates:</strong> {(() => {
+                const startDate = calendarDateRange[0];
+                const endDate = calendarDateRange[1];
+                if (!startDate || !endDate) return 'Not selected';
+                
+                if (cartSettings.duration === '4hours') {
+                  return startDate.toLocaleDateString();
+                } else if (cartSettings.duration === '24hours') {
+                  const nextDay = new Date(startDate);
+                  nextDay.setDate(nextDay.getDate() + 1);
+                  return `${startDate.toLocaleDateString()} - ${nextDay.toLocaleDateString()}`;
+                } else if (cartSettings.duration === '48hours') {
+                  const twoDaysLater = new Date(startDate);
+                  twoDaysLater.setDate(twoDaysLater.getDate() + 2);
+                  return `${startDate.toLocaleDateString()} - ${twoDaysLater.toLocaleDateString()}`;
+                } else {
+                  return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+                }
+              })()}</p>
             </div>
           ) : null;
         })()}
@@ -3336,8 +3437,45 @@ export default function Checkout() {
         <div className="pricing-breakdown">
           <div className="pricing-row">
             <span>Cart Subtotal:</span>
-            <span>${cartTotal.toFixed(2)}</span>
+            <span>${(() => {
+              // Calculate base price without duration multiplier
+              const baseCartTotal = cart.reduce((sum, item) => {
+                if (item.isGiftCard) {
+                  return sum + (item.giftCardValue || item.price) * item.quantity;
+                } else {
+                  return sum + item.price * item.quantity; // No duration multiplier here
+                }
+              }, 0);
+              return baseCartTotal.toFixed(2);
+            })()}</span>
           </div>
+          {(() => {
+            // Calculate duration charge
+            const baseCartTotal = cart.reduce((sum, item) => {
+              if (item.isGiftCard) {
+                return sum + (item.giftCardValue || item.price) * item.quantity;
+              } else {
+                return sum + item.price * item.quantity;
+              }
+            }, 0);
+            const rentalSubtotal = cart.reduce((sum, item) => {
+              if (!item.isGiftCard && !item.isMembership) {
+                return sum + item.price * item.quantity;
+              }
+              return sum;
+            }, 0);
+            const durationCharge = rentalSubtotal * (durationMultiplier - 1);
+            
+            if (durationCharge !== 0 && rentalSubtotal > 0) {
+              return (
+                <div className="pricing-row">
+                  <span>Event Duration Charge ({cartSettings.duration}):</span>
+                  <span>{durationCharge > 0 ? '+' : ''}${durationCharge.toFixed(2)}</span>
+                </div>
+              );
+            }
+            return null;
+          })()}
           {surfaceAdj > 0 && (
             <div className="pricing-row">
               <span>Surface Adjustment (per item):</span>
@@ -3549,6 +3687,15 @@ export default function Checkout() {
           <button
             id="btn-back-quick-add"
             onClick={goToPreviousStep}
+            style={{
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              padding: '1rem 2rem',
+              borderRadius: '4px',
+              fontSize: '1rem',
+              cursor: 'pointer'
+            }}
           >
             Back to Quick Add
           </button>
@@ -3595,10 +3742,48 @@ export default function Checkout() {
                               {item.selectedDates[0]?.toLocaleDateString()} - {item.selectedDates[1]?.toLocaleDateString()}
                             </p>
                           )}
+                          {/* Wet/Dry Selection Dropdown */}
+                          {item.wetDry === 'Wet/Dry' && !item.isGiftCard && !item.isMembership && (
+                            <div className="wet-dry-selection">
+                              <label htmlFor={`wetdry-${index}`}>Type: </label>
+                              <select
+                                id={`wetdry-${index}`}
+                                value={cartSettings.wetDrySelections[index] || 'Dry'}
+                                onChange={(e) => cartSettings.updateWetDrySelection(index, e.target.value as 'Wet' | 'Dry')}
+                                style={{
+                                  padding: '0.25rem',
+                                  borderRadius: '4px',
+                                  border: '1px solid #ddd',
+                                  fontSize: '0.9rem'
+                                }}
+                              >
+                                <option value="Dry">Dry</option>
+                                <option value="Wet">Wet</option>
+                              </select>
+                            </div>
+                          )}
                         </div>
                         <div className="cart-item-price">
                           ${typeof item.price === 'number' ? item.price.toFixed(2) : item.price}
                         </div>
+                        {/* Delete Button */}
+                        <button
+                          className="cart-item-delete"
+                          onClick={() => removeItemFromCart(index)}
+                          style={{
+                            background: '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            padding: '0.5rem',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            marginLeft: '1rem'
+                          }}
+                          title={`Remove ${item.name} from cart`}
+                        >
+                          🗑️
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -3895,28 +4080,43 @@ export default function Checkout() {
                     // Try to reload booking data
                     if (pendingBookingId) {
                       try {
+                        console.log('🔄 [RESTORE] Attempting to restore cart from booking:', pendingBookingId);
                         const booking = await loadBookingData(pendingBookingId);
+                        console.log('🔍 [RESTORE] Loaded booking data:', booking);
+                        
                         if (booking?.orderDetails?.items) {
+                          console.log('✅ [RESTORE] Found items in booking:', booking.orderDetails.items);
                           const restoredCart = booking.orderDetails.items.map((item, index) => ({
                             id: `${item.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${index}`,
                             name: item.name,
                             price: item.price,
                             quantity: item.quantity,
                             category: 'inflateable',
-                            wetDry: 'Wet/Dry',
+                            wetDry: item.wetDry || 'Wet/Dry',
                             wet: true,
                             dry: true
                           }));
+                          
+                          console.log('🔄 [RESTORE] Restored cart format:', restoredCart);
                           setCart(restoredCart);
+                          
                           notifications.show({
                             title: '✅ Cart Restored',
                             message: 'Successfully restored your cart items.',
                             color: 'green',
                             autoClose: 3000,
                           });
+                        } else {
+                          console.warn('❌ [RESTORE] No items found in booking orderDetails');
+                          notifications.show({
+                            title: '⚠️ No Items Found',
+                            message: 'No items found in the booking to restore.',
+                            color: 'orange',
+                            autoClose: 5000,
+                          });
                         }
                       } catch (error) {
-                        console.error('Error reloading booking:', error);
+                        console.error('❌ [RESTORE] Error reloading booking:', error);
                         notifications.show({
                           title: '❌ Restore Failed',
                           message: 'Could not restore cart items from booking.',
@@ -3924,6 +4124,14 @@ export default function Checkout() {
                           autoClose: 5000,
                         });
                       }
+                    } else {
+                      console.warn('❌ [RESTORE] No pendingBookingId available');
+                      notifications.show({
+                        title: '❌ No Booking ID',
+                        message: 'No booking ID found to restore from.',
+                        color: 'red',
+                        autoClose: 5000,
+                      });
                     }
                   }}
                   style={{
@@ -4372,24 +4580,36 @@ export default function Checkout() {
               {/* Only show PayPal buttons if there's an amount to pay via PayPal */}
               {/* Always show PayPal buttons if there's an amount to pay via PayPal */}
               {(!useWalletFirst || calculatePayPalAmount() > 0) && (
-                <PayPalScriptProvider options={{ 
-                  clientId: "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0", // Your PayPal sandbox client ID
-                  currency: "USD",
-                  intent: "capture"
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'center',
+                  width: '100%',
+                  maxWidth: '400px',
+                  margin: '0 auto'
                 }}>
-                  <PayPalButtons
-                    style={{ 
-                      layout: "vertical",
-                      color: "blue",
-                      shape: "rect",
-                      label: "paypal"
-                    }}
-                    createOrder={createPayPalOrder}
-                    onApprove={onPayPalApprove}
-                    onError={onPayPalError}
-                    disabled={processingPayment}
-                  />
-                </PayPalScriptProvider>
+                  <PayPalScriptProvider options={{ 
+                    clientId: "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0", // Your PayPal sandbox client ID
+                    currency: "USD",
+                    intent: "capture",
+                    components: "buttons,funding-eligibility",
+                    "enable-funding": "card,paylater",
+                    "disable-funding": "venmo"
+                  }}>
+                    <PayPalButtons
+                      style={{ 
+                        layout: "vertical",
+                        color: "blue",
+                        shape: "rect",
+                        label: "pay"
+                      }}
+                      fundingSource={undefined}
+                      createOrder={createPayPalOrder}
+                      onApprove={onPayPalApprove}
+                      onError={onPayPalError}
+                      disabled={processingPayment}
+                    />
+                  </PayPalScriptProvider>
+                </div>
               )}
             </div>
           )}

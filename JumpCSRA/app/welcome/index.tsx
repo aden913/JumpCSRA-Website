@@ -247,11 +247,28 @@ export function Welcome() {
 
   // Wrapper function to handle category change and reset carousel
   const handleCategoryChange = (category: string) => {
+    console.log('🔄 [CATEGORY] Category changing to:', category);
+    console.log('🔄 [CATEGORY] Current category:', logic.selectedCategory);
+    console.log('🔄 [CATEGORY] Current filtered options count:', logic.filteredOptions.length);
+    
     logic.setSelectedCategory(category);
+    
+    // Log after state change (note: state update is async, so this might not show the new value immediately)
+    setTimeout(() => {
+      console.log('🔄 [CATEGORY] After state update - New category:', logic.selectedCategory);
+      console.log('🔄 [CATEGORY] After state update - Filtered options count:', logic.filteredOptions.length);
+    }, 50);
+    
     // Reset carousel to beginning after a short delay to allow re-render
     setTimeout(() => {
-      optionsCarouselRef.current?.resetToBeginning();
-    }, 100);
+      console.log('🔄 [CAROUSEL] Resetting carousel to beginning...');
+      if (optionsCarouselRef.current) {
+        optionsCarouselRef.current.resetToBeginning();
+        console.log('✅ [CAROUSEL] Carousel reset completed');
+      } else {
+        console.warn('⚠️ [CAROUSEL] Carousel ref not available for reset');
+      }
+    }, 150); // Increased timeout slightly for better reliability
   };
 
   // Fetch unavailable inflateables whenever date range changes
@@ -393,8 +410,8 @@ export function Welcome() {
             top: '20px',
             left: '50%',
             transform: 'translateX(-50%)',
-            backgroundColor: '#fff3cd',
-            border: '2px solid #ffeaa7',
+            backgroundColor: 'white',
+            border: '2px solid var(--lightBlue)',
             borderRadius: '8px',
             padding: '15px 20px',
             boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
@@ -402,23 +419,24 @@ export function Welcome() {
             maxWidth: '500px',
             textAlign: 'center'
           }}>
-            <div style={{ fontWeight: 'bold', color: '#856404', marginBottom: '10px' }}>
+            <div style={{ fontWeight: 'bold', color: 'var(--darkBlue)', marginBottom: '10px' }}>
               📝 Resume Your Booking
             </div>
-            <div style={{ color: '#856404', marginBottom: '15px', fontSize: '14px' }}>
+            <div style={{ color: 'var(--darkBlue)', marginBottom: '15px', fontSize: '14px' }}>
               You have an incomplete booking from {new Date(incompleteBookings[0].createdAt).toLocaleDateString()}
             </div>
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
               <button
                 onClick={() => continueIncompleteBooking(incompleteBookings[0])}
                 style={{
-                  backgroundColor: '#667eea',
+                  backgroundColor: 'var(--lightBlue)',
                   color: 'white',
                   border: 'none',
                   padding: '8px 16px',
                   borderRadius: '4px',
                   cursor: 'pointer',
-                  fontSize: '14px'
+                  fontSize: '14px',
+                  fontWeight: 'bold'
                 }}
               >
                 Continue Booking
@@ -426,7 +444,7 @@ export function Welcome() {
               <button
                 onClick={() => deleteIncompleteBooking(incompleteBookings[0])}
                 style={{
-                  backgroundColor: '#dc3545',
+                  backgroundColor: 'var(--darkBlue)',
                   color: 'white',
                   border: 'none',
                   padding: '8px 16px',
@@ -435,7 +453,7 @@ export function Welcome() {
                   fontSize: '14px'
                 }}
               >
-                Delete Booking
+                Cancel Booking
               </button>
               <button
                 onClick={dismissBookingRecovery}
@@ -496,6 +514,50 @@ export function Welcome() {
           selectedWetDry={logic.selectedWetDry}
           onWetDryChange={logic.setSelectedWetDry}
         />
+        {/* Options Section */}
+        <section className="options-section">
+          <div
+            ref={logic.carouselRef}
+            className="category-dropdown-container"
+            style={{ marginBottom: "1rem", textAlign: "center" }}
+          >
+            <label htmlFor="category-dropdown" style={{ marginRight: "0.5rem" }}>
+              Filter by Category:
+            </label>
+            <select
+              id="category-dropdown"
+              value={logic.selectedCategory}
+              onChange={(e) => handleCategoryChange(e.target.value)}
+              style={{ padding: "0.5rem", fontSize: "1rem" }}
+            >
+              {logic.categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <h2>SWIPE FOR MORE FUN</h2>
+
+          <OptionsCarousel
+            ref={optionsCarouselRef}
+            options={logic.filteredOptions.map((opt: any) => {
+              const isUnavailable = unavailableInflateables.has(opt.name);
+              return {
+                ...opt,
+                unavailable: isUnavailable,
+                onOrder: () => logic.addToCart(opt), // Order button adds directly to cart
+              };
+            })}
+            onPurchase={logic.addToCart}
+            onCardClick={logic.handleOrderNow} // Card click shows details popup
+            isLandingPage={true} // Identify this as landing page
+            selectedDates={logic.calendarDateRange}
+          />
+          
+        
+        </section>
+
         {/* Main Section */}
         <section className="main-section">
           {/* Search card hidden - SearchBar moved to navbar */}
@@ -587,50 +649,6 @@ export function Welcome() {
               </button>
             ))}
           </div>
-        </section>
-
-        {/* Options Section */}
-        <section className="options-section">
-          <div
-            ref={logic.carouselRef}
-            className="category-dropdown-container"
-            style={{ marginBottom: "1rem", textAlign: "center" }}
-          >
-            <label htmlFor="category-dropdown" style={{ marginRight: "0.5rem" }}>
-              Filter by Category:
-            </label>
-            <select
-              id="category-dropdown"
-              value={logic.selectedCategory}
-              onChange={(e) => handleCategoryChange(e.target.value)}
-              style={{ padding: "0.5rem", fontSize: "1rem" }}
-            >
-              {logic.categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                </option>
-              ))}
-            </select>
-          </div>
-          <h2>SWIPE FOR MORE FUN</h2>
-
-          <OptionsCarousel
-            ref={optionsCarouselRef}
-            options={logic.filteredOptions.map((opt: any) => {
-              const isUnavailable = unavailableInflateables.has(opt.name);
-              return {
-                ...opt,
-                unavailable: isUnavailable,
-                onOrder: () => logic.addToCart(opt), // Order button adds directly to cart
-              };
-            })}
-            onPurchase={logic.addToCart}
-            onCardClick={logic.handleOrderNow} // Card click shows details popup
-            isLandingPage={true} // Identify this as landing page
-            selectedDates={logic.calendarDateRange}
-          />
-          
-        
         </section>
 
         {/* Modal for carousel */}
