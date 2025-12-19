@@ -21,6 +21,8 @@ import { generateUniqueGiftCardCode, createGiftCardInDatabase, useDiscounts } fr
 import { sendOrderConfirmationEmail, createGiftCardInfoFromCart, OrderConfirmationEmailData, GiftCardInfo } from "../utils/emailUtils";
 import { scheduleCartReminderEmail, scheduleDepositReminderEmail, scheduleEventConfirmationEmail, schedulePostEventThanksEmail, scheduleRebookingReminderEmail } from "../utils/backendEmailService";
 import { clearCartAbandonment } from "../utils/cartAbandonmentTracker";
+import { checkItemAvailability } from "../utils/availabilityUtils";
+import type { ItemAvailability } from "../utils/availabilityUtils";
 import { notifications } from '@mantine/notifications';
 import { Notifications } from '@mantine/notifications';
 import { MantineProvider } from '@mantine/core';
@@ -148,6 +150,113 @@ export default function Checkout() {
     }
   };
 
+  // Function to get available quantity for a cart item (for party essentials)
+  const getAvailableQuantityForCartItem = (item: CartItem, cartIndex: number) => {
+    console.log('🔍 [QUANTITY DEBUG] Getting available quantity for:', {
+      itemName: item.name,
+      category: item.category,
+      cartIndex,
+      currentQuantity: item.quantity
+    });
+    
+    if (item.category !== 'party-essentials') {
+      console.log('🔍 [QUANTITY DEBUG] Not a party essential, returning 10');
+      return 10; // Default for non-party essentials
+    }
+    
+    // Use the availability system if dates are selected
+    const startDate = calendarDateRange[0];
+    const endDate = startDate && cartSettings.duration ? calculateEndDate(startDate, cartSettings.duration) : null;
+    
+    console.log('🔍 [QUANTITY DEBUG] Date info:', {
+      startDate,
+      endDate,
+      duration: cartSettings.duration,
+      calendarDateRange
+    });
+    
+    if (startDate && endDate) {
+      const availability = itemAvailability.get(item.name);
+      console.log('🔍 [QUANTITY DEBUG] Availability data:', {
+        itemName: item.name,
+        availability,
+        availabilityMapSize: itemAvailability.size,
+        availabilityKeys: Array.from(itemAvailability.keys())
+      });
+      
+      if (availability) {
+        // Ensure minimum of current item quantity if already in cart
+        const currentQuantity = item.quantity || 1;
+        const availableQuantity = availability.availableQuantity || 0;
+        const result = Math.max(currentQuantity, availableQuantity);
+        
+        console.log('🔍 [QUANTITY DEBUG] Availability calculation:', {
+          currentQuantity,
+          availableQuantity,
+          result,
+          fullAvailability: availability
+        });
+        
+        return result;
+      } else {
+        console.log('🔍 [QUANTITY DEBUG] No availability data found for item:', item.name);
+      }
+    } else {
+      console.log('🔍 [QUANTITY DEBUG] No valid dates or duration');
+    }
+    
+    // Default if no availability data - ensure minimum of current quantity
+    const fallback = Math.max(item.quantity || 1, 10);
+    console.log('🔍 [QUANTITY DEBUG] Using fallback quantity:', fallback);
+    return fallback;
+  };
+
+  // Function to update cart item quantity
+  const updateCartItemQuantity = (cartIndex: number, newQuantity: number) => {
+    const item = cart[cartIndex];
+    console.log('🔍 [UPDATE DEBUG] Updating cart item quantity:', {
+      cartIndex,
+      newQuantity,
+      itemName: item?.name,
+      itemCategory: item?.category
+    });
+    
+    if (!item || item.category !== 'party-essentials') {
+      console.log('🔍 [UPDATE DEBUG] Item not found or not party essential, skipping');
+      return;
+    }
+
+    const maxAvailable = getAvailableQuantityForCartItem(item, cartIndex);
+    console.log('🔍 [UPDATE DEBUG] Max available check:', {
+      maxAvailable,
+      newQuantity,
+      exceedsMax: newQuantity > maxAvailable
+    });
+    
+    if (newQuantity > maxAvailable) {
+      notifications.show({
+        title: 'Quantity Exceeded',
+        message: `Only ${maxAvailable} ${item.name}${maxAvailable !== 1 ? 's' : ''} available for your selected dates.`,
+        color: 'red',
+      });
+      return;
+    }
+
+    const updatedCart = [...cart];
+    updatedCart[cartIndex] = { ...item, quantity: newQuantity };
+    console.log('🔍 [UPDATE DEBUG] Setting updated cart, current step should remain:', currentStep);
+    setCart(updatedCart);
+    
+    // Update localStorage
+    localStorage.setItem('cart', JSON.stringify(updatedCart));
+    
+    notifications.show({
+      title: 'Quantity Updated',
+      message: `${item.name} quantity updated to ${newQuantity}`,
+      color: 'green',
+    });
+  };
+
   // Checkout-specific state
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
   const [deliveryCost, setDeliveryCost] = useState<number>(0);
@@ -189,14 +298,17 @@ export default function Checkout() {
   const [currentStep, setCurrentStep] = useState<CheckoutStep>(getInitialStep());
   const [visitedSteps, setVisitedSteps] = useState<Set<CheckoutStep>>(() => new Set([getInitialStep()]));
 
-  // Update step when cart loads from localStorage
+  // Update step when cart loads from localStorage (but not on quantity updates)
   useEffect(() => {
     if (!loading && user && cart.length > 0) {
-      const correctStep = getInitialStep();
-      setCurrentStep(correctStep);
-      setVisitedSteps(new Set([correctStep]));
+      // Only reset step if we're starting fresh (no visited steps beyond initial)
+      if (visitedSteps.size === 1 && visitedSteps.has(getInitialStep()) && currentStep === getInitialStep()) {
+        const correctStep = getInitialStep();
+        setCurrentStep(correctStep);
+        setVisitedSteps(new Set([correctStep]));
+      }
     }
-  }, [loading, user, cart]);
+  }, [loading, user]); // Removed cart dependency to prevent step reset on quantity changes
   
   // Google Places validation state
   const [googlePlacesAddresses, setGooglePlacesAddresses] = useState<Set<string>>(new Set());
@@ -1150,20 +1262,35 @@ export default function Checkout() {
 
   // Check availability for party essentials when cart or dates change
   useEffect(() => {
+    console.log('🔍 [AVAILABILITY DEBUG] useEffect triggered:', {
+      hasStartDate: !!calendarDateRange[0],
+      hasDuration: !!cartSettings.duration,
+      partyEssentialsCount: partyEssentials.length,
+      calendarDateRange,
+      duration: cartSettings.duration
+    });
+    
     const checkAvailability = async () => {
       if (calendarDateRange[0] && cartSettings.duration && partyEssentials.length > 0) {
+        console.log('🔍 [AVAILABILITY DEBUG] Starting availability check...');
         setLoadingAvailability(true);
         const startDate = calendarDateRange[0];
         const endDate = calculateEndDate(startDate, cartSettings.duration);
         
+        console.log('🔍 [AVAILABILITY DEBUG] Calculated dates:', { startDate, endDate });
+        
         try {
           const inflateablesData = await loadInflateablesData();
+          console.log('🔍 [AVAILABILITY DEBUG] Loaded inflateables data:', inflateablesData.length, 'items');
+          
           const availabilityMap = new Map<string, ItemAvailability>();
           
           const promises = partyEssentials.map(async (item) => {
+            console.log('🔍 [AVAILABILITY DEBUG] Checking availability for:', item.name);
             const inflateable = inflateablesData.find(inf => inf.name === item.name);
             if (inflateable) {
               const totalQuantity = inflateable.quantity || 1;
+              console.log('🔍 [AVAILABILITY DEBUG] Found inflateable with quantity:', totalQuantity);
               
               const availability = await checkItemAvailability(
                 item.name,
@@ -1172,24 +1299,52 @@ export default function Checkout() {
                 endDate
               );
               
+              console.log('🔍 [AVAILABILITY DEBUG] Availability result:', {
+                itemName: item.name,
+                availability
+              });
+              
               availabilityMap.set(item.name, availability);
+            } else {
+              console.log('🔍 [AVAILABILITY DEBUG] No inflateable data found for:', item.name);
             }
           });
           
           await Promise.all(promises);
+          console.log('🔍 [AVAILABILITY DEBUG] Final availability map:', {
+            size: availabilityMap.size,
+            entries: Array.from(availabilityMap.entries())
+          });
+          console.log('🔍 [AVAILABILITY DEBUG] Setting itemAvailability map:', {
+            size: availabilityMap.size,
+            entries: Array.from(availabilityMap.entries())
+          });
           setItemAvailability(availabilityMap);
           
         } catch (error) {
-          console.error('❌ [DEBUG] Checkout: Error checking availability:', error);
+          console.error('❌ [AVAILABILITY DEBUG] Error checking availability:', error);
         } finally {
           setLoadingAvailability(false);
         }
+      } else {
+        console.log('🔍 [AVAILABILITY DEBUG] Skipping availability check:', {
+          reason: !calendarDateRange[0] ? 'No start date' : 
+                  !cartSettings.duration ? 'No duration' : 
+                  partyEssentials.length === 0 ? 'No party essentials' : 'Unknown'
+        });
       }
     };
-    
+
     checkAvailability();
   }, [calendarDateRange[0], cartSettings.duration, cart, lastMinuteAdditions, partyEssentials.length]);
 
+  console.log('🔍 [CART DEBUG] Current cart state:', {
+    cartLength: cart.length,
+    cartItems: cart.map(item => ({ name: item.name, quantity: item.quantity, category: item.category })),
+    itemAvailabilitySize: itemAvailability.size,
+    calendarDateRange,
+    duration: cartSettings.duration
+  });
   // Validate and clean cart when dates change
   useEffect(() => {
     const validateCart = async () => {
@@ -1313,8 +1468,11 @@ export default function Checkout() {
     return count;
   }, 0);
   
+  // Count unique non-gift-card items (for early delivery surcharge - only charge once per item type)
+  const uniqueNonGiftCardItemCount = cart.filter(item => !item.isGiftCard).length;
+  
   const surfaceAdj = cartSettings.surface ? (surfacePrices[cartSettings.surface] || 0) * nonGiftCardItemCount : 0;
-  const timeAdj = cartSettings.deliveryTime ? (timePrices[cartSettings.deliveryTime] || 0) * nonGiftCardItemCount : 0;
+  const timeAdj = cartSettings.deliveryTime ? (timePrices[cartSettings.deliveryTime] || 0) * uniqueNonGiftCardItemCount : 0;
   const subtotal = cartTotal + lastMinuteTotal + surfaceAdj + timeAdj;
   const total = subtotal + deliveryCost;
 
@@ -3254,7 +3412,51 @@ export default function Checkout() {
                     {item.name}
                   </div>
                   <div className="order-item-info">
-                    Quantity: {item.quantity}
+                    <div style={{ marginBottom: '0.5rem' }}>
+                      <label htmlFor={`order-quantity-${idx}`}>Quantity: </label>
+                      <select
+                        id={`order-quantity-${idx}`}
+                        value={item.quantity || 1}
+                        onChange={(e) => {
+                          if (item.category === 'party-essentials') {
+                            updateCartItemQuantity(idx, parseInt(e.target.value));
+                          } else {
+                            // For non-party essentials, just update the cart directly
+                            const updatedCart = [...cart];
+                            updatedCart[idx] = { ...item, quantity: parseInt(e.target.value) };
+                            setCart(updatedCart);
+                            localStorage.setItem('cart', JSON.stringify(updatedCart));
+                          }
+                        }}
+                        style={{
+                          padding: '0.25rem',
+                          borderRadius: '4px',
+                          border: '1px solid #ddd',
+                          fontSize: '0.9rem',
+                          marginLeft: '0.25rem'
+                        }}
+                      >
+                        {item.category === 'party-essentials' ? (
+                          (() => {
+                            const maxAvailable = getAvailableQuantityForCartItem(item, idx);
+                            return Array.from({ length: Math.max(1, maxAvailable) }, (_, i) => i + 1).map(qty => (
+                              <option key={qty} value={qty} disabled={qty > maxAvailable}>
+                                {qty}{qty > maxAvailable ? ' (unavailable)' : ''}
+                              </option>
+                            ));
+                          })()
+                        ) : (
+                          Array.from({ length: 10 }, (_, i) => i + 1).map(qty => (
+                            <option key={qty} value={qty}>{qty}</option>
+                          ))
+                        )}
+                      </select>
+                      {item.category === 'party-essentials' && (
+                        <span style={{ fontSize: '0.8rem', color: '#666', marginLeft: '0.5rem' }}>
+                          ({getAvailableQuantityForCartItem(item, idx)} available)
+                        </span>
+                      )}
+                    </div>
                     {item.isGiftCard ? (
                       ` ($${item.giftCardValue || item.price} each)`
                     ) : !item.isMembership && item.wetDry === "Wet/Dry" ? (
@@ -3733,7 +3935,57 @@ export default function Checkout() {
                         />
                         <div className="cart-item-info">
                           <h4>{item.name}</h4>
-                          <p>Quantity: {item.quantity}</p>
+                          {/* Quantity Selection Dropdown - All Items */}
+                          <div className="quantity-selection" style={{ marginBottom: '0.5rem' }}>
+                            <label htmlFor={`quantity-${index}`}>Quantity: </label>
+                            <select
+                              id={`quantity-${index}`}
+                              value={item.quantity || 1}
+                              onChange={(e) => {
+                                if (item.category === 'party-essentials') {
+                                  updateCartItemQuantity(index, parseInt(e.target.value));
+                                } else {
+                                  // For non-party essentials, just update the cart directly
+                                  const updatedCart = [...cart];
+                                  updatedCart[index] = { ...item, quantity: parseInt(e.target.value) };
+                                  setCart(updatedCart);
+                                  localStorage.setItem('cart', JSON.stringify(updatedCart));
+                                }
+                              }}
+                              style={{
+                                padding: '0.25rem',
+                                borderRadius: '4px',
+                                border: '1px solid #ddd',
+                                fontSize: '0.9rem',
+                                marginLeft: '0.25rem'
+                              }}
+                            >
+                              {item.category === 'party-essentials' ? (
+                                (() => {
+                                  const maxAvailable = getAvailableQuantityForCartItem(item, index);
+                                  console.log('🔍 [DROPDOWN DEBUG] Rendering dropdown for:', {
+                                    itemName: item.name,
+                                    maxAvailable,
+                                    category: item.category
+                                  });
+                                  return Array.from({ length: Math.max(1, maxAvailable) }, (_, i) => i + 1).map(qty => (
+                                    <option key={qty} value={qty} disabled={qty > maxAvailable}>
+                                      {qty}{qty > maxAvailable ? ' (unavailable)' : ''}
+                                    </option>
+                                  ));
+                                })()
+                              ) : (
+                                Array.from({ length: 10 }, (_, i) => i + 1).map(qty => (
+                                  <option key={qty} value={qty}>{qty}</option>
+                                ))
+                              )}
+                            </select>
+                            {item.category === 'party-essentials' && (
+                              <span style={{ fontSize: '0.8rem', color: '#666', marginLeft: '0.5rem' }}>
+                                ({getAvailableQuantityForCartItem(item, index)} available)
+                              </span>
+                            )}
+                          </div>
                           {item.selectedDates && (
                             <p className="cart-item-dates">
                               {item.selectedDates[0]?.toLocaleDateString()} - {item.selectedDates[1]?.toLocaleDateString()}
@@ -3759,6 +4011,7 @@ export default function Checkout() {
                               </select>
                             </div>
                           )}
+
                         </div>
                         <div className="cart-item-price">
                           ${typeof item.price === 'number' ? item.price.toFixed(2) : item.price}

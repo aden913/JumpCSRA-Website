@@ -11,6 +11,7 @@ import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '../components/FirebaseConfig';
 import { isUserMember } from '../utils/databaseUtils';
 import { useNavigate } from 'react-router';
+import { checkItemAvailability, type ItemAvailability } from '../utils/availabilityUtils';
 import type { CartItem } from '../components/CartSidebar';
 import type { UserMembership } from '../utils/databaseUtils';
 
@@ -162,6 +163,101 @@ export function useWelcomeLogic() {
   const categories = useCategories(inflateables);
   const productDetails = useProductDetails(selectedProduct, inflateables);
 
+  // Party essentials availability state
+  const [itemAvailability, setItemAvailability] = useState<Map<string, ItemAvailability>>(new Map());
+  
+  // Quantity selection modal state
+  const [showQuantityModal, setShowQuantityModal] = useState(false);
+  const [quantityModalItem, setQuantityModalItem] = useState<any | null>(null);
+  const [selectedQuantity, setSelectedQuantity] = useState(1);
+
+  // Load party essentials availability when dates change
+  useEffect(() => {
+    async function loadPartyEssentialsAvailability() {
+      if (!hasValidDates || !calendarDateRange[0] || !calendarDateRange[1] || inflateables.length === 0) {
+        console.log('🔍 Skipping availability check:', { hasValidDates, dates: calendarDateRange, inflatables: inflateables.length });
+        return;
+      }
+
+      try {
+        console.log('🔍 Loading party essentials availability...');
+        // Get party essentials from actual inflateables data
+        const partyEssentials = inflateables.filter(item => 
+          item.category && item.category.toLowerCase() === 'party-essentials'
+        );
+        
+        console.log('🎪 Found party essentials:', partyEssentials.map(item => ({ name: item.name, quantity: item.quantity })));
+        
+        const newAvailability = new Map<string, ItemAvailability>();
+        
+        for (const item of partyEssentials) {
+          try {
+            const totalQuantity = item.quantity || 1; // Use actual quantity from database
+            console.log(`🔍 Checking availability for ${item.name} (total: ${totalQuantity})`);
+            
+            const availability = await checkItemAvailability(
+              item.name,
+              totalQuantity,
+              calendarDateRange[0],
+              calendarDateRange[1]
+            );
+            
+            console.log(`✅ Availability for ${item.name}:`, availability);
+            newAvailability.set(item.name, availability);
+          } catch (error) {
+            console.warn(`❌ Failed to check availability for ${item.name}:`, error);
+            // Set default availability if check fails
+            newAvailability.set(item.name, {
+              availableQuantity: 0,
+              totalQuantity: item.quantity || 1,
+              bookedQuantity: 0
+            });
+          }
+        }
+        
+        setItemAvailability(newAvailability);
+        console.log('🎪 Final availability map:', newAvailability);
+      } catch (error) {
+        console.error('❌ Failed to load party essentials availability:', error);
+      }
+    }
+
+    loadPartyEssentialsAvailability();
+  }, [calendarDateRange, hasValidDates, inflateables]);
+
+  // Get available quantity for an item, considering cart items
+  const getAvailableQuantityForItem = (itemName: string): number => {
+    const availability = itemAvailability.get(itemName);
+    console.log(`🔍 Getting available quantity for ${itemName}:`, availability);
+    
+    if (!availability) {
+      console.log(`❌ No availability data for ${itemName}`);
+      return 0;
+    }
+
+    const availableFromBookings = availability.availableQuantity || 0;
+    
+    // Count how many of this item are already in cart
+    const cartQuantity = cart.reduce((sum: number, cartItem: any) => {
+      if (cartItem.name === itemName) {
+        return sum + (cartItem.quantity || 1);
+      }
+      return sum;
+    }, 0);
+
+    const finalAvailable = Math.max(0, availableFromBookings - cartQuantity);
+    console.log(`📊 ${itemName}: available=${availableFromBookings}, inCart=${cartQuantity}, final=${finalAvailable}`);
+    
+    return finalAvailable;
+  };
+
+  // Get quantity options for party essentials
+  const getQuantityOptions = (itemName: string): number[] => {
+    const available = getAvailableQuantityForItem(itemName);
+    if (available <= 0) return [];
+    return Array.from({ length: Math.min(available, 10) }, (_, i) => i + 1);
+  };
+
   function handleNavClick(type: string) {
     if (type === "Cart") {
       navigate('/checkout');
@@ -184,43 +280,139 @@ export function useWelcomeLogic() {
     setProductOpen(true);
   };
 
-  const addToCart = (product: any) => {
+  const addToCart = (product: any, quantity: number = 1) => {
+    // Check if this is a party essential
+    const isPartyEssential = product.category === 'party-essentials';
+    
+    if (isPartyEssential) {
+      // Show quantity selection modal for party essentials
+      const available = getAvailableQuantityForItem(product.name);
+      if (available <= 0) {
+        notifications.show({
+          title: 'Not Available',
+          message: `${product.name} is not available for your selected dates.`,
+          color: 'red',
+        });
+        return;
+      }
+      
+      if (available === 1) {
+        // If only 1 available, add directly
+        addToCartWithQuantity(product, 1);
+      } else {
+        // Show quantity selection modal
+        setQuantityModalItem(product);
+        setSelectedQuantity(1);
+        setShowQuantityModal(true);
+      }
+      return;
+    }
+    
+    // For non-party essentials, use existing logic
+    addToCartWithQuantity(product, quantity);
+  };
+
+  const addToCartWithQuantity = (product: any, quantity: number = 1) => {
     const wetDry = product.wet && product.dry ? "Wet/Dry" : product.wet ? "Wet" : "Dry";
     const price = typeof product.weekdayPrice === "number" ? product.weekdayPrice : 0;
     
     // Check if this is a gift card
     const isGiftCard = product.name?.toLowerCase().includes('gift card') || product.isGiftCard;
     
-    // Only check for existing items if it's not a gift card
-    if (!isGiftCard) {
-      const existing = cart.find((item: CartItem) => item.name === product.name && item.wetDry === wetDry);
-      if (existing) {
+    // Check if this is a party essential
+    const isPartyEssential = product.category === 'party-essentials';
+    
+    let newCart;
+    
+    if (isPartyEssential) {
+      // Check availability for party essentials
+      const available = getAvailableQuantityForItem(product.name);
+      if (available < quantity) {
         notifications.show({
-          title: 'Already in Cart',
-          message: `${product.name} is already in your cart. Only one of each item can be selected.`,
-          color: 'orange',
+          title: 'Not Available',
+          message: `Only ${available} ${product.name}${available !== 1 ? 's' : ''} available for your selected dates.`,
+          color: 'red',
         });
         setProductOpen(false);
         setModalOpen(false);
+        setShowQuantityModal(false);
         return;
       }
+
+      // For party essentials, check if item already exists and update quantity
+      const existingIndex = cart.findIndex((item: CartItem) => item.name === product.name && item.wetDry === wetDry);
+      
+      if (existingIndex !== -1) {
+        // Update existing item quantity
+        const updatedCart = [...cart];
+        const newQuantity = updatedCart[existingIndex].quantity + quantity;
+        
+        // Check if new total quantity exceeds availability
+        const currentInCart = updatedCart[existingIndex].quantity;
+        if (newQuantity > available + currentInCart) {
+          notifications.show({
+            title: 'Quantity Exceeded',
+            message: `Cannot add ${quantity} more. Only ${available} ${product.name}${available !== 1 ? 's' : ''} available.`,
+            color: 'red',
+          });
+          setProductOpen(false);
+          setModalOpen(false);
+          setShowQuantityModal(false);
+          return;
+        }
+        
+        updatedCart[existingIndex].quantity = newQuantity;
+        newCart = updatedCart;
+      } else {
+        // Add new item
+        newCart = [...cart, { 
+          id: product.id || product.name,
+          name: product.name, 
+          price, 
+          wetDry, 
+          quantity, 
+          category: product.category,
+          image: product.image,
+          isGiftCard: false
+        }];
+      }
+    } else {
+      // For non-party essentials, keep existing logic
+      if (!isGiftCard) {
+        const existing = cart.find((item: CartItem) => item.name === product.name && item.wetDry === wetDry);
+        if (existing) {
+          notifications.show({
+            title: 'Already in Cart',
+            message: `${product.name} is already in your cart. Only one of each item can be selected.`,
+            color: 'orange',
+          });
+          setProductOpen(false);
+          setModalOpen(false);
+          return;
+        }
+      }
+      
+      newCart = [...cart, { 
+        id: isGiftCard ? `${product.id || product.name}-${Date.now()}` : (product.id || product.name),
+        name: product.name, 
+        price, 
+        wetDry, 
+        quantity: 1, 
+        category: product.category,
+        image: product.image,
+        isGiftCard: isGiftCard
+      }];
     }
-    const newCart = [...cart, { 
-      id: isGiftCard ? `${product.id || product.name}-${Date.now()}` : (product.id || product.name), // Unique ID for gift cards
-      name: product.name, 
-      price, 
-      wetDry, 
-      quantity: 1, 
-      category: product.category,
-      image: product.image,
-      isGiftCard: isGiftCard
-    }];
-    setCart(newCart); // This automatically saves to localStorage via useCart hook
+    
+    setCart(newCart);
     setProductOpen(false);
     setModalOpen(false);
+    
+    const quantityMessage = isPartyEssential && quantity > 1 ? 
+      ` (${quantity})` : '';
     notifications.show({
       title: 'Added to Cart',
-      message: `${product.name} has been added to your cart!`,
+      message: `${product.name}${quantityMessage} has been added to your cart!`,
       color: 'green',
     });
   };
@@ -292,6 +484,23 @@ export function useWelcomeLogic() {
     });
   };
 
+  const handleQuantityModalConfirm = () => {
+    if (quantityModalItem) {
+      addToCartWithQuantity(quantityModalItem, selectedQuantity);
+      setShowQuantityModal(false);
+      setQuantityModalItem(null);
+      setSelectedQuantity(1);
+      setProductOpen(false);
+      setModalOpen(false);
+    }
+  };
+
+  const handleQuantityModalClose = () => {
+    setShowQuantityModal(false);
+    setQuantityModalItem(null);
+    setSelectedQuantity(1);
+  };
+
   return {
     selectedProduct,
     setSelectedProduct,
@@ -326,6 +535,19 @@ export function useWelcomeLogic() {
     addMembershipToCart,
     cartSettings,
     user,
+    showQuantityModal,
+    setShowQuantityModal,
+    quantityModalItem,
+    setQuantityModalItem,
+    selectedQuantity,
+    setSelectedQuantity,
+    handleQuantityModalConfirm,
+    handleQuantityModalClose,
+    getAvailableQuantityForItem,
     userMembership,
+    // Party essentials availability functions
+    itemAvailability,
+    getAvailableQuantityForItem,
+    getQuantityOptions,
   };
 }

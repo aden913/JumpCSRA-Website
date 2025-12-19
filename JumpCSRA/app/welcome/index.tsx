@@ -1,6 +1,7 @@
 import { ModalCarousel } from "../components/ModalCarousel";
 import { OptionsCarousel, OptionsCarouselRef } from "../components/OptionsCarousel";
 import { ProductDetailModal } from "../components/ProductDetailModal";
+import { QuantitySelectionModal } from "../components/QuantitySelectionModal";
 import { CalendarSidebar } from "../components/CalendarSidebar";
 import { MobileBottomMenu } from "../components/MobileBottomMenu";
 import { Notifications } from '@mantine/notifications';
@@ -669,7 +670,22 @@ export function Welcome() {
           open={logic.productOpen}
           product={logic.selectedProduct ? { ...logic.selectedProduct } : null}
           onClose={() => logic.setProductOpen(false)}
-          onPurchase={logic.addToCart}
+          onPurchase={(product, quantity) => logic.addToCart(product, quantity)}
+          getQuantityOptions={logic.getQuantityOptions}
+          getAvailableQuantityForItem={logic.getAvailableQuantityForItem}
+          itemAvailability={logic.itemAvailability}
+          hasValidDates={!!logic.hasValidDates}
+        />
+        
+        {/* Quantity Selection Modal for Party Essentials */}
+        <QuantitySelectionModal
+          open={logic.showQuantityModal}
+          product={logic.quantityModalItem}
+          selectedQuantity={logic.selectedQuantity}
+          setSelectedQuantity={logic.setSelectedQuantity}
+          availableQuantity={logic.quantityModalItem ? logic.getAvailableQuantityForItem(logic.quantityModalItem.name) : 0}
+          onConfirm={logic.handleQuantityModalConfirm}
+          onClose={logic.handleQuantityModalClose}
         />
 
         {/* Cart Sidebar - Removed: Cart button now navigates directly to checkout */}
