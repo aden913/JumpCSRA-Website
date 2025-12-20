@@ -208,6 +208,7 @@ export function useWelcomeLogic() {
             console.warn(`❌ Failed to check availability for ${item.name}:`, error);
             // Set default availability if check fails
             newAvailability.set(item.name, {
+              itemName: item.name,
               availableQuantity: 0,
               totalQuantity: item.quantity || 1,
               bookedQuantity: 0
@@ -543,7 +544,6 @@ export function useWelcomeLogic() {
     setSelectedQuantity,
     handleQuantityModalConfirm,
     handleQuantityModalClose,
-    getAvailableQuantityForItem,
     userMembership,
     // Party essentials availability functions
     itemAvailability,

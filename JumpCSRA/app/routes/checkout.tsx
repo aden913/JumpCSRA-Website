@@ -21,8 +21,6 @@ import { generateUniqueGiftCardCode, createGiftCardInDatabase, useDiscounts } fr
 import { sendOrderConfirmationEmail, createGiftCardInfoFromCart, OrderConfirmationEmailData, GiftCardInfo } from "../utils/emailUtils";
 import { scheduleCartReminderEmail, scheduleDepositReminderEmail, scheduleEventConfirmationEmail, schedulePostEventThanksEmail, scheduleRebookingReminderEmail } from "../utils/backendEmailService";
 import { clearCartAbandonment } from "../utils/cartAbandonmentTracker";
-import { checkItemAvailability } from "../utils/availabilityUtils";
-import type { ItemAvailability } from "../utils/availabilityUtils";
 import { notifications } from '@mantine/notifications';
 import { Notifications } from '@mantine/notifications';
 import { MantineProvider } from '@mantine/core';
@@ -1116,7 +1114,7 @@ export default function Checkout() {
                 price: item.price,
                 quantity: item.quantity,
                 category: 'inflateable', // Default category
-                wetDry: item.wetDry || 'Wet/Dry', // Use saved wetDry or default
+                wetDry: (item as any).wetDry || 'Wet/Dry', // Use saved wetDry or default
                 wet: true,
                 dry: true
               }));
@@ -3999,11 +3997,7 @@ export default function Checkout() {
                               </span>
                             )}
                           </div>
-                          {item.selectedDates && (
-                            <p className="cart-item-dates">
-                              {item.selectedDates[0]?.toLocaleDateString()} - {item.selectedDates[1]?.toLocaleDateString()}
-                            </p>
-                          )}
+                          {/* Date display removed - selectedDates not in CartItem type */}
                           {/* Wet/Dry Selection Dropdown */}
                           {item.wetDry === 'Wet/Dry' && !item.isGiftCard && !item.isMembership && (
                             <div className="wet-dry-selection">
@@ -4376,7 +4370,7 @@ export default function Checkout() {
                             price: item.price,
                             quantity: item.quantity,
                             category: 'inflateable',
-                            wetDry: item.wetDry || 'Wet/Dry',
+                            wetDry: (item as any).wetDry || 'Wet/Dry',
                             wet: true,
                             dry: true
                           }));
@@ -4897,7 +4891,6 @@ export default function Checkout() {
                         onError={onPayPalError}
                         disabled={processingPayment}
                         forceReRender={[calculatePayPalAmount()]}
-                        shippingPreference="NO_SHIPPING"
                       />
                     </div>
                     
@@ -4918,7 +4911,6 @@ export default function Checkout() {
                         onError={onPayPalError}
                         disabled={processingPayment}
                         forceReRender={[calculatePayPalAmount()]}
-                        shippingPreference="NO_SHIPPING"
                       />
                     </div>
                   </PayPalScriptProvider>
