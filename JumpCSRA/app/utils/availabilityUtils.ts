@@ -55,9 +55,12 @@ export async function checkItemAvailability(
     let bookedQuantity = 0;
     const conflictingBookings: ItemAvailability['conflictingBookings'] = [];
     
-    // Check regular bookings
+    // Check regular bookings (exclude cancelled and pending, but include deposited)
     regularBookings.forEach(booking => {
-      if (booking.status === 'cancelled' || booking.bookingId === excludeBookingId) return;
+      if (booking.status === 'cancelled' || booking.status === 'pending' || booking.bookingId === excludeBookingId) {
+        console.log(`  ⚪ Excluding regular booking: ${booking.orderID || 'no-id'} (status: ${booking.status})`);
+        return;
+      }
       
       const bookingStart = new Date(booking.orderDetails?.eventDate || booking.createdAt);
       const bookingEnd = new Date(bookingStart);

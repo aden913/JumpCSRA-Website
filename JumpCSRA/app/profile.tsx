@@ -344,6 +344,8 @@ export default function Profile() {
         return '#ffc107'; // Yellow
       case 'pending':
         return '#17a2b8'; // Blue
+      case 'deposited':
+        return '#20c997'; // Teal/Green - indicates partial payment received
       case 'confirmed':
         return '#28a745'; // Green
       case 'completed':
@@ -618,7 +620,7 @@ export default function Profile() {
   // Booking filter and sort state
   const [sortBy, setSortBy] = useState<'date' | 'price' | 'status'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'deferred' | 'pending' | 'confirmed' | 'completed' | 'cancelled'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'deferred' | 'pending' | 'deposited' | 'confirmed' | 'completed' | 'cancelled'>('all');
 
   // Booking cancellation state
   const [showCancelConfirmation, setShowCancelConfirmation] = useState(false);
@@ -2287,12 +2289,13 @@ export default function Profile() {
                 <select 
                   id="filter-status"
                   value={filterStatus} 
-                  onChange={(e) => setFilterStatus(e.target.value as 'all' | 'deferred' | 'pending' | 'confirmed' | 'completed' | 'cancelled')}
+                  onChange={(e) => setFilterStatus(e.target.value as 'all' | 'deferred' | 'pending' | 'deposited' | 'confirmed' | 'completed' | 'cancelled')}
                   className="filter-select"
                 >
                   <option value="all">All Statuses</option>
                   <option value="deferred">Deferred</option>
                   <option value="pending">Pending</option>
+                  <option value="deposited">Deposited</option>
                   <option value="confirmed">Confirmed</option>
                   <option value="completed">Completed</option>
                   <option value="cancelled">Cancelled</option>
@@ -2394,7 +2397,7 @@ export default function Profile() {
                             {loadingContract ? 'Loading...' : 'View Contract'}
                           </button>
                           
-                            {booking.status === 'pending' && booking.paymentDetails?.remainingBalance > 0 && (
+                            {(booking.status === 'pending' || booking.status === 'deposited') && booking.paymentDetails?.remainingBalance > 0 && (
                               <button 
                                 className="btn-complete-payment"
                                 onClick={() => navigate(`/checkout?booking=${booking.orderID}`)}
@@ -2404,7 +2407,7 @@ export default function Profile() {
                             )}
 
                             {/* Cancel button for deferred, confirmed, or pending bookings */}
-                            {(booking.status === 'deferred' || booking.status === 'confirmed' || booking.status === 'pending') && (
+                            {(booking.status === 'deferred' || booking.status === 'confirmed' || booking.status === 'pending' || booking.status === 'deposited') && (
                               <button 
                                 className="btn-cancel-booking"
                                 onClick={() => handleCancelBooking(booking)}
@@ -2507,7 +2510,7 @@ export default function Profile() {
                             {loadingContract ? 'Loading...' : 'View Contract'}
                           </button>
                           
-                            {booking.status === 'pending' && (
+                            {(booking.status === 'pending' || booking.status === 'deposited') && (
                               <button 
                                 className="btn-complete-payment"
                                 onClick={() => navigate(`/checkout?booking=${booking.contractId}`)}
@@ -3823,7 +3826,7 @@ export default function Profile() {
           </div>
           
           <div className="modal-actions">
-            {selectedBooking.status === 'pending' && (
+            {(selectedBooking.status === 'pending' || selectedBooking.status === 'deposited') && (
               <button 
                 className="btn-complete-payment"
                 onClick={() => {

@@ -8,7 +8,7 @@ import { getDatabase, ref, set, get, child, push } from "firebase/database";
 export interface BookingData {
   orderID: string;
   customerID: string;
-  status: 'deferred' | 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  status: 'deferred' | 'pending' | 'deposited' | 'confirmed' | 'completed' | 'cancelled';
   customerInfo: {
     firstName: string;
     lastName: string;
@@ -168,7 +168,7 @@ export const loadBookingData = async (orderID: string): Promise<BookingData | nu
   }
 };
 
-export const updateBookingStatus = async (orderID: string, status: 'deferred' | 'pending' | 'confirmed' | 'completed' | 'cancelled'): Promise<boolean> => {
+export const updateBookingStatus = async (orderID: string, status: 'deferred' | 'pending' | 'deposited' | 'confirmed' | 'completed' | 'cancelled'): Promise<boolean> => {
   try {
     const database = getDatabase();
     const statusRef = ref(database, `bookings/${orderID}/status`);
@@ -393,7 +393,7 @@ export const isBookingPastEventDate = (eventDate: string): boolean => {
   }
 };
 
-export const determineInitialBookingStatus = (eventDate: string, isContractSigned: boolean, depositAmount: number, totalAmount: number, isGiftCardOnly: boolean = false): 'deferred' | 'pending' | 'confirmed' => {
+export const determineInitialBookingStatus = (eventDate: string, isContractSigned: boolean, depositAmount: number, totalAmount: number, isGiftCardOnly: boolean = false): 'deferred' | 'pending' | 'deposited' | 'confirmed' => {
   // Gift card only purchases are always confirmed when payment is complete
   if (isGiftCardOnly && depositAmount >= totalAmount) {
     return 'confirmed';
@@ -441,17 +441,17 @@ export const updateBookingStatusBasedOnPayment = async (orderID: string, deposit
     );
     
     
-    let newStatus: 'deferred' | 'pending' | 'confirmed';
+    let newStatus: 'deferred' | 'pending' | 'deposited' | 'confirmed';
     
     // Gift card only orders are always confirmed when payment is complete
     if (isGiftCardOnly && depositAmount >= totalAmount) {
       newStatus = 'confirmed';
     } else if (bookingData.status === 'deferred') {
-      // If booking was deferred, it should move to pending or confirmed based on payment
+      // If booking was deferred, it should move to deposited or confirmed based on payment
       if (depositAmount >= totalAmount) {
         newStatus = 'confirmed'; // Full payment
       } else if (depositAmount > 0) {
-        newStatus = 'pending'; // Deposit payment
+        newStatus = 'deposited'; // Deposit payment - committed but not fully paid
       } else {
         newStatus = 'deferred'; // No payment yet
       }
@@ -460,10 +460,10 @@ export const updateBookingStatusBasedOnPayment = async (orderID: string, deposit
       if (depositAmount >= totalAmount) {
         newStatus = 'confirmed'; // Full payment
       } else if (depositAmount > 0) {
-        newStatus = 'pending'; // Deposit payment  
+        newStatus = 'deposited'; // Deposit payment - committed but not fully paid
       } else {
         // This shouldn't happen - bookings should have payment when this is called
-        newStatus = bookingData.status as 'pending' | 'confirmed';
+        newStatus = bookingData.status as 'deposited' | 'confirmed';
       }
     }
     

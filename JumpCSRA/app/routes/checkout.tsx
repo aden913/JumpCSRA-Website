@@ -63,7 +63,7 @@ interface ContractMetadata {
   deliveryTime?: string;
   deliveryAddress?: string;
   contractStatus?: 'pending' | 'signed' | 'completed';
-  status?: 'deferred' | 'pending' | 'confirmed' | 'completed' | 'cancelled';
+  status?: 'deferred' | 'pending' | 'deposited' | 'confirmed' | 'completed' | 'cancelled';
   deposit?: number;
   customerInfo?: {
     firstName?: string;
@@ -292,23 +292,36 @@ export default function Checkout() {
   // Initialize starting step based on cart contents
   const getInitialStep = (): CheckoutStep => {
     const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
+    console.log('🔍 [INITIAL STEP DEBUG] Determining initial step:', {
+      cartLength: cart.length,
+      hasInflateables,
+      cartItems: cart.map(item => ({ name: item.name, isGiftCard: item.isGiftCard, isMembership: item.isMembership })),
+      initialStep: hasInflateables ? 'quick-add-totals' : 'order-summary'
+    });
     return hasInflateables ? 'quick-add-totals' : 'order-summary';
   };
   
-  const [currentStep, setCurrentStep] = useState<CheckoutStep>(getInitialStep());
-  const [visitedSteps, setVisitedSteps] = useState<Set<CheckoutStep>>(() => new Set([getInitialStep()]));
+  const [currentStep, setCurrentStep] = useState<CheckoutStep>('quick-add-totals'); // Default to first step, will be corrected when cart loads
+  const [visitedSteps, setVisitedSteps] = useState<Set<CheckoutStep>>(() => new Set(['quick-add-totals'])); // Default to first step
 
-  // Update step when cart loads from localStorage (but not on quantity updates)
+  // Update step when cart loads from localStorage
   useEffect(() => {
-    if (!loading && user && cart.length > 0) {
-      // Only reset step if we're starting fresh (no visited steps beyond initial)
-      if (visitedSteps.size === 1 && visitedSteps.has(getInitialStep()) && currentStep === getInitialStep()) {
-        const correctStep = getInitialStep();
+    if (!loading && user) {
+      const correctStep = getInitialStep();
+      console.log('🔄 [STEP UPDATE] Setting correct initial step:', {
+        currentStep,
+        correctStep,
+        cartLength: cart.length,
+        visitedStepsSize: visitedSteps.size
+      });
+      
+      // Always set the correct step when cart is first loaded
+      if (visitedSteps.size === 1 && (visitedSteps.has('quick-add-totals') || visitedSteps.has('order-summary'))) {
         setCurrentStep(correctStep);
         setVisitedSteps(new Set([correctStep]));
       }
     }
-  }, [loading, user]); // Removed cart dependency to prevent step reset on quantity changes
+  }, [loading, user, cart.length]); // React to cart length changes to detect when cart is loaded
   
   // Google Places validation state
   const [googlePlacesAddresses, setGooglePlacesAddresses] = useState<Set<string>>(new Set());
@@ -632,7 +645,7 @@ export default function Checkout() {
         }
         
         // Verify booking is available for payment (deferred or pending)
-        if (bookingData.status !== 'deferred' && bookingData.status !== 'pending') {
+        if (bookingData.status !== 'deferred' && bookingData.status !== 'pending' && bookingData.status !== 'deposited') {
           throw new Error("Booking is not available for payment");
         }
         
@@ -670,7 +683,7 @@ export default function Checkout() {
         const legacyBookingData = snapshot.val() as ContractMetadata;
         
         // Verify booking is available for payment (deferred or pending)
-        if (legacyBookingData.status !== 'deferred' && legacyBookingData.status !== 'pending') {
+        if (legacyBookingData.status !== 'deferred' && legacyBookingData.status !== 'pending' && legacyBookingData.status !== 'deposited') {
           throw new Error("Booking is not available for payment");
         }
         
@@ -4276,6 +4289,27 @@ export default function Checkout() {
                 </button>
               </>
             )}
+          </div>
+        )}
+
+        {/* Contract Step Back Button - Always show when in contract step */}
+        {currentStep === 'contract' && !visitedSteps.has('quick-add-totals') && (
+          <div className="checkout-navigation-buttons">
+            <button
+              id="btn-back-contract-only"
+              onClick={goToPreviousStep}
+              style={{
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                padding: '1rem 2rem',
+                borderRadius: '4px',
+                fontSize: '1rem',
+                cursor: 'pointer'
+              }}
+            >
+              ← Back to Order Summary
+            </button>
           </div>
         )}
         </div>
