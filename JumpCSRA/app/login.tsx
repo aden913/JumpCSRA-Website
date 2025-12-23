@@ -31,7 +31,14 @@ if (!getApps().length) {
 
 const auth = getAuth();
 const provider = new GoogleAuthProvider();
-setPersistence(auth, browserLocalPersistence);
+
+// Set auth persistence with error handling
+try {
+  setPersistence(auth, browserLocalPersistence);
+} catch (error) {
+  console.error("Failed to set auth persistence:", error);
+  // Continue without persistence if it fails
+}
 
 export default function Login() {
   // States
@@ -59,45 +66,83 @@ export default function Login() {
 
   // Check if user is already authenticated
   useEffect(() => {
-    // Add timeout to prevent indefinite hanging
-    const authTimeout = setTimeout(() => {
-      console.log("Authentication check timed out after 10 seconds");
+    let authTimeout: NodeJS.Timeout;
+    let isAuthResolved = false;
+    
+    // Check for recent auth check to prevent infinite loops
+    const lastAuthCheck = localStorage.getItem('lastAuthCheck');
+    const now = Date.now();
+    
+    // If we just checked auth within the last 5 seconds, skip this check
+    if (lastAuthCheck && (now - parseInt(lastAuthCheck)) < 5000) {
+      console.log("Recent auth check detected, skipping to prevent loops");
       setIsCheckingAuth(false);
-    }, 10000);
+      return;
+    }
+    
+    // Store current time as last auth check
+    localStorage.setItem('lastAuthCheck', now.toString());
+    
+    // Add timeout to prevent indefinite hanging - increased to 15 seconds for production
+    const setAuthTimeout = () => {
+      authTimeout = setTimeout(() => {
+        if (!isAuthResolved) {
+          console.log("Authentication check timed out after 15 seconds");
+          localStorage.removeItem('lastAuthCheck'); // Clear the check timestamp
+          setIsCheckingAuth(false);
+          isAuthResolved = true;
+        }
+      }, 15000);
+    };
+
+    setAuthTimeout();
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      clearTimeout(authTimeout); // Clear timeout when auth state changes
+      if (isAuthResolved) return; // Prevent multiple executions
       
-      if (user) {
-        console.log("User already signed in:", user.uid);
-        
-        // Check if user has a complete profile in Firestore
-        try {
-          const db = getFirestore();
-          const userRef = doc(db, "users", user.uid);
-          const userSnap = await getDoc(userRef);
+      clearTimeout(authTimeout);
+      localStorage.removeItem('lastAuthCheck'); // Clear the check timestamp
+      
+      try {
+        if (user) {
+          console.log("User already signed in:", user.uid);
+          
+          // Check if user has a complete profile in Firestore
+          try {
+            const db = getFirestore();
+            const userRef = doc(db, "users", user.uid);
+            const userSnap = await getDoc(userRef);
 
-          if (!userSnap.exists() || !userSnap.data().phone || !userSnap.data().hasPassword) {
-            // Incomplete profile - show profile completion form
-            setPendingUser(user);
-            setNeedsProfile(true);
-            setIsCheckingAuth(false);
-            return;
+            if (!userSnap.exists() || !userSnap.data().phone || !userSnap.data().hasPassword) {
+              // Incomplete profile - show profile completion form
+              setPendingUser(user);
+              setNeedsProfile(true);
+              setIsCheckingAuth(false);
+              isAuthResolved = true;
+              return;
+            }
+
+            // User is fully authenticated and has complete profile - redirect to home
+            console.log("User has complete profile, redirecting to home");
+            setRedirect(true);
+            isAuthResolved = true;
+          } catch (error) {
+            console.error("Error checking user profile:", error);
+            // If there's an error checking profile, still allow user to proceed
+            // They're authenticated, so let them through
+            setRedirect(true);
+            isAuthResolved = true;
           }
-
-          // User is fully authenticated and has complete profile - redirect to home
-          console.log("User has complete profile, redirecting to home");
-          setRedirect(true);
-        } catch (error) {
-          console.error("Error checking user profile:", error);
-          // If there's an error checking profile, still allow user to proceed
-          // They're authenticated, so let them through
-          setRedirect(true);
+        } else {
+          // No user signed in, show login page
+          console.log("No user signed in, showing login page");
+          setIsCheckingAuth(false);
+          isAuthResolved = true;
         }
-      } else {
-        // No user signed in, show login page
-        console.log("No user signed in, showing login page");
+      } catch (error) {
+        console.error("Error in auth state change handler:", error);
         setIsCheckingAuth(false);
+        isAuthResolved = true;
       }
     });
 
@@ -105,6 +150,8 @@ export default function Login() {
     return () => {
       clearTimeout(authTimeout);
       unsubscribe();
+      localStorage.removeItem('lastAuthCheck'); // Clean up on unmount
+      isAuthResolved = true;
     };
   }, []);
 
@@ -570,24 +617,64 @@ useEffect(() => {
         <img src="/jump-logo.png" alt="Jump Logo" className="login-logo" />
         <div style={{ textAlign: 'center', marginTop: '2rem' }}>
           <p>Checking authentication...</p>
-          <button
-            onClick={() => {
-              console.log("Authentication check bypassed by user - going to sign in");
-              setIsCheckingAuth(false);
-              setShowSignInForm(true);
-            }}
-            style={{
-              marginTop: '1rem',
-              padding: '0.5rem 1rem',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            Go to Sign In
-          </button>
+          <div style={{ 
+            fontSize: '12px', 
+            color: '#666', 
+            marginTop: '1rem',
+            maxWidth: '300px',
+            margin: '1rem auto'
+          }}>
+            This usually takes just a moment. If this screen persists, try the buttons below.
+          </div>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '1rem' }}>
+            <button
+              onClick={() => {
+                console.log("Authentication check bypassed by user - going to sign in");
+                localStorage.removeItem('lastAuthCheck'); // Clear any auth check locks
+                setIsCheckingAuth(false);
+                setShowSignInForm(true);
+                setError(null); // Clear any previous errors
+              }}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}
+            >
+              Skip to Sign In
+            </button>
+            <button
+              onClick={() => {
+                console.log("Manual page refresh requested by user");
+                localStorage.removeItem('lastAuthCheck'); // Clear any auth check locks
+                window.location.reload();
+              }}
+              style={{
+                padding: '0.75rem 1.5rem',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}
+            >
+              Refresh Page
+            </button>
+          </div>
+          <div style={{ 
+            fontSize: '11px', 
+            color: '#999', 
+            marginTop: '0.5rem'
+          }}>
+            Having persistent issues? Try clearing your browser cache.
+          </div>
         </div>
       </div>
     );
