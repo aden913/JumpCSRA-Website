@@ -227,6 +227,11 @@ export function Welcome() {
         if (incompleteBookings.length <= 1) {
           setShowBookingRecovery(false);
         }
+
+        // Refresh the page to update availability in the options carousel
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000); // Small delay to let the notification show
       } else {
         notifications.show({
           title: '❌ Delete Failed',

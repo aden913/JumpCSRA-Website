@@ -136,13 +136,15 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
       if (firstUnsignedSection) {
         const firstInitialBox = document.querySelector(`[data-section-id="${firstUnsignedSection.id}"] .initial-box`);
         if (firstInitialBox) {
-          (firstInitialBox as HTMLElement).focus();
+          firstInitialBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(() => (firstInitialBox as HTMLElement).focus(), 500);
         }
       } else if (contractSections.length > 0) {
         // All sections are initialed, focus the signature input
         const signatureInput = document.querySelector('.signature-input');
         if (signatureInput) {
-          (signatureInput as HTMLElement).focus();
+          signatureInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(() => (signatureInput as HTMLElement).focus(), 500);
         }
       }
     }, 200);
@@ -188,13 +190,15 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
           // Focus next unsigned box
           const nextInitialBox = document.querySelector(`[data-section-id="${nextUnsignedSection.id}"] .initial-box`);
           if (nextInitialBox) {
-            (nextInitialBox as HTMLElement).focus();
+            nextInitialBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => (nextInitialBox as HTMLElement).focus(), 500);
           }
         } else {
           // All sections are initialed, focus the signature input
           const signatureInput = document.querySelector('.signature-input');
           if (signatureInput) {
-            (signatureInput as HTMLElement).focus();
+            signatureInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => (signatureInput as HTMLElement).focus(), 500);
           }
         }
       }, 150);

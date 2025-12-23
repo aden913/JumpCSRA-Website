@@ -3278,7 +3278,16 @@ export default function Checkout() {
               onClick={async () => {
                 if (pendingBookingId && confirm('Are you sure you want to delete this booking? This action cannot be undone.')) {
                   try {
-                    // Delete the booking
+                    // Show initial notification
+                    notifications.show({
+                      title: '🔄 Deleting Booking',
+                      message: 'Deleting booking and updating availability...',
+                      color: 'blue',
+                      autoClose: false,
+                      id: 'deleting-booking'
+                    });
+                    
+                    // Delete the booking first
                     await updateBookingStatus(pendingBookingId, 'cancelled');
                     
                     // Clear the booking state
@@ -3286,25 +3295,67 @@ export default function Checkout() {
                     setIsDeferredBooking(false);
                     localStorage.removeItem('resumeBookingId');
                     
-                    notifications.show({
+                    // Refresh availability for all items that were in the cancelled booking
+                    if (calendarDateRange[0] && cartSettings.duration && partyEssentials.length > 0) {
+                      const startDate = calendarDateRange[0];
+                      const endDate = calculateEndDate(startDate, cartSettings.duration);
+                      
+                      // Check availability for party essentials to update after cancellation
+                      const availabilityPromises = partyEssentials.map(async (item) => {
+                        try {
+                          const availability = await checkItemAvailability(item.name, startDate, endDate);
+                          return { itemName: item.name, availability };
+                        } catch (error) {
+                          console.error(`Error checking availability for ${item.name}:`, error);
+                          return { itemName: item.name, availability: null };
+                        }
+                      });
+                      
+                      const results = await Promise.all(availabilityPromises);
+                      const newAvailabilityMap = new Map();
+                      
+                      results.forEach(({ itemName, availability }) => {
+                        if (availability) {
+                          newAvailabilityMap.set(itemName, availability);
+                        }
+                      });
+                      
+                      setItemAvailability(newAvailabilityMap);
+                    }
+                    
+                    // Update notification and refresh
+                    notifications.update({
+                      id: 'deleting-booking',
                       title: '✅ Booking Deleted',
-                      message: 'Your deferred booking has been successfully deleted.',
+                      message: 'Booking deleted and availability updated. Refreshing...',
                       color: 'green',
-                      autoClose: 3000,
+                      autoClose: 1000,
                     });
                     
-                    // Refresh the page after a short delay to allow notification to show
+                    // Refresh page after availability update
                     setTimeout(() => {
                       window.location.reload();
                     }, 1000);
+                    
                   } catch (error) {
                     console.error('Error deleting booking:', error);
-                    notifications.show({
-                      title: '❌ Delete Failed',
-                      message: 'Failed to delete booking. Please try again.',
-                      color: 'red',
-                      autoClose: 5000,
+                    
+                    // Clear state even if deletion failed
+                    setPendingBookingId('');
+                    setIsDeferredBooking(false);
+                    localStorage.removeItem('resumeBookingId');
+                    
+                    notifications.update({
+                      id: 'deleting-booking',
+                      title: '⚠️ Deletion Error',
+                      message: 'Booking state cleared locally. Refreshing...',
+                      color: 'orange',
+                      autoClose: 1000,
                     });
+                    
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 1000);
                   }
                 }
               }}
