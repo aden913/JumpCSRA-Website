@@ -3290,11 +3290,13 @@ export default function Checkout() {
                       title: '✅ Booking Deleted',
                       message: 'Your deferred booking has been successfully deleted.',
                       color: 'green',
-                      autoClose: 5000,
+                      autoClose: 3000,
                     });
                     
-                    // Navigate back to home
-                    navigate('/');
+                    // Refresh the page after a short delay to allow notification to show
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 1000);
                   } catch (error) {
                     console.error('Error deleting booking:', error);
                     notifications.show({

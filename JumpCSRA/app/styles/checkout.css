@@ -281,12 +281,37 @@
 }
 
 .order-item-image {
-  width: 50px;
-  height: 50px;
+  width: 80px;
+  height: 80px;
   object-fit: cover;
   border-radius: 8px;
   margin-right: 1rem;
   border: 1px solid #ddd;
+}
+
+@media (max-width: 768px) {
+  .order-item-content {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .order-item-image {
+    width: 120px;
+    height: 120px;
+    margin-right: 0;
+    margin-bottom: 0.75rem;
+  }
+  
+  .order-item-details {
+    text-align: center;
+  }
+  
+  .order-item-price-section {
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
 }
 
 .order-item-details {
