@@ -24,20 +24,22 @@
   .mantine-Notifications-root {
     right: 10px !important;
     max-width: calc(100vw - 40px) !important;
-    min-width: 280px !important;
+    min-width: 250px !important;
     pointer-events: none !important; /* Ensure clicks pass through on mobile too */
   }
   
   .mantine-Notification-root {
-    min-width: 280px !important;
+    min-width: 250px !important;
+    max-width: 300px !important;
     pointer-events: auto !important; /* Enable clicks on notifications */
-   
+    padding: 0.75rem !important;
   }
+  
   .mantine-Notification-description {
-    font-size: 1.2rem !important;
+    font-size: 0.85rem !important;
   }
 
   .mantine-Notification-title {
-    font-size: 1.5rem !important;
+    font-size: 1rem !important;
   }
 }

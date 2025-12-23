@@ -128,6 +128,28 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
     }
   }, [userProfile, customerInitials]);
 
+  // Focus first unsigned initial box when component mounts
+  useEffect(() => {
+    // Small delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      const firstUnsignedSection = contractSections.find(section => !section.isFinePrint && !section.isInitialed);
+      if (firstUnsignedSection) {
+        const firstInitialBox = document.querySelector(`[data-section-id="${firstUnsignedSection.id}"] .initial-box`);
+        if (firstInitialBox) {
+          (firstInitialBox as HTMLElement).focus();
+        }
+      } else if (contractSections.length > 0) {
+        // All sections are initialed, focus the signature input
+        const signatureInput = document.querySelector('.signature-input');
+        if (signatureInput) {
+          (signatureInput as HTMLElement).focus();
+        }
+      }
+    }, 200);
+    
+    return () => clearTimeout(timer);
+  }, [contractSections]);
+
   // Handle section initialing
   const handleSectionInitial = (sectionId: string) => {
     // Automatically generate initials from user's firstName and lastName
@@ -149,13 +171,36 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
       setCustomerInitials(autoInitials);
     }
     
-    setContractSections(prev => 
-      prev.map(section => 
+    setContractSections(prev => {
+      const updated = prev.map(section => 
         section.id === sectionId 
           ? { ...section, isInitialed: !section.isInitialed, initialedAt: new Date().toISOString() }
           : section
-      )
-    );
+      );
+      
+      // After updating, focus the next unsigned box or signature input
+      setTimeout(() => {
+        const nextUnsignedSection = updated.find(section => 
+          !section.isFinePrint && !section.isInitialed
+        );
+        
+        if (nextUnsignedSection) {
+          // Focus next unsigned box
+          const nextInitialBox = document.querySelector(`[data-section-id="${nextUnsignedSection.id}"] .initial-box`);
+          if (nextInitialBox) {
+            (nextInitialBox as HTMLElement).focus();
+          }
+        } else {
+          // All sections are initialed, focus the signature input
+          const signatureInput = document.querySelector('.signature-input');
+          if (signatureInput) {
+            (signatureInput as HTMLElement).focus();
+          }
+        }
+      }, 150);
+      
+      return updated;
+    });
   };
 
   // Check if all sections are initialed (excluding fine print)
@@ -226,9 +271,19 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
               <div className="initial-section">
                 <div 
                   className="initial-container"
+                  data-section-id={section.id}
                   onClick={() => handleSectionInitial(section.id)}
                 >
-                  <div className={`initial-box ${section.isInitialed ? 'filled' : ''}`}>
+                  <div 
+                    className={`initial-box ${section.isInitialed ? 'filled' : ''}`}
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSectionInitial(section.id);
+                      }
+                    }}
+                  >
                     {section.isInitialed ? customerInitials : '____'}
                   </div>
                 </div>

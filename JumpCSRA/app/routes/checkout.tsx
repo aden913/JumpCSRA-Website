@@ -232,11 +232,7 @@ export default function Checkout() {
     });
     
     if (newQuantity > maxAvailable) {
-      notifications.show({
-        title: 'Quantity Exceeded',
-        message: `Only ${maxAvailable} ${item.name}${maxAvailable !== 1 ? 's' : ''} available for your selected dates.`,
-        color: 'red',
-      });
+      // Fail silently for delivery-related availability issues
       return;
     }
 
@@ -248,11 +244,7 @@ export default function Checkout() {
     // Update localStorage
     localStorage.setItem('cart', JSON.stringify(updatedCart));
     
-    notifications.show({
-      title: 'Quantity Updated',
-      message: `${item.name} quantity updated to ${newQuantity}`,
-      color: 'green',
-    });
+    // Delivery-related notifications removed - fail silently
   };
 
   // Checkout-specific state
@@ -891,12 +883,7 @@ export default function Checkout() {
         console.log('    - Is this a Google Places address?:', googlePlacesAddresses.has(destinationAddress));
         
         setDeliveryCost(cost);
-        notifications.show({
-          title: '🚚 Delivery Cost Calculated',
-          message: `Distance: ${distanceMiles.toFixed(1)} miles • Cost: $${cost}`,
-          color: 'blue',
-          autoClose: 5000,
-        });
+        // Delivery cost calculated successfully - no notification needed
       } else {
         throw new Error("Could not calculate route");
       }
@@ -905,12 +892,8 @@ export default function Checkout() {
       console.log('  - Failed with address:', destinationAddress);
       console.log('  - Current deliveryAddress state:', deliveryAddress);
       console.log('  - Current input field value:', addressInputRef.current?.value);
-      notifications.show({
-        title: '❌ Delivery Calculation Error',
-        message: 'Could not calculate delivery distance. Please verify the address and try again.',
-        color: 'red',
-        autoClose: 7000,
-      });
+      // Set delivery cost to 0 and fail silently
+      setDeliveryCost(0);
     } finally {
       console.log('🏁 DELIVERY COST CALCULATION FINISHED');
       setCalculatingDistance(false);
@@ -3642,7 +3625,7 @@ export default function Checkout() {
             if (durationCharge !== 0 && rentalSubtotal > 0) {
               return (
                 <div className="pricing-row">
-                  <span>Event Duration Charge ({cartSettings.duration}):</span>
+                  <span>Event Duration:</span>
                   <span>{durationCharge > 0 ? '+' : ''}${durationCharge.toFixed(2)}</span>
                 </div>
               );
@@ -3657,7 +3640,7 @@ export default function Checkout() {
           )}
           {timeAdj > 0 && (
             <div className="pricing-row">
-              <span>Early Delivery Surcharge:</span>
+              <span>Early Delivery:</span>
               <span>${timeAdj.toFixed(2)}</span>
             </div>
           )}
@@ -4501,12 +4484,31 @@ export default function Checkout() {
             <h3 style={{ margin: '0 0 1rem 0', color: '#333' }}>Order Summary</h3>
             <div style={{ marginBottom: '0.5rem' }}>
               <strong>Items:</strong>
-              {getDisplayCart().map((item, index) => (
-                <div key={index} style={{ marginLeft: '1rem', color: '#666' }}>
-                  • {item.name} - ${item.price.toFixed(2)}
-                  {item.wetDry && ` (${item.wetDry})`}
-                </div>
-              ))}
+              {getDisplayCart().map((item, index) => {
+                const wetDrySelection = cartSettings.wetDrySelections[index] || 'Dry';
+                return (
+                  <div key={index} className="payment-summary-item">
+                    {!item.isGiftCard && !item.isMembership && (
+                      <img 
+                        src={getProductImage(item.name)} 
+                        alt={item.name}
+                        className="payment-summary-image"
+                        onError={(e) => {
+                          e.currentTarget.src = 'https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/default.webp';
+                        }}
+                      />
+                    )}
+                    <div className="payment-summary-details">
+                      <div className="payment-summary-name">• {item.name} - ${item.price.toFixed(2)}</div>
+                      {item.wetDry === "Wet/Dry" && (
+                        <div className="payment-summary-type">
+                          Type: {wetDrySelection}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
             <div style={{ marginBottom: '0.5rem', color: '#666' }}>
               <strong>Subtotal:</strong> ${getDisplayCartTotal().toFixed(2)}
@@ -4733,7 +4735,7 @@ export default function Checkout() {
                   }}>
                     <h4 style={{ margin: '0 0 1rem 0', color: '#333' }}>Choose Payment Option:</h4>
                 
-                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                <div className="payment-options-container">
                   <label style={{ 
                     display: 'flex', 
                     alignItems: 'center', 

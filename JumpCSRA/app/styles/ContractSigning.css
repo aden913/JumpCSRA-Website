@@ -108,10 +108,23 @@
   background-color: #fff;
   text-align: center;
   font-family: Times, serif;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.initial-box:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+  background-color: #f8f9ff;
 }
 
 .initial-box.filled {
   background-color: #e8f5e8;
+}
+
+.initial-box.filled:focus {
+  background-color: #d4edda;
 }
 
 .initial-label {

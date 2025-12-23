@@ -378,7 +378,15 @@
   height: 100px;
   object-fit: cover;
   border-radius: 4px;
-  margin-bottom: 0.5rem;
+  margin: 0 auto 0.5rem auto;
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .party-essential-image {
+    width: 120px;
+    height: 120px;
+  }
 }
 
 .party-essential-name {
@@ -694,12 +702,104 @@
   }
   
   .cart-item-image {
-    width: 80px;
-    height: 80px;
+    width: 120px;
+    height: 120px;
+    align-self: center;
+  }
+  
+  .cart-item-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  
+  .payment-summary-image {
+    width: 120px !important;
+    height: 120px !important;
+    margin-right: 0 !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .payment-summary-item {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    margin-left: 0 !important;
+    padding: 0.75rem;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    color: #666;
+  }
+  
+  .payment-summary-item:last-child {
+    border-bottom: none;
+  }
+  
+  .payment-summary-details {
+    text-align: center;
   }
 }
 
-/* Footer styling */
+/* Payment summary item styling for all screen sizes */
+.payment-summary-item {
+  display: flex;
+  align-items: center;
+  margin-left: 1rem;
+  margin-bottom: 0.5rem;
+  color: #666;
+  gap: 0.75rem;
+}
+
+.payment-summary-details {
+  flex: 1;
+}
+
+.payment-summary-name {
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+}
+
+.payment-summary-type {
+  font-size: 0.8rem;
+  color: #999;
+  font-style: italic;
+}
+
+/* Checkout navigation buttons */
+.checkout-navigation-buttons {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+@media (max-width: 768px) {
+  .checkout-navigation-buttons {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .checkout-navigation-buttons button {
+    width: 100%;
+    padding: 1rem;
+  }
+}
+
+/* Payment options styling */
+.payment-options-container {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+  .payment-options-container {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+}
+
 .footer {
   color: white;
   background: var(--darkBlue);
