@@ -4500,7 +4500,7 @@ export default function Checkout() {
                     )}
                     <div className="payment-summary-details">
                       <div className="payment-summary-name">• {item.name} - ${item.price.toFixed(2)}</div>
-                      {item.wetDry === "Wet/Dry" && (
+                      {!item.isGiftCard && !item.isMembership && (
                         <div className="payment-summary-type">
                           Type: {wetDrySelection}
                         </div>
