@@ -150,15 +150,10 @@ export default function Checkout() {
 
   // Function to get available quantity for a cart item (for party essentials)
   const getAvailableQuantityForCartItem = (item: CartItem, cartIndex: number) => {
-    console.log('🔍 [QUANTITY DEBUG] Getting available quantity for:', {
-      itemName: item.name,
-      category: item.category,
-      cartIndex,
-      currentQuantity: item.quantity
-    });
+    // Getting available quantity for item
     
     if (item.category !== 'party-essentials') {
-      console.log('🔍 [QUANTITY DEBUG] Not a party essential, returning 10');
+      // Not a party essential, returning 10
       return 10; // Default for non-party essentials
     }
     
@@ -166,21 +161,11 @@ export default function Checkout() {
     const startDate = calendarDateRange[0];
     const endDate = startDate && cartSettings.duration ? calculateEndDate(startDate, cartSettings.duration) : null;
     
-    console.log('🔍 [QUANTITY DEBUG] Date info:', {
-      startDate,
-      endDate,
-      duration: cartSettings.duration,
-      calendarDateRange
-    });
+    // Date info validation removed
     
     if (startDate && endDate) {
       const availability = itemAvailability.get(item.name);
-      console.log('🔍 [QUANTITY DEBUG] Availability data:', {
-        itemName: item.name,
-        availability,
-        availabilityMapSize: itemAvailability.size,
-        availabilityKeys: Array.from(itemAvailability.keys())
-      });
+      // Availability data check
       
       if (availability) {
         // Ensure minimum of current item quantity if already in cart
@@ -188,48 +173,34 @@ export default function Checkout() {
         const availableQuantity = availability.availableQuantity || 0;
         const result = Math.max(currentQuantity, availableQuantity);
         
-        console.log('🔍 [QUANTITY DEBUG] Availability calculation:', {
-          currentQuantity,
-          availableQuantity,
-          result,
-          fullAvailability: availability
-        });
+        // Availability calculation
         
         return result;
       } else {
-        console.log('🔍 [QUANTITY DEBUG] No availability data found for item:', item.name);
+        // No availability data found for item
       }
     } else {
-      console.log('🔍 [QUANTITY DEBUG] No valid dates or duration');
+      // No valid dates or duration
     }
     
     // Default if no availability data - ensure minimum of current quantity
     const fallback = Math.max(item.quantity || 1, 10);
-    console.log('🔍 [QUANTITY DEBUG] Using fallback quantity:', fallback);
+    // Using fallback quantity
     return fallback;
   };
 
   // Function to update cart item quantity
   const updateCartItemQuantity = (cartIndex: number, newQuantity: number) => {
     const item = cart[cartIndex];
-    console.log('🔍 [UPDATE DEBUG] Updating cart item quantity:', {
-      cartIndex,
-      newQuantity,
-      itemName: item?.name,
-      itemCategory: item?.category
-    });
+    // Debug log removed
     
     if (!item || item.category !== 'party-essentials') {
-      console.log('🔍 [UPDATE DEBUG] Item not found or not party essential, skipping');
+      // Item not found or not party essential, skipping
       return;
     }
 
     const maxAvailable = getAvailableQuantityForCartItem(item, cartIndex);
-    console.log('🔍 [UPDATE DEBUG] Max available check:', {
-      maxAvailable,
-      newQuantity,
-      exceedsMax: newQuantity > maxAvailable
-    });
+    // Debug log removed
     
     if (newQuantity > maxAvailable) {
       // Fail silently for delivery-related availability issues
@@ -238,7 +209,7 @@ export default function Checkout() {
 
     const updatedCart = [...cart];
     updatedCart[cartIndex] = { ...item, quantity: newQuantity };
-    console.log('🔍 [UPDATE DEBUG] Setting updated cart, current step should remain:', currentStep);
+    // Setting updated cart
     setCart(updatedCart);
     
     // Update localStorage
@@ -282,12 +253,7 @@ export default function Checkout() {
   // Initialize starting step based on cart contents
   const getInitialStep = (): CheckoutStep => {
     const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
-    console.log('🔍 [INITIAL STEP DEBUG] Determining initial step:', {
-      cartLength: cart.length,
-      hasInflateables,
-      cartItems: cart.map(item => ({ name: item.name, isGiftCard: item.isGiftCard, isMembership: item.isMembership })),
-      initialStep: hasInflateables ? 'quick-add-totals' : 'order-summary'
-    });
+    // Debug log removed
     return hasInflateables ? 'quick-add-totals' : 'order-summary';
   };
   
@@ -298,12 +264,7 @@ export default function Checkout() {
   useEffect(() => {
     if (!loading && user) {
       const correctStep = getInitialStep();
-      console.log('🔄 [STEP UPDATE] Setting correct initial step:', {
-        currentStep,
-        correctStep,
-        cartLength: cart.length,
-        visitedStepsSize: visitedSteps.size
-      });
+      // Debug log removed
       
       // Always set the correct step when cart is first loaded
       if (visitedSteps.size === 1 && (visitedSteps.has('quick-add-totals') || visitedSteps.has('order-summary'))) {
@@ -470,17 +431,17 @@ export default function Checkout() {
         if (nextStep === 'payment' && !pendingBookingId) {
           const onlyGiftCardsAndMemberships = cart.every(item => item.isGiftCard || item.isMembership);
           if (onlyGiftCardsAndMemberships) {
-            console.log('🎁 Gift card/membership-only order moving to payment - creating booking first');
+            // Debug log removed
             try {
               // Always set status to confirmed for gift card/membership-only orders
               const initialStatus = 'confirmed';
-              console.log(`Creating gift card/membership booking - Status: ${initialStatus}`);
+              // Debug log removed
               const result = await saveBookingAndContract(initialStatus);
               if (result) {
                 const { orderID } = result;
                 setPendingBookingId(orderID);
                 setContractSigned(true);
-                console.log('✅ Gift card/membership booking created successfully:', orderID);
+                // Debug log removed
               } else {
                 alert("Error creating booking. Please try again.");
                 return;
@@ -579,13 +540,7 @@ export default function Checkout() {
     
     // Debug logging
     if (currentStep === 'delivery') {
-      console.log('canShowNextButton DEBUG:', {
-        currentStep,
-        deliveryAddress: deliveryAddress.trim(),
-        deliveryCost,
-        deliverySkipped,
-        result
-      });
+      // Debug log removed
     }
     
     return result;
@@ -601,7 +556,7 @@ export default function Checkout() {
       if (currentStep === 'delivery' || currentStep === 'contract') {
         const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
         if (!hasInflateables) {
-          console.log('Gift card/membership-only cart detected, skipping to payment from', currentStep);
+          // Debug log removed
           setCurrentStep('payment');
           setVisitedSteps(prev => new Set([...prev, 'payment']));
         }
@@ -658,7 +613,7 @@ export default function Checkout() {
           setContractSections(contractData.agreementSections);
         }
         
-        console.log("✅ Booking loaded successfully (new structure):", bookingId);
+        // Debug log removed:", bookingId);
         
       } else {
         // Fallback: try loading from old structure
@@ -698,7 +653,7 @@ export default function Checkout() {
           setContractSections(legacyBookingData.agreementSections);
         }
         
-        console.log("✅ Booking loaded successfully (legacy structure):", bookingId);
+        // Debug log removed:", bookingId);
       }
       
       // Navigate directly to payment step
@@ -737,7 +692,7 @@ export default function Checkout() {
 
   // Track deliveryAddress state changes for debugging
   useEffect(() => {
-    console.log('🔄 DELIVERY ADDRESS STATE CHANGED:', deliveryAddress);
+    // Debug log removed
   }, [deliveryAddress]);
 
   // Handle contract completion - called by ContractSigning component
@@ -746,7 +701,7 @@ export default function Checkout() {
     signature: string, 
     initials: string 
   }) => {
-    console.log('🔥 Contract completed by component, proceeding with booking', contractData);
+    // Contract completed by component, proceeding with booking
     
     try {
       // Determine initial booking status based on event date
@@ -760,7 +715,7 @@ export default function Checkout() {
       const needsPhoneCall = isWithinTwoDays && !onlyGiftCards;
       const initialStatus = needsPhoneCall ? 'deferred' : 'pending';
       
-      console.log(`Event date: ${eventDateString}, Within 2 days: ${isWithinTwoDays}, Only gift cards: ${onlyGiftCards}, Initial status: ${initialStatus}`);
+      // Event date check
       
       // Save contract and booking with determined status
       const result = await saveBookingAndContract(initialStatus, 'full', 0, undefined, undefined, contractData);
@@ -777,18 +732,18 @@ export default function Checkout() {
         setRequiresPhoneCall(needsPhoneCall);
         
         if (needsPhoneCall) {
-          console.log('📞 Booking within 2 days with inflateables - saved as deferred, phone call required');
+          // Debug log removed
         } else if (isWithinTwoDays && onlyGiftCards) {
-          console.log('🎁 Booking within 2 days but only gift cards - proceeding to payment');
+          // Debug log removed
         } else {
-          console.log('✅ Booking not urgent - proceeding to payment');
+          // Debug log removed
         }
         
         // Direct navigation to payment step to avoid state dependency issues
         setCurrentStep('payment');
         setVisitedSteps(prev => new Set([...prev, 'payment']));
         
-        console.log('🚀 Navigated directly to payment step');
+        // Navigated directly to payment step
       } else {
         alert("Error saving booking. Please try again.");
       }
@@ -800,21 +755,17 @@ export default function Checkout() {
 
   // Calculate driving distance using OSRM (free routing service)
   const calculateDeliveryDistance = async (destinationAddress: string) => {
-    console.log('🚚 DELIVERY COST CALCULATION STARTED:');
-    console.log('  - Function called with destinationAddress:', destinationAddress);
-    console.log('  - Current deliveryAddress state:', deliveryAddress);
-    console.log('  - Current input field value:', addressInputRef.current?.value);
-    console.log('  - Base location:', BASE_LOCATION);
-    console.log('  - Known Google Places addresses:', Array.from(googlePlacesAddresses));
+    // Delivery cost calculation started
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed);
     
     setCalculatingDistance(true);
     try {
       // First, geocode both addresses
-      console.log('  📍 GEOCODING STEP:');
-      console.log('    - Base location for geocoding:', BASE_LOCATION);
-      console.log('    - Destination address for geocoding:', destinationAddress);
-      console.log('    - Base geocoding URL:', `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(BASE_LOCATION)}`);
-      console.log('    - Destination geocoding URL:', `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=${encodeURIComponent(destinationAddress)}`);
+      // Geocoding step
       
       const [baseResponse, destResponse] = await Promise.all([
         fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(BASE_LOCATION)}`),
@@ -826,9 +777,7 @@ export default function Checkout() {
         destResponse.json()
       ]);
       
-      console.log('    - Base geocoding results:', baseData);
-      console.log('    - Destination geocoding results:', destData);
-      console.log('    - Base results count:', baseData.length, '| Destination results count:', destData.length);
+      // Geocoding results
 
       if (baseData.length === 0 || destData.length === 0) {
         console.warn('⚠️ Geocoding failed - Base results:', baseData.length, 'Destination results:', destData.length);
@@ -850,37 +799,37 @@ export default function Checkout() {
       const destLat = parseFloat(destData[0].lat);
       const destLon = parseFloat(destData[0].lon);
 
-      console.log('  📍 COORDINATE EXTRACTION:');
-      console.log('    - Base coordinates:', { lat: baseLat, lon: baseLon });
-      console.log('    - Destination coordinates:', { lat: destLat, lon: destLon });
-      console.log('    - Base location name:', baseData[0].display_name);
-      console.log('    - Destination location name:', destData[0].display_name);
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
 
       // Use OSRM API for driving distance calculation
       const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${baseLon},${baseLat};${destLon},${destLat}?overview=false`;
-      console.log('  🛣️  OSRM ROUTING REQUEST:');
-      console.log('    - OSRM URL:', osrmUrl);
+      // Debug log removed
+      // Debug log removed
       
       const routeResponse = await fetch(osrmUrl);
       const routeData = await routeResponse.json();
 
-      console.log('    - OSRM response status:', routeResponse.status);
-      console.log('    - OSRM route data:', routeData);
-      console.log('    - Number of routes found:', routeData.routes?.length || 0);
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
 
       if (routeData.routes && routeData.routes.length > 0) {
         const distanceMeters = routeData.routes[0].distance;
         const distanceMiles = distanceMeters * 0.000621371; // Convert meters to miles
         const cost = Math.round(distanceMiles * 6); // $6 per mile, rounded
         
-        console.log('  💰 COST CALCULATION:');
-        console.log('    - Distance in meters:', distanceMeters);
-        console.log('    - Distance in miles:', distanceMiles.toFixed(2));
-        console.log('    - Rate per mile: $6');
-        console.log('    - Raw cost calculation:', distanceMiles * 6);
-        console.log('    - Final rounded cost: $' + cost);
-        console.log('    - Address used for calculation:', destinationAddress);
-        console.log('    - Is this a Google Places address?:', googlePlacesAddresses.has(destinationAddress));
+        // Debug log removed
+        // Debug log removed
+        // Debug log removed);
+        // Debug log removed
+        // Debug log removed
+        // Debug log removed
+        // Debug log removed
+        // Debug log removed);
         
         setDeliveryCost(cost);
         // Delivery cost calculated successfully - no notification needed
@@ -889,13 +838,13 @@ export default function Checkout() {
       }
     } catch (error) {
       console.error('❌ DELIVERY COST CALCULATION ERROR:', error);
-      console.log('  - Failed with address:', destinationAddress);
-      console.log('  - Current deliveryAddress state:', deliveryAddress);
-      console.log('  - Current input field value:', addressInputRef.current?.value);
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
       // Set delivery cost to 0 and fail silently
       setDeliveryCost(0);
     } finally {
-      console.log('🏁 DELIVERY COST CALCULATION FINISHED');
+      // Debug log removed
       setCalculatingDistance(false);
     }
   };
@@ -906,11 +855,11 @@ export default function Checkout() {
     if (place.formatted_address && place.geometry?.location && place.place_id) {
       const googleAddress = place.formatted_address;
       
-      console.log('🎯 GOOGLE PLACES SELECTION:');
-      console.log('  - Raw place object:', place);
-      console.log('  - Formatted address from Google:', googleAddress);
-      console.log('  - Current input field value:', addressInputRef.current?.value);
-      console.log('  - Current deliveryAddress state:', deliveryAddress);
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
       
       // Set flag to prevent manual input from overriding this selection
       setIsSelectingGooglePlace(true);
@@ -928,15 +877,15 @@ export default function Checkout() {
         addressInputRef.current.value = googleAddress;
       }
       
-      console.log('  - Called setDeliveryAddress with flushSync:', googleAddress);
-      console.log('  - Updated input field to:', googleAddress);
-      console.log('  - Immediate deliveryAddress state is now:', deliveryAddress);
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
       
       // Double-check that the state was updated properly
       if (deliveryAddress !== googleAddress) {
         console.warn('  - WARNING: State did not update immediately!');
-        console.log('  - Expected:', googleAddress);
-        console.log('  - Actual:', deliveryAddress);
+        // Debug log removed
+        // Debug log removed
         // Try setting it again as fallback
         setDeliveryAddress(googleAddress);
       }
@@ -953,15 +902,15 @@ export default function Checkout() {
 
   // Handle manual address input change
   const handleAddressChange = (value: string) => {
-    console.log('📝 MANUAL ADDRESS CHANGE:');
-    console.log('  - Typed value:', value);
-    console.log('  - Previous deliveryAddress state:', deliveryAddress);
-    console.log('  - Current input field value:', addressInputRef.current?.value);
-    console.log('  - Is currently selecting Google Place?:', isSelectingGooglePlace);
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed
     
     // Don't override if we're currently selecting a Google Place
     if (isSelectingGooglePlace) {
-      console.log('  - BLOCKED: Google Place selection in progress, ignoring manual change');
+      // Debug log removed
       return;
     }
     
@@ -974,7 +923,7 @@ export default function Checkout() {
     
     setDeliveryAddress(value);
     
-    console.log('  - Updated deliveryAddress to:', value);
+    // Debug log removed
   };
 
   // Authentication guard
@@ -1019,14 +968,14 @@ export default function Checkout() {
       const resumeBookingId = localStorage.getItem('resumeBookingId');
       if (resumeBookingId && !pendingBookingId) {
         try {
-          console.log('🔄 [RESUME] Loading resumed booking:', resumeBookingId);
+          // Debug log removed
           const booking = await loadBookingData(resumeBookingId);
           
           if (booking && booking.customerID === user.uid) {
             // Check if booking is already completed or confirmed - can't resume completed bookings
             // Pending and deferred bookings can be resumed
             const bookingStatus = booking.status || 'pending';
-            console.log('🔍 [RESUME] Resume booking status check:', bookingStatus);
+            // Debug log removed
             
             if (bookingStatus === 'completed') {
               console.warn('⚠️ [RESUME] Cannot resume completed booking:', resumeBookingId, 'Status:', bookingStatus);
@@ -1059,12 +1008,12 @@ export default function Checkout() {
               return;
             }
             
-            console.log('✅ [RESUME] Valid booking found for resumption:', booking);
+            // Debug log removed
             setPendingBookingId(resumeBookingId);
             
             // Special handling for deferred bookings
             if (bookingStatus === 'deferred') {
-              console.log('🔄 [DEFERRED] Deferred booking resumed - showing phone call option');
+              // Debug log removed
               setIsDeferredBooking(true);
               
               notifications.show({
@@ -1079,16 +1028,16 @@ export default function Checkout() {
               setCurrentStep('order-summary');
               setContractSigned(false);
             } else {
-              console.log('🔄 [NORMAL] Normal booking resumed - proceeding to payment');
+              // Debug log removed
               setIsDeferredBooking(false);
             }
             
             // Restore cart from booking data - always try this for resumed bookings
-            console.log('🔍 [RESUME] Checking for cart restoration...');
+            // Debug log removed
             if (booking.orderDetails?.items) {
-              console.log('🔄 [CART RESTORE] Restoring cart from booking data:', booking.orderDetails.items);
-              console.log('🔄 [CART RESTORE] Current cart length:', cart.length);
-              console.log('🔄 [CART RESTORE] Booking items count:', booking.orderDetails.items.length);
+              // Debug log removed
+              // Debug log removed
+              // Debug log removed
               
               // Convert booking items back to cart format
               const restoredCart = booking.orderDetails.items.map((item, index) => ({
@@ -1102,10 +1051,10 @@ export default function Checkout() {
                 dry: true
               }));
               
-              console.log('🔄 [CART RESTORE] Restored cart format:', restoredCart);
+              // Debug log removed
               setCart(restoredCart);
               
-              console.log('✅ [CART RESTORE] Cart restored from booking:', restoredCart);
+              // Debug log removed
               
               notifications.show({
                 title: '🛒 Cart Restored',
@@ -1115,7 +1064,7 @@ export default function Checkout() {
               });
             } else {
               console.warn('⚠️ [CART RESTORE] Cannot restore cart - no items in booking orderDetails');
-              console.log('🔍 [CART RESTORE] Booking structure:', booking);
+              // Debug log removed
             }
             
             // Set appropriate step based on booking type and status
@@ -1123,12 +1072,12 @@ export default function Checkout() {
               // For normal bookings, go to payment step since contract is already signed
               setCurrentStep('payment');
               setContractSigned(true);
-              console.log('📍 [STEP] Set to payment step for normal booking');
+              // Debug log removed
             }
             
             // Clear the resume flag
             localStorage.removeItem('resumeBookingId');
-            console.log('🗑️ [CLEANUP] Cleared resumeBookingId from localStorage');
+            // Debug log removed
             
             notifications.show({
               title: '📝 Booking Resumed',
@@ -1137,7 +1086,7 @@ export default function Checkout() {
               autoClose: 5000,
             });
             
-            console.log('✅ [RESUME] Booking resumed successfully:', booking);
+            // Debug log removed
           } else {
             console.warn('❌ [RESUME] Resume booking not found or not owned by user:', resumeBookingId);
             localStorage.removeItem('resumeBookingId');
@@ -1187,7 +1136,7 @@ export default function Checkout() {
   useEffect(() => {
     if (deliveryAddress.trim().length > 0) {
       localStorage.setItem('deliveryAddress', deliveryAddress);
-      console.log('📍 Delivery address saved to localStorage:', deliveryAddress);
+      // Debug log removed
     }
   }, [deliveryAddress]);
 
@@ -1197,21 +1146,20 @@ export default function Checkout() {
       const savedDeliveryAddress = localStorage.getItem('deliveryAddress');
       if (savedDeliveryAddress && !deliveryAddress) {
         setDeliveryAddress(savedDeliveryAddress);
-        console.log('📍 Delivery address loaded from localStorage:', savedDeliveryAddress);
+        // Debug log removed
       }
     }
   }, [loading, user, deliveryAddress]);
 
-
   // Load cart and settings from localStorage
   useEffect(() => {
     if (!loading && user) {
-      console.log('📥 [CART LOAD] Loading cart and settings from localStorage');
+      // Debug log removed
       
       // Check if we're resuming a booking - if so, delay cart loading
       const resumeBookingId = localStorage.getItem('resumeBookingId');
       if (resumeBookingId) {
-        console.log('⏳ [CART LOAD] Resume booking detected, skipping localStorage cart load for now');
+        // Debug log removed
         return; // Don't load cart from localStorage if resuming booking
       }
       
@@ -1220,14 +1168,14 @@ export default function Checkout() {
       if (savedCart) {
         try {
           const parsedCart = JSON.parse(savedCart);
-          console.log('📦 [CART LOAD] Loaded cart from localStorage:', parsedCart);
+          // Debug log removed
           setCart(parsedCart);
         } catch (error) {
           console.error("❌ [CART LOAD] Error parsing cart from localStorage:", error);
           setCart([]);
         }
       } else {
-        console.log('🔍 [CART LOAD] No cart found in localStorage');
+        // Debug log removed
       }
       
       // Load calendar date range from localStorage
@@ -1240,7 +1188,7 @@ export default function Checkout() {
             parsed[1] ? new Date(parsed[1]) : null,
           ];
           setCalendarDateRange(range);
-          console.log('📅 [CART LOAD] Loaded date range from localStorage:', range);
+          // Debug log removed
         } catch (error) {
           console.error("❌ [CART LOAD] Error parsing date range from localStorage:", error);
         }
@@ -1256,35 +1204,29 @@ export default function Checkout() {
 
   // Check availability for party essentials when cart or dates change
   useEffect(() => {
-    console.log('🔍 [AVAILABILITY DEBUG] useEffect triggered:', {
-      hasStartDate: !!calendarDateRange[0],
-      hasDuration: !!cartSettings.duration,
-      partyEssentialsCount: partyEssentials.length,
-      calendarDateRange,
-      duration: cartSettings.duration
-    });
+    // Debug log removed
     
     const checkAvailability = async () => {
       if (calendarDateRange[0] && cartSettings.duration && partyEssentials.length > 0) {
-        console.log('🔍 [AVAILABILITY DEBUG] Starting availability check...');
+        // Debug log removed
         setLoadingAvailability(true);
         const startDate = calendarDateRange[0];
         const endDate = calculateEndDate(startDate, cartSettings.duration);
         
-        console.log('🔍 [AVAILABILITY DEBUG] Calculated dates:', { startDate, endDate });
+        // Debug log removed
         
         try {
           const inflateablesData = await loadInflateablesData();
-          console.log('🔍 [AVAILABILITY DEBUG] Loaded inflateables data:', inflateablesData.length, 'items');
+          // Debug log removed
           
           const availabilityMap = new Map<string, ItemAvailability>();
           
           const promises = partyEssentials.map(async (item) => {
-            console.log('🔍 [AVAILABILITY DEBUG] Checking availability for:', item.name);
+            // Debug log removed
             const inflateable = inflateablesData.find(inf => inf.name === item.name);
             if (inflateable) {
               const totalQuantity = inflateable.quantity || 1;
-              console.log('🔍 [AVAILABILITY DEBUG] Found inflateable with quantity:', totalQuantity);
+              // Debug log removed
               
               const availability = await checkItemAvailability(
                 item.name,
@@ -1293,26 +1235,17 @@ export default function Checkout() {
                 endDate
               );
               
-              console.log('🔍 [AVAILABILITY DEBUG] Availability result:', {
-                itemName: item.name,
-                availability
-              });
+              // Debug log removed
               
               availabilityMap.set(item.name, availability);
             } else {
-              console.log('🔍 [AVAILABILITY DEBUG] No inflateable data found for:', item.name);
+              // Debug log removed
             }
           });
           
           await Promise.all(promises);
-          console.log('🔍 [AVAILABILITY DEBUG] Final availability map:', {
-            size: availabilityMap.size,
-            entries: Array.from(availabilityMap.entries())
-          });
-          console.log('🔍 [AVAILABILITY DEBUG] Setting itemAvailability map:', {
-            size: availabilityMap.size,
-            entries: Array.from(availabilityMap.entries())
-          });
+          // Debug log removed
+          // Debug log removed
           setItemAvailability(availabilityMap);
           
         } catch (error) {
@@ -1321,30 +1254,20 @@ export default function Checkout() {
           setLoadingAvailability(false);
         }
       } else {
-        console.log('🔍 [AVAILABILITY DEBUG] Skipping availability check:', {
-          reason: !calendarDateRange[0] ? 'No start date' : 
-                  !cartSettings.duration ? 'No duration' : 
-                  partyEssentials.length === 0 ? 'No party essentials' : 'Unknown'
-        });
+        // Debug log removed
       }
     };
 
     checkAvailability();
   }, [calendarDateRange[0], cartSettings.duration, cart, lastMinuteAdditions, partyEssentials.length]);
 
-  console.log('🔍 [CART DEBUG] Current cart state:', {
-    cartLength: cart.length,
-    cartItems: cart.map(item => ({ name: item.name, quantity: item.quantity, category: item.category })),
-    itemAvailabilitySize: itemAvailability.size,
-    calendarDateRange,
-    duration: cartSettings.duration
-  });
+  // Current cart state debug removed
   // Validate and clean cart when dates change
   useEffect(() => {
     const validateCart = async () => {
       // Only validate if we have both start and end dates and cart items
       if (calendarDateRange[0] && calendarDateRange[1] && cart.length > 0) {
-        console.log('🛒 Validating cart for date change:', calendarDateRange[0].toLocaleDateString(), '-', calendarDateRange[1].toLocaleDateString());
+        // Debug log removed, '-', calendarDateRange[1].toLocaleDateString());
         
         try {
           // Import the validation function
@@ -1372,7 +1295,7 @@ export default function Checkout() {
           if (validatedCart.length !== cart.length) {
             setCart(validatedCart);
             localStorage.setItem('cart', JSON.stringify(validatedCart));
-            console.log('✅ Cart updated after validation:', validatedCart.length, 'items remaining');
+            // Debug log removed
           }
           
         } catch (error) {
@@ -1406,8 +1329,6 @@ export default function Checkout() {
     "24hours": 1.0, // Base price
     "48hours": 1.5, // 50% increase
   };
-
-
 
   // Calculate cart total including last-minute additions
   const durationMultiplier = cartSettings.duration ? durationMultipliers[cartSettings.duration] || 1.0 : 1.0;
@@ -1472,7 +1393,7 @@ export default function Checkout() {
 
   // Load inflateables data function (similar to CartSidebar)
   const loadInflateablesData = async (): Promise<any[]> => {
-    console.log('🔄 [DEBUG] Checkout: Loading inflateables data from Firebase...');
+    // Debug log removed
     
     const database = getDatabase();
     const inflateablesRef = ref(database, 'inflateables');
@@ -1483,7 +1404,7 @@ export default function Checkout() {
         const data = snapshot.val();
         return Object.values(data);
       } else {
-        console.log('⚠️ [DEBUG] Checkout: No inflateables data found in Firebase');
+        // Debug log removed
         return [];
       }
     } catch (error) {
@@ -1827,7 +1748,7 @@ export default function Checkout() {
             customerName: user.displayName || userProfile?.firstName || 'Customer'
           });
           
-          console.log('📧 Cart abandonment reminder scheduled for 24 hours');
+          // Debug log removed
         } catch (error) {
           console.error('Failed to schedule cart abandonment reminder:', error);
         }
@@ -1880,20 +1801,20 @@ export default function Checkout() {
           ...commonBookingData,
           remainingAmount: bookingData.remainingBalance || 0
         });
-        console.log('📧 Deposit reminder scheduled');
+        // Debug log removed
       }
 
       // Schedule event confirmation (2 days before)
       await scheduleEventConfirmationEmail(commonBookingData);
-      console.log('📧 Event confirmation scheduled');
+      // Debug log removed
 
       // Schedule post-event thank you (1 day after)
       await schedulePostEventThanksEmail(commonBookingData);
-      console.log('📧 Post-event thank you scheduled');
+      // Debug log removed
 
       // Schedule rebooking reminder (9 months after)
       await scheduleRebookingReminderEmail(commonBookingData);
-      console.log('📧 Rebooking reminder scheduled');
+      // Debug log removed
 
     } catch (error) {
       console.error('Failed to schedule automated emails:', error);
@@ -1923,7 +1844,7 @@ export default function Checkout() {
     setCurrentStep('payment');
     setVisitedSteps(prev => new Set([...prev, 'payment']));
     
-    console.log('🚀 Contract completed, navigated to payment step');
+    // Debug log removed
   };
 
   // Status change handler - called by ContractSigning component
@@ -2011,14 +1932,14 @@ export default function Checkout() {
             throw new Error('Failed to update booking status after payment');
           }
           
-          console.log('✅ PAYPAL PAYMENT - Booking status updated successfully');
+          // Debug log removed
           
           if (!statusUpdated) {
             console.error('❌ WALLET PAYMENT - Failed to update booking status');
             throw new Error('Failed to update booking status after payment');
           }
           
-          console.log('✅ WALLET PAYMENT - Booking status updated successfully');
+          // Debug log removed
           
           if (statusUpdated) {
             // Update payment details
@@ -2035,18 +1956,18 @@ export default function Checkout() {
               
               // Handle gift card creation
               const giftCardsInCart = cart.filter(item => item.isGiftCard);
-              console.log('🎁 WALLET PAYMENT - Gift card debug - Cart items:', cart.map(item => ({ name: item.name, isGiftCard: item.isGiftCard, giftCardValue: item.giftCardValue })));
-              console.log('🎁 WALLET PAYMENT - Filtered gift cards:', giftCardsInCart);
+              // Debug log removed));
+              // Debug log removed
               
               if (giftCardsInCart.length > 0) {
-                console.log(`🎁 WALLET PAYMENT - Creating ${giftCardsInCart.length} gift card database entries...`);
+                // Debug log removed
                 for (const giftCardItem of giftCardsInCart) {
-                  console.log(`🎁 WALLET PAYMENT - Processing gift card item:`, giftCardItem);
+                  // Debug log removed
                   for (let i = 0; i < giftCardItem.quantity; i++) {
                     const giftCardCode = await generateUniqueGiftCardCode();
                     const giftCardValue = giftCardItem.giftCardValue || giftCardItem.price;
                     
-                    console.log(`🎁 WALLET PAYMENT - Creating gift card ${i + 1}/${giftCardItem.quantity}: Code=${giftCardCode}, Value=$${giftCardValue}`);
+                    // Debug log removed
                     
                     const success = await createGiftCardInDatabase(
                       giftCardCode,
@@ -2058,20 +1979,20 @@ export default function Checkout() {
                     );
                     
                     if (success) {
-                      console.log(`✅ WALLET PAYMENT - Gift card created successfully: ${giftCardCode} - $${giftCardValue}`);
+                      // Debug log removed
                     } else {
                       console.error(`❌ WALLET PAYMENT - Failed to create gift card: ${giftCardCode}`);
                     }
                   }
                 }
               } else {
-                console.log('🎁 WALLET PAYMENT - No gift cards in cart:', { giftCardsCount: giftCardsInCart.length });
+                // Debug log removed
               }
 
               // Create promotional gift card for GOGO discount if applicable (wallet payment)
               if (discounts.bogoGiftCard && giftCardsInCart.length > 0 && user) {
                 try {
-                  console.log('🎁 WALLET GOGO DISCOUNT - Creating promotional gift card...');
+                  // Debug log removed
                   
                   // Find the highest value gift card in the cart
                   let highestValue = 0;
@@ -2082,7 +2003,7 @@ export default function Checkout() {
                     }
                   }
                   
-                  console.log(`🎁 WALLET GOGO DISCOUNT - Creating promotional gift card with value: $${highestValue}`);
+                  // Debug log removed
                   
                   const promoGiftCardCode = await generateUniqueGiftCardCode();
                   const recipientEmail = promotionalGiftCardEmail || user.email || '';
@@ -2098,7 +2019,7 @@ export default function Checkout() {
                   );
                   
                   if (success) {
-                    console.log(`✅ WALLET GOGO promotional gift card created: ${promoGiftCardCode} - $${highestValue} for ${recipientEmail}`);
+                    // Debug log removed
                     
                     // Send separate gift card email for promotional gift card
                     try {
@@ -2123,7 +2044,7 @@ export default function Checkout() {
                       const result = emailResult.data as any;
                       
                       if (result.success) {
-                        console.log('✅ WALLET GOGO promotional gift card email sent successfully');
+                        // Debug log removed
                         notifications.show({
                           title: '🎁 Promotional Gift Card Sent!',
                           message: `A free gift card worth $${highestValue} has been sent to ${recipientEmail}`,
@@ -2217,8 +2138,8 @@ export default function Checkout() {
                   const sendOrderConfirmation = httpsCallable(functions, 'sendOrderConfirmationEmail');
                   const result = await sendOrderConfirmation(invoiceData);
                 
-                  console.log(`📧 WALLET PAYMENT - Order confirmation email sent successfully for order ${pendingBookingId}`);
-                  console.log('  ✅ Cloud Function Response:', result.data);
+                  // Debug log removed
+                  // Debug log removed
                 } catch (emailError) {
                   console.error(`📧 WALLET PAYMENT - Error sending order confirmation email for order ${pendingBookingId}:`, emailError);
                 }
@@ -2277,7 +2198,7 @@ export default function Checkout() {
       let walletTransactionId = null;
       if (useWalletFirst && walletAppliedAmount > 0 && user) {
         try {
-          console.log(`Processing wallet deduction: $${walletAppliedAmount.toFixed(2)}`);
+          // Debug log removed}`);
           
           const walletTransactionSuccess = await addWalletTransaction(user.uid, {
             amount: -walletAppliedAmount, // Negative amount for deduction
@@ -2288,7 +2209,7 @@ export default function Checkout() {
           });
           
           if (walletTransactionSuccess) {
-            console.log(`✅ Wallet transaction completed successfully`);
+            // Debug log removed
             // Refresh wallet data
             const updatedWallet = await getUserWallet(user.uid);
             setUserWallet(updatedWallet);
@@ -2365,16 +2286,16 @@ export default function Checkout() {
               
               // Create gift card database entries for purchased gift cards
               const giftCardsInCart = cart.filter(item => item.isGiftCard);
-              console.log('🎁 GIFT CARD DEBUG - Cart items:', cart.map(item => ({ name: item.name, isGiftCard: item.isGiftCard, giftCardValue: item.giftCardValue })));
-              console.log('🎁 GIFT CARD DEBUG - Filtered gift cards:', giftCardsInCart);
+              // Debug log removed));
+              // Debug log removed
               
               if (giftCardsInCart.length > 0 && user) {
                 let anyGiftCardFailed = false;
                 try {
-                  console.log(`🎁 Creating ${giftCardsInCart.length} gift card database entries...`);
+                  // Debug log removed
                   for (const giftCardItem of giftCardsInCart) {
                     // Log all fields for debugging
-                    console.log('🎁 Gift card item details:', JSON.stringify(giftCardItem));
+                    // Debug log removed);
                     const quantity = giftCardItem.quantity || 1;
                     const value = giftCardItem.giftCardValue || giftCardItem.price;
                     if (!value || value <= 0) {
@@ -2384,7 +2305,7 @@ export default function Checkout() {
                     }
                     for (let i = 0; i < quantity; i++) {
                       const giftCardCode = await generateUniqueGiftCardCode();
-                      console.log(`🎁 Creating gift card ${i + 1}/${quantity}: Code=${giftCardCode}, Value=$${value}`);
+                      // Debug log removed
                       const success = await createGiftCardInDatabase(
                         giftCardCode,
                         value,
@@ -2394,7 +2315,7 @@ export default function Checkout() {
                         false // isGift = false for purchased cards
                       );
                       if (success) {
-                        console.log(`✅ Gift card created successfully: ${giftCardCode} - $${value}`);
+                        // Debug log removed
                       } else {
                         console.error(`❌ Failed to create gift card: ${giftCardCode} - $${value}`);
                         anyGiftCardFailed = true;
@@ -2409,7 +2330,7 @@ export default function Checkout() {
                       autoClose: 12000,
                     });
                   } else {
-                    console.log(`🎁 Successfully processed all gift card database entries for order ${pendingBookingId}`);
+                    // Debug log removed
                   }
                 } catch (giftCardError) {
                   console.error('❌ Exception during gift card creation:', giftCardError);
@@ -2421,13 +2342,13 @@ export default function Checkout() {
                   });
                 }
               } else {
-                console.log('🎁 No gift cards in cart or user not found:', { giftCardsCount: giftCardsInCart.length, hasUser: !!user });
+                // Debug log removed
               }
 
               // Create promotional gift card for GOGO discount if applicable
               if (discounts.bogoGiftCard && giftCardsInCart.length > 0 && user) {
                 try {
-                  console.log('🎁 GOGO DISCOUNT - Creating promotional gift card...');
+                  // Debug log removed
                   
                   // Find the highest value gift card in the cart
                   let highestValue = 0;
@@ -2438,7 +2359,7 @@ export default function Checkout() {
                     }
                   }
                   
-                  console.log(`🎁 GOGO DISCOUNT - Creating promotional gift card with value: $${highestValue}`);
+                  // Debug log removed
                   
                   const promoGiftCardCode = await generateUniqueGiftCardCode();
                   const recipientEmail = promotionalGiftCardEmail || user.email || '';
@@ -2454,7 +2375,7 @@ export default function Checkout() {
                   );
                   
                   if (success) {
-                    console.log(`✅ GOGO promotional gift card created: ${promoGiftCardCode} - $${highestValue} for ${recipientEmail}`);
+                    // Debug log removed
                     
                     // Send separate invoice for promotional gift card
                     try {
@@ -2490,7 +2411,7 @@ export default function Checkout() {
                       const invoiceResult = await createAndSendPayPalInvoice(promoInvoiceData);
                       
                       if (invoiceResult.success) {
-                        console.log('✅ GOGO promotional gift card invoice sent successfully');
+                        // Debug log removed
                         notifications.show({
                           title: '🎁 Promotional Gift Card Sent!',
                           message: `A free gift card worth $${highestValue} has been sent to ${recipientEmail}`,
@@ -2513,7 +2434,7 @@ export default function Checkout() {
 
               // Send comprehensive order confirmation via enhanced backend email system
               try {
-                console.log(`📧 PAYPAL PAYMENT - Preparing order confirmation email for order ${pendingBookingId}`);
+                // Debug log removed
                 
                 // Convert cart to gift card info (simplified for now)
                 const giftCardInfo = cart.filter(item => item.isGiftCard).map(item => ({
@@ -2571,12 +2492,7 @@ export default function Checkout() {
                   paypalTransactionId: paymentId
                 };
 
-                console.log(`📧 PAYPAL PAYMENT - Sending order confirmation email with data:`, {
-                  email: invoiceData.recipientEmail,
-                  orderID: invoiceData.orderID,
-                  amount: invoiceData.amountPaid,
-                  items: invoiceData.rentalItems.length
-                });
+                // Debug log removed
 
                 // Call Cloud Function to send order confirmation email
                 try {
@@ -2595,8 +2511,8 @@ export default function Checkout() {
                   const sendOrderConfirmation = httpsCallable(functions, 'sendOrderConfirmationEmail');
                   const result = await sendOrderConfirmation(invoiceData);
                 
-                  console.log(`📧 PAYPAL PAYMENT - Order confirmation email result:`, result.data);
-                  console.log(`✅ PAYPAL PAYMENT - Order confirmation email sent successfully for order ${pendingBookingId}`);
+                  // Debug log removed
+                  // Debug log removed
                   
                   // Show user notification
                   notifications.show({
@@ -2640,8 +2556,8 @@ export default function Checkout() {
               localStorage.removeItem("cart");
               setCart([]);
               
-              console.log("Payment completed:", details);
-              console.log(`Booking status updated to ${finalStatus} with orderID:`, pendingBookingId);
+              // Debug log removed
+              // Debug log removed
             } else {
               throw new Error("Failed to update booking payment details");
             }
@@ -2702,7 +2618,7 @@ export default function Checkout() {
         ...updateData
       });
       
-      console.log(`Booking ${contractId} updated to ${status}`);
+      // Debug log removed
       return contractId;
     } catch (error) {
       console.error("Error updating booking status:", error);
@@ -2739,7 +2655,7 @@ export default function Checkout() {
         ...updateData
       });
       
-      console.log(`Booking ${contractId} updated to ${status} with deposit: $${depositAmount}`);
+      // Debug log removed
       return contractId;
     } catch (error) {
       console.error("Error updating booking status:", error);
@@ -2828,7 +2744,7 @@ export default function Checkout() {
       await set(newContractRef, contractMetadata);
       setContractMetadata(contractMetadata);
       
-      console.log("Contract metadata saved successfully with deposit:", contractMetadata.contractId);
+      // Debug log removed
       return contractMetadata.contractId;
     } catch (error) {
       console.error("Error saving contract metadata:", error);
@@ -2918,7 +2834,6 @@ export default function Checkout() {
         fullName = `${firstName} ${lastName}`.trim();
       }
 
-
       // Generate unique IDs
       const orderID = generateOrderID();
       const contractID = generateContractID();
@@ -2998,15 +2913,15 @@ export default function Checkout() {
       }
 
       if (bookingSaved && contractSaved) {
-        console.log("Booking and contract saved successfully:", orderID, contractID);
+        // Debug log removed
         
         // Use intelligent deferred booking strategy
         const deferredStrategy = getDeferredBookingStrategy();
-        console.log("Deferred booking strategy:", deferredStrategy);
+        // Debug log removed
         
         if (deferredStrategy.strategy === 'partial') {
           // Partial processing: Complete gift cards/memberships, defer rental items
-          console.log("Partial processing - completing gift cards/memberships, deferring rentals:", orderID);
+          // Debug log removed
           
           const partialTotals = calculatePartialTotals();
           
@@ -3017,7 +2932,7 @@ export default function Checkout() {
           );
           
           if (partialDeferred) {
-            console.log("Booking partially processed:", orderID);
+            // Debug log removed
             notifications.show({
               title: '✨ Partial Order Complete',
               message: `Gift cards and memberships processed! Call (803) 221-0466 to confirm your rental items.`,
@@ -3028,11 +2943,11 @@ export default function Checkout() {
           
         } else if (deferredStrategy.strategy === 'deferred') {
           // Full deferral for rental-only carts
-          console.log("Full deferral - all rental items:", orderID);
+          // Debug log removed
           
           const deferred = await deferBooking(orderID, deferredStrategy.reason);
           if (deferred) {
-            console.log("Booking fully deferred:", orderID);
+            // Debug log removed
             notifications.show({
               title: '📞 Booking Deferred',
               message: 'Since your event is within 2 days, we\'ll contact you to confirm details.',
@@ -3043,7 +2958,7 @@ export default function Checkout() {
           
         } else {
           // Normal processing - no deferral needed
-          console.log("Normal processing - no deferral required:", deferredStrategy.reason);
+          // Debug log removed
         }
         
         return { orderID, contractID };
@@ -3138,7 +3053,7 @@ export default function Checkout() {
       await set(newContractRef, contractMetadata);
       setContractMetadata(contractMetadata);
       
-      console.log("Contract metadata saved successfully:", contractMetadata.contractId);
+      // Debug log removed
       return contractMetadata.contractId;
     } catch (error) {
       console.error("Error saving contract metadata:", error);
@@ -3303,7 +3218,7 @@ export default function Checkout() {
                       // Check availability for party essentials to update after cancellation
                       const availabilityPromises = partyEssentials.map(async (item) => {
                         try {
-                          const availability = await checkItemAvailability(item.name, startDate, endDate);
+                          const availability = await checkItemAvailability(item.name, 1, startDate, endDate);
                           return { itemName: item.name, availability };
                         } catch (error) {
                           console.error(`Error checking availability for ${item.name}:`, error);
@@ -3783,16 +3698,16 @@ export default function Checkout() {
           onClick={() => {
             const inputValue = addressInputRef.current?.value?.trim();
             if (inputValue) {
-              console.log('🔄 CALCULATE BUTTON CLICKED:');
-              console.log('  - Input field value:', inputValue);
-              console.log('  - Current deliveryAddress state:', deliveryAddress);
+              // Debug log removed
+              // Debug log removed
+              // Debug log removed
               
               // Update deliveryAddress state to match input field content
               flushSync(() => {
                 setDeliveryAddress(inputValue);
               });
               
-              console.log('  - Updated deliveryAddress to:', inputValue);
+              // Debug log removed
               
               // If this looks like a Google Places address, add it to the validation set
               const looksLikeGooglePlaces = inputValue.includes(',') && 
@@ -3802,7 +3717,7 @@ export default function Checkout() {
               
               if (looksLikeGooglePlaces) {
                 setGooglePlacesAddresses(prev => new Set(prev).add(inputValue));
-                console.log('  - Added to Google Places addresses:', inputValue);
+                // Debug log removed
               }
               
               calculateDeliveryDistance(inputValue);
@@ -3826,10 +3741,10 @@ export default function Checkout() {
           <button
             id="btn-skip-delivery"
             onClick={() => {
-              console.log('🚀 SKIPPING DELIVERY CALCULATION FOR DEVELOPMENT');
-              console.log('Before skip - deliverySkipped:', deliverySkipped);
-              console.log('Before skip - deliveryCost:', deliveryCost);
-              console.log('Before skip - canShowNextButton():', canShowNextButton());
+              // Debug log removed
+              // Debug log removed
+              // Debug log removed
+              // Debug log removed:', canShowNextButton());
               
               // Set a default address if none exists
               if (!deliveryAddress.trim()) {
@@ -3852,8 +3767,8 @@ export default function Checkout() {
               
               // Use setTimeout to check state after React updates
               setTimeout(() => {
-                console.log('After skip - deliverySkipped should be true');
-                console.log('After skip - deliveryCost:', deliveryCost);
+                // Debug log removed
+                // Debug log removed
               }, 100);
               
               notifications.show({
@@ -3894,13 +3809,9 @@ export default function Checkout() {
 
                 (deliveryAddress.includes(',') || deliveryAddress.toLowerCase().includes('sc') || deliveryAddress.toLowerCase().includes('ga'));
 
-              
-
               // Don't retry addresses that have already failed
 
               const hasAlreadyFailed = failedAddresses.has(deliveryAddress);
-
-              
 
               // Don't calculate if delivery was skipped or if address has failed
 
@@ -4010,11 +3921,7 @@ export default function Checkout() {
                               {item.category === 'party-essentials' ? (
                                 (() => {
                                   const maxAvailable = getAvailableQuantityForCartItem(item, index);
-                                  console.log('🔍 [DROPDOWN DEBUG] Rendering dropdown for:', {
-                                    itemName: item.name,
-                                    maxAvailable,
-                                    category: item.category
-                                  });
+                                  // Debug log removed
                                   return Array.from({ length: Math.max(1, maxAvailable) }, (_, i) => i + 1).map(qty => (
                                     <option key={qty} value={qty} disabled={qty > maxAvailable}>
                                       {qty}{qty > maxAvailable ? ' (unavailable)' : ''}
@@ -4394,12 +4301,12 @@ export default function Checkout() {
                     // Try to reload booking data
                     if (pendingBookingId) {
                       try {
-                        console.log('🔄 [RESTORE] Attempting to restore cart from booking:', pendingBookingId);
+                        // Debug log removed
                         const booking = await loadBookingData(pendingBookingId);
-                        console.log('🔍 [RESTORE] Loaded booking data:', booking);
+                        // Debug log removed
                         
                         if (booking?.orderDetails?.items) {
-                          console.log('✅ [RESTORE] Found items in booking:', booking.orderDetails.items);
+                          // Debug log removed
                           const restoredCart = booking.orderDetails.items.map((item, index) => ({
                             id: `${item.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${index}`,
                             name: item.name,
@@ -4411,7 +4318,7 @@ export default function Checkout() {
                             dry: true
                           }));
                           
-                          console.log('🔄 [RESTORE] Restored cart format:', restoredCart);
+                          // Debug log removed
                           setCart(restoredCart);
                           
                           notifications.show({

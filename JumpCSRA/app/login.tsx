@@ -75,7 +75,7 @@ export default function Login() {
     
     // If we just checked auth within the last 5 seconds, skip this check
     if (lastAuthCheck && (now - parseInt(lastAuthCheck)) < 5000) {
-      console.log("Recent auth check detected, skipping to prevent loops");
+      // Debug log removed
       setIsCheckingAuth(false);
       return;
     }
@@ -87,7 +87,7 @@ export default function Login() {
     const setAuthTimeout = () => {
       authTimeout = setTimeout(() => {
         if (!isAuthResolved) {
-          console.log("Authentication check timed out after 15 seconds");
+          // Debug log removed
           localStorage.removeItem('lastAuthCheck'); // Clear the check timestamp
           setIsCheckingAuth(false);
           isAuthResolved = true;
@@ -105,7 +105,7 @@ export default function Login() {
       
       try {
         if (user) {
-          console.log("User already signed in:", user.uid);
+          // Debug log removed
           
           // Check if user has a complete profile in Firestore
           try {
@@ -123,7 +123,7 @@ export default function Login() {
             }
 
             // User is fully authenticated and has complete profile - redirect to home
-            console.log("User has complete profile, redirecting to home");
+            // Debug log removed
             setRedirect(true);
             isAuthResolved = true;
           } catch (error) {
@@ -135,7 +135,7 @@ export default function Login() {
           }
         } else {
           // No user signed in, show login page
-          console.log("No user signed in, showing login page");
+          // Debug log removed
           setIsCheckingAuth(false);
           isAuthResolved = true;
         }
@@ -225,7 +225,7 @@ const handleCompleteProfile = async (e: React.FormEvent) => {
       lastUpdated: new Date().toISOString(),
     }, { merge: true });
 
-    console.log("Google user profile completed, sending welcome email...");
+    // Debug log removed
     
     // Send welcome email after Google user completes profile
     try {
@@ -234,7 +234,7 @@ const handleCompleteProfile = async (e: React.FormEvent) => {
         name: `${firstName} ${lastName}`,
         uid: pendingUser.uid
       });
-      console.log("✅ Welcome email sent to Google user successfully");
+      // Debug log removed
     } catch (emailError) {
       console.error("❌ Failed to send welcome email to Google user:", emailError);
       // Don't block profile completion if email fails
@@ -252,20 +252,20 @@ const handleCompleteProfile = async (e: React.FormEvent) => {
 const handleGoogleLogin = async () => {
   setError(null);
   try {
-    console.log("Starting Google sign-in...");
+    // Debug log removed
     let result;
     if (isMobile) {
-      console.log("Using redirect for mobile...");
+      // Debug log removed
       await signInWithRedirect(auth, provider);
       return; // Exit here for mobile, redirect result will be handled by useEffect
     } else {
-      console.log("Using popup for desktop...");
+      // Debug log removed
       const { signInWithPopup } = await import("firebase/auth");
       result = await signInWithPopup(auth, provider);
     }
 
     if (result?.user) {
-      console.log("Google sign-in successful, checking user profile...");
+      // Debug log removed
       
       try {
         const db = getFirestore();
@@ -287,13 +287,13 @@ const handleGoogleLogin = async () => {
         }
 
         if (!userSnap.exists() || !userSnap.data().phone || !userSnap.data().hasPassword) {
-          console.log("Incomplete profile detected, showing profile completion form...");
+          // Debug log removed
           // Incomplete profile → show form
           setPendingUser(result.user);
           setNeedsProfile(true);
           return;
         } else {
-          console.log("Complete profile found, redirecting...");
+          // Debug log removed
           setRedirect(true);
         }
       } catch (dbError: any) {
@@ -328,12 +328,8 @@ const handleGoogleLogin = async () => {
 // Helper to handle Google user
 const handleGoogleResult = async (user: any) => {
   try {
-    console.log("Processing Google sign-in result for user:", user.uid);
-    console.log("User info:", { 
-      email: user.email, 
-      displayName: user.displayName, 
-      emailVerified: user.emailVerified 
-    });
+    // Debug log removed
+    // Debug log removed
 
     // For now, allow Google sign-in to work even without Firestore access
     // The user authentication is successful, database sync can be handled separately
@@ -348,16 +344,16 @@ const handleGoogleResult = async (user: any) => {
       // Try to read user document (test database access)
       let userDoc;
       try {
-        console.log("Attempting to read user document...");
+        // Debug log removed
         userDoc = await getDoc(userRef);
-        console.log("Successfully read user document, exists:", userDoc.exists());
+        // Debug log removed
       } catch (readError: any) {
         console.error("Database read access denied:", readError.code);
         
         // If database access is denied, still allow the user to proceed
         // but show a warning and store user data locally
         if (readError.code === 'permission-denied') {
-          console.log("Database access denied, proceeding with local authentication only");
+          // Debug log removed
           
           // Store user data in localStorage as fallback
           const userData = {
@@ -385,7 +381,7 @@ const handleGoogleResult = async (user: any) => {
         const firstName = nameParts[0] || "";
         const lastName = nameParts.slice(1).join(' ') || "";
 
-        console.log("Attempting to write user document...");
+        // Debug log removed
         await setDoc(
           userRef,
           {
@@ -404,7 +400,7 @@ const handleGoogleResult = async (user: any) => {
           { merge: true }
         );
 
-        console.log("User document successfully saved/updated to Firestore");
+        // Debug log removed
         
         // Clear any pending local data since database sync worked
         localStorage.removeItem('pendingUserData');
@@ -414,7 +410,7 @@ const handleGoogleResult = async (user: any) => {
         console.error("Database write access denied:", writeError.code);
         
         if (writeError.code === 'permission-denied') {
-          console.log("Write access denied, but authentication successful. Proceeding...");
+          // Debug log removed
           
           // Store user data locally for later sync
           const userData = {
@@ -439,7 +435,7 @@ const handleGoogleResult = async (user: any) => {
       
       // Even if database fails, allow the authentication to succeed
       // The user is properly authenticated with Firebase Auth
-      console.log("Database error occurred, but authentication is valid. Proceeding...");
+      // Debug log removed
       
       // Store basic user info locally
       const userData = {
@@ -478,7 +474,7 @@ useEffect(() => {
   getRedirectResult(auth)
     .then((result) => {
       if (result?.user) {
-        console.log("Processing redirect result for user:", result.user.uid);
+        // Debug log removed
         handleGoogleResult(result.user);
       }
     })
@@ -564,7 +560,7 @@ useEffect(() => {
         lastUpdated: new Date().toISOString(),
       });
 
-      console.log("User document saved successfully, sending welcome email...");
+      // Debug log removed
       
       // Send welcome email after successful account creation
       try {
@@ -573,7 +569,7 @@ useEffect(() => {
           name: `${firstName} ${lastName}`,
           uid: userCred.user.uid
         });
-        console.log("✅ Welcome email sent successfully");
+        // Debug log removed
       } catch (emailError) {
         console.error("❌ Failed to send welcome email:", emailError);
         // Don't block account creation if email fails
@@ -588,8 +584,6 @@ useEffect(() => {
       setError(err.message || "Account creation failed");
     }
   };
-
-
 
   // ----- FORGOT PASSWORD -----
   const handleForgotPw = async (e: React.FormEvent) => {
@@ -629,7 +623,7 @@ useEffect(() => {
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '1rem' }}>
             <button
               onClick={() => {
-                console.log("Authentication check bypassed by user - going to sign in");
+                // Debug log removed
                 localStorage.removeItem('lastAuthCheck'); // Clear any auth check locks
                 setIsCheckingAuth(false);
                 setShowSignInForm(true);
@@ -650,7 +644,7 @@ useEffect(() => {
             </button>
             <button
               onClick={() => {
-                console.log("Manual page refresh requested by user");
+                // Debug log removed
                 localStorage.removeItem('lastAuthCheck'); // Clear any auth check locks
                 window.location.reload();
               }}
@@ -794,16 +788,12 @@ useEffect(() => {
     );
   }
 
-
   return (
     <div className="login-page">
       <img src="/jump-logo.png" alt="Jump Logo" className="login-logo" />
-      
-    
-      
+
       {/* <h2 className="login-title">{isSignUp ? "Sign Up" : "Sign In"}</h2> */}
-      
-     
+
       {/* Forgot Password Modal */}
       {showForgotPw && (
         <div className="forgot-pw-modal">

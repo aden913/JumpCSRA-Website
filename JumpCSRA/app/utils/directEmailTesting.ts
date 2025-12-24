@@ -42,7 +42,7 @@ export class DirectEmailTester {
    * Test Account Creation Email (immediate)
    */
   async testAccountCreationEmail() {
-    console.log('🧪 Testing Account Creation Email...');
+    // Debug log removed
     
     try {
       const result = await sendAccountCreationEmail({
@@ -51,10 +51,10 @@ export class DirectEmailTester {
         userID: `test_${Date.now()}`
       });
       
-      console.log('✅ Account creation email sent:', result);
+      // Debug log removed
       return { success: true, result };
     } catch (error: any) {
-      console.error('❌ Account creation email failed:', error);
+      // Debug error removed
       return { success: false, error: error?.message || String(error) };
     }
   }
@@ -63,7 +63,7 @@ export class DirectEmailTester {
    * Test Cart Abandonment Email with custom delay
    */
   async testCartAbandonmentEmail(delaySeconds: number = this.config.delayInSeconds) {
-    console.log(`🛒 Testing Cart Abandonment Email (${delaySeconds}s delay)...`);
+    // Debug log removed
     
     const cartData = {
       userID: `test_${Date.now()}`,
@@ -79,11 +79,11 @@ export class DirectEmailTester {
     // Schedule with custom delay
     setTimeout(async () => {
       try {
-        console.log(`⏰ ${delaySeconds}s elapsed - sending cart abandonment email...`);
+        // Debug log removed
         const result = await scheduleCartReminderEmail(cartData);
-        console.log('✅ Cart abandonment email sent:', result);
+        // Debug log removed
       } catch (error: any) {
-        console.error('❌ Cart abandonment email failed:', error);
+        // Debug error removed
       }
     }, delaySeconds * 1000);
 
@@ -98,7 +98,7 @@ export class DirectEmailTester {
    * Test Deposit Reminder Email with custom delay
    */
   async testDepositReminderEmail(delaySeconds: number = this.config.delayInSeconds) {
-    console.log(`💰 Testing Deposit Reminder Email (${delaySeconds}s delay)...`);
+    // Debug log removed
     
     const bookingData = {
       bookingID: `test_booking_${Date.now()}`,
@@ -119,11 +119,11 @@ export class DirectEmailTester {
 
     setTimeout(async () => {
       try {
-        console.log(`⏰ ${delaySeconds}s elapsed - sending deposit reminder email...`);
+        // Debug log removed
         const result = await scheduleDepositReminderEmail(bookingData);
-        console.log('✅ Deposit reminder email sent:', result);
+        // Debug log removed
       } catch (error: any) {
-        console.error('❌ Deposit reminder email failed:', error);
+        // Debug error removed
       }
     }, delaySeconds * 1000);
 
@@ -138,7 +138,7 @@ export class DirectEmailTester {
    * Test Event Confirmation Email with custom delay
    */
   async testEventConfirmationEmail(delaySeconds: number = this.config.delayInSeconds) {
-    console.log(`📅 Testing Event Confirmation Email (${delaySeconds}s delay)...`);
+    // Debug log removed
     
     const bookingData = {
       bookingID: `test_booking_${Date.now()}`,
@@ -158,11 +158,11 @@ export class DirectEmailTester {
 
     setTimeout(async () => {
       try {
-        console.log(`⏰ ${delaySeconds}s elapsed - sending event confirmation email...`);
+        // Debug log removed
         const result = await scheduleEventConfirmationEmail(bookingData);
-        console.log('✅ Event confirmation email sent:', result);
+        // Debug log removed
       } catch (error: any) {
-        console.error('❌ Event confirmation email failed:', error);
+        // Debug error removed
       }
     }, delaySeconds * 1000);
 
@@ -177,7 +177,7 @@ export class DirectEmailTester {
    * Test Post-Event Thank You Email with custom delay
    */
   async testPostEventThanksEmail(delaySeconds: number = this.config.delayInSeconds) {
-    console.log(`🎉 Testing Post-Event Thanks Email (${delaySeconds}s delay)...`);
+    // Debug log removed
     
     const bookingData = {
       bookingID: `test_booking_${Date.now()}`,
@@ -194,11 +194,11 @@ export class DirectEmailTester {
 
     setTimeout(async () => {
       try {
-        console.log(`⏰ ${delaySeconds}s elapsed - sending post-event thanks email...`);
+        // Debug log removed
         const result = await schedulePostEventThanksEmail(bookingData);
-        console.log('✅ Post-event thanks email sent:', result);
+        // Debug log removed
       } catch (error: any) {
-        console.error('❌ Post-event thanks email failed:', error);
+        // Debug error removed
       }
     }, delaySeconds * 1000);
 
@@ -213,7 +213,7 @@ export class DirectEmailTester {
    * Test Rebooking Reminder Email with custom delay
    */
   async testRebookingReminderEmail(delaySeconds: number = this.config.delayInSeconds) {
-    console.log(`🔄 Testing Rebooking Reminder Email (${delaySeconds}s delay)...`);
+    // Debug log removed
     
     const bookingData = {
       bookingID: `test_booking_${Date.now()}`,
@@ -230,11 +230,11 @@ export class DirectEmailTester {
 
     setTimeout(async () => {
       try {
-        console.log(`⏰ ${delaySeconds}s elapsed - sending rebooking reminder email...`);
+        // Debug log removed
         const result = await scheduleRebookingReminderEmail(bookingData);
-        console.log('✅ Rebooking reminder email sent:', result);
+        // Debug log removed
       } catch (error: any) {
-        console.error('❌ Rebooking reminder email failed:', error);
+        // Debug error removed
       }
     }, delaySeconds * 1000);
 
@@ -249,7 +249,7 @@ export class DirectEmailTester {
    * Test All Scheduled Emails with staggered timing
    */
   async testAllScheduledEmails(baseDelaySeconds: number = 30) {
-    console.log('🚀 Testing ALL scheduled emails with staggered timing...');
+    // Debug log removed
     
     const results = [];
     
@@ -260,7 +260,7 @@ export class DirectEmailTester {
     results.push(await this.testPostEventThanksEmail(baseDelaySeconds + 90));
     results.push(await this.testRebookingReminderEmail(baseDelaySeconds + 120));
     
-    console.log(`📅 All emails scheduled with 30-second intervals starting in ${baseDelaySeconds} seconds`);
+    // Debug log removed
     
     return {
       message: 'All scheduled emails queued',
@@ -279,14 +279,14 @@ export class DirectEmailTester {
    * Test Email Server Health
    */
   async testEmailServerHealth() {
-    console.log('🏥 Testing Email Server Health...');
+    // Debug log removed
     
     try {
       const isHealthy = await healthCheck();
-      console.log(`✅ Email server health: ${isHealthy ? 'HEALTHY' : 'UNHEALTHY'}`);
+      // Debug log removed
       return { healthy: isHealthy };
     } catch (error: any) {
-      console.error('❌ Email server health check failed:', error);
+      // Debug error removed
       return { healthy: false, error: error?.message || String(error) };
     }
   }
@@ -296,7 +296,7 @@ export class DirectEmailTester {
    */
   updateConfig(newConfig: Partial<EmailTestConfig>) {
     this.config = { ...this.config, ...newConfig };
-    console.log('🔧 Updated test configuration:', this.config);
+    // Debug log removed
   }
 }
 
@@ -322,14 +322,7 @@ if (typeof window !== 'undefined') {
     setDelay: (seconds: number) => directEmailTester.updateConfig({ delayInSeconds: seconds }),
     
     // Show current config
-    config: () => console.log(directEmailTester['config'])
-  };
-  
-  console.log(`
-🧪 EMAIL TESTING LOADED - Use these browser console commands:
-
-// Setup (replace with your email)
-emailTester.setEmail('your-email@example.com');
+    config: () => // Debug log removed
 emailTester.setName('Your Name');
 
 // Test individual emails with custom delay (seconds)

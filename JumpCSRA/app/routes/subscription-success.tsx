@@ -57,7 +57,7 @@ export default function SubscriptionSuccess() {
             // Always call activation when success page loads to ensure:
             // 1. Subscription status is updated from pending to active  
             // 2. Welcome email is sent
-            console.log('🎉 SUCCESS PAGE: Calling activation for subscription:', currentData.subscriptionId);
+            // Debug log removed
             
             setActivationStatus('pending');
             setActivationMessage('Activating your subscription and sending welcome email...');
@@ -74,7 +74,7 @@ export default function SubscriptionSuccess() {
               if (result.data && (result.data as any).success) {
                 setActivationStatus('success');
                 setActivationMessage('Subscription activated and welcome email sent!');
-                console.log('✅ SUCCESS PAGE: Activation completed successfully');
+                // Debug log removed
                 
                 // Reload subscription data to get updated status
                 const updatedQuery = query(activeSubscriptionsRef, limit(10));
@@ -84,17 +84,17 @@ export default function SubscriptionSuccess() {
                   const updatedDoc = updatedSnapshot.docs[0];
                   const updatedData = updatedDoc.data();
                   setSubscriptionData(updatedData);
-                  console.log('✅ SUCCESS PAGE: Subscription data refreshed, new status:', updatedData.status);
+                  // Debug log removed
                 } else {
-                  console.error('❌ SUCCESS PAGE: Updated subscription document not found after activation');
+                  // Debug error removed
                 }
               } else {
-                console.error('❌ SUCCESS PAGE: Activation failed:', result.data);
+                // Debug error removed
                 setActivationStatus('error');
                 setActivationMessage((result.data as any).message || 'Failed to activate subscription');
               }
             } catch (activationError) {
-              console.error('❌ SUCCESS PAGE: Error calling activation function:', activationError);
+              // Debug error removed
               setActivationStatus('error');
               setActivationMessage(`Activation error: ${activationError instanceof Error ? activationError.message : 'Unknown error'}`);
             }
@@ -114,8 +114,7 @@ export default function SubscriptionSuccess() {
                   subscriptionId: subscriptionId,
                   baToken: baToken
                 });
-                
-                
+
                 if (result.data && (result.data as any).success) {
                   setActivationStatus('success');
                   setActivationMessage((result.data as any).message || 'Subscription activated successfully!');
@@ -129,27 +128,27 @@ export default function SubscriptionSuccess() {
                     const updatedData = updatedDoc.data();
                     setSubscriptionData(updatedData);
                   } else {
-                    console.error('❌ SUCCESS PAGE: Updated subscription document not found after activation');
+                    // Debug error removed
                   }
                 } else {
-                  console.error('❌ SUCCESS PAGE: Activation failed:', result.data);
+                  // Debug error removed
                   setActivationStatus('error');
                   setActivationMessage((result.data as any).message || 'Failed to activate subscription');
                 }
               } catch (functionError) {
-                console.error('❌ SUCCESS PAGE: Error calling activation function:', functionError);
+                // Debug error removed
                 setActivationStatus('error');
                 setActivationMessage(`Function error: ${functionError instanceof Error ? functionError.message : 'Unknown error'}`);
               }
             } else {
-              console.error('❌ SUCCESS PAGE: No subscription found and missing PayPal data');
+              // Debug error removed
               setActivationStatus('error');
               setActivationMessage('No subscription found and missing PayPal data');
             }
           }
         } catch (error) {
-          console.error('❌ SUCCESS PAGE: Error in subscription loading/activation process:', error);
-          console.error('❌ SUCCESS PAGE: Error stack:', error instanceof Error ? error.stack : 'No stack');
+          // Debug error removed
+          // Debug error removed
           setActivationStatus('error');
           setActivationMessage(`Database error: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }

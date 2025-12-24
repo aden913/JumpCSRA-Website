@@ -25,16 +25,16 @@ export const DEFAULT_IMAGES = {
  */
 export async function uploadImage(file: File, path: string): Promise<string> {
   try {
-    console.log(`📤 Uploading image to: ${path}`);
+    // Debug log removed
     
     const storageRef = ref(storage, path);
     const snapshot = await uploadBytes(storageRef, file);
     const downloadURL = await getDownloadURL(snapshot.ref);
     
-    console.log(`✅ Image uploaded successfully: ${downloadURL}`);
+    // Debug log removed
     return downloadURL;
   } catch (error) {
-    console.error('❌ Error uploading image:', error);
+    // Debug error removed
     throw error;
   }
 }
@@ -79,9 +79,9 @@ export async function deleteImage(path: string): Promise<void> {
   try {
     const storageRef = ref(storage, path);
     await deleteObject(storageRef);
-    console.log(`🗑️ Image deleted: ${path}`);
+    // Debug log removed
   } catch (error) {
-    console.error('❌ Error deleting image:', error);
+    // Debug error removed
     throw error;
   }
 }
@@ -138,7 +138,7 @@ export async function getProductImages(productName: string): Promise<{
         try {
           return await getDownloadURL(item);
         } catch (error) {
-          console.warn(`Failed to get URL for detail image: ${item.fullPath}`);
+          // Debug warning removed
           return null;
         }
       });
@@ -146,7 +146,7 @@ export async function getProductImages(productName: string): Promise<{
       const urls = await Promise.all(downloadPromises);
       detailImages.push(...urls.filter((url): url is string => url !== null));
     } catch (error) {
-      console.log(`No detail images found for ${productName}`);
+      // Debug log removed
     }
     
     const result = { mainImage, detailImages };
@@ -156,7 +156,7 @@ export async function getProductImages(productName: string): Promise<{
     
     return result;
   } catch (error) {
-    console.error('❌ Error getting product images:', error);
+    // Debug error removed
     
     // Return defaults on error
     return {
@@ -262,7 +262,7 @@ export function preloadImage(url: string): Promise<void> {
 export async function preloadImages(urls: string[]): Promise<void> {
   const loadPromises = urls.map(url => 
     preloadImage(url).catch(error => {
-      console.warn(`Failed to preload image: ${url}`, error);
+      // Debug warning removed
     })
   );
   
@@ -275,7 +275,7 @@ export async function preloadImages(urls: string[]): Promise<void> {
 export function clearStorageCaches(): void {
   urlCache.clear();
   errorCache.clear();
-  console.log('Firebase Storage caches cleared');
+  // Debug log removed
 }
 
 /**
@@ -312,7 +312,7 @@ export function getDetailImageUrls(productName: string, imageFilenames: string[]
       `https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/${productFolder}/${filename}`
     );
   } catch (error) {
-    console.warn(`Error generating detail image URLs for ${productName}:`, error);
+    // Debug warning removed
     return [];
   }
 }

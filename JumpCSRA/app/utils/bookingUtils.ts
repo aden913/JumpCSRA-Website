@@ -3,7 +3,7 @@ import { initializeApp, getApps } from "firebase/app";
 import { firebaseConfig } from "../components/FirebaseConfig";
 
 export async function getUnavailableInflateables(startDate: Date, endDate: Date): Promise<Set<string>> {
-  console.log('🔍 Checking availability for date range:', startDate.toLocaleDateString(), '-', endDate.toLocaleDateString());
+  // Checking availability for date range
   
   // Convert to date-only strings to avoid timezone issues
   const selectedStartDay = startDate.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -21,7 +21,7 @@ export async function getUnavailableInflateables(startDate: Date, endDate: Date)
   
   if (snapshot.exists()) {
     const bookings = snapshot.val();
-    console.log('📊 Found', Object.keys(bookings).length, 'total bookings to check');
+    // Found bookings to check
     
     Object.entries(bookings).forEach(([bookingId, booking]: [string, any]) => {
       // Skip membershipBookings node (handled separately)
@@ -34,19 +34,19 @@ export async function getUnavailableInflateables(startDate: Date, endDate: Date)
         return;
       }
       
-      console.log('🔍 Checking booking', bookingId, 'with status:', booking.status);
+      // Checking booking
       
       // Parse the eventDate string (format: "MM/DD/YYYY - MM/DD/YYYY")
       const eventDateString = booking.orderDetails?.eventDate;
       if (!eventDateString) {
-        console.log('⚠️ Booking', bookingId, 'missing eventDate');
+        // Booking missing eventDate
         return;
       }
       
       // Extract start and end dates from the string
       const dateRange = eventDateString.split(' - ');
       if (dateRange.length !== 2) {
-        console.log('⚠️ Booking', bookingId, 'has invalid eventDate format:', eventDateString);
+        // Booking has invalid eventDate format
         return;
       }
       
@@ -55,7 +55,7 @@ export async function getUnavailableInflateables(startDate: Date, endDate: Date)
       
       // Check if dates are valid
       if (isNaN(bookingStart.getTime()) || isNaN(bookingEnd.getTime())) {
-        console.log('⚠️ Booking', bookingId, 'has invalid dates:', dateRange);
+        // Booking has invalid dates
         return;
       }
       
@@ -66,16 +66,16 @@ export async function getUnavailableInflateables(startDate: Date, endDate: Date)
       // Check for day overlap (if any day overlaps, consider it unavailable)
       const hasOverlap = (bookingStartDay <= selectedEndDay && bookingEndDay >= selectedStartDay);
       
-      console.log('📅 Booking', bookingId, 'dates:', bookingStartDay, '-', bookingEndDay, 'vs selected:', selectedStartDay, '-', selectedEndDay, 'overlap:', hasOverlap);
+      // Booking dates overlap check
       
       if (hasOverlap) {
         // Get items from the booking and mark them as unavailable
         const items = booking.orderDetails?.items || [];
-        console.log('📦 Booking', bookingId, 'has', items.length, 'items');
+        // Booking has items
         
         items.forEach((item: any) => {
           if (item.name && !item.name.toLowerCase().includes('gift card') && !item.name.toLowerCase().includes('membership')) {
-            console.log('🚫 Marking as unavailable:', item.name, '(quantity:', item.quantity, ')');
+            // Marking as unavailable
             unavailable.add(item.name);
           }
         });
@@ -89,7 +89,7 @@ export async function getUnavailableInflateables(startDate: Date, endDate: Date)
   
   if (membershipSnapshot.exists()) {
     const membershipBookings = membershipSnapshot.val();
-    console.log('🏆 Found', Object.keys(membershipBookings).length, 'membership bookings to check');
+    // Found membership bookings to check
     
     Object.entries(membershipBookings).forEach(([bookingId, booking]: [string, any]) => {
       // Only consider confirmed membership bookings
@@ -116,16 +116,16 @@ export async function getUnavailableInflateables(startDate: Date, endDate: Date)
         // Membership deliveries are typically 1 day events
         const hasOverlap = (deliveryDay >= selectedStartDay && deliveryDay <= selectedEndDay);
         
-        console.log('🏆 Membership booking', bookingId, 'delivery:', deliveryDay, 'vs selected:', selectedStartDay, '-', selectedEndDay, 'overlap:', hasOverlap);
+        // Membership booking delivery overlap check
         
         if (hasOverlap) {
           // Add the membership inflatable to unavailable set
           if (booking.inflatableName) {
-            console.log('🚫 Membership marking as unavailable:', booking.inflatableName);
+            // Debug log removed
             unavailable.add(booking.inflatableName);
           }
           if (booking.inflatableType && booking.inflatableType !== booking.inflatableName) {
-            console.log('🚫 Membership marking as unavailable:', booking.inflatableType);
+            // Debug log removed
             unavailable.add(booking.inflatableType);
           }
         }
@@ -133,7 +133,7 @@ export async function getUnavailableInflateables(startDate: Date, endDate: Date)
     });
   }
   
-  console.log('🚫 Final unavailable items:', Array.from(unavailable));
+  // Final unavailable items
   return unavailable;
 }
 
@@ -144,7 +144,7 @@ export async function validateAndCleanCart(
   endDate: Date,
   onItemsRemoved?: (removedItems: any[]) => void
 ): Promise<any[]> {
-  console.log('🛒 Validating cart with', cartItems.length, 'items for dates:', startDate.toLocaleDateString(), '-', endDate.toLocaleDateString());
+  // Validating cart
   
   const unavailableItems = await getUnavailableInflateables(startDate, endDate);
   const validItems: any[] = [];
@@ -152,7 +152,7 @@ export async function validateAndCleanCart(
   
   cartItems.forEach(item => {
     if (unavailableItems.has(item.name)) {
-      console.log('❌ Removing unavailable item from cart:', item.name);
+      // Removing unavailable item from cart
       removedItems.push(item);
     } else {
       validItems.push(item);
@@ -164,7 +164,7 @@ export async function validateAndCleanCart(
     onItemsRemoved(removedItems);
   }
   
-  console.log('✅ Cart validation complete:', validItems.length, 'items remaining,', removedItems.length, 'items removed');
+  // Cart validation complete
   return validItems;
 }
 

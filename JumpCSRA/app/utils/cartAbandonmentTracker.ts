@@ -43,7 +43,7 @@ class CartAbandonmentTracker {
     // Store in localStorage for persistence
     localStorage.setItem(`${this.storageKey}_${userId}`, JSON.stringify(abandonmentData));
     
-    console.log('🛒 Cart abandonment tracked for user:', userId);
+    // Debug log removed
     
     // Schedule reminder email for 24 hours from now
     this.scheduleReminderEmail(abandonmentData);
@@ -54,7 +54,7 @@ class CartAbandonmentTracker {
    */
   clearCartAbandonment(userId: string) {
     localStorage.removeItem(`${this.storageKey}_${userId}`);
-    console.log('✅ Cart abandonment cleared for user:', userId);
+    // Debug log removed
   }
 
   /**
@@ -92,7 +92,7 @@ class CartAbandonmentTracker {
         abandonmentData.reminderScheduledAt = reminderTime.toISOString();
         localStorage.setItem(`${this.storageKey}_${abandonmentData.userId}`, JSON.stringify(abandonmentData));
         
-        console.log(`📅 Cart reminder scheduled for ${reminderTime.toLocaleString()}`);
+        // Debug log removed
         
         // Set timeout for 24 hours (note: this won't persist across page refreshes)
         // In production, you'd want a backend scheduler for this
@@ -101,7 +101,7 @@ class CartAbandonmentTracker {
         }, 24 * 60 * 60 * 1000);
       }
     } catch (error) {
-      console.error('❌ Failed to schedule cart reminder:', error);
+      // Debug error removed
     }
   }
 
@@ -117,14 +117,14 @@ class CartAbandonmentTracker {
       
       // Check if reminder was already sent
       if (abandonmentData.reminderSentAt) {
-        console.log('📧 Cart reminder already sent for user:', userId);
+        // Debug log removed
         return;
       }
 
       // Check if cart is still abandoned (user hasn't completed checkout)
       const cart = JSON.parse(localStorage.getItem('cart') || '[]');
       if (cart.length === 0) {
-        console.log('🛒 Cart is now empty, skipping reminder for user:', userId);
+        // Debug log removed
         this.clearCartAbandonment(userId);
         return;
       }
@@ -133,7 +133,7 @@ class CartAbandonmentTracker {
       await this.sendCartReminderEmail(abandonmentData);
       
     } catch (error) {
-      console.error('❌ Error checking cart reminder:', error);
+      // Debug error removed
     }
   }
 
@@ -154,10 +154,10 @@ class CartAbandonmentTracker {
       abandonmentData.reminderSentAt = new Date().toISOString();
       localStorage.setItem(`${this.storageKey}_${abandonmentData.userId}`, JSON.stringify(abandonmentData));
       
-      console.log('✅ Cart reminder email sent successfully to:', abandonmentData.userEmail);
+      // Debug log removed
       
     } catch (error) {
-      console.error('❌ Failed to send cart reminder email:', error);
+      // Debug error removed
     }
   }
 
@@ -181,12 +181,12 @@ class CartAbandonmentTracker {
             const hoursSinceAbandonment = (now.getTime() - abandonedAt.getTime()) / (1000 * 60 * 60);
             
             if (hoursSinceAbandonment >= 24 && !abandonmentData.reminderSentAt) {
-              console.log('⏰ Found pending cart reminder for user:', userId);
+              // Debug log removed
               this.checkAndSendReminder(userId);
             }
           }
         } catch (error) {
-          console.error('❌ Error checking pending reminder:', error);
+          // Debug error removed
         }
       }
     }
@@ -202,7 +202,7 @@ class CartAbandonmentTracker {
     try {
       return JSON.parse(storedData);
     } catch (error) {
-      console.error('❌ Error parsing abandonment data:', error);
+      // Debug error removed
       return null;
     }
   }

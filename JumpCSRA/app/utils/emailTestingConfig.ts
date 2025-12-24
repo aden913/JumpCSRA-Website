@@ -58,7 +58,7 @@ export class TestCartAbandonmentTracker {
     localStorage.setItem(`${this.storageKey}_${userId}`, JSON.stringify(abandonmentData));
     
     const timing = getCurrentTiming();
-    console.log(`🛒 TEST: Cart abandonment tracked. Email will send in ${timing.CART_ABANDONMENT} minutes`);
+    // Debug log removed
     
     // Schedule reminder with test timing
     setTimeout(async () => {
@@ -68,7 +68,7 @@ export class TestCartAbandonmentTracker {
 
   private async sendTestCartReminder(abandonmentData: any) {
     try {
-      console.log('🧪 TEST: Sending cart abandonment reminder email...');
+      // Debug log removed
       
       await scheduleCartReminderEmail({
         userID: abandonmentData.userId,
@@ -78,15 +78,15 @@ export class TestCartAbandonmentTracker {
         cartValue: abandonmentData.cartTotal
       });
 
-      console.log('✅ TEST: Cart reminder email sent successfully!');
+      // Debug log removed
     } catch (error) {
-      console.error('❌ TEST: Failed to send cart reminder:', error);
+      // Debug error removed
     }
   }
 
   clearCartAbandonment(userId: string) {
     localStorage.removeItem(`${this.storageKey}_${userId}`);
-    console.log('✅ TEST: Cart abandonment cleared for user:', userId);
+    // Debug log removed
   }
 }
 
@@ -99,57 +99,53 @@ export class TestEmailScheduler {
    */
   async scheduleAllBookingEmails(bookingData: any) {
     const timing = getCurrentTiming();
-    console.log('🧪 TEST: Scheduling all booking emails with test timing...');
+    // Debug log removed
 
     // 1. Deposit Reminder Email
     setTimeout(async () => {
-      console.log('🧪 TEST: Sending deposit reminder email...');
+      // Debug log removed
       try {
         await scheduleDepositReminderEmail(bookingData);
-        console.log('✅ TEST: Deposit reminder email sent!');
+        // Debug log removed
       } catch (error) {
-        console.error('❌ TEST: Deposit reminder failed:', error);
+        // Debug error removed
       }
     }, timing.DEPOSIT_REMINDER * 60 * 1000);
 
     // 2. Event Confirmation Email (2 days before)
     setTimeout(async () => {
-      console.log('🧪 TEST: Sending event confirmation email...');
+      // Debug log removed
       try {
         await scheduleEventConfirmationEmail(bookingData);
-        console.log('✅ TEST: Event confirmation email sent!');
+        // Debug log removed
       } catch (error) {
-        console.error('❌ TEST: Event confirmation failed:', error);
+        // Debug error removed
       }
     }, timing.EVENT_CONFIRMATION * 60 * 1000);
 
     // 3. Post-Event Thank You Email
     setTimeout(async () => {
-      console.log('🧪 TEST: Sending post-event thank you email...');
+      // Debug log removed
       try {
         await schedulePostEventThanksEmail(bookingData);
-        console.log('✅ TEST: Post-event thank you email sent!');
+        // Debug log removed
       } catch (error) {
-        console.error('❌ TEST: Post-event thank you failed:', error);
+        // Debug error removed
       }
     }, timing.POST_EVENT_THANKS * 60 * 1000);
 
     // 4. Rebooking Reminder Email (9 months later)
     setTimeout(async () => {
-      console.log('🧪 TEST: Sending rebooking reminder email...');
+      // Debug log removed
       try {
         await scheduleRebookingReminderEmail(bookingData);
-        console.log('✅ TEST: Rebooking reminder email sent!');
+        // Debug log removed
       } catch (error) {
-        console.error('❌ TEST: Rebooking reminder failed:', error);
+        // Debug error removed
       }
     }, timing.REBOOKING_REMINDER * 60 * 1000);
 
-    console.log(`🧪 TEST: All emails scheduled with the following timing:
-    📧 Deposit Reminder: ${timing.DEPOSIT_REMINDER} minutes
-    📧 Event Confirmation: ${timing.EVENT_CONFIRMATION} minutes  
-    📧 Post-Event Thanks: ${timing.POST_EVENT_THANKS} minutes
-    📧 Rebooking Reminder: ${timing.REBOOKING_REMINDER} minutes`);
+    // Debug log removed
   }
 
   /**
@@ -158,8 +154,8 @@ export class TestEmailScheduler {
   async testCartAbandonmentFlow(userId: string, userEmail: string, userName: string) {
     const timing = getCurrentTiming();
     
-    console.log(`🧪 TEST: Starting cart abandonment test for ${userEmail}`);
-    console.log(`📅 Cart reminder will be sent in ${timing.CART_ABANDONMENT} minutes`);
+    // Debug log removed
+    // Debug log removed
 
     const testCartItems = [
       { name: 'Test Bounce House', price: 199.99, quantity: 1 },
@@ -184,7 +180,7 @@ export class TestEmailScheduler {
    * Test individual email types
    */
   async testIndividualEmail(emailType: string, bookingData: any) {
-    console.log(`🧪 TEST: Testing ${emailType} email...`);
+    // Debug log removed
 
     switch (emailType) {
       case 'deposit-reminder':
@@ -235,6 +231,4 @@ export const createTestBookingData = (userEmail: string, userName: string) => ({
   }
 });
 
-console.log(`🧪 EMAIL TESTING SYSTEM LOADED
-🔧 Test timing enabled: ${ENABLE_TEST_TIMING}
-⏰ Current timing configuration:`, getCurrentTiming());
+// Debug log removed

@@ -146,7 +146,7 @@ export const saveBookingData = async (bookingData: BookingData): Promise<boolean
     await set(bookingsRef, dataToSave);
     return true;
   } catch (error) {
-    console.error('Error saving booking data:', error);
+    // Debug error removed
     return false;
   }
 };
@@ -163,7 +163,7 @@ export const loadBookingData = async (orderID: string): Promise<BookingData | nu
       return null;
     }
   } catch (error) {
-    console.error('Error loading booking data:', error);
+    // Debug error removed
     return null;
   }
 };
@@ -179,7 +179,7 @@ export const updateBookingStatus = async (orderID: string, status: 'deferred' | 
     
     return true;
   } catch (error) {
-    console.error('Error updating booking status:', error);
+    // Debug error removed
     return false;
   }
 };
@@ -193,7 +193,7 @@ export const saveContractData = async (contractData: ContractData): Promise<bool
     await set(contractsRef, contractData);
     return true;
   } catch (error) {
-    console.error('Error saving contract data:', error);
+    // Debug error removed
     return false;
   }
 };
@@ -210,7 +210,7 @@ export const loadContractData = async (contractID: string): Promise<ContractData
       return null;
     }
   } catch (error) {
-    console.error('Error loading contract data:', error);
+    // Debug error removed
     return null;
   }
 };
@@ -233,7 +233,7 @@ export const loadContractByOrderID = async (orderID: string): Promise<ContractDa
     
     return null;
   } catch (error) {
-    console.error('Error loading contract by orderID:', error);
+    // Debug error removed
     return null;
   }
 };
@@ -246,7 +246,7 @@ export const updateContractStatus = async (contractID: string, contractStatus: '
     await set(statusRef, contractStatus);
     return true;
   } catch (error) {
-    console.error('Error updating contract status:', error);
+    // Debug error removed
     return false;
   }
 };
@@ -278,8 +278,7 @@ export const checkPendingUserSync = async () => {
       localStorage.removeItem('pendingUserData');
       return false;
     }
-    
-    
+
     const db = getFirestore();
     const userRef = doc(db, "users", user.uid);
     
@@ -310,7 +309,7 @@ export const checkPendingUserSync = async () => {
     
     return true;
   } catch (error: any) {
-    console.error('Failed to sync pending user data:', error);
+    // Debug error removed
     
     if (error.code === 'permission-denied') {
     }
@@ -345,7 +344,7 @@ export const testDatabaseAccess = async () => {
     return { success: true, message: 'Full database access available' };
     
   } catch (error: any) {
-    console.error('Database access test failed:', error);
+    // Debug error removed
     
     return { 
       success: false, 
@@ -372,7 +371,7 @@ export const isBookingWithinTwoDays = (eventDate: string): boolean => {
     
     return bookingDate >= today && bookingDate <= twoDaysFromNow;
   } catch (error) {
-    console.error('Error checking if booking is within two days:', error);
+    // Debug error removed
     return false;
   }
 };
@@ -388,7 +387,7 @@ export const isBookingPastEventDate = (eventDate: string): boolean => {
     
     return today > bookingDate;
   } catch (error) {
-    console.error('Error checking if booking is past event date:', error);
+    // Debug error removed
     return false;
   }
 };
@@ -426,11 +425,10 @@ export const updateBookingStatusBasedOnPayment = async (orderID: string, deposit
     // Load existing booking to get event date and other details
     const bookingData = await loadBookingData(orderID);
     if (!bookingData) {
-      console.error('❌ Booking not found for payment status update:', orderID);
+      // Debug error removed
       return false;
     }
-    
-    
+
     // Parse event date from orderDetails.eventDate (format: "MM/DD/YYYY - MM/DD/YYYY")
     const eventDateString = bookingData.orderDetails.eventDate.split(' - ')[0];
     
@@ -439,8 +437,7 @@ export const updateBookingStatusBasedOnPayment = async (orderID: string, deposit
       item.name.toLowerCase().includes('gift card') || 
       item.name.toLowerCase().includes('giftcard')
     );
-    
-    
+
     let newStatus: 'deferred' | 'pending' | 'deposited' | 'confirmed';
     
     // Gift card only orders are always confirmed when payment is complete
@@ -466,8 +463,7 @@ export const updateBookingStatusBasedOnPayment = async (orderID: string, deposit
         newStatus = bookingData.status as 'deposited' | 'confirmed';
       }
     }
-    
-    
+
     // Update booking status and payment details
     const database = getDatabase();
     
@@ -488,18 +484,12 @@ export const updateBookingStatusBasedOnPayment = async (orderID: string, deposit
     
     await set(ref(database, `bookings/${orderID}/updatedAt`), new Date().toISOString());
     
-    console.log(`✅ Booking status updated: ${orderID} -> ${newStatus}, payment: ${depositAmount >= totalAmount ? 'full' : 'partial'}`);
+    // Debug log removed
     
     return true;
   } catch (error) {
-    console.error('❌ Error updating booking status based on payment:', error);
-    console.error('❌ Error details:', {
-      orderID,
-      depositAmount,
-      totalAmount,
-      errorMessage: error instanceof Error ? error.message : 'Unknown error',
-      errorStack: error instanceof Error ? error.stack : undefined
-    });
+    // Debug error removed
+    // Debug error removed
     return false;
   }
 };
@@ -534,7 +524,7 @@ export const checkAndMarkCompletedBookings = async (): Promise<number> => {
     
     return updatedCount;
   } catch (error) {
-    console.error('Error checking and marking completed bookings:', error);
+    // Debug error removed
     return 0;
   }
 };
@@ -582,7 +572,7 @@ export const getUserData = async () => {
         };
       }
     } catch (error) {
-      console.error('Error parsing localStorage user data:', error);
+      // Debug error removed
     }
   }
   
@@ -606,7 +596,7 @@ export const createUserWallet = async (userId: string): Promise<boolean> => {
     await setDoc(walletRef, newWallet);
     return true;
   } catch (error) {
-    console.error('Error creating user wallet:', error);
+    // Debug error removed
     return false;
   }
 };
@@ -625,7 +615,7 @@ export const getUserWallet = async (userId: string): Promise<UserWallet | null> 
       return await getUserWallet(userId);
     }
   } catch (error) {
-    console.error('Error getting user wallet:', error);
+    // Debug error removed
     return null;
   }
 };
@@ -669,7 +659,7 @@ export const addWalletTransaction = async (
     await setDoc(walletRef, updatedWallet);
     return true;
   } catch (error) {
-    console.error('Error adding wallet transaction:', error);
+    // Debug error removed
     return false;
   }
 };
@@ -694,7 +684,7 @@ export const updateWalletBalance = async (userId: string, newBalance: number): P
     await setDoc(walletRef, updatedWallet);
     return true;
   } catch (error) {
-    console.error('Error updating wallet balance:', error);
+    // Debug error removed
     return false;
   }
 };
@@ -714,7 +704,7 @@ export const saveUserPaymentInfo = async (paymentInfo: UserPaymentInfo): Promise
     await setDoc(paymentRef, dataToSave);
     return true;
   } catch (error) {
-    console.error('Error saving user payment info:', error);
+    // Debug error removed
     return false;
   }
 };
@@ -750,7 +740,7 @@ export const getUserPaymentInfo = async (userId: string): Promise<UserPaymentInf
       return newPaymentInfo;
     }
   } catch (error) {
-    console.error('Error getting user payment info:', error);
+    // Debug error removed
     return null;
   }
 };
@@ -785,7 +775,7 @@ export const addSavedPaymentMethod = async (
     
     return await saveUserPaymentInfo(updatedPaymentInfo);
   } catch (error) {
-    console.error('Error adding saved payment method:', error);
+    // Debug error removed
     return false;
   }
 };
@@ -793,13 +783,13 @@ export const addSavedPaymentMethod = async (
 // Get incomplete bookings for a user (for booking recovery)
 export async function getIncompleteBookingsForUser(userId: string): Promise<BookingData[]> {
   try {
-    console.log('🔍 Checking for incomplete bookings for user:', userId);
+    // Debug log removed
     const db = getDatabase();
     const bookingsRef = ref(db, 'bookings');
     const snapshot = await get(bookingsRef);
     
     if (!snapshot.exists()) {
-      console.log('📭 No bookings found in database');
+      // Debug log removed
       return [];
     }
     
@@ -807,7 +797,7 @@ export async function getIncompleteBookingsForUser(userId: string): Promise<Book
     const incompleteBookings: BookingData[] = [];
     const userBookings = Object.keys(allBookings).filter(bookingId => allBookings[bookingId].customerID === userId);
     
-    console.log(`📋 Found ${userBookings.length} total bookings for user`);
+    // Debug log removed
     
     // Find bookings for this user that are truly incomplete
     Object.keys(allBookings).forEach(bookingId => {
@@ -818,17 +808,11 @@ export async function getIncompleteBookingsForUser(userId: string): Promise<Book
         return;
       }
       
-      console.log(`🔍 Analyzing booking ${bookingId}:`, {
-        status: booking.status,
-        paymentStatus: booking.paymentDetails?.paymentStatus,
-        depositAmount: booking.paymentDetails?.depositAmount || 0,
-        totalAmount: booking.paymentDetails?.totalAmount || 0,
-        remainingBalance: booking.paymentDetails?.remainingBalance || 0
-      });
+      // Debug log removed
       
       // Exclude cancelled or completed bookings
       if (booking.status === 'cancelled' || booking.status === 'completed') {
-        console.log(`❌ Excluding booking ${bookingId}: status is ${booking.status}`);
+        // Debug log removed
         return;
       }
       
@@ -845,11 +829,11 @@ export async function getIncompleteBookingsForUser(userId: string): Promise<Book
         // If full payment is complete (paid amount equals total or no remaining balance)
         if (paidAmount >= totalAmount || remainingBalance <= 0) {
           // Full payment complete - this booking doesn't need continuation
-          console.log(`✅ Excluding booking ${bookingId}: full payment complete (paid: $${paidAmount}, total: $${totalAmount}, remaining: $${remainingBalance})`);
+          // Debug log removed
           return;
         }
         
-        console.log(`💰 Booking ${bookingId} has partial payment - including for completion`);
+        // Debug log removed
         // If it's a deposit payment with remaining balance, still include it
         // because user needs to complete the remaining payment
       }
@@ -859,20 +843,20 @@ export async function getIncompleteBookingsForUser(userId: string): Promise<Book
       // 2. Status is pending/deferred with only partial payment (deposit) completed
       if ((booking.status === 'pending' || booking.status === 'deferred') &&
           (!hasCompletedPayment || (hasCompletedPayment && (paymentDetails.remainingBalance || 0) > 0))) {
-        console.log(`📝 Including incomplete booking ${bookingId}`);
+        // Debug log removed
         incompleteBookings.push(booking);
       } else {
-        console.log(`❌ Excluding booking ${bookingId}: doesn't meet incomplete criteria`);
+        // Debug log removed
       }
     });
     
     // Sort by creation date (most recent first)
     incompleteBookings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     
-    console.log(`📊 Final result: ${incompleteBookings.length} incomplete bookings found`);
+    // Debug log removed
     return incompleteBookings;
   } catch (error) {
-    console.error('Error getting incomplete bookings for user:', error);
+    // Debug error removed
     return [];
   }
 }
@@ -891,7 +875,7 @@ export async function deferBooking(bookingId: string, reason?: string): Promise<
   try {
     const booking = await loadBookingData(bookingId);
     if (!booking) {
-      console.error('Booking not found for deferral:', bookingId);
+      // Debug error removed
       return false;
     }
     
@@ -915,7 +899,7 @@ export async function deferBooking(bookingId: string, reason?: string): Promise<
     
     return success;
   } catch (error) {
-    console.error('Error deferring booking:', error);
+    // Debug error removed
     return false;
   }
 }
@@ -938,7 +922,7 @@ export async function deleteAllUserData(userId: string): Promise<{
         walletBalance = userWallet.balance;
       }
     } catch (error) {
-      console.warn('Could not get wallet balance during deletion:', error);
+      // Debug warning removed
     }
     
     // Delete from Realtime Database
@@ -1021,18 +1005,17 @@ export async function deleteAllUserData(userId: string): Promise<{
       await Promise.all(walletsDeletions);
       
     } catch (firestoreError) {
-      console.error('Error deleting Firestore collections:', firestoreError);
+      // Debug error removed
       // Continue with deletion even if Firestore deletion partially fails
     }
-    
-    
+
     return {
       success: true,
       deletedWalletBalance: walletBalance
     };
     
   } catch (error) {
-    console.error('Error deleting user data:', error);
+    // Debug error removed
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
@@ -1097,7 +1080,7 @@ export const getUserMembership = async (userId: string): Promise<UserMembership 
     
     return null;
   } catch (error) {
-    console.error('Error getting user membership:', error);
+    // Debug error removed
     return null;
   }
 };
@@ -1108,14 +1091,14 @@ export const updateUserMembership = async (
   isActive: boolean
 ): Promise<boolean> => {
   try {
-    console.log('⚠️ updateUserMembership is deprecated - membership status is now managed through subscription subcollection');
-    console.log('Use subscription management functions instead');
+    // Debug log removed
+    // Debug log removed
     
     // This function is now deprecated as membership status is determined by active subscriptions
     // The actual membership status should be managed through the subscription lifecycle
     return true;
   } catch (error) {
-    console.error('Error updating user membership:', error);
+    // Debug error removed
     return false;
   }
 };
@@ -1136,7 +1119,7 @@ export const isUserMember = async (userId: string, membershipType?: 'jump-club')
     // If we have any active subscriptions, user is a member
     return !subscriptionsSnapshot.empty;
   } catch (error) {
-    console.error('Error checking user membership:', error);
+    // Debug error removed
     return false;
   }
 };
@@ -1168,7 +1151,7 @@ export const saveMembershipPayment = async (payment: MembershipPayment): Promise
     
     return true;
   } catch (error) {
-    console.error('Error saving membership payment:', error);
+    // Debug error removed
     return false;
   }
 };
@@ -1186,33 +1169,33 @@ export const getUsersMembershipPayments = async (userId: string): Promise<Member
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => doc.data() as MembershipPayment);
   } catch (error) {
-    console.error('Error getting membership payments:', error);
+    // Debug error removed
     return [];
   }
 };
 
 export const updateMembershipDateStarted = async (userId: string, membershipType: 'jump-club'): Promise<boolean> => {
   try {
-    console.log('⚠️ updateMembershipDateStarted is deprecated - membership dates are now managed through subscription subcollection');
-    console.log('Use subscription management functions instead');
+    // Debug log removed
+    // Debug log removed
     
     // This function is deprecated as membership dates are managed through subscription lifecycle
     return true;
   } catch (error) {
-    console.error('Error updating membership dateStarted:', error);
+    // Debug error removed
     return false;
   }
 };
 
 export const cancelMembership = async (userId: string): Promise<boolean> => {
   try {
-    console.log('⚠️ cancelMembership is deprecated - use PayPal subscription cancellation functions instead');
-    console.log('Use cancelPayPalSubscription cloud function instead');
+    // Debug log removed
+    // Debug log removed
     
     // This function is deprecated as membership cancellation is managed through PayPal subscription cancellation
     return true;
   } catch (error) {
-    console.error('Error cancelling membership:', error);
+    // Debug error removed
     return false;
   }
 };

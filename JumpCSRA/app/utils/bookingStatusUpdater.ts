@@ -16,18 +16,18 @@ export const updateCompletedBookings = async (): Promise<{
   error?: string;
 }> => {
   try {
-    console.log('🔄 Starting booking status update process...');
+    // Debug log removed
     
     const updatedCount = await checkAndMarkCompletedBookings();
     
-    console.log(`✅ Booking status update complete. Updated ${updatedCount} bookings to completed.`);
+    // Debug log removed
     
     return {
       success: true,
       updatedCount: updatedCount
     };
   } catch (error) {
-    console.error('❌ Error updating booking statuses:', error);
+    // Debug error removed
     return {
       success: false,
       updatedCount: 0,
@@ -99,7 +99,7 @@ export const checkSpecificBooking = async (orderID: string): Promise<{
     };
     
   } catch (error) {
-    console.error('Error checking specific booking:', error);
+    // Debug error removed
     return {
       success: false,
       updated: false,
@@ -163,7 +163,7 @@ export const getBookingStatusSummary = async (): Promise<{
     };
     
   } catch (error) {
-    console.error('Error getting booking status summary:', error);
+    // Debug error removed
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
@@ -173,28 +173,28 @@ export const getBookingStatusSummary = async (): Promise<{
 
 // Function to run the booking status update process and log results
 export const runBookingStatusUpdate = async (): Promise<void> => {
-  console.log('🚀 Starting scheduled booking status update...');
+  // Debug log removed
   
   // Get summary before update
   const beforeSummary = await getBookingStatusSummary();
   if (beforeSummary.success && beforeSummary.summary) {
-    console.log('📊 Before update:', beforeSummary.summary);
+    // Debug log removed
   }
   
   // Run update process
   const result = await updateCompletedBookings();
   
   if (result.success) {
-    console.log(`✅ Successfully updated ${result.updatedCount} bookings to completed status`);
+    // Debug log removed
     
     // Get summary after update
     const afterSummary = await getBookingStatusSummary();
     if (afterSummary.success && afterSummary.summary) {
-      console.log('📊 After update:', afterSummary.summary);
+      // Debug log removed
     }
   } else {
-    console.error('❌ Failed to update booking statuses:', result.error);
+    // Debug error removed
   }
   
-  console.log('🏁 Booking status update process finished');
+  // Debug log removed
 };

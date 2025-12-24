@@ -333,12 +333,12 @@ const getStatusText = (status: string, requiresPhoneCall?: boolean): string => {
 // Main email sending function for order confirmation
 export const sendOrderConfirmationEmail = async (data: OrderConfirmationEmailData): Promise<boolean> => {
   try {
-    console.log('📧 ORDER CONFIRMATION EMAIL - Processing email...');
-    console.log('  📬 Recipient:', data.recipientEmail);
-    console.log('  📦 Order ID:', data.orderID);
-    console.log('  💰 Total Amount: $' + data.totalAmount.toFixed(2));
-    console.log('  🎁 Gift Cards:', data.giftCards.length);
-    console.log('  📧 Subject: Order Confirmation #' + data.orderID);
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed
     
     try {
       // Try to use Firebase Cloud Functions
@@ -351,7 +351,7 @@ export const sendOrderConfirmationEmail = async (data: OrderConfirmationEmailDat
       // Call the Firebase Cloud Function
       const result = await sendOrderEmail(data);
       
-      console.log('✅ ORDER CONFIRMATION EMAIL - Firebase function result:', result.data);
+      // Debug log removed
       
       // Send separate emails for promotional gift cards to different recipients
       for (const giftCard of data.giftCards) {
@@ -365,58 +365,58 @@ export const sendOrderConfirmationEmail = async (data: OrderConfirmationEmailDat
         }
       }
       
-      console.log('✅ ORDER CONFIRMATION EMAIL - Email sent successfully via Firebase Functions');
+      // Debug log removed
       return true;
       
     } catch (firebaseError) {
-      console.warn('� ORDER CONFIRMATION EMAIL - Firebase Functions not available, using fallback:', firebaseError);
+      // Debug warning removed
       
       // Fallback: Log comprehensive email details for manual processing
-      console.log('📧 ORDER CONFIRMATION EMAIL - COMPREHENSIVE EMAIL DATA:');
-      console.log('==========================================');
-      console.log(`TO: ${data.recipientEmail}`);
-      console.log(`FROM: JumpCSRA Party Rentals <noreply@jumpcsra.com>`);
-      console.log(`SUBJECT: Order Confirmation #${data.orderID} - JumpCSRA Party Rentals`);
-      console.log(`ORDER ID: ${data.orderID}`);
-      console.log(`CUSTOMER: ${data.recipientName}`);
-      console.log(`ORDER DATE: ${data.orderDate}`);
-      console.log(`STATUS: ${data.bookingStatus}`);
-      console.log(`TOTAL: $${data.totalAmount.toFixed(2)}`);
-      console.log(`PAYMENT: $${data.amountPaid.toFixed(2)} (${data.paymentMethod})`);
-      console.log(`REMAINING: $${data.remainingBalance.toFixed(2)}`);
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
       
-      if (data.eventDate) console.log(`EVENT DATE: ${data.eventDate}`);
-      if (data.deliveryAddress) console.log(`DELIVERY: ${data.deliveryAddress}`);
-      if (data.deliveryTime) console.log(`TIME: ${data.deliveryTime}`);
+      if (data.eventDate) // Debug log removed
+      if (data.deliveryAddress) // Debug log removed
+      if (data.deliveryTime) // Debug log removed
       
       if (data.rentalItems.length > 0) {
-        console.log('RENTAL ITEMS:');
+        // Debug log removed
         data.rentalItems.forEach(item => {
-          console.log(`  - ${item.name} x${item.quantity} - $${item.price.toFixed(2)}`);
+          // Debug log removed
         });
       }
       
       if (data.lastMinuteAdditions.length > 0) {
-        console.log('LAST MINUTE ADDITIONS:');
+        // Debug log removed
         data.lastMinuteAdditions.forEach(item => {
-          console.log(`  - ${item.name} x${item.quantity} - $${item.price.toFixed(2)}`);
+          // Debug log removed
         });
       }
       
       if (data.giftCards.length > 0) {
-        console.log('GIFT CARDS:');
+        // Debug log removed
         data.giftCards.forEach(gc => {
-          console.log(`  - ${gc.code}: $${gc.balance.toFixed(2)} ${gc.isPromotional ? '(PROMOTIONAL)' : ''}`);
+          // Debug log removed
           if (gc.recipientEmail && gc.recipientEmail !== data.recipientEmail) {
-            console.log(`    → Send to: ${gc.recipientEmail}`);
+            // Debug log removed
           }
         });
       }
       
-      console.log('==========================================');
-      console.log('⚠️ NOTE: Email system is in development mode.');
-      console.log('📧 The above data should be used to manually send the email.');
-      console.log('🔧 To enable automatic emails, deploy Firebase Cloud Functions on Blaze plan.');
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
       
       // Show browser notification for testing
       if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
@@ -430,7 +430,7 @@ export const sendOrderConfirmationEmail = async (data: OrderConfirmationEmailDat
     }
     
   } catch (error) {
-    console.error('📧 ORDER CONFIRMATION EMAIL - Unexpected error:', error);
+    // Debug error removed
     return false;
   }
 };
@@ -443,24 +443,24 @@ const sendPromotionalGiftCardEmail = async (data: {
   purchaserName: string;
 }): Promise<boolean> => {
   try {
-    console.log('🎁 PROMOTIONAL GIFT CARD EMAIL - Processing...');
-    console.log('  📬 Recipient:', data.recipientEmail);
-    console.log('  🎁 Gift Card Code:', data.giftCard.code);
-    console.log('  💰 Balance: $' + data.giftCard.balance.toFixed(2));
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed
     
     // TODO: Generate and send promotional gift card email
-    console.log('✅ PROMOTIONAL GIFT CARD EMAIL - Would be sent to:', data.recipientEmail);
+    // Debug log removed
     
     return true;
   } catch (error) {
-    console.error('🎁 PROMOTIONAL GIFT CARD EMAIL - Error:', error);
+    // Debug error removed
     return false;
   }
 };
 
 // Legacy function for backward compatibility
 export const sendGiftCardEmail = async (data: GiftCardEmailData): Promise<boolean> => {
-  console.log('⚠️ Legacy sendGiftCardEmail called - consider using sendOrderConfirmationEmail instead');
+  // Debug log removed
   return sendOrderConfirmationEmail({
     recipientEmail: data.recipientEmail,
     recipientName: data.recipientName,
@@ -538,9 +538,9 @@ export interface EmailService {
 
 export class MockEmailService implements EmailService {
   async sendGiftCardEmail(data: GiftCardEmailData): Promise<boolean> {
-    console.log('📧 MOCK EMAIL SERVICE - Gift card email would be sent to:', data.recipientEmail);
-    console.log('📧 MOCK EMAIL SERVICE - Code:', data.giftCardCode);
-    console.log('📧 MOCK EMAIL SERVICE - Balance: $' + data.giftCardBalance.toFixed(2));
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed
     
     await new Promise(resolve => setTimeout(resolve, 1000));
     return true;

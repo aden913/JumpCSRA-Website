@@ -253,24 +253,24 @@ export function Welcome() {
 
   // Wrapper function to handle category change and reset carousel
   const handleCategoryChange = (category: string) => {
-    console.log('🔄 [CATEGORY] Category changing to:', category);
-    console.log('🔄 [CATEGORY] Current category:', logic.selectedCategory);
-    console.log('🔄 [CATEGORY] Current filtered options count:', logic.filteredOptions.length);
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed
     
     logic.setSelectedCategory(category);
     
     // Log after state change (note: state update is async, so this might not show the new value immediately)
     setTimeout(() => {
-      console.log('🔄 [CATEGORY] After state update - New category:', logic.selectedCategory);
-      console.log('🔄 [CATEGORY] After state update - Filtered options count:', logic.filteredOptions.length);
+      // Debug log removed
+      // Debug log removed
     }, 50);
     
     // Reset carousel to beginning after a short delay to allow re-render
     setTimeout(() => {
-      console.log('🔄 [CAROUSEL] Resetting carousel to beginning...');
+      // Debug log removed
       if (optionsCarouselRef.current) {
         optionsCarouselRef.current.resetToBeginning();
-        console.log('✅ [CAROUSEL] Carousel reset completed');
+        // Debug log removed
       } else {
         console.warn('⚠️ [CAROUSEL] Carousel ref not available for reset');
       }
@@ -392,7 +392,6 @@ export function Welcome() {
       setSearchParams(new URLSearchParams());
     }
   }, [searchParams, logic.inflateables, logic.setSelectedCategory, logic.setSelectedProduct, logic.setProductOpen, setSearchParams]);
-
 
   return (
     <>
@@ -519,11 +518,11 @@ export function Welcome() {
           onChange={logic.setCalendarDateRange}
           selectedWetDry={logic.selectedWetDry}
           onWetDryChange={(wetDry: string) => {
-            console.log('🔄 [WET/DRY] Wet/Dry changing from', logic.selectedWetDry, 'to', wetDry);
+            // Debug log removed
             logic.setSelectedWetDry(wetDry);
             setTimeout(() => {
-              console.log('🔄 [WET/DRY] After state update - New value:', logic.selectedWetDry);
-              console.log('🔄 [WET/DRY] Filtered options count:', logic.filteredOptions.length);
+              // Debug log removed
+              // Debug log removed
             }, 50);
           }}
         />
@@ -567,8 +566,7 @@ export function Welcome() {
             isLandingPage={true} // Identify this as landing page
             selectedDates={logic.calendarDateRange}
           />
-          
-        
+
         </section>
 
         {/* Main Section */}

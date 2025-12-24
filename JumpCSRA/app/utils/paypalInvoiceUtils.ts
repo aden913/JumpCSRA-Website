@@ -333,10 +333,10 @@ const createInvoicePayload = (data: InvoiceData) => {
 // Main function to create and send PayPal invoice
 export const createAndSendPayPalInvoice = async (data: InvoiceData): Promise<{ success: boolean; invoiceId?: string; invoiceUrl?: string; error?: string }> => {
   try {
-    console.log('📧 PAYPAL INVOICE - Creating invoice for order:', data.orderID);
-    console.log('  📬 Recipient:', data.recipientEmail);
-    console.log('  💰 Total Amount: $' + data.totalAmount.toFixed(2));
-    console.log('  🎁 Gift Cards:', data.giftCards.length);
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed
     
     // First, let's test if Firebase Functions are available and deployed
     try {
@@ -344,17 +344,17 @@ export const createAndSendPayPalInvoice = async (data: InvoiceData): Promise<{ s
       const { app } = await import('../components/FirebaseConfig');
       
       const functions = getFunctions(app);
-      console.log('📧 PAYPAL INVOICE - Firebase Functions loaded, project ID:', functions.app.options.projectId);
+      // Debug log removed
       
       // Try the PayPal invoice function first
       try {
         const createPayPalInvoice = httpsCallable(functions, 'createPayPalInvoice');
         
-        console.log('📧 PAYPAL INVOICE - Calling Firebase createPayPalInvoice function...');
+        // Debug log removed
         
         const result = await createPayPalInvoice(data);
         
-        console.log('✅ PAYPAL INVOICE - PayPal invoice created successfully:', result.data);
+        // Debug log removed
         
         return {
           success: true,
@@ -363,16 +363,11 @@ export const createAndSendPayPalInvoice = async (data: InvoiceData): Promise<{ s
         };
         
       } catch (paypalError) {
-        console.error('❌ PAYPAL INVOICE - PayPal invoice function failed:', paypalError);
-        console.error('PayPal error details:', {
-          code: (paypalError as any).code,
-          message: (paypalError as any).message,
-          details: (paypalError as any).details,
-          stack: (paypalError as any).stack
-        });
+        // Debug error removed
+        // Debug error removed
         
         // Try fallback to order confirmation email
-        console.log('🔄 PAYPAL INVOICE - Trying fallback order confirmation email...');
+        // Debug log removed
         
         const sendOrderConfirmationEmail = httpsCallable(functions, 'sendOrderConfirmationEmail');
         
@@ -404,7 +399,7 @@ export const createAndSendPayPalInvoice = async (data: InvoiceData): Promise<{ s
         
         const emailResult = await sendOrderConfirmationEmail(emailData);
         
-        console.log('✅ PAYPAL INVOICE - Order confirmation email sent successfully:', emailResult.data);
+        // Debug log removed
         
         return {
           success: true,
@@ -415,15 +410,11 @@ export const createAndSendPayPalInvoice = async (data: InvoiceData): Promise<{ s
       }
       
     } catch (firebaseError) {
-      console.error('❌ PAYPAL INVOICE - Firebase Functions error:', firebaseError);
-      console.error('Firebase error details:', {
-        code: (firebaseError as any).code,
-        message: (firebaseError as any).message,
-        details: (firebaseError as any).details
-      });
+      // Debug error removed
+      // Debug error removed
       
       // Use simple email service as fallback
-      console.log('🔄 PAYPAL INVOICE - Using simple email service fallback...');
+      // Debug log removed
       
       try {
         const { createOrderConfirmationEmail, showEmailInstructions } = await import('./simpleEmailService');
@@ -445,7 +436,7 @@ export const createAndSendPayPalInvoice = async (data: InvoiceData): Promise<{ s
             showEmailInstructions(data.recipientEmail, emailResult.emailUrl!);
           }, 1000);
           
-          console.log('✅ PAYPAL INVOICE - Simple email service fallback completed');
+          // Debug log removed
           
           return {
             success: true,
@@ -458,66 +449,61 @@ export const createAndSendPayPalInvoice = async (data: InvoiceData): Promise<{ s
         }
         
       } catch (simpleEmailError) {
-        console.error('❌ PAYPAL INVOICE - Simple email service also failed:', simpleEmailError);
+        // Debug error removed
       }
       
       // Fallback: Log comprehensive invoice data for development
-      console.log('📧 PAYPAL INVOICE - Using development fallback due to Firebase error');
-      console.log('📧 PAYPAL INVOICE - COMPREHENSIVE INVOICE DATA:');
-      console.log('==========================================');
-      console.log('Invoice Number:', `JC-${data.orderID}`);
-      console.log('Recipient:', data.recipientEmail);
-      console.log('Customer:', data.recipientName);
-      console.log('Order ID:', data.orderID);
-      console.log('Order Date:', data.orderDate);
-      console.log('Status:', data.bookingStatus);
-      console.log('Amount:', '$' + data.totalAmount.toFixed(2));
-      console.log('Payment Type:', data.paymentType);
-      console.log('Amount Paid:', '$' + data.amountPaid.toFixed(2));
-      console.log('Remaining Balance:', '$' + data.remainingBalance.toFixed(2));
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
       
       if (data.eventDate) {
-        console.log('\nEvent Details:');
-        console.log('  Date:', data.eventDate);
-        if (data.deliveryAddress) console.log('  Address:', data.deliveryAddress);
-        if (data.deliveryTime) console.log('  Time:', data.deliveryTime);
-        if (data.duration) console.log('  Duration:', data.duration);
-        if (data.surface) console.log('  Surface:', data.surface);
+        // Debug logs removed for event date details
       }
       
       if (data.rentalItems.length > 0) {
-        console.log('\nRental Items:');
+        // Debug log removed
         data.rentalItems.forEach(item => {
-          console.log(`  - ${item.name} x${item.quantity} - $${item.price.toFixed(2)}`);
+          // Debug log removed
         });
       }
       
       if (data.lastMinuteAdditions.length > 0) {
-        console.log('\nLast Minute Additions:');
+        // Debug log removed
         data.lastMinuteAdditions.forEach(item => {
-          console.log(`  - ${item.name} x${item.quantity} - $${item.price.toFixed(2)}`);
+          // Debug log removed
         });
       }
       
       if (data.giftCards.length > 0) {
-        console.log('\nGift Cards:');
+        // Debug log removed
         data.giftCards.forEach(gc => {
-          console.log(`  - ${gc.code}: $${gc.balance.toFixed(2)} ${gc.isPromotional ? '(PROMOTIONAL)' : ''}`);
-          console.log(`    Expires: ${gc.expirationDate}`);
+          // Debug log removed
+          // Debug log removed
           if (gc.recipientEmail && gc.recipientEmail !== data.recipientEmail) {
-            console.log(`    Send to: ${gc.recipientEmail}`);
+            // Debug log removed
           }
         });
       }
       
-      console.log('\nPayPal Transaction:');
-      console.log('  Order ID:', data.paypalOrderId);
-      console.log('  Transaction ID:', data.paypalTransactionId);
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
       
-      console.log('==========================================');
-      console.log('⚠️ NOTE: PayPal invoice system is in development mode.');
-      console.log('📧 The above data should be used to manually create the invoice.');
-      console.log('🔧 To enable automatic invoicing, upgrade Firebase to Blaze plan and deploy functions.');
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
+      // Debug log removed
       
       return {
         success: true,
@@ -527,7 +513,7 @@ export const createAndSendPayPalInvoice = async (data: InvoiceData): Promise<{ s
     }
     
   } catch (error) {
-    console.error('❌ PAYPAL INVOICE - Unexpected error:', error);
+    // Debug error removed
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred'

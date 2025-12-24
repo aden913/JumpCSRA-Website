@@ -26,24 +26,13 @@ const categoryMapping: { [key: string]: string[] } = {
 };
 
 function filterOptions(inflateables: any[], selectedCategory: string, selectedWetDry: string): any[] {
-  console.log('🔍 FILTER DEBUG: Starting filter with', {
-    totalItems: inflateables.length,
-    selectedCategory,
-    selectedWetDry,
-    firstFewItems: inflateables.slice(0, 3).map(item => ({ 
-      name: item.name, 
-      category: item.category,
-      wet: item.wet,
-      dry: item.dry
-    }))
-  });
+  // Debug log removed
   
   let filtered = inflateables;
   
   // Apply category filter
   if (selectedCategory.toLowerCase() !== 'all') {
     const dbCategories = categoryMapping[selectedCategory.toLowerCase()] || [];
-    console.log('🔍 Mapping category:', selectedCategory, '→', dbCategories);
     
     filtered = filtered.filter((item: any) => {
       let matches = false;
@@ -58,36 +47,26 @@ function filterOptions(inflateables: any[], selectedCategory: string, selectedWe
         matches = dbCategories.includes(item.category.toLowerCase());
       }
       
-      if (!matches) {
-        console.log('❌ Item filtered out:', item.name, 'has category:', item.category, 'looking for DB categories:', dbCategories);
-      } else {
-        console.log('✅ Item kept:', item.name, 'has category:', item.category);
-      }
-      
       return matches;
     });
   }
   
-  console.log(`🔍 After category filter: ${filtered.length} items`);
+  // Category filter debug logging removed
   
   // Apply wet/dry filter
   if (selectedWetDry === 'wet') {
-    console.log('🌊 Applying WET filter...');
     filtered = filtered.filter((item: any) => {
       const isWet = item.wet === true;
-      console.log(`🌊 ${item.name}: wet=${item.wet}, keeping=${isWet}`);
       return isWet;
     });
   } else if (selectedWetDry === 'dry') {
-    console.log('☀️ Applying DRY filter...');
     filtered = filtered.filter((item: any) => {
       const isDry = item.dry === true;
-      console.log(`☀️ ${item.name}: dry=${item.dry}, keeping=${isDry}`);
       return isDry;
     });
   }
   
-  console.log(`🔍 Final filtered result: ${filtered.length} items`, filtered.map(item => item.name));
+  // Final filtered result debug logging removed
   
   return filtered;
 }
@@ -175,25 +154,25 @@ export function useWelcomeLogic() {
   useEffect(() => {
     async function loadPartyEssentialsAvailability() {
       if (!hasValidDates || !calendarDateRange[0] || !calendarDateRange[1] || inflateables.length === 0) {
-        console.log('🔍 Skipping availability check:', { hasValidDates, dates: calendarDateRange, inflatables: inflateables.length });
+        // Debug log removed
         return;
       }
 
       try {
-        console.log('🔍 Loading party essentials availability...');
+        // Debug log removed
         // Get party essentials from actual inflateables data
         const partyEssentials = inflateables.filter(item => 
           item.category && item.category.toLowerCase() === 'party-essentials'
         );
         
-        console.log('🎪 Found party essentials:', partyEssentials.map(item => ({ name: item.name, quantity: item.quantity })));
+        // Debug log removed
         
         const newAvailability = new Map<string, ItemAvailability>();
         
         for (const item of partyEssentials) {
           try {
             const totalQuantity = item.quantity || 1; // Use actual quantity from database
-            console.log(`🔍 Checking availability for ${item.name} (total: ${totalQuantity})`);
+            // Debug log removed
             
             const availability = await checkItemAvailability(
               item.name,
@@ -202,7 +181,7 @@ export function useWelcomeLogic() {
               calendarDateRange[1]
             );
             
-            console.log(`✅ Availability for ${item.name}:`, availability);
+            // Debug log removed
             newAvailability.set(item.name, availability);
           } catch (error) {
             console.warn(`❌ Failed to check availability for ${item.name}:`, error);
@@ -217,7 +196,7 @@ export function useWelcomeLogic() {
         }
         
         setItemAvailability(newAvailability);
-        console.log('🎪 Final availability map:', newAvailability);
+        // Debug log removed
       } catch (error) {
         console.error('❌ Failed to load party essentials availability:', error);
       }
@@ -229,10 +208,10 @@ export function useWelcomeLogic() {
   // Get available quantity for an item, considering cart items
   const getAvailableQuantityForItem = (itemName: string): number => {
     const availability = itemAvailability.get(itemName);
-    console.log(`🔍 Getting available quantity for ${itemName}:`, availability);
+    // Debug log removed
     
     if (!availability) {
-      console.log(`❌ No availability data for ${itemName}`);
+      // Debug log removed
       return 0;
     }
 
@@ -247,7 +226,7 @@ export function useWelcomeLogic() {
     }, 0);
 
     const finalAvailable = Math.max(0, availableFromBookings - cartQuantity);
-    console.log(`📊 ${itemName}: available=${availableFromBookings}, inCart=${cartQuantity}, final=${finalAvailable}`);
+    // Debug log removed
     
     return finalAvailable;
   };

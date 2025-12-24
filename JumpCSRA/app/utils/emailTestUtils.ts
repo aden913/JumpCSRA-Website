@@ -82,7 +82,7 @@ export const testFirebaseFunctionsDeployment = async (): Promise<{
     const { app } = await import('../components/FirebaseConfig');
     
     const functions = getFunctions(app);
-    console.log('🔧 EMAIL TEST - Firebase Functions initialized for project:', functions.app.options.projectId);
+    // Debug log removed
     
     // Test functions that should be available
     const functionsToTest = [
@@ -101,26 +101,26 @@ export const testFirebaseFunctionsDeployment = async (): Promise<{
         
         // If it doesn't throw, the function exists
         results.availableFunctions.push(functionName);
-        console.log(`✅ EMAIL TEST - Function '${functionName}' is available`);
+        // Debug log removed
         
       } catch (error: any) {
         if (error.code === 'functions/not-found') {
-          console.error(`❌ EMAIL TEST - Function '${functionName}' not found`);
+          // Debug error removed
           results.errors.push(`Function '${functionName}' not deployed`);
           results.success = false;
         } else if (error.code === 'functions/invalid-argument' || error.code === 'functions/unauthenticated') {
           // These errors mean the function exists but failed validation or auth
           results.availableFunctions.push(functionName);
-          console.log(`✅ EMAIL TEST - Function '${functionName}' is available (${error.code})`);
+          // Debug log removed
         } else {
-          console.warn(`⚠️ EMAIL TEST - Function '${functionName}' test inconclusive:`, error.message);
+          // Debug warning removed
           results.errors.push(`Function '${functionName}' test failed: ${error.message}`);
         }
       }
     }
     
   } catch (error: any) {
-    console.error('❌ EMAIL TEST - Firebase Functions initialization failed:', error);
+    // Debug error removed
     results.errors.push(`Firebase Functions initialization failed: ${error.message}`);
     results.success = false;
   }
@@ -135,7 +135,7 @@ export const testOrderConfirmationEmail = async (testEmail: string): Promise<{
   error?: string;
 }> => {
   try {
-    console.log('📧 EMAIL TEST - Testing order confirmation email to:', testEmail);
+    // Debug log removed
     
     const { getFunctions, httpsCallable } = await import('firebase/functions');
     const { app } = await import('../components/FirebaseConfig');
@@ -189,7 +189,7 @@ export const testOrderConfirmationEmail = async (testEmail: string): Promise<{
     
     const result = await sendOrderConfirmationEmail(testEmailData);
     
-    console.log('✅ EMAIL TEST - Order confirmation email test result:', result.data);
+    // Debug log removed
     
     return {
       success: true,
@@ -197,7 +197,7 @@ export const testOrderConfirmationEmail = async (testEmail: string): Promise<{
     };
     
   } catch (error: any) {
-    console.error('❌ EMAIL TEST - Order confirmation email test failed:', error);
+    // Debug error removed
     
     return {
       success: false,
@@ -215,7 +215,7 @@ export const testPayPalInvoice = async (testEmail: string): Promise<{
   error?: string;
 }> => {
   try {
-    console.log('💰 EMAIL TEST - Testing PayPal invoice creation for:', testEmail);
+    // Debug log removed
     
     const { getFunctions, httpsCallable } = await import('firebase/functions');
     const { app } = await import('../components/FirebaseConfig');
@@ -269,7 +269,7 @@ export const testPayPalInvoice = async (testEmail: string): Promise<{
     
     const result = await createPayPalInvoice(testInvoiceData);
     
-    console.log('✅ EMAIL TEST - PayPal invoice test result:', result.data);
+    // Debug log removed
     
     return {
       success: true,
@@ -278,7 +278,7 @@ export const testPayPalInvoice = async (testEmail: string): Promise<{
     };
     
   } catch (error: any) {
-    console.error('❌ EMAIL TEST - PayPal invoice test failed:', error);
+    // Debug error removed
     
     return {
       success: false,
@@ -294,32 +294,32 @@ export const runEmailSystemDiagnostics = async (testEmail?: string): Promise<{
   emailTest?: Awaited<ReturnType<typeof testOrderConfirmationEmail>>;
   invoiceTest?: Awaited<ReturnType<typeof testPayPalInvoice>>;
 }> => {
-  console.log('🔍 EMAIL TEST - Running comprehensive email system diagnostics...');
+  // Debug log removed
   
   const results: any = {};
   
   // Test 1: Check Firebase Functions deployment
-  console.log('🔧 EMAIL TEST - Step 1: Checking Firebase Functions deployment...');
+  // Debug log removed
   results.deploymentCheck = await testFirebaseFunctionsDeployment();
   
   if (testEmail) {
     // Test 2: Try order confirmation email via Cloud Functions
-    console.log('📧 EMAIL TEST - Step 2: Testing order confirmation email via Cloud Functions...');
+    // Debug log removed
     results.emailTest = await testOrderConfirmationEmail(testEmail);
     
     // Test 3: Try PayPal invoice creation
-    console.log('💰 EMAIL TEST - Step 3: Testing PayPal invoice creation...');
+    // Debug log removed
     results.invoiceTest = await testPayPalInvoice(testEmail);
   }
   
   // Summary
-  console.log('📊 EMAIL TEST - Diagnostics Summary:');
-  console.log('  🔧 Functions Available:', results.deploymentCheck.availableFunctions.length);
-  console.log('  ❌ Errors Found:', results.deploymentCheck.errors.length);
+  // Debug log removed
+  // Debug log removed
+  // Debug log removed
   
   if (testEmail) {
-    console.log('  📧 Email Test:', results.emailTest?.success ? '✅ Passed' : '❌ Failed');
-    console.log('  💰 Invoice Test:', results.invoiceTest?.success ? '✅ Passed' : '❌ Failed');
+    // Debug log removed
+    // Debug log removed
   }
   
   return results;
@@ -330,32 +330,32 @@ export const displayDiagnosticsResults = (results: Awaited<ReturnType<typeof run
   console.group('📊 EMAIL SYSTEM DIAGNOSTICS RESULTS');
   
   console.group('🔧 Firebase Functions Deployment');
-  console.log('Status:', results.deploymentCheck.success ? '✅ Good' : '❌ Issues Found');
-  console.log('Available Functions:', results.deploymentCheck.availableFunctions);
+  // Debug log removed
+  // Debug log removed
   if (results.deploymentCheck.errors.length > 0) {
-    console.log('Errors:', results.deploymentCheck.errors);
+    // Debug log removed
   }
   console.groupEnd();
   
   if (results.emailTest) {
     console.group('📧 Order Confirmation Email Test');
-    console.log('Status:', results.emailTest.success ? '✅ Success' : '❌ Failed');
-    console.log('Message:', results.emailTest.message);
+    // Debug log removed
+    // Debug log removed
     if (results.emailTest.error) {
-      console.log('Error:', results.emailTest.error);
+      // Debug log removed
     }
     console.groupEnd();
   }
   
   if (results.invoiceTest) {
     console.group('💰 PayPal Invoice Test');
-    console.log('Status:', results.invoiceTest.success ? '✅ Success' : '❌ Failed');
-    console.log('Message:', results.invoiceTest.message);
+    // Debug log removed
+    // Debug log removed
     if (results.invoiceTest.invoiceId) {
-      console.log('Invoice ID:', results.invoiceTest.invoiceId);
+      // Debug log removed
     }
     if (results.invoiceTest.error) {
-      console.log('Error:', results.invoiceTest.error);
+      // Debug log removed
     }
     console.groupEnd();
   }

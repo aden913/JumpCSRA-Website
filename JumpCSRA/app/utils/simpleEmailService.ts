@@ -81,12 +81,12 @@ export const createOrderConfirmationEmail = async (data: {
     const emailUrl = `mailto:${data.recipientEmail}?subject=${subject}&body=${emailBody}`;
     
     // Log the email details for manual sending if needed
-    console.log('📧 SIMPLIFIED EMAIL - Order confirmation created');
-    console.log('📧 Recipient:', data.recipientEmail);
-    console.log('📧 Order ID:', data.orderID);
-    console.log('📧 Total Amount:', data.totalAmount);
-    console.log('📧 Gift Cards:', data.giftCards.length);
-    console.log('📧 Email URL:', emailUrl);
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed
+    // Debug log removed
     
     return {
       success: true,
@@ -95,7 +95,7 @@ export const createOrderConfirmationEmail = async (data: {
     };
     
   } catch (error) {
-    console.error('❌ SIMPLIFIED EMAIL - Error creating email:', error);
+    // Debug error removed
     return {
       success: false,
       message: 'Failed to create order confirmation email'
@@ -168,11 +168,11 @@ export const testFirebaseFunctionsAvailability = async (): Promise<boolean> => {
     const testFunction = httpsCallable(functions, 'testFunction');
     
     await testFunction({});
-    console.log('✅ Firebase Functions are available');
+    // Debug log removed
     return true;
     
   } catch (error) {
-    console.log('❌ Firebase Functions are not available:', error);
+    // Debug log removed
     return false;
   }
 };
