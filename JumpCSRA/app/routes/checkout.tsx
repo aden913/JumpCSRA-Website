@@ -1304,6 +1304,14 @@ export default function Checkout() {
         return; // Don't load cart from localStorage if resuming booking
       }
       
+      // Check if we have a booking URL parameter - if so, delay cart loading
+      const urlParams = new URLSearchParams(window.location.search);
+      const bookingUrlParam = urlParams.get('booking');
+      if (bookingUrlParam && !bookingLoadedFromUrl) {
+        console.log('🔍 [CART LOAD] Booking URL parameter detected, skipping cart load from localStorage');
+        return; // Don't load cart from localStorage if we're loading from URL
+      }
+      
       // Load cart from localStorage
       const savedCart = localStorage.getItem("cart");
       if (savedCart) {
@@ -1335,7 +1343,7 @@ export default function Checkout() {
         }
       }
     }
-  }, [loading, user]);
+  }, [loading, user, bookingLoadedFromUrl]);
 
   // Get party essentials for carousel (must be defined before useEffect that uses it)
   const partyEssentials = inflateables.filter(item => 
@@ -3217,7 +3225,8 @@ export default function Checkout() {
   }
 
   // If cart is empty and no completed order and not a membership checkout, redirect back to home
-  if (cart.length === 0 && completedOrderCart.length === 0 && !isMembershipCheckout) {
+  // BUT allow deferred bookings (with pendingBookingId) to proceed even with empty cart
+  if (cart.length === 0 && completedOrderCart.length === 0 && !isMembershipCheckout && !pendingBookingId && !bookingLoadedFromUrl && !loadingBookingFromUrl) {
     return (
       <div style={{ 
         display: 'flex', 
