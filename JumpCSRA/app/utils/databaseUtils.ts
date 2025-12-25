@@ -810,8 +810,8 @@ export async function getIncompleteBookingsForUser(userId: string): Promise<Book
       
       // Debug log removed
       
-      // Exclude cancelled or completed bookings
-      if (booking.status === 'cancelled' || booking.status === 'completed') {
+      // Exclude cancelled, completed, or confirmed bookings
+      if (booking.status === 'cancelled' || booking.status === 'completed' || booking.status === 'confirmed') {
         // Debug log removed
         return;
       }

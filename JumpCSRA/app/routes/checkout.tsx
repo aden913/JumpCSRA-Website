@@ -612,6 +612,70 @@ export default function Checkout() {
         if (contractData.agreementSections) {
           setContractSections(contractData.agreementSections);
         }
+
+        // Restore cart from booking data
+        if (bookingData.orderDetails?.items) {
+          const restoredCart = bookingData.orderDetails.items.map((item, index) => ({
+            id: `${item.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${index}`,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            category: 'inflateable', // Default category
+            wetDry: (item as any).wetDry || 'Wet/Dry',
+            wet: true,
+            dry: true
+          }));
+          
+          setCart(restoredCart);
+          
+          notifications.show({
+            title: '🛒 Cart Restored',
+            message: `Restored ${restoredCart.length} items from your booking.`,
+            color: 'blue',
+            autoClose: 3000,
+          });
+        }
+
+        // Restore delivery address from booking
+        if (bookingData.orderDetails?.deliveryAddress) {
+          setDeliveryAddress(bookingData.orderDetails.deliveryAddress);
+          localStorage.setItem('deliveryAddress', bookingData.orderDetails.deliveryAddress);
+        }
+
+        // Restore cart settings from booking
+        if (bookingData.orderDetails) {
+          const bookingSettings = bookingData.orderDetails;
+          
+          // Update cart settings if available
+          if (bookingSettings.duration && cartSettings.duration !== bookingSettings.duration) {
+            cartSettings.setDuration(bookingSettings.duration);
+          }
+          if (bookingSettings.surface && cartSettings.surface !== bookingSettings.surface) {
+            cartSettings.setSurface(bookingSettings.surface);
+          }
+          if (bookingSettings.deliveryTime && cartSettings.deliveryTime !== bookingSettings.deliveryTime) {
+            cartSettings.setDeliveryTime(bookingSettings.deliveryTime);
+          }
+        }
+
+        // Parse and restore date range if available
+        if (bookingData.orderDetails?.eventDate) {
+          try {
+            const eventDateStr = bookingData.orderDetails.eventDate;
+            if (eventDateStr.includes(' - ')) {
+              const [startDateStr, endDateStr] = eventDateStr.split(' - ');
+              const startDate = new Date(startDateStr);
+              const endDate = new Date(endDateStr);
+              
+              if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+                setCalendarDateRange([startDate, endDate]);
+                localStorage.setItem('calendarDateRange', JSON.stringify([startDate.toISOString(), endDate.toISOString()]));
+              }
+            }
+          } catch (dateError) {
+            console.warn("Could not parse event date from booking:", dateError);
+          }
+        }
         
         // Debug log removed:", bookingId);
         
@@ -652,12 +716,77 @@ export default function Checkout() {
         if (legacyBookingData.agreementSections) {
           setContractSections(legacyBookingData.agreementSections);
         }
+
+        // Restore cart from legacy booking data
+        if (legacyBookingData.orderDetails?.items) {
+          const restoredCart = legacyBookingData.orderDetails.items.map((item: any, index: number) => ({
+            id: `${item.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${index}`,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            category: 'inflateable', // Default category
+            wetDry: (item as any).wetDry || 'Wet/Dry',
+            wet: true,
+            dry: true
+          }));
+          
+          setCart(restoredCart);
+          
+          notifications.show({
+            title: '🛒 Cart Restored',
+            message: `Restored ${restoredCart.length} items from your booking.`,
+            color: 'blue',
+            autoClose: 3000,
+          });
+        }
+
+        // Restore delivery address from legacy booking
+        if (legacyBookingData.deliveryAddress) {
+          setDeliveryAddress(legacyBookingData.deliveryAddress);
+          localStorage.setItem('deliveryAddress', legacyBookingData.deliveryAddress);
+        }
+
+        // Parse and restore date range from legacy booking if available
+        if (legacyBookingData.eventDate) {
+          try {
+            const eventDateStr = legacyBookingData.eventDate;
+            if (eventDateStr.includes(' - ')) {
+              const [startDateStr, endDateStr] = eventDateStr.split(' - ');
+              const startDate = new Date(startDateStr);
+              const endDate = new Date(endDateStr);
+              
+              if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+                setCalendarDateRange([startDate, endDate]);
+                localStorage.setItem('calendarDateRange', JSON.stringify([startDate.toISOString(), endDate.toISOString()]));
+              }
+            }
+          } catch (dateError) {
+            console.warn("Could not parse event date from legacy booking:", dateError);
+          }
+        }
         
         // Debug log removed:", bookingId);
+      }
+
+      // Handle special case for deferred bookings
+      const currentStatus = bookingData?.status || contractMetadata?.status;
+      if (currentStatus === 'deferred') {
+        setIsDeferredBooking(true);
+        
+        // Show special message for deferred bookings being continued
+        notifications.show({
+          title: '⏰ Deferred Booking Ready',
+          message: `This deferred booking has been approved and is now ready for payment completion.`,
+          color: 'yellow',
+          autoClose: 8000,
+        });
+      } else {
+        setIsDeferredBooking(false);
       }
       
       // Navigate directly to payment step
       setCurrentStep('payment');
+      setVisitedSteps(prev => new Set([...prev, 'payment']));
       
       notifications.show({
         title: '✅ Booking Loaded',
