@@ -577,7 +577,14 @@ export default function Checkout() {
     setLoadingBookingFromUrl(true);
     
     try {
-      // Try to load as orderID first (new structure)
+      console.log('🔍 [BOOKING LOAD DEBUG] Loading booking ID:', bookingId);
+      
+      // Sanitize booking ID for Firebase path compatibility
+      // Firebase paths cannot contain ".", "#", "$", "[", or "]"
+      const sanitizedBookingId = bookingId.replace(/[\.\#\$\[\]]/g, '_');
+      console.log('🔧 [BOOKING LOAD DEBUG] Sanitized booking ID:', sanitizedBookingId);
+      
+      // Try to load as orderID first (new structure) - use original ID
       let bookingData = await loadBookingData(bookingId);
       let contractData: ContractData | null = null;
       
@@ -680,13 +687,16 @@ export default function Checkout() {
         // Debug log removed:", bookingId);
         
       } else {
-        // Fallback: try loading from old structure
+        // Fallback: try loading from old structure (legacy contracts)
+        console.log('📁 [BOOKING LOAD DEBUG] Trying legacy structure with sanitized ID:', sanitizedBookingId);
         const database = getDatabase();
-        const contractRef = ref(database, `contracts/${bookingId}`);
+        
+        // Since Firebase paths can't contain $, #, ., [, ], we use the sanitized version
+        const contractRef = ref(database, `contracts/${sanitizedBookingId}`);
         const snapshot = await get(contractRef);
         
         if (!snapshot.exists()) {
-          throw new Error("Booking not found");
+          throw new Error(`Booking not found. The booking ID '${bookingId}' may contain invalid characters. Please contact support with this booking ID.`);
         }
         
         const legacyBookingData = snapshot.val() as ContractMetadata;
@@ -698,10 +708,12 @@ export default function Checkout() {
         
         // Load legacy booking data into checkout state
         setContractMetadata(legacyBookingData);
-        setPendingBookingId(bookingId);
+        setPendingBookingId(bookingId); // Keep original ID for display
         setContractSigned(true);
         setBookingLoadedFromUrl(true);
         
+        console.log('✅ [BOOKING LOAD DEBUG] Successfully loaded from legacy structure');
+
         // Populate customer initials from legacy booking data
         if (legacyBookingData.initials) {
           setCustomerInitials(legacyBookingData.initials);
