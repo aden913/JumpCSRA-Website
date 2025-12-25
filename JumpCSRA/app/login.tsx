@@ -24,6 +24,30 @@ import { initializeApp, getApps } from "firebase/app";
 import { firebaseConfig } from "./components/FirebaseConfig";
 import { sendAccountCreationEmail } from "./utils/backendEmailService";
 
+// Add crypto.randomUUID polyfill for browser compatibility
+if (typeof window !== 'undefined' && window.crypto && !window.crypto.randomUUID) {
+  console.log('🔧 [POLYFILL] Adding crypto.randomUUID polyfill');
+  window.crypto.randomUUID = function(): `${string}-${string}-${string}-${string}-${string}` {
+    // Generate a UUID v4 using crypto.getRandomValues
+    const array = new Uint8Array(16);
+    window.crypto.getRandomValues(array);
+    
+    // Set version (4) and variant bits
+    array[6] = (array[6] & 0x0f) | 0x40;
+    array[8] = (array[8] & 0x3f) | 0x80;
+    
+    // Convert to hex string with dashes
+    const hex = Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+    return [
+      hex.slice(0, 8),
+      hex.slice(8, 12),
+      hex.slice(12, 16),
+      hex.slice(16, 20),
+      hex.slice(20, 32)
+    ].join('-') as `${string}-${string}-${string}-${string}-${string}`;
+  };
+}
+
 // Initialize Firebase once
 console.log('🔥 [LOGIN DEBUG] Checking Firebase apps...', getApps().length);
 console.log('🔥 [LOGIN DEBUG] Firebase config:', firebaseConfig);
