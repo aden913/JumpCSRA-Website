@@ -308,6 +308,31 @@ export default function Checkout() {
     return paymentCompleted && completedOrderCart.length > 0 ? completedOrderCart : cart;
   };
 
+  // Helper function to calculate display price for a cart item including wet surcharge
+  const getItemDisplayPrice = (item: CartItem, index: number): number => {
+    let basePrice = item.price;
+    
+    if (item.isGiftCard) {
+      return item.giftCardValue || item.price;
+    }
+    
+    if (item.isMembership) {
+      return item.price;
+    }
+    
+    // Apply duration multiplier for regular items
+    const durationMultiplier = cartSettings.duration ? durationMultipliers[cartSettings.duration] || 1.0 : 1.0;
+    let displayPrice = basePrice * durationMultiplier;
+    
+    // Add wet surcharge if applicable
+    const supportsWetDry = item.wetDry === "Wet/Dry";
+    if (supportsWetDry && cartSettings.wetDrySelections?.[index] === "Wet") {
+      displayPrice += 50;
+    }
+    
+    return displayPrice;
+  };
+
   // Helper function to calculate totals for display
   // Uses the display cart (either active or completed order)
   const getDisplayCartTotal = (): number => {
@@ -4114,7 +4139,8 @@ export default function Checkout() {
 
                         </div>
                         <div className="cart-item-price">
-                          ${typeof item.price === 'number' ? item.price.toFixed(2) : item.price}
+                          ${getItemDisplayPrice(item, index).toFixed(2)}
+                          {item.wetDry === 'Wet/Dry' && cartSettings.wetDrySelections[index] === 'Wet'}
                         </div>
                         {/* Delete Button */}
                         <button

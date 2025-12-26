@@ -1220,13 +1220,13 @@ gap: 1rem;
 .profile-mobile-tab {
   width: 100%;
   padding: 1rem;
-  background: #f5f5f5;
+  background: #1976d2;
   border: none;
   border-radius: 8px;
   font-size: 1rem;
   text-align: left;
   cursor: pointer;
-  color: #333;
+  color: white;
   transition: all 0.2s ease;
 }
 
