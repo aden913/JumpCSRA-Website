@@ -516,12 +516,18 @@ export default function Profile() {
       const bookingsRef = ref(database, 'bookings');
       const bookingsSnapshot = await get(bookingsRef);
       const newBookings: BookingData[] = [];
+      const newDeferredBookings: BookingData[] = [];
       
       if (bookingsSnapshot.exists()) {
         const allBookings = bookingsSnapshot.val();
         Object.entries(allBookings).forEach(([orderID, booking]: [string, any]) => {
           if (booking.customerID === userId) {
-            newBookings.push(booking as BookingData);
+            // Separate deferred bookings from regular bookings
+            if (booking.status === 'deferred') {
+              newDeferredBookings.push(booking as BookingData);
+            } else {
+              newBookings.push(booking as BookingData);
+            }
           }
         });
       }
@@ -542,6 +548,7 @@ export default function Profile() {
       
       // Sort bookings by date (newest first)
       newBookings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      newDeferredBookings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       legacyBookings.sort((a, b) => {
         const dateA = new Date(a.contractDate || a.createdAt || 0);
         const dateB = new Date(b.contractDate || b.createdAt || 0);
@@ -549,6 +556,7 @@ export default function Profile() {
       });
       
       setBookings(newBookings);
+      setDeferredBookings(newDeferredBookings);
       setLegacyBookings(legacyBookings);
       
       
@@ -604,6 +612,7 @@ export default function Profile() {
 
   // Past Events state
   const [bookings, setBookings] = useState<BookingData[]>([]);
+  const [deferredBookings, setDeferredBookings] = useState<BookingData[]>([]);
   const [legacyBookings, setLegacyBookings] = useState<any[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<BookingData | any | null>(null);
@@ -2309,6 +2318,142 @@ export default function Profile() {
               </div>
             ) : (
               <div className="bookings-container">
+                {/* Deferred Bookings Section - Display First */}
+                {deferredBookings.length > 0 && (
+                  <div className="bookings-section deferred-section">
+                    <h4>Deferred Bookings ({deferredBookings.length})</h4>
+                    <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '1rem' }}>
+                      These bookings require approval before payment can be completed. You'll be notified when they're ready.
+                    </p>
+                    {deferredBookings.map((booking) => {
+                      const isExpanded = expandedBookings.has(booking.orderID);
+                      const isApproved = booking.approved === true;
+                      const canPay = isApproved;
+                      
+                      return (
+                        <div key={booking.orderID} className="booking-card deferred-booking">
+                          <div 
+                            className="booking-header clickable" 
+                            onClick={() => toggleBookingExpansion(booking.orderID)}
+                          >
+                            <div className="booking-info">
+                              <h5>Order #{booking.orderID.slice(-8)}</h5>
+                              <span 
+                                className="booking-status status-deferred"
+                                style={{ 
+                                  backgroundColor: getStatusColor('deferred'),
+                                  color: 'white',
+                                  padding: '0.25rem 0.5rem',
+                                  borderRadius: '4px',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 'bold'
+                                }}
+                              >
+                                {isApproved ? '✓ Approved - Ready to Pay' : 'Awaiting Approval'}
+                              </span>
+                            </div>
+                            <div className="booking-header-right">
+                              <div className="booking-date">
+                                {booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : 'Date unknown'}
+                              </div>
+                              <div className={`expand-chevron ${isExpanded ? 'expanded' : ''}`}>
+                                ▼
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className={`booking-details ${isExpanded ? 'expanded' : 'collapsed'}`}>
+                            <p><strong>Event Date:</strong> {booking.orderDetails?.eventDate || 'Not specified'}</p>
+                            <p><strong>Duration:</strong> {booking.orderDetails?.duration || 'Not specified'}</p>
+                            <p><strong>Delivery:</strong> {booking.orderDetails?.deliveryAddress || 'Not specified'}</p>
+                            <p><strong>Total:</strong> ${booking.orderDetails?.totalAmount || 0}</p>
+                            
+                            {booking.orderDetails?.items && booking.orderDetails.items.length > 0 && (
+                              <div className="booking-items">
+                                <strong>Items ({booking.orderDetails.items.length}):</strong>
+                                <div className="items-list">
+                                  {booking.orderDetails.items.slice(0, 3).map((item: any, idx: number) => (
+                                    <span key={idx} className="item-tag">
+                                      {item.quantity}x {item.name}
+                                    </span>
+                                  ))}
+                                  {booking.orderDetails.items.length > 3 && (
+                                    <span className="item-tag more">
+                                      +{booking.orderDetails.items.length - 3} more
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {!isApproved && (
+                              <div style={{ 
+                                marginTop: '1rem', 
+                                padding: '0.75rem', 
+                                backgroundColor: '#fff3cd', 
+                                borderRadius: '4px',
+                                fontSize: '0.9rem'
+                              }}>
+                                <strong>⏳ Pending Approval:</strong> This booking requires manual review. We'll contact you once it's approved and ready for payment.
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className={`booking-actions ${isExpanded ? 'expanded' : 'collapsed'}`}>
+                            <button 
+                              className="btn-view-details"
+                              onClick={() => {
+                                setSelectedBooking(booking);
+                                setShowBookingDetails(true);
+                              }}
+                            >
+                              View Details
+                            </button>
+                            
+                            <button 
+                              className="btn-view-contract"
+                              onClick={() => loadContract(booking)}
+                              disabled={loadingContract}
+                            >
+                              {loadingContract ? 'Loading...' : 'View Contract'}
+                            </button>
+                            
+                            <button 
+                              className="btn-complete-payment"
+                              onClick={() => navigate(`/checkout?booking=${booking.orderID}`)}
+                              disabled={!canPay}
+                              style={{
+                                opacity: canPay ? 1 : 0.5,
+                                cursor: canPay ? 'pointer' : 'not-allowed',
+                                backgroundColor: canPay ? '#28a745' : '#6c757d'
+                              }}
+                              title={!canPay ? 'Payment will be available once booking is approved' : 'Complete payment for this booking'}
+                            >
+                              {canPay ? `Pay Now ($${booking.orderDetails?.totalAmount || 0})` : 'Awaiting Approval'}
+                            </button>
+
+                            <button 
+                              className="btn-cancel-booking"
+                              onClick={() => handleCancelBooking(booking)}
+                              style={{
+                                backgroundColor: '#dc3545',
+                                color: 'white',
+                                border: 'none',
+                                padding: '0.5rem 1rem',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '0.9rem'
+                              }}
+                            >
+                              Cancel Booking
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
                 {/* New Structure Bookings */}
                 {(() => {
                   const filteredAndSortedBookings = filterAndSortBookings(bookings);
@@ -2530,8 +2675,8 @@ export default function Profile() {
                 {(() => {
                   const filteredBookings = filterAndSortBookings(bookings);
                   const filteredLegacyBookings = filterAndSortBookings(legacyBookings, true);
-                  const hasNoResults = filteredBookings.length === 0 && filteredLegacyBookings.length === 0;
-                  const hasNoBookings = bookings.length === 0 && legacyBookings.length === 0;
+                  const hasNoResults = filteredBookings.length === 0 && filteredLegacyBookings.length === 0 && deferredBookings.length === 0;
+                  const hasNoBookings = bookings.length === 0 && legacyBookings.length === 0 && deferredBookings.length === 0;
                   
                   if (!loadingBookings && (hasNoBookings || hasNoResults)) {
                     return (

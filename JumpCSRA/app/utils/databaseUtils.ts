@@ -9,6 +9,7 @@ export interface BookingData {
   orderID: string;
   customerID: string;
   status: 'deferred' | 'pending' | 'deposited' | 'confirmed' | 'completed' | 'cancelled';
+  approved?: boolean; // For deferred bookings - indicates if admin has approved payment
   customerInfo: {
     firstName: string;
     lastName: string;
@@ -810,8 +811,9 @@ export async function getIncompleteBookingsForUser(userId: string): Promise<Book
       
       // Debug log removed
       
-      // Exclude cancelled, completed, or confirmed bookings
-      if (booking.status === 'cancelled' || booking.status === 'completed' || booking.status === 'confirmed') {
+      // Exclude cancelled, completed, confirmed, or deferred bookings
+      // Deferred bookings are managed separately through the profile page
+      if (booking.status === 'cancelled' || booking.status === 'completed' || booking.status === 'confirmed' || booking.status === 'deferred') {
         // Debug log removed
         return;
       }
@@ -839,9 +841,10 @@ export async function getIncompleteBookingsForUser(userId: string): Promise<Book
       }
       
       // Include bookings that are:
-      // 1. Status is pending/deferred with no payment completed yet, OR
-      // 2. Status is pending/deferred with only partial payment (deposit) completed
-      if ((booking.status === 'pending' || booking.status === 'deferred') &&
+      // 1. Status is pending with no payment completed yet, OR
+      // 2. Status is pending with only partial payment (deposit) completed
+      // Note: Deferred bookings are excluded and managed separately through profile page
+      if (booking.status === 'pending' &&
           (!hasCompletedPayment || (hasCompletedPayment && (paymentDetails.remainingBalance || 0) > 0))) {
         // Debug log removed
         incompleteBookings.push(booking);

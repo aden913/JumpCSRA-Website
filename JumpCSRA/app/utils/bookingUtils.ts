@@ -2,7 +2,11 @@ import { getDatabase, ref, get } from "firebase/database";
 import { initializeApp, getApps } from "firebase/app";
 import { firebaseConfig } from "../components/FirebaseConfig";
 
-export async function getUnavailableInflateables(startDate: Date, endDate: Date): Promise<Set<string>> {
+export async function getUnavailableInflateables(
+  startDate: Date, 
+  endDate: Date, 
+  excludeBookingId?: string
+): Promise<Set<string>> {
   // Checking availability for date range
   
   // Convert to date-only strings to avoid timezone issues
@@ -26,6 +30,11 @@ export async function getUnavailableInflateables(startDate: Date, endDate: Date)
     Object.entries(bookings).forEach(([bookingId, booking]: [string, any]) => {
       // Skip membershipBookings node (handled separately)
       if (bookingId === 'membershipBookings') return;
+      
+      // Skip the current booking if we're resuming/editing it
+      if (excludeBookingId && bookingId === excludeBookingId) {
+        return;
+      }
       
       // Only consider bookings that occupy inventory (deferred, pending, confirmed)
       // Completed bookings don't occupy inventory since the event is finished
@@ -142,11 +151,12 @@ export async function validateAndCleanCart(
   cartItems: any[], 
   startDate: Date, 
   endDate: Date,
-  onItemsRemoved?: (removedItems: any[]) => void
+  onItemsRemoved?: (removedItems: any[]) => void,
+  excludeBookingId?: string
 ): Promise<any[]> {
   // Validating cart
   
-  const unavailableItems = await getUnavailableInflateables(startDate, endDate);
+  const unavailableItems = await getUnavailableInflateables(startDate, endDate, excludeBookingId);
   const validItems: any[] = [];
   const removedItems: any[] = [];
   

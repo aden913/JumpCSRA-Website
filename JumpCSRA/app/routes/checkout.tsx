@@ -808,13 +808,29 @@ export default function Checkout() {
       // Handle special case for deferred bookings
       const currentStatus = bookingData?.status || contractMetadata?.status;
       if (currentStatus === 'deferred') {
-        setIsDeferredBooking(true);
+        // Check if the deferred booking is approved
+        const isApproved = bookingData?.approved === true;
         
-        // Show special message for deferred bookings being continued
+        if (!isApproved) {
+          // Booking is deferred but not approved yet
+          notifications.show({
+            title: '⏰ Booking Not Ready',
+            message: `This booking is awaiting approval and cannot be paid for yet. Please check back later or contact us.`,
+            color: 'orange',
+            autoClose: 8000,
+          });
+          navigate('/profile');
+          return;
+        }
+        
+        // If approved, treat it as a normal booking (not deferred for UI purposes)
+        setIsDeferredBooking(false);
+        
+        // Show special message for approved deferred bookings
         notifications.show({
-          title: '⏰ Deferred Booking Ready',
-          message: `This deferred booking has been approved and is now ready for payment completion.`,
-          color: 'yellow',
+          title: '✅ Deferred Booking Approved',
+          message: `This booking has been approved and is now ready for payment.`,
+          color: 'green',
           autoClose: 8000,
         });
       } else {
@@ -1139,7 +1155,7 @@ export default function Checkout() {
           
           if (booking && booking.customerID === user.uid) {
             // Check if booking is already completed or confirmed - can't resume completed bookings
-            // Pending and deferred bookings can be resumed
+            // Note: Deferred bookings should be handled separately through the profile page
             const bookingStatus = booking.status || 'pending';
             // Debug log removed
             
@@ -1158,7 +1174,23 @@ export default function Checkout() {
               return;
             }
             
-            // Check if booking is in a resumable state (pending, deferred, confirmed)
+            // Check if booking is deferred - should not be resumed through this flow
+            if (bookingStatus === 'deferred') {
+              console.warn('⚠️ [RESUME] Cannot resume deferred booking through this flow:', resumeBookingId, 'Status:', bookingStatus);
+              localStorage.removeItem('resumeBookingId');
+              
+              notifications.show({
+                title: '⏰ Deferred Booking',
+                message: `Booking #${resumeBookingId} is deferred. Please manage it from your profile page.`,
+                color: 'yellow',
+                autoClose: 8000,
+              });
+              
+              // Redirect to profile page
+              return;
+            }
+            
+            // Check if booking is in a resumable state (pending, confirmed)
             // Note: confirmed bookings can be resumed if they need remaining payment (deposit scenario)
             if (bookingStatus === 'cancelled') {
               console.warn('⚠️ [RESUME] Booking is cancelled and cannot be resumed:', resumeBookingId, 'Status:', bookingStatus);
@@ -1177,26 +1209,8 @@ export default function Checkout() {
             // Debug log removed
             setPendingBookingId(resumeBookingId);
             
-            // Special handling for deferred bookings
-            if (bookingStatus === 'deferred') {
-              // Debug log removed
-              setIsDeferredBooking(true);
-              
-              notifications.show({
-                title: '⏰ Deferred Booking Resumed',
-                message: `Booking #${resumeBookingId} was deferred due to same-day booking rules. You can delete this booking or call us to complete it manually.`,
-                color: 'yellow',
-                autoClose: 10000,
-              });
-              
-              // Don't automatically proceed to payment for deferred bookings
-              // Let them see the special UI first
-              setCurrentStep('order-summary');
-              setContractSigned(false);
-            } else {
-              // Debug log removed
-              setIsDeferredBooking(false);
-            }
+            // Set as not deferred since deferred bookings are handled separately
+            setIsDeferredBooking(false);
             
             // Restore cart from booking data - always try this for resumed bookings
             // Debug log removed
@@ -1462,7 +1476,8 @@ export default function Checkout() {
                   autoClose: 8000,
                 });
               }
-            }
+            },
+            pendingBookingId || undefined // Exclude current booking from availability check
           );
           
           // Update cart if items were removed
@@ -1479,7 +1494,7 @@ export default function Checkout() {
     };
     
     validateCart();
-  }, [calendarDateRange[0], calendarDateRange[1]]); // Only trigger when dates change, not cart changes to avoid infinite loops
+  }, [calendarDateRange[0], calendarDateRange[1], pendingBookingId]); // Added pendingBookingId to dependencies
 
   // Pricing calculations (copied from CartSidebar logic)
   const surfacePrices: Record<string, number> = {
