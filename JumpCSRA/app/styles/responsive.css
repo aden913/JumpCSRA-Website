@@ -3,7 +3,17 @@
 /* Mobile devices (< 480px) */
 @media (max-width: 479px) {
 .menu-icon-text {color:white;}
-
+.footer {
+  padding: 0 !important;
+  margin:0 !important;
+  margin-bottom: 5rem !important;
+  padding-top:1rem !important;
+  margin-top:.5rem !important;
+}
+.footer div{
+  padding: 0 !important;
+  margin:0 !important;
+}
 .cart-dropdowns select{
   background-color: rgba(128, 128, 128, 0.256);
   border-radius: 5px;
