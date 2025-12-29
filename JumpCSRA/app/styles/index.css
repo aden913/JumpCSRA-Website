@@ -239,11 +239,10 @@ html, body {
     background: var(--lightBlue);
   color: white;
   border: none;
-  border-radius: 24px;
-  padding: 0.4rem 1.2rem;
   font-size: 1rem;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  width: 100%;
+  border-radius: 0 !important;
 }
 
 .reviews-section {

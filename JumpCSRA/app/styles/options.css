@@ -104,7 +104,7 @@
   background: rgb(255, 255, 255);
   color: var(--darkBlue);
   border-radius: 12px;
-  padding: 1.2rem;
+  padding-top: 1.2rem;
   width: clamp(280px, 90vw, 350px);
   height: 420px;
   display: flex;
@@ -119,7 +119,6 @@
   width: 100%;
   height: 60%;
   object-fit: cover;
-  border-radius: 5px;
 }
 .option-title {
     font-size: 1.5rem;
@@ -163,6 +162,7 @@
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
+  width:100%;
 }
 .order-btn {
   font-weight: bolder;
