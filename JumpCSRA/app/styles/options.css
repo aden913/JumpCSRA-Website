@@ -165,13 +165,15 @@
   width:100%;
 }
 .order-btn {
-  font-weight: bolder;
+  background: var(--lightBlue);
+  color: white;
   border: none;
-  border-radius: 44px;
-  padding: 0.7rem 2rem;
-  font-size: 1.8rem;
+  font-size: 1rem;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  width: 100%;
+  border-radius: 0 !important;
+  padding: 0.7rem 2rem;
+  font-weight: bolder;
 }
 .swiper-slide {
   flex-shrink: 0;

@@ -235,15 +235,7 @@ html, body {
   flex-wrap: wrap;
 }
 
-.order-btn {
-    background: var(--lightBlue);
-  color: white;
-  border: none;
-  font-size: 1rem;
-  cursor: pointer;
-  width: 100%;
-  border-radius: 0 !important;
-}
+
 
 .reviews-section {
   width: 100%;
