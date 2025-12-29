@@ -1057,28 +1057,8 @@ export default function Checkout() {
       // Add this address to our set of valid Google Places addresses
       setGooglePlacesAddresses(prev => new Set(prev).add(googleAddress));
       
-      // Update delivery address with the Google address using flushSync for immediate update
-      flushSync(() => {
-        setDeliveryAddress(googleAddress);
-      });
-      
-      // Also update the input field directly to ensure it shows the Google address
-      if (addressInputRef.current) {
-        addressInputRef.current.value = googleAddress;
-      }
-      
-      // Debug log removed
-      // Debug log removed
-      // Debug log removed
-      
-      // Double-check that the state was updated properly
-      if (deliveryAddress !== googleAddress) {
-        console.warn('  - WARNING: State did not update immediately!');
-        // Debug log removed
-        // Debug log removed
-        // Try setting it again as fallback
-        setDeliveryAddress(googleAddress);
-      }
+      // Update delivery address with the Google address
+      setDeliveryAddress(googleAddress);
       
       // Clear the flag after a short delay
       setTimeout(() => {
@@ -1092,28 +1072,27 @@ export default function Checkout() {
 
   // Handle manual address input change
   const handleAddressChange = (value: string) => {
-    // Debug log removed
-    // Debug log removed
-    // Debug log removed
-    // Debug log removed
-    // Debug log removed
+    console.log('🔍 [ADDRESS DEBUG] handleAddressChange called');
+    console.log('  - New value:', value);
+    console.log('  - Current deliveryAddress state:', deliveryAddress);
+    console.log('  - isSelectingGooglePlace:', isSelectingGooglePlace);
     
     // Don't override if we're currently selecting a Google Place
     if (isSelectingGooglePlace) {
-      // Debug log removed
+      console.log('  - BLOCKED: Currently selecting Google Place');
       return;
     }
     
     // Clear the failed addresses set when user changes the address
     // This allows them to retry calculation with a corrected address
     if (value !== deliveryAddress) {
+      console.log('  - Value changed, resetting failed addresses and delivery cost');
       setFailedAddresses(new Set());
       setDeliveryCost(0); // Reset delivery cost for new address
     }
     
+    console.log('  - Setting deliveryAddress to:', value);
     setDeliveryAddress(value);
-    
-    // Debug log removed
   };
 
   // Authentication guard
@@ -1322,9 +1301,10 @@ export default function Checkout() {
 
   // Save delivery address to localStorage when it changes
   useEffect(() => {
+    console.log('🔍 [ADDRESS DEBUG] deliveryAddress state changed:', deliveryAddress);
     if (deliveryAddress.trim().length > 0) {
       localStorage.setItem('deliveryAddress', deliveryAddress);
-      // Debug log removed
+      console.log('  - Saved to localStorage');
     }
   }, [deliveryAddress]);
 
@@ -1332,12 +1312,16 @@ export default function Checkout() {
   useEffect(() => {
     if (!loading && user) {
       const savedDeliveryAddress = localStorage.getItem('deliveryAddress');
+      console.log('🔍 [ADDRESS DEBUG] Load from localStorage effect triggered');
+      console.log('  - savedDeliveryAddress:', savedDeliveryAddress);
+      console.log('  - current deliveryAddress:', deliveryAddress);
       if (savedDeliveryAddress && !deliveryAddress) {
+        console.log('  - Loading saved address:', savedDeliveryAddress);
         setDeliveryAddress(savedDeliveryAddress);
-        // Debug log removed
       }
     }
-  }, [loading, user, deliveryAddress]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, user]); // Only run when loading/user changes, not deliveryAddress
 
   // Load cart and settings from localStorage
   useEffect(() => {
