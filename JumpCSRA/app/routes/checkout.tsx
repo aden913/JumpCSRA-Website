@@ -5320,6 +5320,7 @@ export default function Checkout() {
         cartCount={cart.reduce((sum: number, item: CartItem) => sum + item.quantity, 0)}
         cartSubtotal={cart.reduce((sum: number, item: CartItem) => sum + (item.price * item.quantity), 0)}
         onCartClick={() => navigate("/checkout")}
+        onMenuClick={() => navigate("/profile")}
       />
           </>
         )}

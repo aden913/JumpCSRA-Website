@@ -4,6 +4,7 @@ import { ProductDetailModal } from "../components/ProductDetailModal";
 import { QuantitySelectionModal } from "../components/QuantitySelectionModal";
 import { CalendarSidebar } from "../components/CalendarSidebar";
 import { MobileBottomMenu } from "../components/MobileBottomMenu";
+import { ProfileMenuSidebar } from "../components/ProfileMenuSidebar";
 import { Notifications } from '@mantine/notifications';
 import { notifications } from '@mantine/notifications';
 import { useInflateables } from '../hooks/useInflateables';
@@ -147,6 +148,7 @@ export function Welcome() {
   const [unavailableInflateables, setUnavailableInflateables] = useState<Set<string>>(new Set());
   const [user, setUser] = useState<User | null>(null);
   const [incompleteBookings, setIncompleteBookings] = useState<BookingData[]>([]);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [showBookingRecovery, setShowBookingRecovery] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
@@ -793,6 +795,13 @@ export function Welcome() {
         cartCount={logic.cart.reduce((sum: number, item: CartItem) => sum + item.quantity, 0)}
         cartSubtotal={logic.cart.reduce((sum: number, item: CartItem) => sum + (item.price * item.quantity), 0)}
         onCartClick={() => logic.handleNavClick("Cart")}
+        onMenuClick={() => setIsProfileMenuOpen(true)}
+      />
+      
+      {/* Profile Menu Sidebar */}
+      <ProfileMenuSidebar
+        isOpen={isProfileMenuOpen}
+        onClose={() => setIsProfileMenuOpen(false)}
       />
       
       {/* Chat Widget */}

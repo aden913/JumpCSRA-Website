@@ -118,7 +118,7 @@ export default function Login() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(true);
   const [showConfirmPassword, setShowConfirmPassword] = useState(true);
-  const [showSignInPassword, setShowSignInPassword] = useState(false);
+  const [showSignInPassword, setShowSignInPassword] = useState(true);
   const [forgotPwEmail, setForgotPwEmail] = useState("");
   const [showForgotPw, setShowForgotPw] = useState(false);
   const [forgotPwMsg, setForgotPwMsg] = useState<string | null>(null);

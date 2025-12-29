@@ -77,13 +77,8 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
 
-  // Mobile profile sidebar state - open by default on mobile
-  const [isProfileSidebarOpen, setIsProfileSidebarOpen] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth < 1024; // Open by default if on mobile
-    }
-    return false;
-  });
+  // Mobile profile sidebar state - don't open by default
+  const [isProfileSidebarOpen, setIsProfileSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarManuallyClosed, setSidebarManuallyClosed] = useState(false); // Track if user manually closed sidebar
 
@@ -220,13 +215,8 @@ export default function Profile() {
       const isMobileView = window.innerWidth < 1024;
       setIsMobile(isMobileView);
       
-      // Only open sidebar automatically on mobile if user hasn't manually closed it
-      // This allows the sidebar to open by default on mobile while respecting user's choice to close it
-      if (isMobileView && !isProfileSidebarOpen && !sidebarManuallyClosed) {
-        setIsProfileSidebarOpen(true);
-      }
-      // Close sidebar when switching to desktop view and reset manual close state
-      else if (!isMobileView && isProfileSidebarOpen) {
+      // Close sidebar when switching to desktop view
+      if (!isMobileView && isProfileSidebarOpen) {
         setIsProfileSidebarOpen(false);
         setSidebarManuallyClosed(false); // Reset manual close state when going to desktop
       }
@@ -1513,21 +1503,22 @@ export default function Profile() {
     setLoadingGiftCardLookup(false);
   };
 
-  const verifyPassword = async () => {
-    if (!user || !verificationPassword) return;
-    
-    try {
-      const { signInWithEmailAndPassword } = await import("firebase/auth");
-      await signInWithEmailAndPassword(auth, user.email!, verificationPassword);
-      setPasswordVerified(true);
-      setShowPasswordVerification(false);
-      setVerificationPassword("");
-      await loadPaymentTabData();
-    } catch (error) {
-      console.error('Password verification failed:', error);
-      alert('Incorrect password. Please try again.');
-    }
-  };
+  // Password verification disabled - kept for potential future use
+  // const verifyPassword = async () => {
+  //   if (!user || !verificationPassword) return;
+  //   
+  //   try {
+  //     const { signInWithEmailAndPassword } = await import("firebase/auth");
+  //     await signInWithEmailAndPassword(auth, user.email!, verificationPassword);
+  //     setPasswordVerified(true);
+  //     setShowPasswordVerification(false);
+  //     setVerificationPassword("");
+  //     await loadPaymentTabData();
+  //   } catch (error) {
+  //     console.error('Password verification failed:', error);
+  //     alert('Incorrect password. Please try again.');
+  //   }
+  // };
 
 
 
@@ -1831,18 +1822,25 @@ export default function Profile() {
 
   // Load payment data when tab changes
   React.useEffect(() => {
-    if (activeTab === getTabIndex('payment') && user && !passwordVerified) {
-      setShowPasswordVerification(true);
-    } else if (activeTab === getTabIndex('payment') && passwordVerified) {
+    // Password verification disabled - user is already authenticated
+    // if (activeTab === getTabIndex('payment') && user && !passwordVerified) {
+    //   setShowPasswordVerification(true);
+    // } else if (activeTab === getTabIndex('payment') && passwordVerified) {
+    //   loadPaymentTabData();
+    // }
+    
+    // Load payment data directly when accessing payment tab
+    if (activeTab === getTabIndex('payment') && user) {
       loadPaymentTabData();
     }
-  }, [activeTab, user, passwordVerified]);
+  }, [activeTab, user]);
 
   if (loading) return <div className="profile-loading">Loading...</div>;
 
   return (
     <>
-      <RouterNav hideIcons={true} hideMobileSidebar={true} />
+      {/* Hide RouterNav on mobile */}
+      {!isMobile && <RouterNav hideIcons={true} hideMobileSidebar={true} />}
 
       {/* Mobile Profile Menu Toggle Button - Hide when sidebar is open */}
       {isMobile && !isProfileSidebarOpen && (
@@ -3470,8 +3468,8 @@ export default function Profile() {
           <div className="profile-payment">
             <h3>Payment Information</h3>
             
-            {/* Password Verification Modal */}
-            {showPasswordVerification && (
+            {/* Password Verification Modal - Disabled */}
+            {/* {showPasswordVerification && (
               <div style={{
                 position: 'fixed',
                 top: 0,
@@ -3548,10 +3546,10 @@ export default function Profile() {
                   </div>
                 </div>
               </div>
-            )}
+            )} */}
             
-            {/* Payment Information Content */}
-            {passwordVerified && (
+            {/* Payment Information Content - No password verification required */}
+            {/* {passwordVerified && ( */}
               <div className="payment-content">
                 {/* Wallet Section */}
                 <div className="wallet-section">
@@ -3811,7 +3809,7 @@ export default function Profile() {
                   )}
                 </div>
               </div>
-            )}
+            {/* )} Password verification div closed */}
           </div>
         ) : (
           <div>Unknown tab selected</div>

@@ -10,6 +10,7 @@ type MobileBottomMenuProps = {
   cartCount?: number;
   cartSubtotal?: number; // Add cart subtotal prop
   onCartClick: () => void; // Made required since we always want 4 buttons
+  onMenuClick: () => void; // Callback for hamburger menu click
 };
 
 export function MobileBottomMenu({ 
@@ -18,15 +19,12 @@ export function MobileBottomMenu({
   onCalendarClick, 
   cartCount, 
   cartSubtotal,
-  onCartClick 
+  onCartClick,
+  onMenuClick
 }: MobileBottomMenuProps) {
   const navigate = useNavigate();
   
   const formatDate = (date: Date | null) => date ? date.toLocaleDateString() : "Select Date";
-
-  const handleProfileClick = () => {
-    navigate('/profile');
-  };
 
   const handleNameClick = () => {
     if (!user) {
@@ -80,7 +78,7 @@ export function MobileBottomMenu({
       
 
       {/* Hamburger Menu Button */}
-      <div className="bottom-menu-item clickable" onClick={handleProfileClick}>
+      <div className="bottom-menu-item clickable" onClick={onMenuClick}>
         <div className="bottom-menu-icon">
           <span className="menu-icon-text">☰</span>
         </div>
