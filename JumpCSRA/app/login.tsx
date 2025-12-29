@@ -99,11 +99,11 @@ export default function Login() {
   
   // Check URL parameters
   const [searchParams] = useSearchParams();
-  const autoSignIn = searchParams.get('signin') === 'true';
+  const autoSignUp = searchParams.get('signup') === 'true';
   
   // States
-  const [showSignInForm, setShowSignInForm] = useState(autoSignIn);
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [showSignInForm, setShowSignInForm] = useState(autoSignUp);
+  const [isSignUp, setIsSignUp] = useState(autoSignUp);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("");
@@ -689,36 +689,19 @@ useEffect(() => {
 }, []);
 
   // ----- SIGN UP -----
-  // Step 1: Email check
-  const handleSignUpEmail = async (e: React.FormEvent) => {
+  // Combined sign up handler - all fields in one step
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
+    // Validate email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError("Please enter a valid email.");
       return;
     }
 
-    try {
-      const methods = await fetchSignInMethodsForEmail(auth, email);
-      if (methods.length > 0) {
-        setError("An account with this email already exists.");
-        setIsSignUp(false);
-        return;
-      }
-      // Email is available → proceed
-      setStep("details");
-    } catch (err: any) {
-      setError(err.message || "Error checking email.");
-    }
-  };
-
-  // Step 2: Create account
-  const handleSignUpDetails = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
+    // Validate password
     if (password.length < 6 || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
       setError("Password must be at least 6 chars, with a number & uppercase.");
       return;
@@ -727,10 +710,14 @@ useEffect(() => {
       setError("Passwords do not match.");
       return;
     }
+
+    // Validate phone
     if (!/^\+?1?\d{10,15}$/.test(phone)) {
       setError("Invalid phone number.");
       return;
     }
+
+    // Validate names
     if (!firstName.trim()) {
       setError("Please enter your first name.");
       return;
@@ -741,6 +728,15 @@ useEffect(() => {
     }
 
     try {
+      // Check if email already exists
+      const methods = await fetchSignInMethodsForEmail(auth, email);
+      if (methods.length > 0) {
+        setError("An account with this email already exists.");
+        setIsSignUp(false);
+        return;
+      }
+
+      // Create account
       const userCred = await createUserWithEmailAndPassword(auth, email, password);
       const db = getFirestore();
       
@@ -1070,130 +1066,126 @@ useEffect(() => {
       {!showVerifyMsg && isSignUp && (
         <form
           className="signup-form"
-          onSubmit={step === "email" ? handleSignUpEmail : handleSignUpDetails}
+          onSubmit={handleSignUp}
         >
           {error && <div className="login-error">{error}</div>}
 
-          {step === "email" ? (
-            <>
-              <input
-                className="identifier-input"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="Enter your email"
-              />
-              <button className="sign-up-btn" type="submit">
-                Continue
-              </button>
-              <button
-                type="button"
-                className="google-signin-btn"
-                onClick={handleGoogleLogin}
-                style={{
-                  width: "auto",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  background: "#fff",
-                  border: "1px solid #ccc",
-                  borderRadius: "4px",
-                  padding: "0.5rem 1rem",
-                  fontWeight: 500,
-                  fontSize: "1rem",
-                  cursor: "pointer",
-                  marginTop: "1rem",
-                }}
-              >
-                <img
-                  src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                  alt="Google logo"
-                  style={{ width: 24, height: 24, marginRight: 8 }}
-                />
-                Sign in with Google
-              </button>
-            </>
-          ) : (
-            <>
-              <div style={{ position: "relative" }}>
-                <input
-                  className="identifier-input"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  placeholder="Create a password"
-                  style={{ paddingRight: "2rem" }}
-                />
-                <span
-                  style={{
-                    position: "absolute",
-                    right: "0.5rem",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    cursor: "pointer",
-                  }}
-                  onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? EyeOpen : EyeClosed}
-                </span>
-              </div>
-              <div style={{ position: "relative" }}>
-                <input
-                  className="identifier-input"
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                  placeholder="Confirm password"
-                  style={{ paddingRight: "2rem" }}
-                />
-                <span
-                  style={{
-                    position: "absolute",
-                    right: "0.5rem",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    cursor: "pointer",
-                  }}
-                  onClick={() => setShowConfirmPassword((v) => !v)}
-                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
-                >
-                  {showConfirmPassword ? EyeOpen : EyeClosed}
-                </span>
-              </div>
-   <PhoneInput
-  defaultCountry="US"
-  value={phone}
-  onChange={(value) => setPhone(value ?? "")}
-  className="identifier-input"
-  required
-  placeholder="Enter phone number"
-/>
+          <input
+            className="identifier-input"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="Enter your email"
+          />
 
-              <input
-                className="identifier-input"
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                required
-                placeholder="Enter your first name"
-              />
-              <input
-                className="identifier-input"
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                required
-                placeholder="Enter your last name"
-              />
-              <button className="sign-up-btn" type="submit">
-                Create Account
-              </button>
-            </>
-          )}
+          <div style={{ position: "relative" }}>
+            <input
+              className="identifier-input"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              placeholder="Create a password"
+              style={{ paddingRight: "2rem" }}
+            />
+            <span
+              style={{
+                position: "absolute",
+                right: "0.5rem",
+                top: "50%",
+                transform: "translateY(-50%)",
+                cursor: "pointer",
+              }}
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? EyeOpen : EyeClosed}
+            </span>
+          </div>
+
+          <div style={{ position: "relative" }}>
+            <input
+              className="identifier-input"
+              type={showConfirmPassword ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              placeholder="Confirm password"
+              style={{ paddingRight: "2rem" }}
+            />
+            <span
+              style={{
+                position: "absolute",
+                right: "0.5rem",
+                top: "50%",
+                transform: "translateY(-50%)",
+                cursor: "pointer",
+              }}
+              onClick={() => setShowConfirmPassword((v) => !v)}
+              aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+            >
+              {showConfirmPassword ? EyeOpen : EyeClosed}
+            </span>
+          </div>
+
+          <PhoneInput
+            defaultCountry="US"
+            value={phone}
+            onChange={(value) => setPhone(value ?? "")}
+            className="identifier-input"
+            required
+            placeholder="Enter phone number"
+          />
+
+          <input
+            className="identifier-input"
+            type="text"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            required
+            placeholder="Enter your first name"
+          />
+
+          <input
+            className="identifier-input"
+            type="text"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            required
+            placeholder="Enter your last name"
+          />
+
+          <button className="sign-up-btn" type="submit">
+            Create Account
+          </button>
+
+          <button
+            type="button"
+            className="google-signin-btn"
+            onClick={handleGoogleLogin}
+            style={{
+              width: "auto",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "#fff",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              padding: "0.5rem 1rem",
+              fontWeight: 500,
+              fontSize: "1rem",
+              cursor: "pointer",
+              marginTop: "1rem",
+            }}
+          >
+            <img
+              src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+              alt="Google logo"
+              style={{ width: 24, height: 24, marginRight: 8 }}
+            />
+            Sign in with Google
+          </button>
         </form>
       )}
 

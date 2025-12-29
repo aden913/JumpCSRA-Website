@@ -1112,8 +1112,8 @@ export default function Checkout() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       if (!u) {
-        // User not logged in, redirect to login with auto-signin parameter
-        navigate("/?signin=true");
+        // User not logged in, redirect to login with auto-signup parameter
+        navigate("/?signup=true");
         return;
       }
       setUser(u);
