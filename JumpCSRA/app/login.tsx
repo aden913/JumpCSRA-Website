@@ -18,8 +18,9 @@ import {
   sendPasswordResetEmail,
   updatePassword,
   onAuthStateChanged,
+  signOut,
 } from "firebase/auth";
-import { getFirestore, doc, setDoc, getDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { initializeApp, getApps } from "firebase/app";
 import { firebaseConfig } from "./components/FirebaseConfig";
 import { sendAccountCreationEmail } from "./utils/backendEmailService";
@@ -728,7 +729,23 @@ useEffect(() => {
     }
 
     try {
-      // Check if email already exists
+      const db = getFirestore();
+      
+      // First check Firestore collection to see if user exists
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("email", "==", email));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        setError("An account with this email already exists.");
+        setIsSignUp(false);
+        return;
+      }
+
+      // Ensure user is signed out before creating new account
+      await signOut(auth);
+
+      // Check if email already exists in auth
       const methods = await fetchSignInMethodsForEmail(auth, email);
       if (methods.length > 0) {
         setError("An account with this email already exists.");
@@ -738,7 +755,6 @@ useEffect(() => {
 
       // Create account
       const userCred = await createUserWithEmailAndPassword(auth, email, password);
-      const db = getFirestore();
       
       // Create user document with all required fields including usedDiscounts array
       await setDoc(doc(db, "users", userCred.user.uid), { 
