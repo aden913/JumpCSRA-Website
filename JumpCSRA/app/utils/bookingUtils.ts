@@ -36,10 +36,11 @@ export async function getUnavailableInflateables(
         return;
       }
       
-      // Only consider bookings that occupy inventory (deferred, pending, confirmed)
+      // Only consider bookings that occupy inventory (confirmed, deposited)
+      // Pending and deferred bookings don't count until confirmed/deposited
       // Completed bookings don't occupy inventory since the event is finished
       // Cancelled bookings also don't occupy inventory
-      if (!['deferred', 'pending', 'confirmed'].includes(booking.status)) {
+      if (!['confirmed', 'deposited'].includes(booking.status)) {
         return;
       }
       

@@ -55,10 +55,10 @@ export async function checkItemAvailability(
     let bookedQuantity = 0;
     const conflictingBookings: ItemAvailability['conflictingBookings'] = [];
     
-    // Check regular bookings (exclude cancelled and pending, but include deposited)
+    // Check regular bookings (only count confirmed and deposited bookings)
     regularBookings.forEach(booking => {
-      if (booking.status === 'cancelled' || booking.status === 'pending' || booking.bookingId === excludeBookingId) {
-        // Excluding regular booking
+      if (!['confirmed', 'deposited'].includes(booking.status) || booking.bookingId === excludeBookingId) {
+        // Excluding regular booking (not confirmed/deposited or is excluded)
         return;
       }
       
