@@ -6,6 +6,7 @@ import { RouterNav } from "../components/RouterNav";
 import { SearchBar } from "../components/SearchBar";
 import { GooglePlacesAutocomplete } from "../components/GooglePlacesAutocomplete";
 import { MobileBottomMenu } from "../components/MobileBottomMenu";
+import { ProfileMenuSidebar } from "../components/ProfileMenuSidebar";
 import MembershipCheckout from "../components/MembershipCheckout";
 import ContractSigning from "../components/ContractSigning";
 import { onAuthStateChanged } from "firebase/auth";
@@ -241,6 +242,9 @@ export default function Checkout() {
   
   // Store completed order data for display after cart is cleared
   const [completedOrderCart, setCompletedOrderCart] = useState<CartItem[]>([]);
+  
+  // Profile menu sidebar state
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
   // Wallet State
   const [userWallet, setUserWallet] = useState<UserWallet | null>(null);
@@ -482,6 +486,8 @@ export default function Checkout() {
         setCurrentStep(nextStep);
         // Track that this step has been visited
         setVisitedSteps(prev => new Set([...prev, nextStep]));
+        // Smoothly scroll to top of page
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     }
   };
@@ -491,6 +497,8 @@ export default function Checkout() {
     const currentIndex = currentStepOrder.indexOf(currentStep);
     if (currentIndex > 0) {
       setCurrentStep(currentStepOrder[currentIndex - 1]);
+      // Smoothly scroll to top of page
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -3817,12 +3825,7 @@ export default function Checkout() {
         
         {/* Navigation Buttons */}
         <div className="checkout-navigation-buttons">
-          <button
-            id="btn-back-delivery"
-            onClick={goToPreviousStep}
-          >
-            Back to Delivery
-          </button>
+        
           <button
             id="btn-main-flow"
             onClick={() => goToNextStep()}
@@ -3830,6 +3833,15 @@ export default function Checkout() {
           >
             {getNextStepButtonText()}
           </button>
+
+            <button
+            id="btn-back-delivery"
+            onClick={goToPreviousStep}
+          >
+            Back to Delivery
+          </button>
+
+
         </div>
       </div>
       )}
@@ -4031,27 +4043,21 @@ export default function Checkout() {
         
         {/* Navigation Buttons */}
         <div className="checkout-navigation-buttons">
-          <button
-            id="btn-back-quick-add"
-            onClick={goToPreviousStep}
-            style={{
-              backgroundColor: '#6c757d',
-              color: 'white',
-              border: 'none',
-              padding: '1rem 2rem',
-              borderRadius: '4px',
-              fontSize: '1rem',
-              cursor: 'pointer'
-            }}
-          >
-            Back to Quick Add
-          </button>
+        
           <button
             id="btn-forward-delivery"
             onClick={() => goToNextStep()}
             disabled={!canShowNextButton()}
           >
             {getNextStepButtonText()}
+          </button>
+
+            <button
+            id="btn-back-quick-add"
+            onClick={goToPreviousStep}
+         
+          >
+            Back to Quick Add
           </button>
         </div>
       </div>
@@ -5320,7 +5326,13 @@ export default function Checkout() {
         cartCount={cart.reduce((sum: number, item: CartItem) => sum + item.quantity, 0)}
         cartSubtotal={cart.reduce((sum: number, item: CartItem) => sum + (item.price * item.quantity), 0)}
         onCartClick={() => navigate("/checkout")}
-        onMenuClick={() => navigate("/profile")}
+        onMenuClick={() => setIsProfileMenuOpen(true)}
+      />
+      
+      {/* Profile Menu Sidebar */}
+      <ProfileMenuSidebar
+        isOpen={isProfileMenuOpen}
+        onClose={() => setIsProfileMenuOpen(false)}
       />
           </>
         )}

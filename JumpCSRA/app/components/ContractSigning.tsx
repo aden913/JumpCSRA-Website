@@ -234,9 +234,6 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
         <h1 className="contract-title">
           JUMP CSRA PARTY RENTAL AGREEMENT
         </h1>
-        <p className="contract-date">
-          Event Date: {calendarDateRange?.[0]?.toLocaleDateString() || 'TBD'} - {calendarDateRange?.[1]?.toLocaleDateString() || 'TBD'}
-        </p>
       </div>
 
       {/* Contract Details */}

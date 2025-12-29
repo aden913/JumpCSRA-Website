@@ -262,8 +262,8 @@
 }
 
 .clear-signature-btn {
-  background-color: #6c757d;
-  color: white;
+  color: black;
+  font-weight: bold;
   border: none;
   padding: 0.5rem 1rem;
   border-radius: 4px;

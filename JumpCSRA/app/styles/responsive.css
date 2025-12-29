@@ -3,6 +3,11 @@
 /* Mobile devices (< 480px) */
 @media (max-width: 479px) {
 .menu-icon-text {color:white;}
+
+.cart-dropdowns select{
+  background-color: rgba(128, 128, 128, 0.256);
+  border-radius: 5px;
+}
 .option-title {
     color: white !important;
     height: 1.25em;
