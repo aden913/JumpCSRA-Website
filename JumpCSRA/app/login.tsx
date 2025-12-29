@@ -1,6 +1,6 @@
 import { isMobile } from "react-device-detect";
 import React, { useState, useEffect } from "react";
-import { Navigate } from "react-router";
+import { Navigate, useSearchParams } from "react-router";
 import "./styles/login.css";
 import PhoneInput from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
@@ -97,8 +97,12 @@ export default function Login() {
   console.log('🚀 [LOGIN DEBUG] Window object:', typeof window);
   console.log('🚀 [LOGIN DEBUG] Document ready state:', typeof document !== 'undefined' ? document.readyState : 'SSR');
   
+  // Check URL parameters
+  const [searchParams] = useSearchParams();
+  const autoSignIn = searchParams.get('signin') === 'true';
+  
   // States
-  const [showSignInForm, setShowSignInForm] = useState(false);
+  const [showSignInForm, setShowSignInForm] = useState(autoSignIn);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
