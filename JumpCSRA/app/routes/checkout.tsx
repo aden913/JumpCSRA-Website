@@ -443,7 +443,7 @@ export default function Checkout() {
   const stepTitles = {
     'order-summary': 'Cart Summary',
     'delivery': 'Delivery',
-    'quick-add-totals': 'Cart & Essentials',
+    'quick-add-totals': 'Cart Summary',
     'contract': 'Contract',
     'payment': 'Payment'
   };
@@ -3531,8 +3531,10 @@ export default function Checkout() {
       {/* Step Content */}
       {currentStep === 'order-summary' && (
       <div className="step-container">
-        <h2 className="step-title">Order Summary</h2>
-        
+        <h2 className="step-title">Order Summary & Event Settings</h2>
+        <p className="quick-add-description">
+          Review your cart, add party essentials, and configure your event settings.
+        </p>
         {/* Cart Items */}
         <div className="order-items">
           <h3>Items:</h3>
@@ -3648,6 +3650,130 @@ export default function Checkout() {
           ))}
         </div>
 
+        {/* Party Essentials Section */}
+        {(() => {
+          const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
+          return hasInflateables ? (
+            <div className="party-essentials-section" style={{ marginTop: '2rem', marginBottom: '2rem' }}>
+              <h3>Add Party Essentials</h3>
+              <div className="party-essentials-carousel">
+                {partyEssentials.map((item) => {
+                  const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
+                  const price = isWeekend ? item.weekendPrice : item.weekdayPrice;
+                  const currentQuantity = lastMinuteAdditions[item.name] || 0;
+                  
+                  return (
+                    <div
+                      key={item.name}
+                      className={`party-essential-item ${currentQuantity > 0 ? 'selected' : ''}`}
+                    >
+                      <img 
+                        src={item.img} 
+                        alt={item.name}
+                        className="party-essential-image"
+                      />
+                      <h4 className="party-essential-name">{item.name}</h4>
+                      <p className="party-essential-price">
+                        ${price}/each
+                      </p>
+                      
+                      {currentQuantity > 0 ? (
+                        <div className="party-essential-selected">
+                          <p className="party-essential-added-info">
+                            Added: {currentQuantity} x ${price} = ${(currentQuantity * price * durationMultiplier).toFixed(2)}
+                          </p>
+                          <button
+                            id={`btn-change-qty-${item.name.replace(/\\s+/g, '-').toLowerCase()}`}
+                            className="btn-change-qty"
+                            onClick={() => handleAddToOrderClick(item.name)}
+                          >
+                            Change Qty
+                          </button>
+                          <button
+                            id={`btn-remove-last-minute-${item.name.replace(/\\s+/g, '-').toLowerCase()}`}
+                            className="btn-remove-last-minute"
+                            onClick={() => handleAddLastMinuteItem(item.name, 0)}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          {loadingAvailability ? (
+                            <p className="party-essential-loading">
+                              Checking availability...
+                            </p>
+                          ) : (
+                            <>
+                              {getAvailableQuantityForItem(item.name) === 0 ? (
+                                <>
+                                  <p className="party-essential-unavailable">
+                                    Not Available
+                                  </p>
+                                  <button
+                                    className="btn-add-to-order"
+                                    disabled
+                                    style={{
+                                      opacity: 0.5,
+                                      cursor: 'not-allowed'
+                                    }}
+                                  >
+                                    Unavailable
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  id={`btn-add-last-minute-${item.name.replace(/\\s+/g, '-').toLowerCase()}`}
+                                  className="btn-add-to-order"
+                                  onClick={() => handleAddToOrderClick(item.name)}
+                                >
+                                  Add to Order
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              
+              {/* Last-minute additions summary */}
+              {Object.values(lastMinuteAdditions).some(qty => qty > 0) && (
+                <div style={{
+                  marginTop: '1rem',
+                  padding: '1rem',
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: '4px',
+                  border: '1px solid #dee2e6'
+                }}>
+                  <h4 className="essentials-header">Added Essentials:</h4>
+                  {Object.entries(lastMinuteAdditions)
+                    .filter(([_, quantity]) => quantity > 0)
+                    .map(([itemName, quantity]) => {
+                      const item = partyEssentials.find(p => p.name === itemName);
+                      if (!item) return null;
+                      const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
+                      const price = isWeekend ? item.weekendPrice : item.weekdayPrice;
+                      return (
+                        <div key={itemName} className="essentials-item-row">
+                          <span>{itemName} x{quantity}</span>
+                          <span>${(quantity * price * durationMultiplier).toFixed(2)}</span>
+                        </div>
+                      );
+                    })
+                  }
+                  <div className="essentials-total">
+                    <span>Essentials Total:</span>
+                    <span>${lastMinuteTotal.toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null;
+        })()}
+
         {/* Event Details - only show when cart has inflateables */}
         {(() => {
           const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
@@ -3670,6 +3796,20 @@ export default function Checkout() {
                   </select>
                 </label>
                 <label style={{ display: 'block', marginBottom: '0.5rem' }}>
+                  Event Address:
+                  <select 
+                    value={cartSettings.location} 
+                    onChange={e => cartSettings.setLocation(e.target.value)} 
+                    required 
+                    style={{ marginLeft: '0.5rem' }}
+                  >
+                    <option value="">Select location type</option>
+                    {locationOptions.map(loc => (
+                      <option key={loc} value={loc}>{loc}</option>
+                    ))}
+                  </select>
+                </label>
+                <label style={{ display: 'block', marginBottom: '0.5rem' }}>
                   Surface:
                   <select 
                     value={cartSettings.surface} 
@@ -3685,7 +3825,7 @@ export default function Checkout() {
                   </select>
                 </label>
                 <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-                  Delivery Time:
+                  Event Start Time:
                   <select 
                     value={cartSettings.deliveryTime} 
                     onChange={e => cartSettings.setDeliveryTime(e.target.value)} 
@@ -3700,7 +3840,7 @@ export default function Checkout() {
                     ))}
                     {getAvailableDeliveryTimes().length === 0 && (
                       <option value="" disabled>
-                        No times available (booking too soon)
+                        No times available
                       </option>
                     )}
                   </select>
@@ -3834,7 +3974,7 @@ export default function Checkout() {
       <div className="step-container">
         <h2 className="step-title">Delivery Information</h2>
         <p className="delivery-description">
-          Enter the address where you want your rental items delivered and select the event location type.
+          Enter the address where you want your rental items delivered.
         </p>
         
         <div className="delivery-input-section">
@@ -3855,27 +3995,6 @@ export default function Checkout() {
                 marginTop: '0.5rem'
               }}
             />
-          </label>
-          
-          <label style={{ display: 'block', marginBottom: '1rem' }}>
-            Event Location:
-            <select 
-              value={cartSettings.location} 
-              onChange={e => cartSettings.setLocation(e.target.value)} 
-              required 
-              style={{ 
-                marginLeft: '0.5rem',
-                padding: '0.75rem', 
-                fontSize: '1rem',
-                border: '1px solid #ddd',
-                borderRadius: '4px'
-              }}
-            >
-              <option value="">Select location type</option>
-              {locationOptions.map(loc => (
-                <option key={loc} value={loc}>{loc}</option>
-              ))}
-            </select>
           </label>
         </div>
         
@@ -4051,9 +4170,9 @@ export default function Checkout() {
         <div className={currentStep === 'contract' ? 'contract-container' : 'step-container'}>
           {currentStep === 'quick-add-totals' && (
             <>
-              <h2 className="step-title">Cart Items & Party Essentials</h2>
+              <h2 className="step-title">Cart Summary</h2>
               <p className="quick-add-description">
-                Complete your cart item selections and add any last-minute party essentials.
+                Review your cart items and quantities.
               </p>
 
               {/* Display Current Cart Items */}
@@ -4172,8 +4291,6 @@ export default function Checkout() {
                   <p className="no-cart-items">No items in cart</p>
                 )}
               </div>
-
-              <h3>Add Party Essentials</h3>
             </>
           )}
           
@@ -4191,176 +4308,7 @@ export default function Checkout() {
             </>
           )}
           
-          {currentStep === 'quick-add-totals' && (
-            <>
-              {/* Party Essentials Carousel */}
-              <div className="party-essentials-carousel">
-            {partyEssentials.map((item) => {
-              const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
-              const price = isWeekend ? item.weekendPrice : item.weekdayPrice;
-              const currentQuantity = lastMinuteAdditions[item.name] || 0;
-              
-              return (
-                <div
-                  key={item.name}
-                  className={`party-essential-item ${currentQuantity > 0 ? 'selected' : ''}`}
-                >
-                  <img 
-                    src={item.img} 
-                    alt={item.name}
-                    className="party-essential-image"
-                  />
-                  <h4 className="party-essential-name">{item.name}</h4>
-                  <p className="party-essential-price">
-                    ${price}/each
-                  </p>
-                  
-                  {currentQuantity > 0 ? (
-                    <div className="party-essential-selected">
-                      <p className="party-essential-added-info">
-                        Added: {currentQuantity} x ${price} = ${(currentQuantity * price * durationMultiplier).toFixed(2)}
-                      </p>
-                      <button
-                        id={`btn-change-qty-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
-                        className="btn-change-qty"
-                        onClick={() => handleAddToOrderClick(item.name)}
-                      >
-                        Change Qty
-                      </button>
-                      <button
-                        id={`btn-remove-last-minute-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
-                        className="btn-remove-last-minute"
-                        onClick={() => handleAddLastMinuteItem(item.name, 0)}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      {loadingAvailability ? (
-                        <p className="party-essential-loading">
-                          Checking availability...
-                        </p>
-                      ) : (
-                        <>
-                          {getAvailableQuantityForItem(item.name) === 0 ? (
-                            <>
-                              <p className="party-essential-unavailable">
-                                Not Available
-                              </p>
-                              <button
-                                id={`btn-add-to-order-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
-                                className="btn-add-to-order disabled"
-                                disabled
-                              >
-                                Out of Stock
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <p className="party-essential-available">
-                                {getAvailableQuantityForItem(item.name)} available
-                              </p>
-                              <button
-                                id={`btn-add-to-order-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
-                                className="btn-add-to-order"
-                                onClick={() => handleAddToOrderClick(item.name)}
-                              >
-                                Add to Order
-                              </button>
-                            </>
-                          )}
-                        </>
-                      )}
-                    </>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          
-          {/* Last-minute additions summary */}
-          {Object.values(lastMinuteAdditions).some(qty => qty > 0) && (
-            <div style={{
-              marginTop: '1rem',
-              padding: '1rem',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '4px',
-              border: '1px solid #dee2e6'
-            }}>
-              <h4 className="essentials-header">Added Essentials:</h4>
-              {Object.entries(lastMinuteAdditions)
-                .filter(([_, quantity]) => quantity > 0)
-                .map(([itemName, quantity]) => {
-                  const item = partyEssentials.find(p => p.name === itemName);
-                  if (!item) return null;
-                  const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
-                  const price = isWeekend ? item.weekendPrice : item.weekdayPrice;
-                  return (
-                    <div key={itemName} className="essentials-item-row">
-                      <span>{itemName} x{quantity}</span>
-                      <span>${(quantity * price * durationMultiplier).toFixed(2)}</span>
-                    </div>
-                  );
-                })
-              }
-              <div className="essentials-total">
-                <span>Essentials Total:</span>
-                <span>${lastMinuteTotal.toFixed(2)}</span>
-              </div>
-            </div>
-          )}
-        
-        {/* Navigation Buttons */}
-        {(deliveryCost > 0 || Object.values(lastMinuteAdditions).some(qty => qty > 0)) && (
-          <div style={{ 
-            backgroundColor: 'white', 
-            padding: '2rem', 
-            borderRadius: '8px', 
-            marginBottom: '2rem',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-          }}>
-            <h2 className="step-title">Updated Order Total</h2>
-          
-          {/* Pricing Breakdown */}
-          <div className="pricing-breakdown">
-            <div className="pricing-row">
-              <span>Original Cart:</span>
-              <span>${cartTotal.toFixed(2)}</span>
-            </div>
-            {lastMinuteTotal > 0 && (
-              <div className="pricing-row">
-                <span>Party Essentials:</span>
-                <span>${lastMinuteTotal.toFixed(2)}</span>
-              </div>
-            )}
-            {surfaceAdj > 0 && (
-              <div className="pricing-row">
-                <span>Surface Adjustment (per item):</span>
-                <span>${surfaceAdj.toFixed(2)}</span>
-              </div>
-            )}
-            {timeAdj > 0 && (
-              <div className="pricing-row">
-                <span>Delivery Time Adjustment (per item):</span>
-                <span>${timeAdj.toFixed(2)}</span>
-              </div>
-            )}
-            {deliveryCost > 0 && (
-              <div className="pricing-row">
-                <span>Delivery Cost:</span>
-                <span>${deliveryCost.toFixed(2)}</span>
-              </div>
-            )}
-            <div className="pricing-total">
-              <span>Final Total:</span>
-              <span>${total.toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
-        )}
-            </>
-        )}
+          {currentStep === 'quick-add-totals'}
         
         {/* Contract Section - Only show when currentStep is 'contract' */}
         {currentStep === 'contract' && (
