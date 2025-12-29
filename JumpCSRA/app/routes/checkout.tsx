@@ -373,6 +373,11 @@ export default function Checkout() {
       "10am": 20,
       "11am": 10,
       "12pm": 0,
+      "1pm": 0,
+      "2pm": 0,
+      "3pm": 0,
+      "4pm": 0,
+      "5pm": 0,
     };
     
     const allTimeOptions = [
@@ -380,7 +385,12 @@ export default function Checkout() {
       { value: "9am", label: "9am (+$30)", hour: 9, price: timePrices["9am"] },
       { value: "10am", label: "10am (+$20)", hour: 10, price: timePrices["10am"] },
       { value: "11am", label: "11am (+$10)", hour: 11, price: timePrices["11am"] },
-      { value: "12pm", label: "12pm", hour: 12, price: timePrices["12pm"] }
+      { value: "12pm", label: "12pm", hour: 12, price: timePrices["12pm"] },
+      { value: "1pm", label: "1pm", hour: 13, price: timePrices["1pm"] },
+      { value: "2pm", label: "2pm", hour: 14, price: timePrices["2pm"] },
+      { value: "3pm", label: "3pm", hour: 15, price: timePrices["3pm"] },
+      { value: "4pm", label: "4pm", hour: 16, price: timePrices["4pm"] },
+      { value: "5pm", label: "5pm", hour: 17, price: timePrices["5pm"] }
     ];
     
     // If no date selected or not booking for today, show all options
@@ -1502,6 +1512,11 @@ export default function Checkout() {
     "10am": 20,
     "11am": 10,
     "12pm": 0,
+    "1pm": 0,
+    "2pm": 0,
+    "3pm": 0,
+    "4pm": 0,
+    "5pm": 0,
     "": 0,
   };
   
