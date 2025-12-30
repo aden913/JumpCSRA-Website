@@ -3789,7 +3789,7 @@ export default function Checkout() {
                   marginBottom: '1rem'
                 }}
               >
-                {calculatingDistance ? 'Calculating...' : 'Calculate Delivery Cost'}
+                {calculatingDistance ? 'Calculating...' : 'Confirm Address'}
               </button>
               
               {/* Development Skip Button */}
@@ -3838,59 +3838,48 @@ export default function Checkout() {
         {(() => {
           const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
           return hasInflateables ? (
-            <div className="event-details">
-              <h3>Event Settings:</h3>
-              <div className="cart-dropdowns" style={{ margin: '1rem 0' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-                  Event Duration:
-                  <select 
-                    value={cartSettings.duration} 
-                    onChange={e => cartSettings.setDuration(e.target.value)} 
-                    required 
-                    style={{ marginLeft: '0.5rem' }}
-                  >
-                    <option value="">Select duration</option>
-                    <option value="4hours">4 Hours (-10%)</option>
-                    <option value="24hours">24 Hours (Standard)</option>
-                    <option value="48hours">48 Hours (+50%)</option>
-                  </select>
-                </label>
-                <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-                  Event Location Type:
-                  <select 
-                    value={cartSettings.location} 
-                    onChange={e => cartSettings.setLocation(e.target.value)} 
-                    required 
-                    style={{ marginLeft: '0.5rem' }}
-                  >
-                    <option value="">Select location type</option>
-                    {locationOptions.map(loc => (
-                      <option key={loc} value={loc}>{loc}</option>
-                    ))}
-                  </select>
-                </label>
-                <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-                  Surface:
-                  <select 
-                    value={cartSettings.surface} 
-                    onChange={e => cartSettings.setSurface(e.target.value)} 
-                    required 
-                    style={{ marginLeft: '0.5rem' }}
-                  >
-                    <option value="">Select surface</option>
-                    <option value="grass-stakes">Grass (stakes)</option>
-                    <option value="grass-sandbags">Grass (sandbags)</option>
-                    <option value="concrete">Concrete/Pavement</option>
-                    <option value="indoor">Indoor</option>
-                  </select>
-                </label>
-                <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-                  Event Start Time:
+            <div className="event-details" style={{
+              padding: '1.5rem',
+              marginTop: '2rem',
+              marginBottom: '2rem'
+            }}>
+              <h3 style={{
+                margin: '0 0 1.5rem 0',
+                fontSize: '1.5rem',
+                fontWeight: '600',
+                color: '#212529',
+                borderBottom: '2px solid #007bff',
+                paddingBottom: '0.5rem'
+              }}>Event Settings</h3>
+              
+              <div className="cart-dropdowns" style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                gap: '1.25rem',
+                marginBottom: '1.5rem'
+              }}>
+                <label style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem',
+                  fontSize: '0.95rem',
+                  fontWeight: '500',
+                  color: '#495057'
+                }}>
+                  <span style={{ color: '#212529' }}>Event Start Time:</span>
                   <select 
                     value={cartSettings.deliveryTime} 
                     onChange={e => cartSettings.setDeliveryTime(e.target.value)} 
-                    required 
-                    style={{ marginLeft: '0.5rem' }}
+                    required
+                    style={{
+                      padding: '0.75rem',
+                      border: '1px solid #ced4da',
+                      borderRadius: '6px',
+                      fontSize: '1rem',
+                      backgroundColor: 'white',
+                      cursor: 'pointer',
+                      transition: 'border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out'
+                    }}
                   >
                     <option value="">Select time</option>
                     {getAvailableDeliveryTimes().map(timeOption => (
@@ -3909,32 +3898,137 @@ export default function Checkout() {
                       color: '#dc3545', 
                       fontSize: '0.8rem', 
                       marginTop: '0.25rem',
-                      fontStyle: 'italic'
+                      fontStyle: 'italic',
+                      lineHeight: '1.4'
                     }}>
                       Same-day bookings require at least 2 hours notice. Please select a different date or call (803) 221-0466 for urgent requests.
                     </div>
                   )}
                 </label>
+
+                <label style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem',
+                  fontSize: '0.95rem',
+                  fontWeight: '500',
+                  color: '#495057'
+                }}>
+                  <span style={{ color: '#212529' }}>Event Duration:</span>
+                  <select 
+                    value={cartSettings.duration} 
+                    onChange={e => cartSettings.setDuration(e.target.value)} 
+                    required
+                    style={{
+                      padding: '0.75rem',
+                      border: '1px solid #ced4da',
+                      borderRadius: '6px',
+                      fontSize: '1rem',
+                      backgroundColor: 'white',
+                      cursor: 'pointer',
+                      transition: 'border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out'
+                    }}
+                  >
+                    <option value="">Select duration</option>
+                    <option value="4hours">4 Hours (-10%)</option>
+                    <option value="24hours">24 Hours (Standard)</option>
+                    <option value="48hours">48 Hours (+50%)</option>
+                  </select>
+                </label>
+
+                <label style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem',
+                  fontSize: '0.95rem',
+                  fontWeight: '500',
+                  color: '#495057'
+                }}>
+                  <span style={{ color: '#212529' }}>Event Location Type:</span>
+                  <select 
+                    value={cartSettings.location} 
+                    onChange={e => cartSettings.setLocation(e.target.value)} 
+                    required
+                    style={{
+                      padding: '0.75rem',
+                      border: '1px solid #ced4da',
+                      borderRadius: '6px',
+                      fontSize: '1rem',
+                      backgroundColor: 'white',
+                      cursor: 'pointer',
+                      transition: 'border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out'
+                    }}
+                  >
+                    <option value="">Select location type</option>
+                    {locationOptions.map(loc => (
+                      <option key={loc} value={loc}>{loc}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem',
+                  fontSize: '0.95rem',
+                  fontWeight: '500',
+                  color: '#495057'
+                }}>
+                  <span style={{ color: '#212529' }}>Surface Type:</span>
+                  <select 
+                    value={cartSettings.surface} 
+                    onChange={e => cartSettings.setSurface(e.target.value)} 
+                    required
+                    style={{
+                      padding: '0.75rem',
+                      border: '1px solid #ced4da',
+                      borderRadius: '6px',
+                      fontSize: '1rem',
+                      backgroundColor: 'white',
+                      cursor: 'pointer',
+                      transition: 'border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out'
+                    }}
+                  >
+                    <option value="">Select surface</option>
+                    <option value="grass-stakes">Grass (stakes)</option>
+                    <option value="grass-sandbags">Grass (sandbags)</option>
+                    <option value="concrete">Concrete/Pavement</option>
+                    <option value="indoor">Indoor</option>
+                  </select>
+                </label>
               </div>
-              <p><strong>Event Dates:</strong> {(() => {
-                const startDate = calendarDateRange[0];
-                const endDate = calendarDateRange[1];
-                if (!startDate || !endDate) return 'Not selected';
-                
-                if (cartSettings.duration === '4hours') {
-                  return startDate.toLocaleDateString();
-                } else if (cartSettings.duration === '24hours') {
-                  const nextDay = new Date(startDate);
-                  nextDay.setDate(nextDay.getDate() + 1);
-                  return `${startDate.toLocaleDateString()} - ${nextDay.toLocaleDateString()}`;
-                } else if (cartSettings.duration === '48hours') {
-                  const twoDaysLater = new Date(startDate);
-                  twoDaysLater.setDate(twoDaysLater.getDate() + 2);
-                  return `${startDate.toLocaleDateString()} - ${twoDaysLater.toLocaleDateString()}`;
-                } else {
-                  return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
-                }
-              })()}</p>
+
+              <div style={{
+                backgroundColor: 'white',
+                marginTop: '1rem'
+              }}>
+                <p style={{
+                  margin: 0,
+                  fontSize: '1rem',
+                  color: '#495057'
+                }}>
+                  <strong style={{ color: '#212529' }}>Event Dates:</strong>{' '}
+                  {(() => {
+                    const startDate = calendarDateRange[0];
+                    const endDate = calendarDateRange[1];
+                    if (!startDate || !endDate) return 'Not selected';
+                    
+                    if (cartSettings.duration === '4hours') {
+                      return startDate.toLocaleDateString();
+                    } else if (cartSettings.duration === '24hours') {
+                      const nextDay = new Date(startDate);
+                      nextDay.setDate(nextDay.getDate() + 1);
+                      return `${startDate.toLocaleDateString()} - ${nextDay.toLocaleDateString()}`;
+                    } else if (cartSettings.duration === '48hours') {
+                      const twoDaysLater = new Date(startDate);
+                      twoDaysLater.setDate(twoDaysLater.getDate() + 2);
+                      return `${startDate.toLocaleDateString()} - ${twoDaysLater.toLocaleDateString()}`;
+                    } else {
+                      return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+                    }
+                  })()}
+                </p>
+              </div>
             </div>
           ) : null;
         })()}

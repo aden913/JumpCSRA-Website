@@ -14,9 +14,19 @@
   padding: 0 !important;
   margin:0 !important;
 }
+.cart-dropdowns {
+  flex-direction: column;
+  display:flex;
+  justify-content: center;
+  
+}
 .cart-dropdowns select{
   background-color: rgba(128, 128, 128, 0.256);
   border-radius: 5px;
+  float:left;
+}
+.cart-dropdowns label{
+  float:left;
 }
 .option-title {
     color: white !important;
