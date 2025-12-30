@@ -4108,8 +4108,7 @@ export default function Checkout() {
               padding: '1rem 2rem',
               borderRadius: '4px',
               fontSize: '1rem',
-              cursor: 'pointer',
-              marginLeft: '1rem'
+              cursor: 'pointer'
             }}
           >
             ← Back to Cart & Delivery
