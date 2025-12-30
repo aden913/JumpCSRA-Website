@@ -239,6 +239,7 @@ export default function Checkout() {
   const [paymentType, setPaymentType] = useState<'full' | 'deposit'>('full');
   const [actualAmountPaid, setActualAmountPaid] = useState<number | null>(null);
   const [isDeferredBooking, setIsDeferredBooking] = useState<boolean>(false);
+  const [tipAmount, setTipAmount] = useState<number>(0);
   
   // Store completed order data for display after cart is cleared
   const [completedOrderCart, setCompletedOrderCart] = useState<CartItem[]>([]);
@@ -1610,7 +1611,7 @@ export default function Checkout() {
   const surfaceAdj = cartSettings.surface ? (surfacePrices[cartSettings.surface] || 0) * nonGiftCardItemCount : 0;
   const timeAdj = cartSettings.deliveryTime ? (timePrices[cartSettings.deliveryTime] || 0) * uniqueNonGiftCardItemCount : 0;
   const subtotal = cartTotal + lastMinuteTotal + surfaceAdj + timeAdj;
-  const total = subtotal + deliveryCost;
+  const total = subtotal + deliveryCost + tipAmount;
 
   // Load inflateables data function (similar to CartSidebar)
   const loadInflateablesData = async (): Promise<any[]> => {
@@ -1802,8 +1803,8 @@ export default function Checkout() {
       return sum;
     }, 0);
     
-    // Add last-minute additions, surface/time adjustments, and delivery cost for inflatables
-    const adjustments = lastMinuteTotal + surfaceAdj + timeAdj + deliveryCost;
+    // Add last-minute additions, surface/time adjustments, delivery cost, and tip for inflatables
+    const adjustments = lastMinuteTotal + surfaceAdj + timeAdj + deliveryCost + tipAmount;
     return inflatableCartTotal + adjustments;
   };
 
@@ -2173,7 +2174,10 @@ export default function Checkout() {
         // Load existing booking
         const existingBooking = await loadBookingData(pendingBookingId);
         if (existingBooking) {
-          const totalAmount = existingBooking.orderDetails.totalAmount;
+          // Calculate correct totalAmount by removing old tip and adding current tip
+          const oldTip = existingBooking.paymentDetails.tip || 0;
+          const baseTotalAmount = existingBooking.orderDetails.totalAmount - oldTip;
+          const totalAmount = baseTotalAmount + tipAmount;
           const depositAmount = walletAppliedAmount;
 
           // Update booking status
@@ -2194,9 +2198,12 @@ export default function Checkout() {
           // Debug log removed
           
           if (statusUpdated) {
-            // Update payment details
+            // Update both orderDetails and paymentDetails with correct totalAmount
+            existingBooking.orderDetails.totalAmount = totalAmount;
+            existingBooking.paymentDetails.totalAmount = totalAmount;
             existingBooking.paymentDetails.depositAmount = depositAmount;
             existingBooking.paymentDetails.remainingBalance = totalAmount - depositAmount;
+            existingBooking.paymentDetails.tip = tipAmount;
             existingBooking.paymentDetails.paymentStatus = 'completed';
             existingBooking.paymentDetails.paymentDate = new Date().toISOString();
             existingBooking.updatedAt = new Date().toISOString();
@@ -2483,7 +2490,10 @@ export default function Checkout() {
         // Load existing booking to get total amount and current status
         const existingBooking = await loadBookingData(pendingBookingId);
         if (existingBooking) {
-          const totalAmount = existingBooking.orderDetails.totalAmount;
+          // Calculate correct totalAmount by removing old tip and adding current tip
+          const oldTip = existingBooking.paymentDetails.tip || 0;
+          const baseTotalAmount = existingBooking.orderDetails.totalAmount - oldTip;
+          const totalAmount = baseTotalAmount + tipAmount;
           
           // Determine deposit amount based on payment type
           let depositAmount: number;
@@ -2503,9 +2513,12 @@ export default function Checkout() {
               throw new Error("Could not load updated booking data");
             }
             
-            // Update payment details in the booking (preserving the updated status)
+            // Update both orderDetails and paymentDetails with correct totalAmount
+            updatedBooking.orderDetails.totalAmount = totalAmount;
+            updatedBooking.paymentDetails.totalAmount = totalAmount;
             updatedBooking.paymentDetails.depositAmount = depositAmount;
             updatedBooking.paymentDetails.remainingBalance = totalAmount - depositAmount;
+            updatedBooking.paymentDetails.tip = tipAmount;
             updatedBooking.paymentDetails.paypalOrderId = data.orderID;
             updatedBooking.paymentDetails.paypalTransactionId = paymentId;
             updatedBooking.paymentDetails.paymentStatus = 'completed';
@@ -2981,7 +2994,8 @@ export default function Checkout() {
                 return { name: itemName, quantity, price };
               })
           ],
-          totalAmount: total
+          totalAmount: total,
+          ...(tipAmount > 0 && { tip: tipAmount })
         },
         agreementSections: contractSections,
         signature: {
@@ -3122,13 +3136,15 @@ export default function Checkout() {
                 return { name: itemName, quantity, price };
               })
           ],
-          totalAmount: total
+          totalAmount: total,
+          ...(tipAmount > 0 && { tip: tipAmount })
         },
         paymentDetails: {
           totalAmount: total,
           depositAmount: depositAmount,
           remainingBalance: total - depositAmount,
           paymentType: paymentType,
+          tip: tipAmount,
           ...(paypalOrderId && { paypalOrderId }),
           ...(paypalTransactionId && { paypalTransactionId }),
           paymentStatus: bookingStatus === 'confirmed' ? 'completed' : 'pending',
@@ -3290,7 +3306,8 @@ export default function Checkout() {
                 return { name: itemName, quantity, price };
               })
           ],
-          totalAmount: total
+          totalAmount: total,
+          ...(tipAmount > 0 && { tip: tipAmount })
         },
         agreementSections: contractSections,
         signature: {
@@ -4862,6 +4879,43 @@ export default function Checkout() {
             }
             return null;
           })()}
+
+          {/* Tip Your Driver Section */}
+          {!requiresPhoneCall && (
+            <div style={{ 
+              marginBottom: '2rem',
+              padding: '1rem',
+              backgroundColor: '#f0f8ff',
+              border: '2px solid #4a90e2',
+              borderRadius: '8px'
+            }}>
+              <h3 style={{ marginBottom: '1rem', color: '#2c5aa0' }}>Tip Your Driver?</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <label htmlFor="tip-amount" style={{ fontWeight: '500', color: '#333' }}>
+                  Show your appreciation:
+                </label>
+                <select
+                  id="tip-amount"
+                  value={tipAmount}
+                  onChange={(e) => setTipAmount(parseFloat(e.target.value))}
+                  style={{
+                    padding: '0.5rem',
+                    borderRadius: '4px',
+                    border: '1px solid #4a90e2',
+                    fontSize: '1rem',
+                    cursor: 'pointer',
+                    backgroundColor: 'white'
+                  }}
+                >
+                  <option value={0}>No Tip</option>
+                  <option value={5}>$5</option>
+                  <option value={10}>$10</option>
+                  <option value={20}>$20</option>
+                </select>
+                {tipAmount > 0}
+              </div>
+            </div>
+          )}
 
           {/* Wallet Section */}
           {!requiresPhoneCall && userWallet && userWallet.balance > 0 && (

@@ -35,6 +35,7 @@ export interface BookingData {
     depositAmount: number;
     remainingBalance: number;
     paymentType: 'full' | 'deposit';
+    tip: number;
     paypalOrderId?: string;
     paypalTransactionId?: string;
     paymentStatus: 'pending' | 'completed' | 'failed';
