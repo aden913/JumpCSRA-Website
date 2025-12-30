@@ -3554,13 +3554,9 @@ export default function Checkout() {
       {/* Step Content */}
       {currentStep === 'cart-delivery' && (
       <div className="step-container">
-        <h2 className="step-title">Cart & Delivery</h2>
-        <p className="quick-add-description">
-          Review your cart, enter delivery information, and configure your event settings.
-        </p>
+        
         {/* Cart Items */}
         <div className="order-items">
-          <h3>Items:</h3>
           {getDisplayCart().map((item, idx) => (
             <div key={idx} className="order-item">
               <div className="order-item-content">
@@ -3965,14 +3961,11 @@ export default function Checkout() {
       {/* Party Essentials Step - only for orders with inflateables */}
       {currentStep === 'party-essentials' && (
       <div className="step-container">
-        <h2 className="step-title">Party Essentials</h2>
-        <p className="quick-add-description">
-          Add party essentials to enhance your event.
-        </p>
+       
         
         {/* Party Essentials Carousel */}
         <div className="party-essentials-section" style={{ marginTop: '2rem', marginBottom: '2rem' }}>
-          <h3>Available Party Essentials</h3>
+         
           <div className="party-essentials-carousel">
             {partyEssentials.map((item) => {
               const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
@@ -4162,7 +4155,6 @@ export default function Checkout() {
           marginBottom: '2rem',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
-          <h2 style={{ marginBottom: '1rem', color: '#333' }}>Payment</h2>
           
           {/* Empty Cart Check for Resumed Bookings */}
           {cart.length === 0 && pendingBookingId && (
@@ -4343,7 +4335,6 @@ export default function Checkout() {
             backgroundColor: '#f8f9fa', 
             borderRadius: '4px' 
           }}>
-            <h3 style={{ margin: '0 0 1rem 0', color: '#333' }}>Order Summary</h3>
             <div style={{ marginBottom: '0.5rem' }}>
               <strong>Items:</strong>
               {getDisplayCart().map((item, index) => {
@@ -4396,7 +4387,6 @@ export default function Checkout() {
             backgroundColor: '#f8f9fa', 
             borderRadius: '4px' 
           }}>
-            <h3 style={{ margin: '0 0 1rem 0', color: '#333' }}>Pricing Breakdown</h3>
             <div className="pricing-breakdown">
               <div className="pricing-row">
                 <span>Cart Subtotal:</span>
