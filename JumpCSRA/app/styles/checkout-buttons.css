@@ -11,7 +11,7 @@
   cursor: pointer;
 }
 
-#btn-main-flow {
+#btn-main-flow, #btn-continue-party-essentials{
   background-color: #007bff;
   color: white;
   padding: 1rem 2rem;

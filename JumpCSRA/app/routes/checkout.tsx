@@ -252,17 +252,16 @@ export default function Checkout() {
   const [walletAppliedAmount, setWalletAppliedAmount] = useState<number>(0);
   
   // Checkout step management - dynamically determine starting step
-  type CheckoutStep = 'order-summary' | 'delivery' | 'quick-add-totals' | 'contract' | 'payment';
+  type CheckoutStep = 'cart-delivery' | 'party-essentials' | 'contract' | 'payment';
   
   // Initialize starting step based on cart contents
   const getInitialStep = (): CheckoutStep => {
-    const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
-    // Debug log removed
-    return hasInflateables ? 'quick-add-totals' : 'order-summary';
+    // All orders start at cart-delivery step
+    return 'cart-delivery';
   };
   
-  const [currentStep, setCurrentStep] = useState<CheckoutStep>('quick-add-totals'); // Default to first step, will be corrected when cart loads
-  const [visitedSteps, setVisitedSteps] = useState<Set<CheckoutStep>>(() => new Set(['quick-add-totals'])); // Default to first step
+  const [currentStep, setCurrentStep] = useState<CheckoutStep>('cart-delivery'); // Default to first step
+  const [visitedSteps, setVisitedSteps] = useState<Set<CheckoutStep>>(() => new Set(['cart-delivery'])); // Default to first step
 
   // Update step when cart loads from localStorage
   useEffect(() => {
@@ -271,7 +270,7 @@ export default function Checkout() {
       // Debug log removed
       
       // Always set the correct step when cart is first loaded
-      if (visitedSteps.size === 1 && (visitedSteps.has('quick-add-totals') || visitedSteps.has('order-summary'))) {
+      if (visitedSteps.size === 1 && visitedSteps.has('cart-delivery')) {
         setCurrentStep(correctStep);
         setVisitedSteps(new Set([correctStep]));
       }
@@ -440,20 +439,19 @@ export default function Checkout() {
     const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
     
     if (!hasInflateables) {
-      // Gift cards and/or memberships only: skip delivery, contract, and quick-add entirely
-      return ['order-summary', 'payment'];
+      // Gift cards and/or memberships only: skip party-essentials and contract
+      return ['cart-delivery', 'payment'];
     } else {
-      // Has inflateables: new order - quick-add first, then delivery, then order-summary, contract, payment
-      return ['quick-add-totals', 'delivery', 'order-summary', 'contract', 'payment'];
+      // Has inflateables: cart-delivery -> party-essentials -> contract -> payment
+      return ['cart-delivery', 'party-essentials', 'contract', 'payment'];
     }
   };
   
   const stepOrder = getStepOrder();
   
   const stepTitles = {
-    'order-summary': 'Cart Summary',
-    'delivery': 'Delivery',
-    'quick-add-totals': 'Cart Summary',
+    'cart-delivery': 'Cart & Delivery',
+    'party-essentials': 'Party Essentials',
     'contract': 'Contract',
     'payment': 'Payment'
   };
@@ -517,20 +515,24 @@ export default function Checkout() {
     const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
     
     switch (currentStep) {
-      case 'order-summary':
+      case 'cart-delivery':
         // Must have items in cart
         if (cart.length === 0) return false;
-        // If has inflateables, must have all event settings completed (except location, which is now in delivery step)
+        // If has inflateables, must have delivery address, location, all event settings, AND calculated delivery
         if (hasInflateables) {
-          return cartSettings.duration && cartSettings.surface && cartSettings.deliveryTime;
+          return deliveryAddress.trim().length > 0 && 
+                 deliveryCost >= 0 && 
+                 cartSettings.location.trim().length > 0 &&
+                 cartSettings.duration && 
+                 cartSettings.surface && 
+                 cartSettings.deliveryTime &&
+                 areWetDrySelectionsComplete();
         }
+        // For gift cards only, just need cart items
         return true;
-      case 'delivery':
-        // Must have delivery address and location type
-        return deliveryAddress.trim().length > 0 && cartSettings.location.trim().length > 0;
-      case 'quick-add-totals':
-        // Must have items in cart and all wet/dry selections complete
-        return cart.length > 0 && areWetDrySelectionsComplete();
+      case 'party-essentials':
+        // Party essentials are optional, always allow progression
+        return true;
       case 'contract':
         return contractSigned; // Allow progression when contract is signed
       default:
@@ -542,11 +544,9 @@ export default function Checkout() {
     const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
     
     switch (currentStep) {
-      case 'quick-add-totals':
-        return 'Continue to Delivery';
-      case 'delivery':
-        return 'Continue to Order Summary';
-      case 'order-summary':
+      case 'cart-delivery':
+        return hasInflateables ? 'Continue to Party Essentials' : 'Proceed to Payment';
+      case 'party-essentials':
         return 'Proceed to Contract';
       case 'contract':
         return 'Proceed to Payment';
@@ -560,31 +560,28 @@ export default function Checkout() {
     
     const result = (() => {
       switch (currentStep) {
-        case 'order-summary':
+        case 'cart-delivery':
           // Must have items in cart
           if (cart.length === 0) return false;
-          // Must have all wet/dry selections complete
-          if (!areWetDrySelectionsComplete()) return false;
-          // If has inflateables, must have all event settings completed (except location, which is now in delivery step)
+          // If has inflateables, must have delivery address, location, all event settings, AND calculated delivery
           if (hasInflateables) {
-            return cartSettings.duration && cartSettings.surface && cartSettings.deliveryTime;
+            return deliveryAddress.trim().length > 0 && 
+                   deliveryCost >= 0 &&
+                   cartSettings.location.trim().length > 0 &&
+                   cartSettings.duration && 
+                   cartSettings.surface && 
+                   cartSettings.deliveryTime &&
+                   areWetDrySelectionsComplete();
           }
+          // For gift cards only, just need cart items
           return true;
-        case 'delivery':
-          // Must have delivery address and location type
-          return deliveryAddress.trim().length > 0 && cartSettings.location.trim().length > 0;
-        case 'quick-add-totals':
-          // Must have items in cart
-          return cart.length > 0;
+        case 'party-essentials':
+          // Party essentials are optional, always allow progression
+          return true;
         default:
           return false;
       }
     })();
-    
-    // Debug logging
-    if (currentStep === 'delivery') {
-      // Debug log removed
-    }
     
     return result;
   };
@@ -595,8 +592,8 @@ export default function Checkout() {
     
     // If current step is not in the new step order, adjust to a valid step
     if (!currentStepOrder.includes(currentStep)) {
-      // If we're on delivery or contract but cart only has gift cards/memberships, skip to payment
-      if (currentStep === 'delivery' || currentStep === 'contract') {
+      // If we're on party-essentials or contract but cart only has gift cards/memberships, skip to payment
+      if (currentStep === 'party-essentials' || currentStep === 'contract') {
         const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
         if (!hasInflateables) {
           // Debug log removed
@@ -955,6 +952,8 @@ export default function Checkout() {
 
   // Calculate driving distance using OSRM (free routing service)
   const calculateDeliveryDistance = async (destinationAddress: string) => {
+    console.log('🔍 [CALCULATE DISTANCE] Function called with destinationAddress:', destinationAddress);
+    console.log('🔍 [CALCULATE DISTANCE] destinationAddress length:', destinationAddress.length);
     // Delivery cost calculation started
     // Debug log removed
     // Debug log removed
@@ -1051,9 +1050,13 @@ export default function Checkout() {
 
   // Handle Google Places address selection
   const handlePlaceSelected = (place: google.maps.places.PlaceResult) => {
+    console.log('🔍 [PLACE SELECTED] handlePlaceSelected called');
+    console.log('  - place.formatted_address:', place.formatted_address);
     // Only accept valid places with formatted address and location
     if (place.formatted_address && place.geometry?.location && place.place_id) {
       const googleAddress = place.formatted_address;
+      console.log('🔍 [PLACE SELECTED] googleAddress:', googleAddress);
+      console.log('🔍 [PLACE SELECTED] googleAddress LENGTH:', googleAddress.length);
       
       // Debug log removed
       // Debug log removed
@@ -1068,6 +1071,7 @@ export default function Checkout() {
       setGooglePlacesAddresses(prev => new Set(prev).add(googleAddress));
       
       // Update delivery address with the Google address
+      console.log('🔍 [PLACE SELECTED] About to setDeliveryAddress:', googleAddress);
       setDeliveryAddress(googleAddress);
       
       // Clear the flag after a short delay
@@ -1076,6 +1080,7 @@ export default function Checkout() {
       }, 100);
       
       // Automatically calculate distance when a place is selected
+      console.log('🔍 [PLACE SELECTED] About to calculateDeliveryDistance:', googleAddress);
       calculateDeliveryDistance(googleAddress);
     }
   };
@@ -1084,6 +1089,7 @@ export default function Checkout() {
   const handleAddressChange = (value: string) => {
     console.log('🔍 [ADDRESS DEBUG] handleAddressChange called');
     console.log('  - New value:', value);
+    console.log('  - New value length:', value.length);
     console.log('  - Current deliveryAddress state:', deliveryAddress);
     console.log('  - isSelectingGooglePlace:', isSelectingGooglePlace);
     
@@ -1102,7 +1108,9 @@ export default function Checkout() {
     }
     
     console.log('  - Setting deliveryAddress to:', value);
+    console.log('  - Setting deliveryAddress LENGTH:', value.length);
     setDeliveryAddress(value);
+    console.log('  - After setDeliveryAddress, state should be:', value);
   };
 
   // Authentication guard
@@ -3544,11 +3552,11 @@ export default function Checkout() {
       </div>
 
       {/* Step Content */}
-      {currentStep === 'order-summary' && (
+      {currentStep === 'cart-delivery' && (
       <div className="step-container">
-        <h2 className="step-title">Order Summary & Event Settings</h2>
+        <h2 className="step-title">Cart & Delivery</h2>
         <p className="quick-add-description">
-          Review your cart, add party essentials, and configure your event settings.
+          Review your cart, enter delivery information, and configure your event settings.
         </p>
         {/* Cart Items */}
         <div className="order-items">
@@ -3665,128 +3673,106 @@ export default function Checkout() {
           ))}
         </div>
 
-        {/* Party Essentials Section */}
+        {/* Delivery Address Section - only show for inflatable orders */}
         {(() => {
           const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
           return hasInflateables ? (
-            <div className="party-essentials-section" style={{ marginTop: '2rem', marginBottom: '2rem' }}>
-              <h3>Add Party Essentials</h3>
-              <div className="party-essentials-carousel">
-                {partyEssentials.map((item) => {
-                  const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
-                  const price = isWeekend ? item.weekendPrice : item.weekdayPrice;
-                  const currentQuantity = lastMinuteAdditions[item.name] || 0;
-                  
-                  return (
-                    <div
-                      key={item.name}
-                      className={`party-essential-item ${currentQuantity > 0 ? 'selected' : ''}`}
-                    >
-                      <img 
-                        src={item.img} 
-                        alt={item.name}
-                        className="party-essential-image"
-                      />
-                      <h4 className="party-essential-name">{item.name}</h4>
-                      <p className="party-essential-price">
-                        ${price}/each
-                      </p>
-                      
-                      {currentQuantity > 0 ? (
-                        <div className="party-essential-selected">
-                          <p className="party-essential-added-info">
-                            Added: {currentQuantity} x ${price} = ${(currentQuantity * price * durationMultiplier).toFixed(2)}
-                          </p>
-                          <button
-                            id={`btn-change-qty-${item.name.replace(/\\s+/g, '-').toLowerCase()}`}
-                            className="btn-change-qty"
-                            onClick={() => handleAddToOrderClick(item.name)}
-                          >
-                            Change Qty
-                          </button>
-                          <button
-                            id={`btn-remove-last-minute-${item.name.replace(/\\s+/g, '-').toLowerCase()}`}
-                            className="btn-remove-last-minute"
-                            onClick={() => handleAddLastMinuteItem(item.name, 0)}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          {loadingAvailability ? (
-                            <p className="party-essential-loading">
-                              Checking availability...
-                            </p>
-                          ) : (
-                            <>
-                              {getAvailableQuantityForItem(item.name) === 0 ? (
-                                <>
-                                  <p className="party-essential-unavailable">
-                                    Not Available
-                                  </p>
-                                  <button
-                                    className="btn-add-to-order"
-                                    disabled
-                                    style={{
-                                      opacity: 0.5,
-                                      cursor: 'not-allowed'
-                                    }}
-                                  >
-                                    Unavailable
-                                  </button>
-                                </>
-                              ) : (
-                                <button
-                                  id={`btn-add-last-minute-${item.name.replace(/\\s+/g, '-').toLowerCase()}`}
-                                  className="btn-add-to-order"
-                                  onClick={() => handleAddToOrderClick(item.name)}
-                                >
-                                  Add to Order
-                                </button>
-                              )}
-                            </>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+            <div className="delivery-input-section" style={{ marginTop: '2rem', marginBottom: '2rem' }}>
+              <h3 style={{fontWeight:'bold'}}>Delivery Address</h3>
+              <label style={{ display: 'block', marginBottom: '1rem' }}>
+                <GooglePlacesAutocomplete
+                  value={deliveryAddress}
+                  onChange={handleAddressChange}
+                  onPlaceSelected={handlePlaceSelected}
+                  placeholder="Select delivery address..."
+                  inputRef={addressInputRef}
+                  style={{ 
+                    width: '100%', 
+                    padding: '0.75rem', 
+                    fontSize: '1rem',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    marginTop: '0.5rem'
+                  }}
+                />
+              </label>
               
-              {/* Last-minute additions summary */}
-              {Object.values(lastMinuteAdditions).some(qty => qty > 0) && (
-                <div style={{
-                  marginTop: '1rem',
-                  padding: '1rem',
-                  backgroundColor: '#f8f9fa',
-                  borderRadius: '4px',
-                  border: '1px solid #dee2e6'
-                }}>
-                  <h4 className="essentials-header">Added Essentials:</h4>
-                  {Object.entries(lastMinuteAdditions)
-                    .filter(([_, quantity]) => quantity > 0)
-                    .map(([itemName, quantity]) => {
-                      const item = partyEssentials.find(p => p.name === itemName);
-                      if (!item) return null;
-                      const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
-                      const price = isWeekend ? item.weekendPrice : item.weekdayPrice;
-                      return (
-                        <div key={itemName} className="essentials-item-row">
-                          <span>{itemName} x{quantity}</span>
-                          <span>${(quantity * price * durationMultiplier).toFixed(2)}</span>
-                        </div>
-                      );
-                    })
+              <button
+                id="btn-calculate-delivery"
+                onClick={() => {
+                  const inputValue = addressInputRef.current?.value?.trim() || '';
+                  console.log('🔍 [CALCULATE BUTTON] deliveryAddress state:', deliveryAddress);
+                  console.log('🔍 [CALCULATE BUTTON] addressInputRef value:', inputValue);
+                  if (inputValue) {
+                    // Sync the state with the full address from the input
+                    setDeliveryAddress(inputValue);
+                    console.log('🔍 [CALCULATE BUTTON] Calling calculateDeliveryDistance with:', inputValue);
+                    calculateDeliveryDistance(inputValue);
+                  } else {
+                    notifications.show({
+                      title: '📍 Address Required',
+                      message: 'Please enter a delivery address first.',
+                      color: 'yellow',
+                      autoClose: 4000,
+                    });
                   }
-                  <div className="essentials-total">
-                    <span>Essentials Total:</span>
-                    <span>${lastMinuteTotal.toFixed(2)}</span>
-                  </div>
-                </div>
+                }}
+                disabled={calculatingDistance || !deliveryAddress.trim()}
+                style={{
+                  backgroundColor: calculatingDistance ? '#6c757d' : '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.5rem',
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  cursor: calculatingDistance || !deliveryAddress.trim() ? 'not-allowed' : 'pointer',
+                  opacity: calculatingDistance || !deliveryAddress.trim() ? 0.6 : 1,
+                  marginBottom: '1rem'
+                }}
+              >
+                {calculatingDistance ? 'Calculating...' : 'Calculate Delivery Cost'}
+              </button>
+              
+              {/* Development Skip Button */}
+              {import.meta.env.DEV && (
+                <button
+                  id="btn-skip-delivery"
+                  onClick={() => {
+                    if (!deliveryAddress.trim()) {
+                      setDeliveryAddress('123 Test Street, Augusta, GA 30901');
+                    }
+                    if (!cartSettings.location) {
+                      cartSettings.setLocation('personal home');
+                    }
+                    setDeliveryCost(0);
+                    setCalculatingDistance(false);
+                    notifications.show({
+                      title: '🚧 Development Mode',
+                      message: 'Delivery calculation skipped for testing',
+                      color: 'yellow',
+                      autoClose: 3000,
+                    });
+                  }}
+                  style={{
+                    backgroundColor: '#ffc107',
+                    color: '#000',
+                    border: 'none',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    marginLeft: '1rem'
+                  }}
+                >
+                  🚧 Skip Delivery (Dev Mode)
+                </button>
               )}
             </div>
-          ) : null;
+          ) : (
+            <div style={{ marginTop: '2rem', marginBottom: '2rem', padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
+              <p style={{ margin: 0, color: '#666' }}>✓ Gift card orders do not require delivery</p>
+            </div>
+          );
         })()}
 
         {/* Event Details - only show when cart has inflateables */}
@@ -3811,7 +3797,7 @@ export default function Checkout() {
                   </select>
                 </label>
                 <label style={{ display: 'block', marginBottom: '0.5rem' }}>
-                  Event Address:
+                  Event Location Type:
                   <select 
                     value={cartSettings.location} 
                     onChange={e => cartSettings.setLocation(e.target.value)} 
@@ -3972,345 +3958,168 @@ export default function Checkout() {
           >
             {getNextStepButtonText()}
           </button>
-
-            <button
-            id="btn-back-delivery"
-            onClick={goToPreviousStep}
-          >
-            Back to Delivery
-          </button>
-
-
         </div>
       </div>
       )}
 
-      {currentStep === 'delivery' && (
+      {/* Party Essentials Step - only for orders with inflateables */}
+      {currentStep === 'party-essentials' && (
       <div className="step-container">
-        <h2 className="step-title">Delivery Information</h2>
-        <p className="delivery-description">
-          Enter the address where you want your rental items delivered.
+        <h2 className="step-title">Party Essentials</h2>
+        <p className="quick-add-description">
+          Add party essentials to enhance your event.
         </p>
         
-        <div className="delivery-input-section">
-          <label style={{ display: 'block', marginBottom: '1rem' }}>
-            Delivery Address:
-            <GooglePlacesAutocomplete
-              value={deliveryAddress}
-              onChange={handleAddressChange}
-              onPlaceSelected={handlePlaceSelected}
-              placeholder="Select delivery address..."
-              inputRef={addressInputRef}
-              style={{ 
-                width: '100%', 
-                padding: '0.75rem', 
-                fontSize: '1rem',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                marginTop: '0.5rem'
-              }}
-            />
-          </label>
-        </div>
-        
-        <button
-          id="btn-calculate-distance"
-          onClick={() => {
-            const inputValue = addressInputRef.current?.value?.trim();
-            if (inputValue) {
-              // Debug log removed
-              // Debug log removed
-              // Debug log removed
+        {/* Party Essentials Carousel */}
+        <div className="party-essentials-section" style={{ marginTop: '2rem', marginBottom: '2rem' }}>
+          <h3>Available Party Essentials</h3>
+          <div className="party-essentials-carousel">
+            {partyEssentials.map((item) => {
+              const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
+              const price = isWeekend ? item.weekendPrice : item.weekdayPrice;
+              const currentQuantity = lastMinuteAdditions[item.name] || 0;
               
-              // Update deliveryAddress state to match input field content
-              flushSync(() => {
-                setDeliveryAddress(inputValue);
-              });
-              
-              // Debug log removed
-              
-              // If this looks like a Google Places address, add it to the validation set
-              const looksLikeGooglePlaces = inputValue.includes(',') && 
-                (inputValue.toUpperCase().includes('USA') || 
-                 inputValue.toUpperCase().includes('UNITED STATES') || 
-                 /,\s*[A-Z]{2}[\s,]/.test(inputValue));
-              
-              if (looksLikeGooglePlaces) {
-                setGooglePlacesAddresses(prev => new Set(prev).add(inputValue));
-                // Debug log removed
-              }
-              
-              calculateDeliveryDistance(inputValue);
-            } else {
-              notifications.show({
-                title: '📍 Address Required',
-                message: 'Please enter a delivery address first.',
-                color: 'yellow',
-                autoClose: 4000,
-              });
-            }
-          }}
-          disabled={calculatingDistance || !deliveryAddress.trim()}
-          style={{ display: 'none' }}
-        >
-          {calculatingDistance ? 'Calculating...' : 'Calculate Delivery Cost'}
-        </button>
-        
-        {/* Development Skip Button */}
-        {import.meta.env.DEV && (
-          <button
-            id="btn-skip-delivery"
-            onClick={() => {
-              // Debug log removed
-              // Debug log removed
-              // Debug log removed
-              // Debug log removed:', canShowNextButton());
-              
-              // Set a default address if none exists
-              if (!deliveryAddress.trim()) {
-                setDeliveryAddress('123 Test Street, Test City, SC 29841');
-              }
-              
-              // Set default location if not selected
-              if (!cartSettings.location) {
-                cartSettings.setLocation('personal home');
-              }
-              
-              setDeliveryCost(0);
-              setDeliverySkipped(true); // Mark delivery as skipped
-              setCalculatingDistance(false);
-              
-              // Add current address to failed addresses to prevent automatic retries
-              if (deliveryAddress.trim()) {
-                setFailedAddresses(prev => new Set(prev).add(deliveryAddress));
-              }
-              
-              // Use setTimeout to check state after React updates
-              setTimeout(() => {
-                // Debug log removed
-                // Debug log removed
-              }, 100);
-              
-              notifications.show({
-                title: '🚀 Development Mode',
-                message: 'Delivery calculation skipped - you can now proceed to next step',
-                color: 'blue',
-                autoClose: 3000,
-              });
-            }}
-            style={{
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              padding: '0.75rem 1rem',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              marginTop: '1rem',
-              marginBottom: '1rem'
-            }}
-          >
-            Skip Delivery (Dev)
-          </button>
-        )}
-        
-        {/* Automatically calculate delivery in the background */}
-        {deliveryAddress.trim() && (
-
-          <div style={{ display: 'none' }}>
-
-            {(() => {
-
-              // Automatically trigger delivery calculation when address is entered
-
-              // Only calculate if we have a valid address and haven't calculated yet
-
-              const isValidAddress = deliveryAddress.trim().length > 10 && 
-
-                (deliveryAddress.includes(',') || deliveryAddress.toLowerCase().includes('sc') || deliveryAddress.toLowerCase().includes('ga'));
-
-              // Don't retry addresses that have already failed
-
-              const hasAlreadyFailed = failedAddresses.has(deliveryAddress);
-
-              // Don't calculate if delivery was skipped or if address has failed
-
-              if (isValidAddress && !calculatingDistance && deliveryCost === 0 && !hasAlreadyFailed && !deliverySkipped) {
-
-                setTimeout(() => {
-
-                  if (!calculatingDistance && deliveryCost === 0 && !failedAddresses.has(deliveryAddress) && !deliverySkipped) {
-
-                    calculateDeliveryDistance(deliveryAddress);
-
-                  }
-
-                }, 500);
-
-              }
-
-              return null;
-
-            })()}
-
+              return (
+                <div
+                  key={item.name}
+                  className={`party-essential-item ${currentQuantity > 0 ? 'selected' : ''}`}
+                >
+                  <img 
+                    src={item.img} 
+                    alt={item.name}
+                    className="party-essential-image"
+                  />
+                  <h4 className="party-essential-name">{item.name}</h4>
+                  <p className="party-essential-price">
+                    ${price}/each
+                  </p>
+                  
+                  {currentQuantity > 0 ? (
+                    <div className="party-essential-selected">
+                      <p className="party-essential-added-info">
+                        Added: {currentQuantity} x ${price} = ${(currentQuantity * price * durationMultiplier).toFixed(2)}
+                      </p>
+                      <button
+                        id={`btn-change-qty-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
+                        className="btn-change-qty"
+                        onClick={() => handleAddToOrderClick(item.name)}
+                      >
+                        Change Qty
+                      </button>
+                      <button
+                        id={`btn-remove-last-minute-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
+                        className="btn-remove-last-minute"
+                        onClick={() => handleAddLastMinuteItem(item.name, 0)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {loadingAvailability ? (
+                        <p className="party-essential-loading">
+                          Checking availability...
+                        </p>
+                      ) : (
+                        <>
+                          {getAvailableQuantityForItem(item.name) === 0 ? (
+                            <>
+                              <p className="party-essential-unavailable">
+                                Not Available
+                              </p>
+                              <button
+                                className="btn-add-to-order"
+                                disabled
+                                style={{
+                                  opacity: 0.5,
+                                  cursor: 'not-allowed'
+                                }}
+                              >
+                                Unavailable
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              id={`btn-add-last-minute-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
+                              className="btn-add-to-order"
+                              onClick={() => handleAddToOrderClick(item.name)}
+                            >
+                              Add to Order
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
-
-        )}
-        
-        {/* Hide the delivery cost display - it will be included in the total automatically */}
+          
+          {/* Last-minute additions summary */}
+          {Object.values(lastMinuteAdditions).some(qty => qty > 0) && (
+            <div style={{
+              marginTop: '1rem',
+              padding: '1rem',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '4px',
+              border: '1px solid #dee2e6'
+            }}>
+              <h4 className="essentials-header">Added Essentials:</h4>
+              {Object.entries(lastMinuteAdditions)
+                .filter(([_, quantity]) => quantity > 0)
+                .map(([itemName, quantity]) => {
+                  const item = partyEssentials.find(p => p.name === itemName);
+                  if (!item) return null;
+                  const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
+                  const price = isWeekend ? item.weekendPrice : item.weekdayPrice;
+                  return (
+                    <div key={itemName} className="essentials-item-row">
+                      <span>{itemName} x{quantity}</span>
+                      <span>${(quantity * price * durationMultiplier).toFixed(2)}</span>
+                    </div>
+                  );
+                })
+              }
+              <div className="essentials-total">
+                <span>Essentials Total:</span>
+                <span>${lastMinuteTotal.toFixed(2)}</span>
+              </div>
+            </div>
+          )}
+        </div>
         
         {/* Navigation Buttons */}
         <div className="checkout-navigation-buttons">
-        
           <button
-            id="btn-forward-delivery"
+            id="btn-continue-party-essentials"
             onClick={() => goToNextStep()}
             disabled={!canShowNextButton()}
           >
             {getNextStepButtonText()}
           </button>
-
-            <button
-            id="btn-back-quick-add"
+          <button
+            id="btn-back-party-essentials"
             onClick={goToPreviousStep}
-         
+            style={{
+              backgroundColor: '#6c757d',
+              color: 'white',
+              border: 'none',
+              padding: '1rem 2rem',
+              borderRadius: '4px',
+              fontSize: '1rem',
+              cursor: 'pointer',
+              marginLeft: '1rem'
+            }}
           >
-            Back to Quick Add
+            ← Back to Cart & Delivery
           </button>
         </div>
       </div>
       )}
 
-      {(currentStep === 'quick-add-totals' || currentStep === 'contract') && (
+      {currentStep === 'contract' && (
         <div className={currentStep === 'contract' ? 'contract-container' : 'step-container'}>
-          {currentStep === 'quick-add-totals' && (
-            <>
-              <h2 className="step-title">Cart Summary</h2>
-              <p className="quick-add-description">
-                Review your cart items and quantities.
-              </p>
-
-              {/* Display Current Cart Items */}
-              <div className="cart-items-display">
-                <h3>Your Cart Items</h3>
-                {cart.length > 0 ? (
-                  <div className="cart-items-list">
-                    {cart.map((item, index) => (
-                      <div key={index} className="cart-item-preview">
-                        <img 
-                          src={getProductImage(item.name)} 
-                          alt={item.name} 
-                          className="cart-item-image"
-                          onError={(e) => {
-                            e.currentTarget.src = 'https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/default.webp';
-                          }}
-                        />
-                        <div className="cart-item-info">
-                          <h4>{item.name}</h4>
-                          {/* Quantity Selection Dropdown - All Items */}
-                          <div className="quantity-selection" style={{ marginBottom: '0.5rem' }}>
-                            <label htmlFor={`quantity-${index}`}>Quantity: </label>
-                            <select
-                              id={`quantity-${index}`}
-                              value={item.quantity || 1}
-                              onChange={(e) => {
-                                if (item.category === 'party-essentials') {
-                                  updateCartItemQuantity(index, parseInt(e.target.value));
-                                } else {
-                                  // For non-party essentials, just update the cart directly
-                                  const updatedCart = [...cart];
-                                  updatedCart[index] = { ...item, quantity: parseInt(e.target.value) };
-                                  setCart(updatedCart);
-                                  localStorage.setItem('cart', JSON.stringify(updatedCart));
-                                }
-                              }}
-                              style={{
-                                padding: '0.25rem',
-                                borderRadius: '4px',
-                                border: '1px solid #ddd',
-                                fontSize: '0.9rem',
-                                marginLeft: '0.25rem'
-                              }}
-                            >
-                              {item.category === 'party-essentials' ? (
-                                (() => {
-                                  const maxAvailable = getAvailableQuantityForCartItem(item, index);
-                                  // Debug log removed
-                                  return Array.from({ length: Math.max(1, maxAvailable) }, (_, i) => i + 1).map(qty => (
-                                    <option key={qty} value={qty} disabled={qty > maxAvailable}>
-                                      {qty}{qty > maxAvailable ? ' (unavailable)' : ''}
-                                    </option>
-                                  ));
-                                })()
-                              ) : (
-                                Array.from({ length: 10 }, (_, i) => i + 1).map(qty => (
-                                  <option key={qty} value={qty}>{qty}</option>
-                                ))
-                              )}
-                            </select>
-                            {item.category === 'party-essentials' && (
-                              <span style={{ fontSize: '0.8rem', color: '#666', marginLeft: '0.5rem' }}>
-                                ({getAvailableQuantityForCartItem(item, index)} available)
-                              </span>
-                            )}
-                          </div>
-                          {/* Date display removed - selectedDates not in CartItem type */}
-                          {/* Wet/Dry Selection Dropdown */}
-                          {item.wetDry === 'Wet/Dry' && !item.isGiftCard && !item.isMembership && (
-                            <div className="wet-dry-selection">
-                              <label htmlFor={`wetdry-${index}`}>Type: </label>
-                              <select
-                                id={`wetdry-${index}`}
-                                value={cartSettings.wetDrySelections[index] || 'Dry'}
-                                onChange={(e) => cartSettings.updateWetDrySelection(index, e.target.value as 'Wet' | 'Dry')}
-                                style={{
-                                  padding: '0.25rem',
-                                  borderRadius: '4px',
-                                  border: '1px solid #ddd',
-                                  fontSize: '0.9rem'
-                                }}
-                              >
-                                <option value="Dry">Dry</option>
-                                <option value="Wet">Wet (+$50)</option>
-                              </select>
-                            </div>
-                          )}
-
-                        </div>
-                        <div className="cart-item-price">
-                          ${getItemDisplayPrice(item, index).toFixed(2)}
-                          {item.wetDry === 'Wet/Dry' && cartSettings.wetDrySelections[index] === 'Wet'}
-                        </div>
-                        {/* Delete Button */}
-                        <button
-                          className="cart-item-delete"
-                          onClick={() => removeItemFromCart(index)}
-                          style={{
-                            background: '#dc3545',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            padding: '0.5rem',
-                            cursor: 'pointer',
-                            fontSize: '0.9rem',
-                            marginLeft: '1rem'
-                          }}
-                          title={`Remove ${item.name} from cart`}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="no-cart-items">No items in cart</p>
-                )}
-              </div>
-            </>
-          )}
-          
-          {currentStep === 'quick-add-totals'}
-        
         {/* Contract Section - Only show when currentStep is 'contract' */}
         {currentStep === 'contract' && (
           <ContractSigning
@@ -4323,44 +4132,8 @@ export default function Checkout() {
           />
         )}
         
-        {/* Navigation Buttons - Show different buttons based on current step */}
-        {visitedSteps.has('quick-add-totals') && (
-          <div className="checkout-navigation-buttons">
-            {currentStep === 'quick-add-totals' && (
-              <>
-                <button
-                  id="btn-forward-quick-add"
-                  onClick={() => goToNextStep()}
-                  disabled={!canShowNextButton()}
-                >
-                  {getNextStepButtonText()}
-                </button>
-              </>
-            )}
-            {currentStep === 'contract' && (
-              <>
-                <button
-                  id="btn-back-order-summary"
-                  onClick={goToPreviousStep}
-                  style={{
-                    backgroundColor: '#6c757d',
-                    color: 'white',
-                    border: 'none',
-                    padding: '1rem 2rem',
-                    borderRadius: '4px',
-                    fontSize: '1rem',
-                    cursor: 'pointer'
-                  }}
-                >
-                  ← Back to Order Summary
-                </button>
-              </>
-            )}
-          </div>
-        )}
-
         {/* Contract Step Back Button - Always show when in contract step */}
-        {currentStep === 'contract' && !visitedSteps.has('quick-add-totals') && (
+        {currentStep === 'contract' && (
           <div className="checkout-navigation-buttons">
             <button
               id="btn-back-contract-only"
@@ -4411,7 +4184,7 @@ export default function Checkout() {
                   onClick={() => {
                     // Clear the booking and redirect to home
                     setPendingBookingId('');
-                    setCurrentStep('order-summary');
+                    setCurrentStep('cart-delivery');
                     localStorage.removeItem('resumeBookingId');
                     navigate('/');
                   }}
