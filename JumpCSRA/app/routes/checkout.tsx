@@ -4389,6 +4389,78 @@ export default function Checkout() {
             </div>
           </div>
 
+          {/* Detailed Pricing Breakdown */}
+          <div style={{ 
+            marginBottom: '2rem', 
+            padding: '1rem', 
+            backgroundColor: '#f8f9fa', 
+            borderRadius: '4px' 
+          }}>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#333' }}>Pricing Breakdown</h3>
+            <div className="pricing-breakdown">
+              <div className="pricing-row">
+                <span>Cart Subtotal:</span>
+                <span>${(() => {
+                  const baseCartTotal = cart.reduce((sum, item) => {
+                    if (item.isGiftCard) {
+                      return sum + (item.giftCardValue || item.price) * item.quantity;
+                    } else {
+                      return sum + item.price * item.quantity;
+                    }
+                  }, 0);
+                  return baseCartTotal.toFixed(2);
+                })()}</span>
+              </div>
+              {(() => {
+                const rentalSubtotal = cart.reduce((sum, item) => {
+                  if (!item.isGiftCard && !item.isMembership) {
+                    return sum + item.price * item.quantity;
+                  }
+                  return sum;
+                }, 0);
+                const durationCharge = rentalSubtotal * (durationMultiplier - 1);
+                
+                if (durationCharge !== 0 && rentalSubtotal > 0) {
+                  return (
+                    <div className="pricing-row">
+                      <span>Event Duration:</span>
+                      <span>{durationCharge > 0 ? '+' : ''}${durationCharge.toFixed(2)}</span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+              {surfaceAdj > 0 && (
+                <div className="pricing-row">
+                  <span>Surface Adjustment (per item):</span>
+                  <span>${surfaceAdj.toFixed(2)}</span>
+                </div>
+              )}
+              {timeAdj > 0 && (
+                <div className="pricing-row">
+                  <span>Early Delivery:</span>
+                  <span>${timeAdj.toFixed(2)}</span>
+                </div>
+              )}
+              {lastMinuteTotal > 0 && (
+                <div className="pricing-row">
+                  <span>Party Essentials:</span>
+                  <span>${lastMinuteTotal.toFixed(2)}</span>
+                </div>
+              )}
+              {deliveryCost > 0 && (
+                <div className="pricing-row">
+                  <span>Delivery Cost:</span>
+                  <span>${deliveryCost.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="pricing-total">
+                <span>Total:</span>
+                <span>${total.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
+
           {/* Promotional Gift Card Section - Show when GOGO discount is active AND has gift cards */}
           {discounts.bogoGiftCard && cart.some(item => item.isGiftCard) && (
             <div style={{ 
