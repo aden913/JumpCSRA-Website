@@ -1270,12 +1270,14 @@ export default function Checkout() {
               // Debug log removed
             }
             
-            // Set appropriate step based on booking type and status
-            if (!isDeferredBooking) {
-              // For normal bookings, go to payment step since contract is already signed
-              setCurrentStep('payment');
-              setContractSigned(true);
-              // Debug log removed
+            // Bookings are created after contract signing, so go directly to payment step
+            setCurrentStep('payment');
+            setVisitedSteps(new Set(['cart-delivery', 'party-essentials', 'contract', 'payment']));
+            setContractSigned(true);
+            
+            // Restore tip if it was set
+            if (booking.paymentDetails?.tip) {
+              setTipAmount(booking.paymentDetails.tip);
             }
             
             // Clear the resume flag
@@ -1284,7 +1286,7 @@ export default function Checkout() {
             
             notifications.show({
               title: '📝 Booking Resumed',
-              message: `Successfully loaded your incomplete booking #${resumeBookingId} (${bookingStatus})`,
+              message: `Successfully loaded your incomplete booking #${resumeBookingId} (${bookingStatus}). Please complete payment.`,
               color: 'green',
               autoClose: 5000,
             });
