@@ -3622,159 +3622,198 @@ export default function Checkout() {
             const showQuantityDropdown = maxAvailable > 1;
             
             return (
-            <div key={idx} className="order-item">
-              {/* Product Image - Full width priority on mobile */}
-              <img 
-                src={getProductImage(item.name)} 
-                alt={item.name}
-                className="order-item-image"
-                onError={(e) => {
-                  // Fallback if image fails to load
-                  e.currentTarget.src = 'https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/default.webp';
-                }}
-                style={{
-                  width: '90%',
-                  maxWidth: '500px',
-                  height: 'auto',
-                  borderRadius: '8px',
-                  margin: '0 auto',
-                  display: 'block'
-                }}
-              />
-              
-              {/* Product Details */}
-              <div className="order-item-details" style={{ width: '100%', marginTop: '1rem' }}>
-                {/* Item Name and Price Row */}
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  marginBottom: '0.75rem',
-                  flexWrap: 'wrap',
-                  gap: '0.5rem'
-                }}>
-                  <div className="order-item-name" style={{ 
-                    fontSize: '1.2rem',
-                    fontWeight: 'bold',
-                    flex: '1 1 auto'
-                  }}>
-                    {item.name}
-                  </div>
-                  <div className="order-item-price" style={{
-                    fontSize: '1.2rem',
-                    fontWeight: 'bold',
-                    color: '#28a745',
-                    flex: '0 0 auto'
-                  }}>
-                    ${item.isGiftCard 
-                      ? ((item.giftCardValue || item.price) * item.quantity).toFixed(2)
-                      : (item.price * item.quantity * durationMultiplier).toFixed(2)
-                    }
-                  </div>
-                </div>
-                
-                {/* Quantity and Wet/Dry Row */}
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '1rem',
-                  flexWrap: 'wrap',
-                  marginBottom: '0.75rem'
-                }}>
-                  {/* Quantity Selector - only show if more than 1 available */}
-                  {showQuantityDropdown && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <label htmlFor={`order-quantity-${idx}`} style={{ fontWeight: '500' }}>Quantity:</label>
-                      <select
-                        id={`order-quantity-${idx}`}
-                        value={item.quantity || 1}
-                        onChange={(e) => {
-                          if (item.category === 'party-essentials') {
-                            updateCartItemQuantity(idx, parseInt(e.target.value));
-                          } else {
-                            // For non-party essentials, just update the cart directly
-                            const updatedCart = [...cart];
-                            updatedCart[idx] = { ...item, quantity: parseInt(e.target.value) };
-                            setCart(updatedCart);
-                            localStorage.setItem('cart', JSON.stringify(updatedCart));
-                          }
-                        }}
-                        style={{
-                          padding: '0.5rem',
-                          borderRadius: '4px',
-                          border: '1px solid #ddd',
-                          fontSize: '1rem'
-                        }}
-                      >
-                        {item.category === 'party-essentials' ? (
-                          (() => {
-                            return Array.from({ length: Math.max(1, maxAvailable) }, (_, i) => i + 1).map(qty => (
-                              <option key={qty} value={qty} disabled={qty > maxAvailable}>
-                                {qty}{qty > maxAvailable ? ' (unavailable)' : ''}
-                              </option>
-                            ));
-                          })()
-                        ) : (
-                          Array.from({ length: maxAvailable }, (_, i) => i + 1).map(qty => (
-                            <option key={qty} value={qty}>{qty}</option>
-                          ))
-                        )}
-                      </select>
-                      {item.category === 'party-essentials' && (
-                        <span style={{ fontSize: '0.85rem', color: '#666' }}>
-                          ({maxAvailable} available)
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  
-                  {/* Wet/Dry Selector */}
-                  {!item.isGiftCard && !item.isMembership && item.wetDry === "Wet/Dry" && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <label style={{ fontWeight: '500' }}>Type:</label>
-                      <select
-                        value={cartSettings.wetDrySelections[idx] || 'Dry'}
-                        onChange={(e) => cartSettings.updateWetDrySelection(idx, e.target.value as 'Wet' | 'Dry')}
-                        style={{
-                          padding: '0.5rem',
-                          borderRadius: '4px',
-                          border: '1px solid #ddd',
-                          fontSize: '1rem'
-                        }}
-                      >
-                        <option value="Dry">Dry</option>
-                        <option value="Wet">Wet (+$50)</option>
-                      </select>
-                    </div>
-                  )}
-                  
-                  {/* Gift Card Price Info */}
-                  {item.isGiftCard && (
-                    <span style={{ fontSize: '0.9rem', color: '#666' }}>
-                      ${item.giftCardValue || item.price} each
-                    </span>
-                  )}
-                </div>
-                
-                {/* Remove Button */}
-                <button
-                  id={`btn-remove-item-${idx}`}
-                  className="btn-remove-item"
-                  onClick={() => removeItemFromCart(idx)}
-                  style={{
-                    backgroundColor: '#dc3545',
-                    color: 'white',
-                    border: 'none',
-                    padding: '0.5rem 1rem',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    marginTop: '0.5rem'
+            <div key={idx} className="order-item" style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem',
+              border: '1px solid #dee2e6',
+              borderRadius: '8px',
+              marginBottom: '1rem',
+              backgroundColor: 'white'
+            }}>
+              {/* Responsive Container */}
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem'
+              }} className="order-item-content-wrapper">
+                {/* Product Image */}
+                <img 
+                  src={getProductImage(item.name)} 
+                  alt={item.name}
+                  className="order-item-image"
+                  onError={(e) => {
+                    // Fallback if image fails to load
+                    e.currentTarget.src = 'https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/default.webp';
                   }}
-                >
-                  Remove
-                </button>
+                  style={{
+                    width: '90%',
+                    maxWidth: '500px',
+                    height: 'auto',
+                    borderRadius: '8px',
+                    margin: '0 auto',
+                    display: 'block'
+                  }}
+                />
+                
+                {/* Product Details */}
+                <div className="order-item-details" style={{ width: '100%', flex: '1' }}>
+                  {/* Item Name and Price Row */}
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    marginBottom: '0.75rem',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem'
+                  }}>
+                    <div className="order-item-name" style={{ 
+                      fontSize: '1.2rem',
+                      fontWeight: 'bold',
+                      flex: '1 1 auto'
+                    }}>
+                      {item.name}
+                    </div>
+                    <div className="order-item-price" style={{
+                      fontSize: '1.2rem',
+                      fontWeight: 'bold',
+                      color: '#28a745',
+                      flex: '0 0 auto'
+                    }}>
+                      ${item.isGiftCard 
+                        ? ((item.giftCardValue || item.price) * item.quantity).toFixed(2)
+                        : (item.price * item.quantity * durationMultiplier).toFixed(2)
+                      }
+                    </div>
+                  </div>
+                  
+                  {/* Quantity and Wet/Dry Row */}
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '1rem',
+                    flexWrap: 'wrap',
+                    marginBottom: '0.75rem'
+                  }}>
+                    {/* Quantity Selector - only show if more than 1 available */}
+                    {showQuantityDropdown && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <label htmlFor={`order-quantity-${idx}`} style={{ fontWeight: '500' }}>Quantity:</label>
+                        <select
+                          id={`order-quantity-${idx}`}
+                          value={item.quantity || 1}
+                          onChange={(e) => {
+                            if (item.category === 'party-essentials') {
+                              updateCartItemQuantity(idx, parseInt(e.target.value));
+                            } else {
+                              // For non-party essentials, just update the cart directly
+                              const updatedCart = [...cart];
+                              updatedCart[idx] = { ...item, quantity: parseInt(e.target.value) };
+                              setCart(updatedCart);
+                              localStorage.setItem('cart', JSON.stringify(updatedCart));
+                            }
+                          }}
+                          style={{
+                            padding: '0.5rem',
+                            borderRadius: '4px',
+                            border: '1px solid #ddd',
+                            fontSize: '1rem'
+                          }}
+                        >
+                          {item.category === 'party-essentials' ? (
+                            (() => {
+                              return Array.from({ length: Math.max(1, maxAvailable) }, (_, i) => i + 1).map(qty => (
+                                <option key={qty} value={qty} disabled={qty > maxAvailable}>
+                                  {qty}{qty > maxAvailable ? ' (unavailable)' : ''}
+                                </option>
+                              ));
+                            })()
+                          ) : (
+                            Array.from({ length: maxAvailable }, (_, i) => i + 1).map(qty => (
+                              <option key={qty} value={qty}>{qty}</option>
+                            ))
+                          )}
+                        </select>
+                        {item.category === 'party-essentials' && (
+                          <span style={{ fontSize: '0.85rem', color: '#666' }}>
+                            ({maxAvailable} available)
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Wet/Dry Selector */}
+                    {!item.isGiftCard && !item.isMembership && item.wetDry === "Wet/Dry" && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <label style={{ fontWeight: '500' }}>Type:</label>
+                        <select
+                          value={cartSettings.wetDrySelections[idx] || 'Dry'}
+                          onChange={(e) => cartSettings.updateWetDrySelection(idx, e.target.value as 'Wet' | 'Dry')}
+                          style={{
+                            padding: '0.5rem',
+                            borderRadius: '4px',
+                            border: '1px solid #ddd',
+                            fontSize: '1rem'
+                          }}
+                        >
+                          <option value="Dry">Dry</option>
+                          <option value="Wet">Wet (+$50)</option>
+                        </select>
+                      </div>
+                    )}
+                    
+                    {/* Gift Card Price Info */}
+                    {item.isGiftCard && (
+                      <span style={{ fontSize: '0.9rem', color: '#666' }}>
+                        ${item.giftCardValue || item.price} each
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Remove Button */}
+                  <button
+                    id={`btn-remove-item-${idx}`}
+                    className="btn-remove-item"
+                    onClick={() => removeItemFromCart(idx)}
+                    style={{
+                      backgroundColor: '#dc3545',
+                      color: 'white',
+                      border: 'none',
+                      padding: '0.5rem 1rem',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      marginTop: '0.5rem'
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
+              
+              {/* Desktop-specific styles */}
+              <style jsx>{`
+                @media (min-width: 768px) {
+                  .order-item-content-wrapper {
+                    flex-direction: row !important;
+                    align-items: flex-start;
+                  }
+                  
+                  .order-item-image {
+                    width: 20% !important;
+                    max-width: 200px !important;
+                    margin: 0 !important;
+                    flex-shrink: 0;
+                  }
+                  
+                  .order-item-details {
+                    flex: 1;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.75rem;
+                  }
+                }
+              `}</style>
             </div>
             );
           })}
