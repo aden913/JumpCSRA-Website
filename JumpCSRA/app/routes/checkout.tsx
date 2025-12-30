@@ -287,6 +287,10 @@ export default function Checkout() {
   const [showQuantityModal, setShowQuantityModal] = useState<string | null>(null);
   const [selectedQuantity, setSelectedQuantity] = useState<number>(1);
   
+  // Party essentials carousel navigation state
+  const [carouselScrollPosition, setCarouselScrollPosition] = useState<number>(0);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  
   // Availability tracking state
   const [itemAvailability, setItemAvailability] = useState<Map<string, ItemAvailability>>(new Map());
   const [loadingAvailability, setLoadingAvailability] = useState(false);
@@ -1725,6 +1729,37 @@ export default function Checkout() {
     if (showQuantityModal) {
       handleAddLastMinuteItem(showQuantityModal, selectedQuantity);
     }
+  };
+
+  // Carousel navigation functions
+  const scrollCarousel = (direction: 'left' | 'right') => {
+    if (!carouselRef.current) return;
+    
+    const scrollAmount = 300; // Adjust based on your item width
+    const newPosition = direction === 'left' 
+      ? carouselRef.current.scrollLeft - scrollAmount
+      : carouselRef.current.scrollLeft + scrollAmount;
+    
+    carouselRef.current.scrollTo({
+      left: newPosition,
+      behavior: 'smooth'
+    });
+  };
+
+  const updateCarouselScrollPosition = () => {
+    if (carouselRef.current) {
+      setCarouselScrollPosition(carouselRef.current.scrollLeft);
+    }
+  };
+
+  const canScrollLeft = () => {
+    return carouselScrollPosition > 0;
+  };
+
+  const canScrollRight = () => {
+    if (!carouselRef.current) return false;
+    const maxScroll = carouselRef.current.scrollWidth - carouselRef.current.clientWidth;
+    return carouselScrollPosition < maxScroll - 10; // -10 for small buffer
   };
 
   // Signature handling functions
@@ -4136,7 +4171,86 @@ export default function Checkout() {
         {/* Party Essentials Carousel */}
         <div className="party-essentials-section" style={{ marginTop: '2rem', marginBottom: '2rem' }}>
          
-          <div className="party-essentials-carousel">
+          <div style={{ position: 'relative' }}>
+            {/* Left Arrow */}
+            {canScrollLeft() && (
+              <button
+                onClick={() => scrollCarousel('left')}
+                style={{
+                  position: 'absolute',
+                  left: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  zIndex: 10,
+                  backgroundColor: 'rgba(0, 123, 255, 0.9)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '50px',
+                  height: '50px',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(0, 123, 255, 1)';
+                  e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(0, 123, 255, 0.9)';
+                  e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+                }}
+              >
+                ‹
+              </button>
+            )}
+            
+            {/* Right Arrow */}
+            {canScrollRight() && (
+              <button
+                onClick={() => scrollCarousel('right')}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  zIndex: 10,
+                  backgroundColor: 'rgba(0, 123, 255, 0.9)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '50px',
+                  height: '50px',
+                  fontSize: '24px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                  transition: 'all 0.2s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(0, 123, 255, 1)';
+                  e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(0, 123, 255, 0.9)';
+                  e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
+                }}
+              >
+                ›
+              </button>
+            )}
+            
+            <div 
+              ref={carouselRef}
+              className="party-essentials-carousel"
+              onScroll={updateCarouselScrollPosition}
+            >
             {partyEssentials.map((item) => {
               const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
               const price = isWeekend ? item.weekendPrice : item.weekdayPrice;
@@ -4217,6 +4331,7 @@ export default function Checkout() {
                 </div>
               );
             })}
+          </div>
           </div>
           
           {/* Last-minute additions summary */}
