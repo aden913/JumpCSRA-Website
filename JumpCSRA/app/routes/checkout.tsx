@@ -1159,6 +1159,19 @@ export default function Checkout() {
           const booking = await loadBookingData(resumeBookingId);
           
           if (booking && booking.customerID === user.uid) {
+            // Check if at least 24 hours have passed since booking was created
+            if (booking.createdAt) {
+              const createdDate = new Date(booking.createdAt);
+              const now = new Date();
+              const hoursSinceCreation = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
+              
+              if (hoursSinceCreation < 24) {
+                console.log('⏳ [RESUME] Booking too recent - created', hoursSinceCreation.toFixed(1), 'hours ago. Must wait 24 hours.');
+                // Don't show the resume prompt yet - booking is too recent
+                return;
+              }
+            }
+            
             // Check if booking is already completed or confirmed - can't resume completed bookings
             // Note: Deferred bookings should be handled separately through the profile page
             const bookingStatus = booking.status || 'pending';
