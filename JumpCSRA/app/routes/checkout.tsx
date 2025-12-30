@@ -3629,7 +3629,8 @@ export default function Checkout() {
               border: '1px solid #dee2e6',
               borderRadius: '8px',
               marginBottom: '1rem',
-              backgroundColor: 'white'
+              backgroundColor: 'white',
+              padding:'.4rem'
             }}>
               {/* Responsive Container */}
               <div style={{
