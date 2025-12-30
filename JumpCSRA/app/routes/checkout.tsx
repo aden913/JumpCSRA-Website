@@ -3557,28 +3557,86 @@ export default function Checkout() {
         
         {/* Cart Items */}
         <div className="order-items">
-          {getDisplayCart().map((item, idx) => (
+          {getDisplayCart().map((item, idx) => {
+            // Get max available quantity from database
+            let maxAvailable = 10; // Default fallback
+            
+            if (item.category === 'party-essentials') {
+              maxAvailable = getAvailableQuantityForCartItem(item, idx);
+            } else {
+              // For regular inflateables, get quantity from database
+              const inflateableData = inflateables.find(inf => inf.name === item.name);
+              if (inflateableData && inflateableData.quantity) {
+                maxAvailable = inflateableData.quantity;
+              }
+            }
+            
+            const showQuantityDropdown = maxAvailable > 1;
+            
+            return (
             <div key={idx} className="order-item">
-              <div className="order-item-content">
-                {/* Product Image */}
-                <img 
-                  src={getProductImage(item.name)} 
-                  alt={item.name}
-                  className="order-item-image"
-                  onError={(e) => {
-                    // Fallback if image fails to load
-                    e.currentTarget.src = 'https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/default.webp';
-                  }}
-                />
-                
-                {/* Product Details */}
-                <div className="order-item-details">
-                  <div className="order-item-name">
+              {/* Product Image - Full width priority on mobile */}
+              <img 
+                src={getProductImage(item.name)} 
+                alt={item.name}
+                className="order-item-image"
+                onError={(e) => {
+                  // Fallback if image fails to load
+                  e.currentTarget.src = 'https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/default.webp';
+                }}
+                style={{
+                  width: '90%',
+                  maxWidth: '500px',
+                  height: 'auto',
+                  borderRadius: '8px',
+                  margin: '0 auto',
+                  display: 'block'
+                }}
+              />
+              
+              {/* Product Details */}
+              <div className="order-item-details" style={{ width: '100%', marginTop: '1rem' }}>
+                {/* Item Name and Price Row */}
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  marginBottom: '0.75rem',
+                  flexWrap: 'wrap',
+                  gap: '0.5rem'
+                }}>
+                  <div className="order-item-name" style={{ 
+                    fontSize: '1.2rem',
+                    fontWeight: 'bold',
+                    flex: '1 1 auto'
+                  }}>
                     {item.name}
                   </div>
-                  <div className="order-item-info">
-                    <div style={{ marginBottom: '0.5rem' }}>
-                      <label htmlFor={`order-quantity-${idx}`}>Quantity: </label>
+                  <div className="order-item-price" style={{
+                    fontSize: '1.2rem',
+                    fontWeight: 'bold',
+                    color: '#28a745',
+                    flex: '0 0 auto'
+                  }}>
+                    ${item.isGiftCard 
+                      ? ((item.giftCardValue || item.price) * item.quantity).toFixed(2)
+                      : (item.price * item.quantity * durationMultiplier).toFixed(2)
+                    }
+                  </div>
+                </div>
+                
+                {/* Quantity and Wet/Dry Row */}
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '1rem',
+                  flexWrap: 'wrap',
+                  marginBottom: '0.75rem'
+                }}>
+                  {/* Quantity Selector - only show if more than 1 available */}
+                  {showQuantityDropdown && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <label htmlFor={`order-quantity-${idx}`} style={{ fontWeight: '500' }}>Quantity:</label>
                       <select
                         id={`order-quantity-${idx}`}
                         value={item.quantity || 1}
@@ -3594,16 +3652,14 @@ export default function Checkout() {
                           }
                         }}
                         style={{
-                          padding: '0.25rem',
+                          padding: '0.5rem',
                           borderRadius: '4px',
                           border: '1px solid #ddd',
-                          fontSize: '0.9rem',
-                          marginLeft: '0.25rem'
+                          fontSize: '1rem'
                         }}
                       >
                         {item.category === 'party-essentials' ? (
                           (() => {
-                            const maxAvailable = getAvailableQuantityForCartItem(item, idx);
                             return Array.from({ length: Math.max(1, maxAvailable) }, (_, i) => i + 1).map(qty => (
                               <option key={qty} value={qty} disabled={qty > maxAvailable}>
                                 {qty}{qty > maxAvailable ? ' (unavailable)' : ''}
@@ -3611,62 +3667,69 @@ export default function Checkout() {
                             ));
                           })()
                         ) : (
-                          Array.from({ length: 10 }, (_, i) => i + 1).map(qty => (
+                          Array.from({ length: maxAvailable }, (_, i) => i + 1).map(qty => (
                             <option key={qty} value={qty}>{qty}</option>
                           ))
                         )}
                       </select>
                       {item.category === 'party-essentials' && (
-                        <span style={{ fontSize: '0.8rem', color: '#666', marginLeft: '0.5rem' }}>
-                          ({getAvailableQuantityForCartItem(item, idx)} available)
+                        <span style={{ fontSize: '0.85rem', color: '#666' }}>
+                          ({maxAvailable} available)
                         </span>
                       )}
                     </div>
-                    {item.isGiftCard ? (
-                      ` ($${item.giftCardValue || item.price} each)`
-                    ) : !item.isMembership && item.wetDry === "Wet/Dry" ? (
-                      <span>
-                        {' - '}
-                        <select
-                          value={cartSettings.wetDrySelections[idx] || 'Dry'}
-                          onChange={(e) => cartSettings.updateWetDrySelection(idx, e.target.value as 'Wet' | 'Dry')}
-                          style={{
-                            padding: '0.25rem',
-                            borderRadius: '4px',
-                            border: '1px solid #ddd',
-                            fontSize: '0.9rem',
-                            marginLeft: '0.25rem'
-                          }}
-                        >
-                          <option value="Dry">Dry</option>
-                          <option value="Wet">Wet (+$50)</option>
-                        </select>
-                      </span>
-                    ) : (
-                      ''
-                    )}
-                  </div>
+                  )}
+                  
+                  {/* Wet/Dry Selector */}
+                  {!item.isGiftCard && !item.isMembership && item.wetDry === "Wet/Dry" && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <label style={{ fontWeight: '500' }}>Type:</label>
+                      <select
+                        value={cartSettings.wetDrySelections[idx] || 'Dry'}
+                        onChange={(e) => cartSettings.updateWetDrySelection(idx, e.target.value as 'Wet' | 'Dry')}
+                        style={{
+                          padding: '0.5rem',
+                          borderRadius: '4px',
+                          border: '1px solid #ddd',
+                          fontSize: '1rem'
+                        }}
+                      >
+                        <option value="Dry">Dry</option>
+                        <option value="Wet">Wet (+$50)</option>
+                      </select>
+                    </div>
+                  )}
+                  
+                  {/* Gift Card Price Info */}
+                  {item.isGiftCard && (
+                    <span style={{ fontSize: '0.9rem', color: '#666' }}>
+                      ${item.giftCardValue || item.price} each
+                    </span>
+                  )}
                 </div>
-              </div>
-              
-              {/* Price and Remove Button */}
-              <div className="order-item-price-section">
-                <div className="order-item-price">
-                  ${item.isGiftCard 
-                    ? ((item.giftCardValue || item.price) * item.quantity).toFixed(2)
-                    : (item.price * item.quantity * durationMultiplier).toFixed(2)
-                  }
-                </div>
+                
+                {/* Remove Button */}
                 <button
                   id={`btn-remove-item-${idx}`}
                   className="btn-remove-item"
                   onClick={() => removeItemFromCart(idx)}
+                  style={{
+                    backgroundColor: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    marginTop: '0.5rem'
+                  }}
                 >
                   Remove
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Delivery Address Section - only show for inflatable orders */}
