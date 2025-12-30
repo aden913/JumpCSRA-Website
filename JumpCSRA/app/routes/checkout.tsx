@@ -4309,20 +4309,6 @@ export default function Checkout() {
             </>
           )}
           
-          {currentStep === 'contract' && (
-            <>
-              {/* Contract Header */}
-              <div className="contract-header">
-                <h1 className="contract-title">
-                  JUMP CSRA PARTY RENTAL AGREEMENT
-                </h1>
-                <p className="contract-date">
-                  Event Date: {calendarDateRange[0]?.toLocaleDateString()} - {calendarDateRange[1]?.toLocaleDateString()}
-                </p>
-              </div>
-            </>
-          )}
-          
           {currentStep === 'quick-add-totals'}
         
         {/* Contract Section - Only show when currentStep is 'contract' */}
