@@ -4203,9 +4203,9 @@ export default function Checkout() {
                   >
                     <option value="">Select surface</option>
                     <option value="grass-stakes">Grass (stakes)</option>
-                    <option value="grass-sandbags">Grass (sandbags)</option>
-                    <option value="concrete">Concrete/Pavement</option>
-                    <option value="indoor">Indoor</option>
+                    <option value="grass-sandbags">Grass (sandbags) (+$50)</option>
+                    <option value="concrete">Concrete/Pavement (+$50)</option>
+                    <option value="indoor">Indoor (+$50)</option>
                   </select>
                 </label>
               </div>
