@@ -484,7 +484,33 @@
   overflow-x: auto;
   padding: 1rem 0;
   scroll-behavior: smooth;
+  
+  /* Cross-browser scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 123, 255, 0.6) rgba(0, 0, 0, 0.1);
 }
+
+/* Webkit browsers (Chrome, Safari, Edge) */
+.party-essentials-carousel::-webkit-scrollbar {
+  height: 12px;
+}
+
+.party-essentials-carousel::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  -webkit-border-radius: 6px;
+  border-radius: 6px;
+}
+
+.party-essentials-carousel::-webkit-scrollbar-thumb {
+  background: rgba(0, 123, 255, 0.6);
+  -webkit-border-radius: 6px;
+  border-radius: 6px;
+}
+
+.party-essentials-carousel::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 123, 255, 0.8);
+}
+
 .party-essentials-carousel > * {
   margin: 0 0.5rem;
 }

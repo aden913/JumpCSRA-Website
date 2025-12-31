@@ -1467,6 +1467,22 @@ export default function Checkout() {
     checkAvailability();
   }, [calendarDateRange[0], cartSettings.duration, cart, lastMinuteAdditions, partyEssentials.length]);
 
+  // Update carousel scroll position when party essentials step is active
+  useEffect(() => {
+    if (currentStep === 'party-essentials' && carouselRef.current) {
+      // Use setTimeout to ensure the carousel is fully rendered
+      const timer = setTimeout(() => {
+        updateCarouselScrollPosition();
+        // Force a re-render by updating the scroll position state
+        if (carouselRef.current) {
+          setCarouselScrollPosition(carouselRef.current.scrollLeft);
+        }
+      }, 0);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [currentStep, partyEssentials.length]);
+
   // Current cart state debug removed
   // Validate and clean cart when dates change
   useEffect(() => {
@@ -4266,78 +4282,86 @@ export default function Checkout() {
          
           <div style={{ position: 'relative' }}>
             {/* Left Arrow */}
-            {canScrollLeft() && (
-              <button
-                onClick={() => scrollCarousel('left')}
-                style={{
-                  position: 'absolute',
-                  left: '10px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  zIndex: 10,
-                  backgroundColor: 'rgba(0, 123, 255, 0.9)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '50px',
-                  height: '50px',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseEnter={(e) => {
+            <button
+              onClick={() => scrollCarousel('left')}
+              disabled={!canScrollLeft()}
+              style={{
+                position: 'absolute',
+                left: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                zIndex: 10,
+                backgroundColor: canScrollLeft() ? 'rgba(0, 123, 255, 0.9)' : 'rgba(128, 128, 128, 0.5)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '50px',
+                height: '50px',
+                fontSize: '24px',
+                cursor: canScrollLeft() ? 'pointer' : 'not-allowed',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                transition: 'all 0.2s ease',
+                opacity: canScrollLeft() ? 1 : 0.5
+              }}
+              onMouseEnter={(e) => {
+                if (canScrollLeft()) {
                   e.currentTarget.style.backgroundColor = 'rgba(0, 123, 255, 1)';
                   e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)';
-                }}
-                onMouseLeave={(e) => {
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (canScrollLeft()) {
                   e.currentTarget.style.backgroundColor = 'rgba(0, 123, 255, 0.9)';
                   e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
-                }}
-              >
-                ‹
-              </button>
-            )}
+                }
+              }}
+            >
+              ‹
+            </button>
             
             {/* Right Arrow */}
-            {canScrollRight() && (
-              <button
-                onClick={() => scrollCarousel('right')}
-                style={{
-                  position: 'absolute',
-                  right: '10px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  zIndex: 10,
-                  backgroundColor: 'rgba(0, 123, 255, 0.9)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '50px',
-                  height: '50px',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseEnter={(e) => {
+            <button
+              onClick={() => scrollCarousel('right')}
+              disabled={!canScrollRight()}
+              style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                zIndex: 10,
+                backgroundColor: canScrollRight() ? 'rgba(0, 123, 255, 0.9)' : 'rgba(128, 128, 128, 0.5)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '50px',
+                height: '50px',
+                fontSize: '24px',
+                cursor: canScrollRight() ? 'pointer' : 'not-allowed',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                transition: 'all 0.2s ease',
+                opacity: canScrollRight() ? 1 : 0.5
+              }}
+              onMouseEnter={(e) => {
+                if (canScrollRight()) {
                   e.currentTarget.style.backgroundColor = 'rgba(0, 123, 255, 1)';
                   e.currentTarget.style.transform = 'translateY(-50%) scale(1.1)';
-                }}
-                onMouseLeave={(e) => {
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (canScrollRight()) {
                   e.currentTarget.style.backgroundColor = 'rgba(0, 123, 255, 0.9)';
                   e.currentTarget.style.transform = 'translateY(-50%) scale(1)';
-                }}
-              >
-                ›
-              </button>
-            )}
+                }
+              }}
+            >
+              ›
+            </button>
             
             <div 
               ref={carouselRef}
