@@ -3651,19 +3651,23 @@ export default function Checkout() {
             return (
             <div key={idx} className="order-item" style={{
               display: 'flex',
-              flexDirection: 'column',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
               gap: '1rem',
               border: '1px solid #dee2e6',
               borderRadius: '8px',
               marginBottom: '1rem',
               backgroundColor: 'white',
-              padding:'.4rem'
+              padding: '.4rem'
             }}>
-              {/* Responsive Container */}
+              {/* Left side: Image and Details */}
               <div style={{
                 display: 'flex',
-                flexDirection: 'column',
-                gap: '1rem'
+                flexDirection: 'row',
+                gap: '1rem',
+                flex: 1,
+                alignItems: 'center'
               }} className="order-item-content-wrapper">
                 {/* Product Image */}
                 <img 
@@ -3675,21 +3679,19 @@ export default function Checkout() {
                     e.currentTarget.src = 'https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/default.webp';
                   }}
                   style={{
-                    width: '90%',
-                    maxWidth: '500px',
+                    width: '150px',
+                    maxWidth: '150px',
                     height: 'auto',
                     borderRadius: '8px',
-                    margin: '0 auto',
-                    display: 'block'
+                    flexShrink: 0
                   }}
                 />
                 
                 {/* Product Details */}
-                <div className="order-item-details" style={{ width: '100%', flex: '1' }}>
+                <div className="order-item-details" style={{ flex: '1' }}>
                   {/* Item Name and Price Row */}
                   <div style={{ 
                     display: 'flex', 
-                    justifyContent: 'space-between', 
                     alignItems: 'center',
                     marginBottom: '0.75rem',
                     flexWrap: 'wrap',
@@ -3697,16 +3699,14 @@ export default function Checkout() {
                   }}>
                     <div className="order-item-name" style={{ 
                       fontSize: '1.2rem',
-                      fontWeight: 'bold',
-                      flex: '1 1 auto'
+                      fontWeight: 'bold'
                     }}>
                       {item.name}
                     </div>
                     <div className="order-item-price" style={{
                       fontSize: '1.2rem',
                       fontWeight: 'bold',
-                      color: '#28a745',
-                      flex: '0 0 auto'
+                      color: '#28a745'
                     }}>
                       ${item.isGiftCard 
                         ? ((item.giftCardValue || item.price) * item.quantity).toFixed(2)
@@ -3797,48 +3797,51 @@ export default function Checkout() {
                       </span>
                     )}
                   </div>
-                  
-                  {/* Remove Button */}
-                  <button
-                    id={`btn-remove-item-${idx}`}
-                    className="btn-remove-item"
-                    onClick={() => removeItemFromCart(idx)}
-                    style={{
-                      backgroundColor: '#dc3545',
-                      color: 'white',
-                      border: 'none',
-                      padding: '0.5rem 1rem',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '0.9rem',
-                      marginTop: '0.5rem'
-                    }}
-                  >
-                    Remove
-                  </button>
                 </div>
               </div>
               
-              {/* Desktop-specific styles */}
+              {/* Right side: Remove Button */}
+              <button
+                id={`btn-remove-item-${idx}`}
+                className="btn-remove-item"
+                onClick={() => removeItemFromCart(idx)}
+                style={{
+                  backgroundColor: '#dc3545',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.75rem 1.25rem',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  flexShrink: 0,
+                  alignSelf: 'center',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                Remove
+              </button>
+              
+              {/* Mobile-responsive styles */}
               <style>{`
-                @media (min-width: 768px) {
+                @media (max-width: 767px) {
+                  .order-item {
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                  }
+                  
                   .order-item-content-wrapper {
-                    flex-direction: row !important;
-                    align-items: flex-start;
+                    flex-direction: column !important;
                   }
                   
                   .order-item-image {
-                    width: 20% !important;
-                    max-width: 200px !important;
-                    margin: 0 !important;
-                    flex-shrink: 0;
+                    width: 90% !important;
+                    max-width: 500px !important;
+                    margin: 0 auto !important;
                   }
                   
-                  .order-item-details {
-                    flex: 1;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.75rem;
+                  .btn-remove-item {
+                    width: 100%;
+                    margin-top: 0.5rem;
                   }
                 }
               `}</style>
