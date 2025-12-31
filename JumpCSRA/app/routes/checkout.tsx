@@ -3650,48 +3650,21 @@ export default function Checkout() {
             
             return (
             <div key={idx} className="order-item" style={{
-              display: '-webkit-box',
-              display: '-webkit-flex',
-              display: '-ms-flexbox',
               display: 'flex',
-              WebkitBoxOrient: 'horizontal',
-              WebkitBoxDirection: 'normal',
-              WebkitFlexDirection: 'row',
-              msFlexDirection: 'row',
               flexDirection: 'row',
-              WebkitBoxAlign: 'center',
-              WebkitAlignItems: 'center',
-              msFlexAlign: 'center',
               alignItems: 'center',
-              WebkitBoxPack: 'justify',
-              WebkitJustifyContent: 'space-between',
-              msFlexPack: 'justify',
               justifyContent: 'space-between',
               border: '1px solid #dee2e6',
               borderRadius: '8px',
-              WebkitBorderRadius: '8px',
               marginBottom: '1rem',
               backgroundColor: 'white',
               padding: '0.4rem'
             }}>
               {/* Left side: Image and Details */}
               <div style={{
-                display: '-webkit-box',
-                display: '-webkit-flex',
-                display: '-ms-flexbox',
                 display: 'flex',
-                WebkitBoxOrient: 'horizontal',
-                WebkitBoxDirection: 'normal',
-                WebkitFlexDirection: 'row',
-                msFlexDirection: 'row',
                 flexDirection: 'row',
-                WebkitBoxFlex: 1,
-                WebkitFlex: 1,
-                msFlex: 1,
                 flex: 1,
-                WebkitBoxAlign: 'center',
-                WebkitAlignItems: 'center',
-                msFlexAlign: 'center',
                 alignItems: 'center',
                 marginRight: '1rem'
               }} className="order-item-content-wrapper">
@@ -3709,9 +3682,6 @@ export default function Checkout() {
                     maxWidth: '150px',
                     height: 'auto',
                     borderRadius: '8px',
-                    WebkitBorderRadius: '8px',
-                    WebkitFlexShrink: 0,
-                    msFlexNegative: 0,
                     flexShrink: 0,
                     marginRight: '1rem'
                   }}
@@ -3719,24 +3689,13 @@ export default function Checkout() {
                 
                 {/* Product Details */}
                 <div className="order-item-details" style={{ 
-                  WebkitBoxFlex: 1,
-                  WebkitFlex: '1',
-                  msFlex: '1',
                   flex: '1'
                 }}>
                   {/* Item Name and Price Row */}
                   <div style={{ 
-                    display: '-webkit-box',
-                    display: '-webkit-flex',
-                    display: '-ms-flexbox',
                     display: 'flex', 
-                    WebkitBoxAlign: 'center',
-                    WebkitAlignItems: 'center',
-                    msFlexAlign: 'center',
                     alignItems: 'center',
                     marginBottom: '0.75rem',
-                    WebkitFlexWrap: 'wrap',
-                    msFlexWrap: 'wrap',
                     flexWrap: 'wrap'
                   }}>
                     <div className="order-item-name" style={{ 
@@ -3760,29 +3719,15 @@ export default function Checkout() {
                   
                   {/* Quantity and Wet/Dry Row */}
                   <div style={{ 
-                    display: '-webkit-box',
-                    display: '-webkit-flex',
-                    display: '-ms-flexbox',
                     display: 'flex', 
-                    WebkitBoxAlign: 'center',
-                    WebkitAlignItems: 'center',
-                    msFlexAlign: 'center',
                     alignItems: 'center',
-                    WebkitFlexWrap: 'wrap',
-                    msFlexWrap: 'wrap',
                     flexWrap: 'wrap',
                     marginBottom: '0.75rem'
                   }}>
                     {/* Quantity Selector - only show if more than 1 available */}
                     {showQuantityDropdown && (
                       <div style={{ 
-                        display: '-webkit-box',
-                        display: '-webkit-flex',
-                        display: '-ms-flexbox',
                         display: 'flex', 
-                        WebkitBoxAlign: 'center',
-                        WebkitAlignItems: 'center',
-                        msFlexAlign: 'center',
                         alignItems: 'center',
                         marginRight: '1rem',
                         marginBottom: '0.5rem'
@@ -3805,7 +3750,6 @@ export default function Checkout() {
                           style={{
                             padding: '0.5rem',
                             borderRadius: '4px',
-                            WebkitBorderRadius: '4px',
                             border: '1px solid #ddd',
                             fontSize: '1rem',
                             marginRight: '0.5rem'
@@ -3836,13 +3780,7 @@ export default function Checkout() {
                     {/* Wet/Dry Selector */}
                     {!item.isGiftCard && !item.isMembership && item.wetDry === "Wet/Dry" && (
                       <div style={{ 
-                        display: '-webkit-box',
-                        display: '-webkit-flex',
-                        display: '-ms-flexbox',
                         display: 'flex', 
-                        WebkitBoxAlign: 'center',
-                        WebkitAlignItems: 'center',
-                        msFlexAlign: 'center',
                         alignItems: 'center',
                         marginRight: '1rem',
                         marginBottom: '0.5rem'
@@ -3854,7 +3792,6 @@ export default function Checkout() {
                           style={{
                             padding: '0.5rem',
                             borderRadius: '4px',
-                            WebkitBorderRadius: '4px',
                             border: '1px solid #ddd',
                             fontSize: '1rem'
                           }}
@@ -3886,18 +3823,11 @@ export default function Checkout() {
                   border: 'none',
                   padding: '0.75rem 1.25rem',
                   borderRadius: '4px',
-                  WebkitBorderRadius: '4px',
                   cursor: 'pointer',
                   fontSize: '0.9rem',
-                  WebkitFlexShrink: 0,
-                  msFlexNegative: 0,
                   flexShrink: 0,
-                  WebkitAlignSelf: 'center',
-                  msFlexItemAlign: 'center',
                   alignSelf: 'center',
-                  whiteSpace: 'nowrap',
-                  WebkitAppearance: 'button',
-                  MozAppearance: 'button'
+                  whiteSpace: 'nowrap'
                 }}
               >
                 Remove
@@ -4051,7 +3981,6 @@ export default function Checkout() {
           const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
           return hasInflateables ? (
             <div className="event-details" style={{
-              padding: '1.5rem',
               marginTop: '2rem',
               marginBottom: '2rem'
             }}>

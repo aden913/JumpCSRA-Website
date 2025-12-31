@@ -17,9 +17,11 @@ type RouterNavProps = {
   walletBalance?: number; // User's wallet balance to display
   hideMobileSidebar?: boolean; // Hide mobile hamburger button and sidebar
   useMobileBottomMenu?: boolean; // Use new bottom menu instead of sidebar
+  userName?: string; // User's name to display
+  isLoggedIn?: boolean; // Whether user is logged in
 };
 
-export function RouterNav({ onNavClick, cartCount, cartSubtotal, selectedDates, categories = [], onCategoryChange, hideIcons = false, hideCartIcon = false, searchBarComponent, hideNavbarDropdown = false, walletBalance, hideMobileSidebar = false, useMobileBottomMenu = false }: RouterNavProps) {
+export function RouterNav({ onNavClick, cartCount, cartSubtotal, selectedDates, categories = [], onCategoryChange, hideIcons = false, hideCartIcon = false, searchBarComponent, hideNavbarDropdown = false, walletBalance, hideMobileSidebar = false, useMobileBottomMenu = false, userName, isLoggedIn = false }: RouterNavProps) {
   const formatDate = (date: Date | null) => date ? date.toLocaleDateString() : "--";
   const navigate = useNavigate();
   const location = useLocation();
@@ -266,16 +268,27 @@ export function RouterNav({ onNavClick, cartCount, cartSubtotal, selectedDates, 
               </div>
             )}
 
-            {/* Profile Icon/Text */}
+            {/* Profile Name/Login */}
             {!hideIcons && (
               <div className="icon-container">
                 <li style={{ position: "relative" }} className="right-icon">
-                  <Link to="/profile" style={{ display: "inline-block" }}>
-                    {isMobile ? (
-                      <span className="profile-text">Profile</span>
-                    ) : (
-                      <img src="/profile-icon-white.png" alt="Profile" className="profile-icon" style={{ width: 36, height: 36, borderRadius: "50%", border: "2px solid #eee" }} />
-                    )}
+                  <Link 
+                    to={isLoggedIn ? "/profile" : "/"}
+                    style={{ 
+                      display: "inline-block",
+                      color: "white",
+                      textDecoration: "none",
+                      fontSize: "1rem",
+                      fontWeight: "600",
+                      padding: "0.5rem 1rem",
+                      borderRadius: "6px",
+                      transition: "background-color 0.2s ease",
+                      whiteSpace: "nowrap"
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.15)"}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "transparent"}
+                  >
+                    {isLoggedIn && userName ? userName : "Log In"}
                   </Link>
                 </li>
               </div>
@@ -292,11 +305,11 @@ export function RouterNav({ onNavClick, cartCount, cartSubtotal, selectedDates, 
             <div className="sidebar-action-buttons">
               {!hideIcons && (
                 <Link 
-                  to="/profile" 
+                  to={isLoggedIn ? "/profile" : "/"}
                   className="sidebar-action-btn sidebar-profile-btn"
                   onClick={closeMobileSidebar}
                 >
-                   Profile
+                  {isLoggedIn && userName ? userName : "Log In"}
                 </Link>
               )}
               {!hideIcons && !hideCartIcon && (

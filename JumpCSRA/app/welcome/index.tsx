@@ -496,6 +496,8 @@ export function Welcome() {
           onCategoryChange={handleCategoryChange}
           hideNavbarDropdown={true}
           useMobileBottomMenu={true}
+          userName={user?.displayName || undefined}
+          isLoggedIn={!!user}
           searchBarComponent={
             <SearchBar
               inflateables={logic.inflateables}
