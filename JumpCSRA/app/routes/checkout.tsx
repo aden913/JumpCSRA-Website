@@ -3650,24 +3650,50 @@ export default function Checkout() {
             
             return (
             <div key={idx} className="order-item" style={{
+              display: '-webkit-box',
+              display: '-webkit-flex',
+              display: '-ms-flexbox',
               display: 'flex',
+              WebkitBoxOrient: 'horizontal',
+              WebkitBoxDirection: 'normal',
+              WebkitFlexDirection: 'row',
+              msFlexDirection: 'row',
               flexDirection: 'row',
+              WebkitBoxAlign: 'center',
+              WebkitAlignItems: 'center',
+              msFlexAlign: 'center',
               alignItems: 'center',
+              WebkitBoxPack: 'justify',
+              WebkitJustifyContent: 'space-between',
+              msFlexPack: 'justify',
               justifyContent: 'space-between',
-              gap: '1rem',
               border: '1px solid #dee2e6',
               borderRadius: '8px',
+              WebkitBorderRadius: '8px',
               marginBottom: '1rem',
               backgroundColor: 'white',
-              padding: '.4rem'
+              padding: '0.4rem'
             }}>
               {/* Left side: Image and Details */}
               <div style={{
+                display: '-webkit-box',
+                display: '-webkit-flex',
+                display: '-ms-flexbox',
                 display: 'flex',
+                WebkitBoxOrient: 'horizontal',
+                WebkitBoxDirection: 'normal',
+                WebkitFlexDirection: 'row',
+                msFlexDirection: 'row',
                 flexDirection: 'row',
-                gap: '1rem',
+                WebkitBoxFlex: 1,
+                WebkitFlex: 1,
+                msFlex: 1,
                 flex: 1,
-                alignItems: 'center'
+                WebkitBoxAlign: 'center',
+                WebkitAlignItems: 'center',
+                msFlexAlign: 'center',
+                alignItems: 'center',
+                marginRight: '1rem'
               }} className="order-item-content-wrapper">
                 {/* Product Image */}
                 <img 
@@ -3683,23 +3709,40 @@ export default function Checkout() {
                     maxWidth: '150px',
                     height: 'auto',
                     borderRadius: '8px',
-                    flexShrink: 0
+                    WebkitBorderRadius: '8px',
+                    WebkitFlexShrink: 0,
+                    msFlexNegative: 0,
+                    flexShrink: 0,
+                    marginRight: '1rem'
                   }}
                 />
                 
                 {/* Product Details */}
-                <div className="order-item-details" style={{ flex: '1' }}>
+                <div className="order-item-details" style={{ 
+                  WebkitBoxFlex: 1,
+                  WebkitFlex: '1',
+                  msFlex: '1',
+                  flex: '1'
+                }}>
                   {/* Item Name and Price Row */}
                   <div style={{ 
+                    display: '-webkit-box',
+                    display: '-webkit-flex',
+                    display: '-ms-flexbox',
                     display: 'flex', 
+                    WebkitBoxAlign: 'center',
+                    WebkitAlignItems: 'center',
+                    msFlexAlign: 'center',
                     alignItems: 'center',
                     marginBottom: '0.75rem',
-                    flexWrap: 'wrap',
-                    gap: '0.5rem'
+                    WebkitFlexWrap: 'wrap',
+                    msFlexWrap: 'wrap',
+                    flexWrap: 'wrap'
                   }}>
                     <div className="order-item-name" style={{ 
                       fontSize: '1.2rem',
-                      fontWeight: 'bold'
+                      fontWeight: 'bold',
+                      marginRight: '0.5rem'
                     }}>
                       {item.name}
                     </div>
@@ -3717,16 +3760,34 @@ export default function Checkout() {
                   
                   {/* Quantity and Wet/Dry Row */}
                   <div style={{ 
+                    display: '-webkit-box',
+                    display: '-webkit-flex',
+                    display: '-ms-flexbox',
                     display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '1rem',
+                    WebkitBoxAlign: 'center',
+                    WebkitAlignItems: 'center',
+                    msFlexAlign: 'center',
+                    alignItems: 'center',
+                    WebkitFlexWrap: 'wrap',
+                    msFlexWrap: 'wrap',
                     flexWrap: 'wrap',
                     marginBottom: '0.75rem'
                   }}>
                     {/* Quantity Selector - only show if more than 1 available */}
                     {showQuantityDropdown && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <label htmlFor={`order-quantity-${idx}`} style={{ fontWeight: '500' }}>Quantity:</label>
+                      <div style={{ 
+                        display: '-webkit-box',
+                        display: '-webkit-flex',
+                        display: '-ms-flexbox',
+                        display: 'flex', 
+                        WebkitBoxAlign: 'center',
+                        WebkitAlignItems: 'center',
+                        msFlexAlign: 'center',
+                        alignItems: 'center',
+                        marginRight: '1rem',
+                        marginBottom: '0.5rem'
+                      }}>
+                        <label htmlFor={`order-quantity-${idx}`} style={{ fontWeight: '500', marginRight: '0.5rem' }}>Quantity:</label>
                         <select
                           id={`order-quantity-${idx}`}
                           value={item.quantity || 1}
@@ -3744,8 +3805,10 @@ export default function Checkout() {
                           style={{
                             padding: '0.5rem',
                             borderRadius: '4px',
+                            WebkitBorderRadius: '4px',
                             border: '1px solid #ddd',
-                            fontSize: '1rem'
+                            fontSize: '1rem',
+                            marginRight: '0.5rem'
                           }}
                         >
                           {item.category === 'party-essentials' ? (
@@ -3772,14 +3835,26 @@ export default function Checkout() {
                     
                     {/* Wet/Dry Selector */}
                     {!item.isGiftCard && !item.isMembership && item.wetDry === "Wet/Dry" && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <label style={{ fontWeight: '500' }}>Type:</label>
+                      <div style={{ 
+                        display: '-webkit-box',
+                        display: '-webkit-flex',
+                        display: '-ms-flexbox',
+                        display: 'flex', 
+                        WebkitBoxAlign: 'center',
+                        WebkitAlignItems: 'center',
+                        msFlexAlign: 'center',
+                        alignItems: 'center',
+                        marginRight: '1rem',
+                        marginBottom: '0.5rem'
+                      }}>
+                        <label style={{ fontWeight: '500', marginRight: '0.5rem' }}>Type:</label>
                         <select
                           value={cartSettings.wetDrySelections[idx] || 'Dry'}
                           onChange={(e) => cartSettings.updateWetDrySelection(idx, e.target.value as 'Wet' | 'Dry')}
                           style={{
                             padding: '0.5rem',
                             borderRadius: '4px',
+                            WebkitBorderRadius: '4px',
                             border: '1px solid #ddd',
                             fontSize: '1rem'
                           }}
@@ -3792,7 +3867,7 @@ export default function Checkout() {
                     
                     {/* Gift Card Price Info */}
                     {item.isGiftCard && (
-                      <span style={{ fontSize: '0.9rem', color: '#666' }}>
+                      <span style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>
                         ${item.giftCardValue || item.price} each
                       </span>
                     )}
@@ -3811,11 +3886,18 @@ export default function Checkout() {
                   border: 'none',
                   padding: '0.75rem 1.25rem',
                   borderRadius: '4px',
+                  WebkitBorderRadius: '4px',
                   cursor: 'pointer',
                   fontSize: '0.9rem',
+                  WebkitFlexShrink: 0,
+                  msFlexNegative: 0,
                   flexShrink: 0,
+                  WebkitAlignSelf: 'center',
+                  msFlexItemAlign: 'center',
                   alignSelf: 'center',
-                  whiteSpace: 'nowrap'
+                  whiteSpace: 'nowrap',
+                  WebkitAppearance: 'button',
+                  MozAppearance: 'button'
                 }}
               >
                 Remove
@@ -3825,18 +3907,30 @@ export default function Checkout() {
               <style>{`
                 @media (max-width: 767px) {
                   .order-item {
+                    -webkit-box-orient: vertical !important;
+                    -webkit-box-direction: normal !important;
+                    -webkit-flex-direction: column !important;
+                    -ms-flex-direction: column !important;
                     flex-direction: column !important;
+                    -webkit-box-align: stretch !important;
+                    -webkit-align-items: stretch !important;
+                    -ms-flex-align: stretch !important;
                     align-items: stretch !important;
                   }
                   
                   .order-item-content-wrapper {
+                    -webkit-box-orient: vertical !important;
+                    -webkit-box-direction: normal !important;
+                    -webkit-flex-direction: column !important;
+                    -ms-flex-direction: column !important;
                     flex-direction: column !important;
+                    margin-right: 0 !important;
                   }
                   
                   .order-item-image {
                     width: 90% !important;
                     max-width: 500px !important;
-                    margin: 0 auto !important;
+                    margin: 0 auto 1rem auto !important;
                   }
                   
                   .btn-remove-item {

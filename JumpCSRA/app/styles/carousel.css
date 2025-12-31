@@ -8,8 +8,14 @@
   margin: 0 auto;
 }
 .swiper-slide {
+  display: -webkit-flex !important;
+  display: -ms-flexbox !important;
   display: flex !important;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
+  -webkit-align-items: stretch;
+  -ms-flex-align: stretch;
   align-items: stretch;
   height: auto;
   
@@ -21,7 +27,13 @@
 .option-title {
   color: var(--darkBlue) !important;
   height: 1.25em;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
 }

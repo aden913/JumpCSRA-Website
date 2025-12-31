@@ -7,12 +7,18 @@
   margin: 0 auto;
   padding: 2rem;
   background: white;
+  -webkit-border-radius: 12px;
   border-radius: 12px;
+  -webkit-box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
 .checkout-progress {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: space-between;
+  -ms-flex-pack: justify;
   justify-content: space-between;
   margin-bottom: 3rem;
   position: relative;
@@ -30,8 +36,14 @@
 }
 
 .progress-step {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
   position: relative;
   z-index: 2;
@@ -40,11 +52,18 @@
 .progress-step span {
   width: 40px;
   height: 40px;
+  -webkit-border-radius: 50%;
   border-radius: 50%;
   background: #e0e0e0;
   color: #666;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
   font-weight: bold;
   margin-bottom: 0.5rem;
@@ -76,8 +95,14 @@
 }
 
 .membership-price {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: baseline;
+  -ms-flex-align: baseline;
   align-items: baseline;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
   gap: 0.5rem;
 }
@@ -97,6 +122,7 @@
   text-align: center;
   padding: 2rem;
   background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%);
+  -webkit-border-radius: 12px;
   border-radius: 12px;
   margin: 2rem 0;
 }
@@ -116,12 +142,17 @@
 }
 
 .benefit-item {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: flex-start;
+  -ms-flex-align: start;
   align-items: flex-start;
   gap: 1rem;
   margin-bottom: 1.5rem;
   padding: 1rem;
   background: #f8f9fa;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
 }
 
@@ -149,6 +180,7 @@
   margin-bottom: 2rem;
   padding: 1.5rem;
   background: #f8f9fa;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
 }
 
@@ -167,11 +199,16 @@
   margin-top: 2rem;
   padding: 1rem;
   background: #fff3cd;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
 }
 
 .agreement-checkbox label {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: flex-start;
+  -ms-flex-align: start;
   align-items: flex-start;
   gap: 0.75rem;
   cursor: pointer;
@@ -179,18 +216,25 @@
 
 .agreement-checkbox input[type="checkbox"] {
   margin-top: 0.25rem;
+  -webkit-transform: scale(1.2);
+  -ms-transform: scale(1.2);
   transform: scale(1.2);
 }
 
 .payment-summary {
   background: #f8f9fa;
   padding: 1.5rem;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   margin: 1rem 0;
 }
 
 .summary-item, .summary-total {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: space-between;
+  -ms-flex-pack: justify;
   justify-content: space-between;
   margin-bottom: 0.5rem;
 }
@@ -208,6 +252,7 @@
   margin: 2rem 0;
   padding: 1rem;
   background: #e3f2fd;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
 }
 
@@ -230,31 +275,43 @@
   color: white;
   border: none;
   padding: 1rem 2rem;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   font-size: 1.1rem;
   font-weight: 600;
   cursor: pointer;
+  -webkit-transition: all 0.3s ease;
   transition: all 0.3s ease;
   min-width: 200px;
   position: relative;
+  -webkit-box-shadow: 0 4px 12px rgba(0, 112, 186, 0.3);
   box-shadow: 0 4px 12px rgba(0, 112, 186, 0.3);
 }
 
 .subscription-button:hover:not(:disabled) {
   background: linear-gradient(145deg, #0056b3, #002973);
+  -webkit-transform: translateY(-2px);
+  -ms-transform: translateY(-2px);
   transform: translateY(-2px);
+  -webkit-box-shadow: 0 6px 16px rgba(0, 112, 186, 0.4);
   box-shadow: 0 6px 16px rgba(0, 112, 186, 0.4);
 }
 
 .subscription-button:active:not(:disabled) {
+  -webkit-transform: translateY(0);
+  -ms-transform: translateY(0);
   transform: translateY(0);
+  -webkit-box-shadow: 0 2px 8px rgba(0, 112, 186, 0.3);
   box-shadow: 0 2px 8px rgba(0, 112, 186, 0.3);
 }
 
 .subscription-button:disabled {
   background: #6c757d;
   cursor: not-allowed;
+  -webkit-transform: none;
+  -ms-transform: none;
   transform: none;
+  -webkit-box-shadow: none;
   box-shadow: none;
 }
 
@@ -271,8 +328,14 @@
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.8);
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
   z-index: 1000;
 }
@@ -280,6 +343,7 @@
 .processing-content {
   background: white;
   padding: 3rem;
+  -webkit-border-radius: 12px;
   border-radius: 12px;
   text-align: center;
   max-width: 400px;
@@ -303,6 +367,7 @@
 .order-details {
   background: #f8f9fa;
   padding: 2rem;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   margin: 2rem 0;
 }
@@ -313,7 +378,11 @@
 }
 
 .detail-item {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: space-between;
+  -ms-flex-pack: justify;
   justify-content: space-between;
   margin-bottom: 0.5rem;
 }
@@ -328,7 +397,11 @@
 }
 
 .step-item {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: flex-start;
+  -ms-flex-align: start;
   align-items: flex-start;
   gap: 1rem;
   margin-bottom: 1rem;
@@ -339,9 +412,16 @@
   color: white;
   width: 2rem;
   height: 2rem;
+  -webkit-border-radius: 50%;
   border-radius: 50%;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
   font-weight: bold;
   font-size: 0.9rem;
@@ -349,18 +429,24 @@
 }
 
 .step-actions, .success-actions {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
   gap: 1rem;
   margin-top: 2rem;
+  -webkit-flex-wrap: wrap;
+  -ms-flex-wrap: wrap;
   flex-wrap: wrap;
 }
 
 .cta-button, .secondary-button {
   padding: 1rem 2rem;
   border: none;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   font-weight: bold;
   cursor: pointer;
+  -webkit-transition: all 0.3s ease;
   transition: all 0.3s ease;
   flex: 1;
   min-width: 150px;
@@ -372,7 +458,10 @@
 }
 
 .cta-button:hover {
+  -webkit-transform: translateY(-2px);
+  -ms-transform: translateY(-2px);
   transform: translateY(-2px);
+  -webkit-box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
   box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
 }
 
@@ -388,12 +477,15 @@
 .cta-button:disabled, .secondary-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  -webkit-transform: none;
+  -ms-transform: none;
   transform: none;
 }
 
 .loading-spinner {
   border: 3px solid #f3f3f3;
   border-top: 3px solid #ff6b6b;
+  -webkit-border-radius: 50%;
   border-radius: 50%;
   width: 40px;
   height: 40px;
@@ -402,8 +494,8 @@
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% { -webkit-transform: rotate(0deg); -ms-transform: rotate(0deg); transform: rotate(0deg); }
+  100% { -webkit-transform: rotate(360deg); -ms-transform: rotate(360deg); transform: rotate(360deg); }
 }
 
 .membership-checkout-loading, .membership-checkout-error {

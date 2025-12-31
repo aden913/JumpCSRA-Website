@@ -36,8 +36,14 @@ html, body {
 }
 
 .landing-page {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display:flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
   font-family: 'Montserrat', 'Segoe UI', Arial, sans-serif;
   color: var(--coral);
@@ -54,31 +60,52 @@ html, body {
 
 .main-section {
   background: var(--darkBlue);
+  -webkit-border-radius: 5px;
   border-radius: 5px;
   width:70%;
   padding: 2rem 0 1.5rem 0;
   margin-top:1rem;
   margin-bottom: 3rem;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
 }
 .search-promo {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
-  gap: 2rem;
   margin-bottom: 1.5rem;
   width: 100%;
+}
+.search-promo > * {
+  margin: 0 1rem;
 }
 .search-card {
   background: white;
   color: var(--darkBlue);
+  -webkit-border-radius: 32px;
   border-radius: 32px;
   padding: 1.2rem 2rem;
   width: 40%;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-box-shadow: 0 2px 8px rgba(0,0,0,0.07);
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
 }
 .search-card h2 {
@@ -87,9 +114,14 @@ html, body {
   font-weight: bolder;
 }
 .search-bar {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
   border: 2px solid #29405c;
+  -webkit-border-radius: 24px;
   border-radius: 24px;
   padding: 0.3rem 0.8rem;
   width: 70%;
@@ -156,21 +188,33 @@ html, body {
 
 
 .promo-cards {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
-  gap: 1.2rem;
   margin-top: 1.2rem;
+}
+.promo-cards > * {
+  margin: 0 0.6rem;
 }
 .promo-card {
   line-height: 1.3rem;
   background: #fff;
   color: var(--darkBlue);
   font-weight: bolder;
+  -webkit-border-radius: 32px;
   border-radius: 32px;
   padding: 1rem 0.7rem 0.7rem 0.7rem;
   width: 11rem;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-box-shadow: 0 2px 8px rgba(0,0,0,0.07);
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
   cursor:pointer;
   
@@ -199,9 +243,17 @@ html, body {
   padding: 2rem 0 1.9rem 0;
   text-align: center;
   width:100%;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
 }
 
@@ -212,8 +264,14 @@ html, body {
 }
 
 .swiper-slide {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
+  -webkit-align-items: stretch;
+  -ms-flex-align: stretch;
   align-items: stretch;
   height: auto;
 }
@@ -229,10 +287,18 @@ html, body {
   margin-bottom: 1.2rem;
 }
 .options-cards {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
-  gap: 1rem;
+  -webkit-flex-wrap: wrap;
+  -ms-flex-wrap: wrap;
   flex-wrap: wrap;
+}
+.options-cards > * {
+  margin: 0.5rem;
 }
 
 
@@ -270,10 +336,16 @@ html, body {
 .footer {
   color: white;
   background: var(--darkBlue);
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
   padding: 2rem 2.5rem 2rem 2.5rem;
   font-size: 1.1rem;
+  -webkit-flex-wrap: wrap;
+  -ms-flex-wrap: wrap;
   flex-wrap: wrap;
   width: 100%;
 }
@@ -290,6 +362,7 @@ html, body {
 .category-dropdown-container{
   margin-left: 0.5rem;
   border: 2px solid #29405c;
+  -webkit-border-radius: 24px;
   border-radius: 24px;
   padding: 0.3rem 0.8rem;
   background: var(--coral);
@@ -300,18 +373,36 @@ html, body {
 }
 
 .filter-dropdowns {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: row;
+  -ms-flex-direction: row;
   flex-direction: row;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
-  gap: 1rem;
+  -webkit-flex-wrap: wrap;
+  -ms-flex-wrap: wrap;
   flex-wrap: wrap;
+}
+.filter-dropdowns > * {
+  margin: 0.5rem;
 }
 
 .filter-group {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
-  gap: 0.5rem;
+}
+.filter-group > * {
+  margin: 0 0.25rem;
 }
 
 #category-dropdown, #wetdry-dropdown{

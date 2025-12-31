@@ -7,6 +7,7 @@
   color: var(--darkBlue) !important;
   background: var(--lightBlue);
   width:100%;
+  -webkit-transition: all 0.3s ease;
   transition: all 0.3s ease;
 }
 
@@ -17,17 +18,26 @@
   left: 0;
   right: 0;
   z-index: 1000;
+  -webkit-box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 .nav-bar ul {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
   list-style: none;
   margin: 0;
   padding: 0 1.5rem;
   position: relative;
-  gap: 2rem;
+}
+.nav-bar ul > * {
+  margin: 0 1rem;
 }
 
 /* Mobile menu toggle - hidden by default, shown in responsive.css */
@@ -44,7 +54,9 @@
   font-weight: 600;
   text-decoration: none;
   padding: 0.5rem 0.8rem;
+  -webkit-border-radius: 6px;
   border-radius: 6px;
+  -webkit-transition: background-color 0.2s ease;
   transition: background-color 0.2s ease;
 }
 
@@ -64,10 +76,13 @@
 .cart-icon {
   width:3rem;
   height: 3rem;
+  -webkit-transition: transform 0.2s ease;
   transition: transform 0.2s ease;
 }
 
 .cart-icon:hover {
+  -webkit-transform: scale(1.05);
+  -ms-transform: scale(1.05);
   transform: scale(1.05);
 }
 
@@ -91,8 +106,14 @@
 }
 
 .nav-btn.cart-btn {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
 }
 
@@ -102,15 +123,25 @@
 
 /* Icon container styles */
 .icon-container {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
 }
 
 /* Navbar right icons container */
 .navbar-right-icons {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
-  gap: 1rem;
+}
+.navbar-right-icons > * {
+  margin: 0 0.5rem;
 }
 
 /* Individual icon containers */
@@ -126,6 +157,7 @@
   right: -8px;
   background: red;
   color: white;
+  -webkit-border-radius: 50%;
   border-radius: 50%;
   padding: 2px 6px;
   font-size: 0.8rem;
@@ -136,16 +168,32 @@
 
 /* Desktop cart container styles */
 .desktop-cart-container {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
-  gap: 4px;
+  margin-top: 4px;
+  margin-bottom: -4px;
+}
+.desktop-cart-container > * + * {
+  margin-top: 4px;
 }
 
 .cart-icon-container {
   position: relative;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
 }
 
@@ -155,15 +203,23 @@
   right: -8px;
   background: var(--darkBlue);
   color: white;
+  -webkit-border-radius: 50%;
   border-radius: 50%;
   min-width: 22px;
   height: 22px;
   font-size: 0.75rem;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
   font-weight: 700;
   border: 2px solid var(--lightBlue);
+  -webkit-box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
@@ -173,8 +229,10 @@
   color: var(--darkBlue);
   background: rgba(255, 255, 255, 0.9);
   padding: 2px 8px;
+  -webkit-border-radius: 12px;
   border-radius: 12px;
   border: 1px solid var(--darkBlue);
+  -webkit-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   white-space: nowrap;
 }
@@ -183,12 +241,17 @@
 
 /* Navbar Category Dropdown Styles */
 .navbar-category-dropdown-container {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
 }
 
 .navbar-category-dropdown {
   border: 2px solid #29405c;
+  -webkit-border-radius: 24px;
   border-radius: 24px;
   padding: 0.5rem 1rem;
   background: var(--coral);
@@ -202,11 +265,15 @@
 
 .navbar-category-dropdown:hover {
   background: #ff8a80;
+  -webkit-transform: translateY(-1px);
+  -ms-transform: translateY(-1px);
   transform: translateY(-1px);
+  -webkit-box-shadow: 0 4px 8px rgba(0,0,0,0.15);
   box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
 .navbar-category-dropdown:focus {
+  -webkit-box-shadow: 0 0 0 3px rgba(255, 138, 128, 0.3);
   box-shadow: 0 0 0 3px rgba(255, 138, 128, 0.3);
 }
 
@@ -222,8 +289,14 @@
 
 /* Navbar Search Container Styles */
 .navbar-search-container {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
   max-width: 32rem !important;
   width: 32rem;
@@ -240,11 +313,14 @@
   padding: 0.5rem 0.8rem !important;
   font-size: 0.9rem !important;
   border: 2px solid var(--darkBlue) !important;
+  -webkit-border-radius: 20px !important;
   border-radius: 20px !important;
   background: white !important;
   color: var(--darkBlue) !important;
   outline: none !important;
+  -webkit-transition: all 0.3s ease !important;
   transition: all 0.3s ease !important;
+  -webkit-box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
 }
 
@@ -255,7 +331,10 @@
 
 .navbar-search-container .search-bar-input:focus {
   border-color: var(--coral) !important;
+  -webkit-box-shadow: 0 0 0 3px rgba(255, 138, 128, 0.2), 0 4px 8px rgba(0,0,0,0.15) !important;
   box-shadow: 0 0 0 3px rgba(255, 138, 128, 0.2), 0 4px 8px rgba(0,0,0,0.15) !important;
+  -webkit-transform: translateY(-1px);
+  -ms-transform: translateY(-1px);
   transform: translateY(-1px);
 }
 

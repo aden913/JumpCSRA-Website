@@ -33,9 +33,17 @@
   padding: 2rem 0 1.9rem 0;
   text-align: center;
   width:100%;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
 }
 .options-carousel {
@@ -54,9 +62,12 @@
 .custom-nav-button {
   position: absolute;
   top: 50%;
+  -webkit-transform: translateY(-50%);
+  -ms-transform: translateY(-50%);
   transform: translateY(-50%);
   width: 50px;
   height: 50px;
+  -webkit-border-radius: 50%;
   border-radius: 50%;
   border: none;
   background: var(--lightBlue);
@@ -65,10 +76,18 @@
   font-weight: bold;
   cursor: pointer;
   z-index: 30;
+  -webkit-transition: all 0.3s ease;
   transition: all 0.3s ease;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
+  -webkit-box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
@@ -95,21 +114,35 @@
   margin-bottom: 1.2rem;
 }
 .options-cards {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
   gap: 1rem;
+  -webkit-flex-wrap: wrap;
+  -ms-flex-wrap: wrap;
   flex-wrap: wrap;
 }
 .option-card {
   background: rgb(255, 255, 255);
   color: var(--darkBlue);
+  -webkit-border-radius: 12px;
   border-radius: 12px;
   padding-top: 1.2rem;
   width: clamp(280px, 90vw, 350px);
   height: 420px;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-box-shadow: 0 2px 8px rgba(0,0,0,0.07);
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
   margin-bottom: 1rem;
   margin-right: 0 !important;
@@ -124,8 +157,14 @@
     font-size: 1.5rem;
     font-weight: bold;
     height: 1.25em;
+    display: -webkit-flex;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
     align-items: center;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
     justify-content: center;
     flex: 1;
     min-height: 0;
@@ -138,8 +177,14 @@
   height: 1.25em;
   color: var(--primary-dark);
   background: transparent;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
 }
 .marquee-text {
@@ -151,15 +196,25 @@
 }
 @keyframes marquee-scroll {
   0% {
+    -webkit-transform: translateX(100%);
+    -ms-transform: translateX(100%);
     transform: translateX(100%);
   }
   100% {
+    -webkit-transform: translateX(-100%);
+    -ms-transform: translateX(-100%);
     transform: translateX(-100%);
   }
 }
 .option-card-bottom {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
   gap: 0.5rem;
   width:100%;
@@ -171,13 +226,18 @@
   font-size: 1rem;
   cursor: pointer;
   width: 100%;
+  -webkit-border-radius: 0 !important;
   border-radius: 0 !important;
   padding: 0.7rem 2rem;
   font-weight: bolder;
 }
 .swiper-slide {
   flex-shrink: 0;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
 }
 
@@ -208,10 +268,13 @@
 }
 
 .swiper-wrapper {
+  display: -webkit-flex !important;
+  display: -ms-flexbox !important;
   display: flex !important;
 }
 .price-box {
   color: var(--lightBlue);
+  -webkit-border-radius: 24px;
   border-radius: 24px;
   padding: 0.6rem 1.2rem;
   font-size: 1.8rem;

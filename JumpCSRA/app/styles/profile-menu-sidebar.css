@@ -7,16 +7,26 @@
   max-width: 300px;
   height: 100vh;
   background: white;
+  -webkit-box-shadow: -2px 0 10px rgba(0,0,0,0.1);
   box-shadow: -2px 0 10px rgba(0,0,0,0.1);
   z-index: 999;
+  -webkit-transform: translateX(100%);
+  -ms-transform: translateX(100%);
   transform: translateX(100%);
+  -webkit-transition: transform 0.3s ease;
   transition: transform 0.3s ease;
   padding: 1.5rem 1rem;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
 }
 
 .profile-menu-sidebar.open {
+  -webkit-transform: translateX(0);
+  -ms-transform: translateX(0);
   transform: translateX(0);
 }
 
@@ -30,28 +40,44 @@
   background: var(--darkBlue);
   color: white;
   border: none;
+  -webkit-border-radius: 50%;
   border-radius: 50%;
   font-size: 1.2rem;
   font-weight: bold;
   cursor: pointer;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
+  -webkit-transition: all 0.2s ease;
   transition: all 0.2s ease;
   z-index: 1;
 }
 
 .profile-menu-close-btn:hover {
   background: #d32f2f;
+  -webkit-transform: scale(1.1);
+  -ms-transform: scale(1.1);
   transform: scale(1.1);
 }
 
 /* Section buttons container */
 .profile-menu-sections {
   margin-top: 3rem;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
-  gap: 0.75rem;
+}
+.profile-menu-sections > * {
+  margin-bottom: 0.75rem;
 }
 
 /* Individual section buttons */
@@ -60,17 +86,21 @@
   padding: 1rem;
   background: #1976d2;
   border: none;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   font-size: 1rem;
   text-align: left;
   cursor: pointer;
   color: white;
+  -webkit-transition: all 0.2s ease;
   transition: all 0.2s ease;
   font-weight: 500;
 }
 
 .profile-menu-section-btn:hover {
   background: #1565c0;
+  -webkit-transform: translateX(-4px);
+  -ms-transform: translateX(-4px);
   transform: translateX(-4px);
 }
 
@@ -89,6 +119,7 @@
   z-index: 998;
   opacity: 0;
   visibility: hidden;
+  -webkit-transition: opacity 0.3s ease, visibility 0.3s ease;
   transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 

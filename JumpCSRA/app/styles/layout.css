@@ -12,8 +12,14 @@ html, body {
 }
 
 .landing-page {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display:flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
   font-family: 'Segoe UI', Arial, sans-serif;
   color: var(--coral);
@@ -30,23 +36,36 @@ html, body {
 
 .main-section {
   background: var(--darkBlue);
+  -webkit-border-radius: 5px;
   border-radius: 5px;
   width:70%;
   padding: 2rem 0 1.5rem 0;
   margin-top:1rem;
   margin-bottom: 3rem;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
 }
 
 .footer {
   color: white;
   background: var(--darkBlue);
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
   padding: 2rem 2.5rem 2rem 2.5rem;
   font-size: 1.1rem;
+  -webkit-flex-wrap: wrap;
+  -ms-flex-wrap: wrap;
   flex-wrap: wrap;
   width: 100%;
 }
@@ -61,7 +80,11 @@ html, body {
 
 @media (max-width: 900px) {
   .footer {
+    -webkit-flex-direction: column;
+    -ms-flex-direction: column;
     flex-direction: column;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
     align-items: center;
     padding: 2rem 1rem;
     text-align: center;

@@ -27,6 +27,7 @@
     right: -8px;
     background: white;
     color: var(--darkBlue);
+    -webkit-border-radius: 50%;
     border-radius: 50%;
     padding: 2px 8px;
     font-size: 1rem;
@@ -42,7 +43,9 @@
   height: 100%;
   background-color: white;
   color: var(--darkBlue);
+  -webkit-box-shadow: -2px 0 5px rgba(0, 0, 0, 0.5);
   box-shadow: -2px 0 5px rgba(0, 0, 0, 0.5);
+  -webkit-transition: right 0.3s ease;
   transition: right 0.3s ease;
   z-index: 9999;
   overflow-y: auto;
@@ -69,7 +72,11 @@
   margin-bottom: 20px;
 }
 .cart-item {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: space-between;
+  -ms-flex-pack: justify;
   justify-content: space-between;
   margin-bottom: 10px;
 }
@@ -87,6 +94,7 @@
   border: none;
   padding: 5px 10px;
   cursor: pointer;
+  -webkit-border-radius: 5px;
   border-radius: 5px;
 }
 
@@ -94,6 +102,7 @@
   color: white;
   padding: 10px 20px;
   border: none;
+  -webkit-border-radius: 5px;
   border-radius: 5px;
   cursor: pointer;
   font-size: 1em;
@@ -112,6 +121,7 @@
   color: var(--light-beige, #f5f5dc);
   padding: 10px 20px;
   border: none;
+  -webkit-border-radius: 5px;
   border-radius: 5px;
   cursor: pointer;
   font-size: 1em;
@@ -136,15 +146,25 @@
   width: 350px;
   height: 100vh;
   background: #fff;
+  -webkit-box-shadow: 2px 0 10px rgba(0,0,0,0.2);
   box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+  -webkit-transform: translateX(-100%);
+  -ms-transform: translateX(-100%);
   transform: translateX(-100%);
+  -webkit-transition: transform 0.3s;
   transition: transform 0.3s;
   z-index: 1001;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
   padding: 2rem 1rem 1rem 1rem;
 }
 .calendar-sidebar.open {
+  -webkit-transform: translateX(0);
+  -ms-transform: translateX(0);
   transform: translateX(0);
 }
 .calendar-sidebar-title {
@@ -170,6 +190,7 @@
   background: rgba(0,0,0,0.3);
   opacity: 0;
   pointer-events: none;
+  -webkit-transition: opacity 0.3s;
   transition: opacity 0.3s;
   z-index: 1000;
 }

@@ -14,9 +14,17 @@
 html{background: var(--darkBlue);}
 
 .membership-main {
+    display: -webkit-flex;
+    display: -ms-flexbox;
     display: flex;
+    -webkit-justify-content: center;
+    -ms-flex-pack: center;
     justify-content: center;
+    -webkit-flex-direction: column;
+    -ms-flex-direction: column;
     flex-direction: column;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
     align-items: center;
     background: var(--darkBlue);
   width: 100%;
@@ -28,9 +36,16 @@ gap: 2rem;
   margin: 1rem auto ;
 
   background: #fff;
+  -webkit-border-radius: 10px;
   border-radius: 10px;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
   position: relative;
   overflow: hidden;
@@ -55,10 +70,12 @@ gap: 2rem;
 .membership-benefits {
   background: #fff;
     color: var(--darkBlue);
+  -webkit-border-radius: 10px;
   border-radius: 10px;
   margin: 0 auto;
   padding: 2.5rem 2rem;
   width: 90%;
+  -webkit-box-shadow: 0 2px 8px rgba(0,0,0,0.07);
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
 }
 .membership-benefits h2 {
@@ -90,6 +107,7 @@ gap: 2rem;
   color:#354D65;
   padding:1rem;
   margin:2rem;
+  -webkit-border-radius: 30px;
   border-radius: 30px;
 }
 
@@ -97,6 +115,7 @@ gap: 2rem;
 .membership-modal {
   background: white;
   color: var(--darkBlue);
+  -webkit-border-radius: 12px;
   border-radius: 12px;
   padding: 2rem;
   max-width: 1200px;
@@ -133,6 +152,7 @@ gap: 2rem;
   margin: 2rem 0;
   padding: 1.5rem;
   background: #f8f9fa;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
 }
 
@@ -150,8 +170,12 @@ gap: 2rem;
 }
 
 .membership-buttons {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
   gap: 1rem;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
   margin-bottom: 1rem;
 }
@@ -160,11 +184,13 @@ gap: 2rem;
   background: var(--darkBlue);
   color: white;
   border: none;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   padding: 1rem 1.5rem;
   font-size: 1.1rem;
   font-weight: bold;
   cursor: pointer;
+  -webkit-transition: all 0.3s ease;
   transition: all 0.3s ease;
   min-width: 180px;
   text-align: center;
@@ -172,6 +198,8 @@ gap: 2rem;
 
 .membership-btn:hover {
   background: #2a3f56;
+  -webkit-transform: translateY(-2px);
+  -ms-transform: translateY(-2px);
   transform: translateY(-2px);
 }
 
@@ -191,9 +219,16 @@ gap: 2rem;
   color: var(--darkBlue);
   width: 2rem;
   
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
+  -webkit-border-radius: 30%;
   border-radius: 30%;
 }
 

@@ -3,10 +3,14 @@
 
 html, body{ background-color: white;}
 .profile-container {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
   min-height: 70vh;
   background: #f8f9fa;
+  -webkit-border-radius: 16px;
   border-radius: 16px;
+  -webkit-box-shadow: 0 2px 16px rgba(0,0,0,0.07);
   box-shadow: 0 2px 16px rgba(0,0,0,0.07);
   margin: 2rem auto;
   max-width: 900px;
@@ -16,8 +20,14 @@ html, body{ background-color: white;}
   background: #fff;
   border-right: 1px solid #eee;
   padding: 2rem 1rem;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
+  -webkit-align-items: flex-start;
+  -ms-flex-align: start;
   align-items: flex-start;
 }
 .profile-tabs {
@@ -30,11 +40,13 @@ html, body{ background-color: white;}
   margin-bottom: 0.5rem;
   background: none;
   border: none;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   font-size: 1.1rem;
   text-align: left;
   cursor: pointer;
   color: #333;
+  -webkit-transition: background 0.2s;
   transition: background 0.2s;
 }
 .profile-tab.active {
@@ -47,12 +59,20 @@ html, body{ background-color: white;}
   padding: 2rem 2.5rem;
 }
 .profile-info {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
   gap: 1.2rem;
 }
 .profile-row {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
   gap: 1.2rem;
 }
@@ -65,22 +85,27 @@ html, body{ background-color: white;}
   flex: 1;
   padding: 0.5rem 0.75rem;
   border: 1px solid #ccc;
+  -webkit-border-radius: 6px;
   border-radius: 6px;
   font-size: 1rem;
   background: #fff;
 }
 .profile-actions {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
   gap: 1rem;
 }
 .profile-edit-btn, .profile-save-btn {
   padding: 0.5rem 1.2rem;
+  -webkit-border-radius: 6px;
   border-radius: 6px;
   border: none;
   background: #1976d2;
   color: #fff;
   font-weight: 500;
   cursor: pointer;
+  -webkit-transition: background 0.2s;
   transition: background 0.2s;
 }
 .profile-edit-btn:hover, .profile-save-btn:hover {
@@ -92,19 +117,30 @@ html, body{ background-color: white;}
 
 /* Booking Filter Controls */
 .booking-filters {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
   gap: 1.5rem;
   margin-bottom: 2rem;
   padding: 1rem;
   background: #f8f9fa;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   border: 1px solid #e9ecef;
+  -webkit-flex-wrap: wrap;
+  -ms-flex-wrap: wrap;
   flex-wrap: wrap;
+  -webkit-align-items: end;
+  -ms-flex-align: end;
   align-items: end;
 }
 
 .filter-group {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
   gap: 0.25rem;
   min-width: 120px;
@@ -120,11 +156,13 @@ html, body{ background-color: white;}
 .filter-select {
   padding: 0.5rem;
   border: 1px solid #ddd;
+  -webkit-border-radius: 4px;
   border-radius: 4px;
   background: #fff;
   font-size: 0.9rem;
   color: #333;
   cursor: pointer;
+  -webkit-transition: border-color 0.2s ease;
   transition: border-color 0.2s ease;
 }
 
@@ -135,6 +173,7 @@ html, body{ background-color: white;}
 .filter-select:focus {
   outline: none;
   border-color: #1976d2;
+  -webkit-box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
   box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.1);
 }
 
@@ -153,7 +192,9 @@ html, body{ background-color: white;}
   text-align: center;
   padding: 3rem;
   background: #fff;
+  -webkit-border-radius: 12px;
   border-radius: 12px;
+  -webkit-box-shadow: 0 2px 12px rgba(0,0,0,0.07);
   box-shadow: 0 2px 12px rgba(0,0,0,0.07);
   margin: 3rem auto;
   max-width: 400px;
@@ -164,9 +205,11 @@ html, body{ background-color: white;}
   background: #1976d2;
   color: #fff;
   border: none;
+  -webkit-border-radius: 6px;
   border-radius: 6px;
   font-size: 1.1rem;
   cursor: pointer;
+  -webkit-transition: background 0.2s;
   transition: background 0.2s;
 }
 .profile-signin-btn:hover {
@@ -175,6 +218,7 @@ html, body{ background-color: white;}
 .profile-icon {
   width: 36px;
   height: 36px;
+  -webkit-border-radius: 50%;
   border-radius: 50%;
   border: 2px solid #eee;
   object-fit: cover;
@@ -188,6 +232,7 @@ html, body{ background-color: white;}
   cursor: pointer;
   margin-bottom: 1rem;
   padding: 0.5rem 1.5rem;
+  -webkit-border-radius: 6px;
   border-radius: 6px;
   float: right;
   margin-left: auto;
@@ -213,16 +258,22 @@ html, body{ background-color: white;}
 
 .booking-card {
   background: #fff;
+  -webkit-border-radius: 12px;
   border-radius: 12px;
+  -webkit-box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   padding: 1.5rem;
   margin-bottom: 1rem;
+  -webkit-transition: all 0.2s ease;
   transition: all 0.2s ease;
   border-left: 4px solid #1976d2;
 }
 
 .booking-card:hover {
+  -webkit-box-shadow: 0 4px 16px rgba(0,0,0,0.12);
   box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  -webkit-transform: translateY(-1px);
+  -ms-transform: translateY(-1px);
   transform: translateY(-1px);
 }
 
@@ -231,8 +282,14 @@ html, body{ background-color: white;}
 }
 
 .booking-header {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: space-between;
+  -ms-flex-pack: justify;
   justify-content: space-between;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
   margin-bottom: 1rem;
   padding-bottom: 0.75rem;
@@ -242,16 +299,22 @@ html, body{ background-color: white;}
 .booking-header.clickable {
   cursor: pointer;
   margin-bottom: 0;
+  -webkit-transition: background-color 0.2s ease;
   transition: background-color 0.2s ease;
 }
 
 .booking-header.clickable:hover {
   background-color: #f8f9fa;
+  -webkit-border-radius: 8px 8px 0 0;
   border-radius: 8px 8px 0 0;
 }
 
 .booking-header-right {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
   gap: 1rem;
 }
@@ -346,7 +409,11 @@ html, body{ background-color: white;}
 }
 
 .items-list {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-wrap: wrap;
+  -ms-flex-wrap: wrap;
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.5rem;
@@ -356,6 +423,7 @@ html, body{ background-color: white;}
   background: #f0f7ff;
   color: #1976d2;
   padding: 0.25rem 0.75rem;
+  -webkit-border-radius: 16px;
   border-radius: 16px;
   font-size: 0.85rem;
   border: 1px solid #e3f2fd;
@@ -367,11 +435,14 @@ html, body{ background-color: white;}
 }
 
 .booking-actions {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
   gap: 1rem;
   margin-top: 1.5rem;
   padding-top: 1rem;
   border-top: 1px solid #eee;
+  -webkit-transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease, margin 0.3s ease;
   transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease, margin 0.3s ease;
   overflow: hidden;
 }
@@ -391,10 +462,12 @@ html, body{ background-color: white;}
 
 .btn-view-details, .btn-view-contract, .btn-complete-payment, .btn-start-booking {
   padding: 0.5rem 1rem;
+  -webkit-border-radius: 6px;
   border-radius: 6px;
   border: none;
   font-weight: 500;
   cursor: pointer;
+  -webkit-transition: all 0.2s ease;
   transition: all 0.2s ease;
 }
 
@@ -448,7 +521,9 @@ html, body{ background-color: white;}
   text-align: center;
   padding: 3rem 2rem;
   background: #fff;
+  -webkit-border-radius: 12px;
   border-radius: 12px;
+  -webkit-box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
 
@@ -472,6 +547,7 @@ html, body{ background-color: white;}
 /* Booking Details Modal */
 .booking-modal {
   background: #fff;
+  -webkit-border-radius: 12px;
   border-radius: 12px;
   max-width: 800px;
   width: 90vw;
@@ -482,12 +558,19 @@ html, body{ background-color: white;}
 }
 
 .modal-header {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: space-between;
+  -ms-flex-pack: justify;
   justify-content: space-between;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
   padding: 1.5rem;
   border-bottom: 1px solid #eee;
   background: #f8f9fa;
+  -webkit-border-radius: 12px 12px 0 0;
   border-radius: 12px 12px 0 0;
 }
 
@@ -514,18 +597,26 @@ html, body{ background-color: white;}
 }
 
 .detail-grid {
+  display: -ms-grid;
   display: grid;
+  -ms-grid-columns: (minmax(250px, 1fr))[auto-fit];
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 1rem;
 }
 
 .detail-item {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
   gap: 0.25rem;
 }
 
 .detail-item.full-width {
+  -ms-grid-column: 1;
+  -ms-grid-column-span: 999;
   grid-column: 1 / -1;
 }
 
@@ -541,6 +632,7 @@ html, body{ background-color: white;}
 
 .payment-status {
   padding: 0.2rem 0.6rem;
+  -webkit-border-radius: 16px;
   border-radius: 16px;
   font-size: 0.8rem;
   font-weight: 500;
@@ -564,13 +656,20 @@ html, body{ background-color: white;}
 
 .items-detail-list {
   background: #f8f9fa;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   padding: 1rem;
 }
 
 .item-detail-row {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: space-between;
+  -ms-flex-pack: justify;
   justify-content: space-between;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
   padding: 0.5rem 0;
   border-bottom: 1px solid #eee;
@@ -599,10 +698,15 @@ html, body{ background-color: white;}
 .modal-actions {
   padding: 1.5rem;
   border-top: 1px solid #eee;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: flex-end;
+  -ms-flex-pack: end;
   justify-content: flex-end;
   gap: 1rem;
   background: #f8f9fa;
+  -webkit-border-radius: 0 0 12px 12px;
   border-radius: 0 0 12px 12px;
 }
 
@@ -611,6 +715,7 @@ html, body{ background-color: white;}
   background: #6c757d;
   color: #fff;
   border: none;
+  -webkit-border-radius: 6px;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
@@ -623,6 +728,7 @@ html, body{ background-color: white;}
 /* Contract Modal Styles */
 .contract-modal {
   background: #fff;
+  -webkit-border-radius: 12px;
   border-radius: 12px;
   max-width: 900px;
   width: 95vw;
@@ -641,6 +747,7 @@ html, body{ background-color: white;}
   margin-bottom: 2rem;
   padding: 1rem;
   background: #f8f9fa;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   border-left: 4px solid #1976d2;
 }
@@ -665,13 +772,20 @@ html, body{ background-color: white;}
   margin-bottom: 1.5rem;
   padding: 1rem;
   border: 1px solid #ddd;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   background: #fff;
 }
 
 .section-header {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: space-between;
+  -ms-flex-pack: justify;
   justify-content: space-between;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
   margin-bottom: 1rem;
   padding-bottom: 0.5rem;
@@ -723,6 +837,7 @@ html, body{ background-color: white;}
   padding: 1rem;
   background: #f8fff8;
   border: 1px solid #d4edda;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
 }
 
@@ -732,14 +847,22 @@ html, body{ background-color: white;}
 }
 
 .signature-section {
+  display: -ms-grid;
   display: grid;
+  -ms-grid-columns: 2fr 1fr;
   grid-template-columns: 2fr 1fr;
   gap: 1rem;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
 }
 
 .signature-display {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
   gap: 0.5rem;
 }
@@ -755,7 +878,11 @@ html, body{ background-color: white;}
 }
 
 .signature-date {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
   gap: 0.25rem;
   font-size: 0.9rem;
@@ -766,6 +893,7 @@ html, body{ background-color: white;}
   margin-top: 2rem;
   padding: 1rem;
   background: #f8f9fa;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   text-align: center;
   font-style: italic;
@@ -777,6 +905,7 @@ html, body{ background-color: white;}
   background: #17a2b8;
   color: #fff;
   border: none;
+  -webkit-border-radius: 6px;
   border-radius: 6px;
   cursor: pointer;
   font-weight: 500;
@@ -794,7 +923,11 @@ html, body{ background-color: white;}
 }
 
 .membership-content {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
   gap: 2rem;
 }
@@ -802,6 +935,7 @@ html, body{ background-color: white;}
 .membership-status {
   background: #f8f9fa;
   padding: 1.5rem;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   border-left: 4px solid #007bff;
 }
@@ -814,7 +948,9 @@ html, body{ background-color: white;}
 .membership-benefits {
   background: white;
   padding: 1.5rem;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
+  -webkit-box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
@@ -854,10 +990,12 @@ html, body{ background-color: white;}
   color: white;
   border: none;
   padding: 1rem 2rem;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   font-size: 1.1rem;
   font-weight: bold;
   cursor: pointer;
+  -webkit-transition: background-color 0.3s ease;
   transition: background-color 0.3s ease;
 }
 
@@ -867,7 +1005,11 @@ html, body{ background-color: white;}
 
 /* Enhanced Membership Interface Styles */
 .membership-content {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
   gap: 2rem;
 }
@@ -877,8 +1019,10 @@ html, body{ background-color: white;}
 .membership-action-card {
   background: white;
   border: 1px solid #e0e0e0;
+  -webkit-border-radius: 12px;
   border-radius: 12px;
   padding: 1.5rem;
+  -webkit-box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
@@ -892,7 +1036,11 @@ html, body{ background-color: white;}
 }
 
 .subscription-details {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
   gap: 1.5rem;
 }
@@ -904,6 +1052,7 @@ html, body{ background-color: white;}
 .status-badge {
   display: inline-block;
   padding: 0.5rem 1rem;
+  -webkit-border-radius: 20px;
   border-radius: 20px;
   font-weight: bold;
   font-size: 1rem;
@@ -935,13 +1084,20 @@ html, body{ background-color: white;}
 
 .subscription-info {
   background: #f8f9fa;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   padding: 1rem;
 }
 
 .info-row {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: space-between;
+  -ms-flex-pack: justify;
   justify-content: space-between;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
   padding: 0.5rem 0;
   border-bottom: 1px solid #e0e0e0;
@@ -957,13 +1113,18 @@ html, body{ background-color: white;}
 }
 
 .subscription-actions {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
   gap: 1rem;
 }
 
 .membership-benefits-highlight {
   background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   padding: 1rem;
   border: 2px solid #4caf50;
@@ -988,6 +1149,7 @@ html, body{ background-color: white;}
 .legacy-membership {
   background: #f0f7ff;
   border: 2px solid #2196f3;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   padding: 1.5rem;
 }
@@ -995,6 +1157,7 @@ html, body{ background-color: white;}
 .no-membership {
   background: #fff9c4;
   border: 2px solid #fbc02d;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   padding: 1.5rem;
   text-align: center;
@@ -1004,6 +1167,7 @@ html, body{ background-color: white;}
 .pending-notice {
   background: #fff3e0;
   border: 2px solid #ff9800;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   padding: 1rem;
   margin-bottom: 1rem;
@@ -1011,22 +1175,30 @@ html, body{ background-color: white;}
 
 .btn-cancel-subscription,
 .btn-reactivate-subscription {
+  -webkit-transition: all 0.3s ease;
   transition: all 0.3s ease;
 }
 
 .btn-cancel-subscription:hover {
   background-color: #f57c00 !important;
+  -webkit-transform: translateY(-1px);
+  -ms-transform: translateY(-1px);
   transform: translateY(-1px);
 }
 
 .btn-reactivate-subscription:hover {
   background-color: #388e3c !important;
+  -webkit-transform: translateY(-1px);
+  -ms-transform: translateY(-1px);
   transform: translateY(-1px);
 }
 
 .btn-become-member:hover {
   background-color: #388e3c !important;
+  -webkit-transform: translateY(-2px);
+  -ms-transform: translateY(-2px);
   transform: translateY(-2px);
+  -webkit-box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
   box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
 }
 
@@ -1042,14 +1214,20 @@ html, body{ background-color: white;}
 .membership-booking-card {
   background: white;
   border: 1px solid #e0e0e0;
+  -webkit-border-radius: 12px;
   border-radius: 12px;
   padding: 1.5rem;
+  -webkit-box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   margin-top: 2rem;
 }
 
 .membership-booking-form {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
   gap: 2rem;
   margin-top: 1.5rem;
@@ -1058,13 +1236,16 @@ html, body{ background-color: white;}
 .booking-step {
   background: #fafafa;
   border: 1px solid #e0e0e0;
+  -webkit-border-radius: 12px;
   border-radius: 12px;
   padding: 1.5rem;
   position: relative;
+  -webkit-transition: all 0.3s ease;
   transition: all 0.3s ease;
 }
 
 .booking-step:hover {
+  -webkit-box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   border-color: #d0d0d0;
 }
@@ -1076,7 +1257,11 @@ html, body{ background-color: white;}
   font-weight: 600;
   border-bottom: 2px solid #e9ecef;
   padding-bottom: 0.5rem;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
   gap: 0.5rem;
 }
@@ -1108,9 +1293,16 @@ html, body{ background-color: white;}
   height: 24px;
   background: #4caf50;
   color: white;
+  -webkit-border-radius: 50%;
   border-radius: 50%;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
   font-weight: bold;
   font-size: 0.8rem;
@@ -1136,9 +1328,16 @@ html, body{ background-color: white;}
   height: 24px;
   background: #ff9800;
   color: white;
+  -webkit-border-radius: 50%;
   border-radius: 50%;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
   font-weight: bold;
   font-size: 0.8rem;
@@ -1146,10 +1345,15 @@ html, body{ background-color: white;}
 .inflateable-container {
 border: 2px solid #4CAF50;
 background-color: #e8f5e8;
+-webkit-border-radius: 12px;
 border-radius: 12px;
 padding: 1rem;
 margin-bottom: 1rem;
+display: -webkit-flex;
+display: -ms-flexbox;
 display: flex;
+-webkit-align-items: center;
+-ms-flex-align: center;
 align-items: center;
 gap: 1rem;                         
 }
@@ -1169,17 +1373,22 @@ gap: 1rem;
   background: #1976d2;
   color: white;
   border: none;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   width: 48px;
   height: 48px;
   font-size: 1.2rem;
   cursor: pointer;
+  -webkit-box-shadow: 0 2px 8px rgba(0,0,0,0.2);
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  -webkit-transition: all 0.3s ease;
   transition: all 0.3s ease;
 }
 
 .profile-menu-toggle:hover {
   background: #1565c0;
+  -webkit-transform: scale(1.05);
+  -ms-transform: scale(1.05);
   transform: scale(1.05);
 }
 
@@ -1196,23 +1405,38 @@ gap: 1rem;
   width: 100%;
   height: 60vh;
   background: white;
+  -webkit-box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
   box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
   z-index: 1000;
+  -webkit-transform: translateY(100%);
+  -ms-transform: translateY(100%);
   transform: translateY(100%);
+  -webkit-transition: transform 0.3s ease;
   transition: transform 0.3s ease;
   padding: 1rem;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
+  -webkit-border-radius: 20px 20px 0 0;
   border-radius: 20px 20px 0 0;
 }
 
 .profile-mobile-sidebar.open {
+  -webkit-transform: translateY(0);
+  -ms-transform: translateY(0);
   transform: translateY(0);
 }
 
 .profile-mobile-tabs {
   margin-top: 1rem;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
   gap: 0.5rem;
 }
@@ -1222,11 +1446,13 @@ gap: 1rem;
   padding: 1rem;
   background: #1976d2;
   border: none;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   font-size: 1rem;
   text-align: left;
   cursor: pointer;
   color: white;
+  -webkit-transition: all 0.2s ease;
   transition: all 0.2s ease;
 }
 
@@ -1246,10 +1472,12 @@ gap: 1rem;
   background: #1976d2;
   color: white;
   border: none;
+  -webkit-border-radius: 8px;
   border-radius: 8px;
   font-size: 1rem;
   cursor: pointer;
   margin-top: 1rem;
+  -webkit-transition: background 0.2s ease;
   transition: background 0.2s ease;
 }
 
@@ -1267,6 +1495,7 @@ gap: 1rem;
   z-index: 999;
   opacity: 0;
   visibility: hidden;
+  -webkit-transition: opacity 0.3s ease, visibility 0.3s ease;
   transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
@@ -1283,6 +1512,7 @@ gap: 1rem;
   
   .profile-container {
     margin: 1rem;
+    -webkit-border-radius: 12px;
     border-radius: 12px;
   }
   

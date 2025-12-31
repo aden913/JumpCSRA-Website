@@ -10,12 +10,22 @@
 .calendar-sidebar.open { 
      width:30%;
     background-color: var(--darkBlue);
+    display: -webkit-flex;
+    display: -ms-flexbox;
     display:flex;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
     align-items: center;
 }
 .topCalendar {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-justify-content: space-between;
+  -ms-flex-pack: justify;
   justify-content: space-between;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
   padding: 1rem;
   border-bottom: 1px solid var(--lightGray);
@@ -60,19 +70,33 @@ width:100%;
 }
 
 .wetdry-options-container {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
+  -webkit-justify-content: center;
+  -ms-flex-pack: center;
   justify-content: center;
-  gap: 1rem;
   margin-bottom: 1rem;
+}
+.wetdry-options-container > * {
+  margin: 0 0.5rem;
 }
 
 .wetdry-option-label {
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-align-items: center;
+  -ms-flex-align: center;
   align-items: center;
-  gap: 0.5rem;
   cursor: pointer;
   font-size: 1rem;
+}
+.wetdry-option-label > * {
+  margin: 0 0.25rem;
 }
 
 .wetdry-option-label.selected {
@@ -109,6 +133,7 @@ width:100%;
   background: var(--lightBlue);
   color: white;
   border: none;
+  -webkit-border-radius: 6px;
   border-radius: 6px;
   cursor: pointer;
 }

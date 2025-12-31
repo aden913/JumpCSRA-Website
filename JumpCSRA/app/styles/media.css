@@ -1,8 +1,14 @@
 /* Responsive styles */
 @media (max-width: 900px) {
   .search-promo, .promo-cards, .options-cards {
+    -webkit-flex-direction: column;
+    -ms-flex-direction: column;
     flex-direction: column;
+    -webkit-align-items: center;
+    -ms-flex-align: center;
     align-items: center;
-    gap: 1rem;
+  }
+  .search-promo > *, .promo-cards > *, .options-cards > * {
+    margin: 0.5rem 0;
   }
 }
