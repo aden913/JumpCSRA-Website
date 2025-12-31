@@ -43,7 +43,8 @@ import {
   shouldDeferBooking,
   deferBooking,
   getUserWallet,
-  addWalletTransaction
+  addWalletTransaction,
+  deletePendingBookingsWithOverlappingItems
 } from "../utils/databaseUtils";
 import type { BookingData, ContractData, UserWallet } from "../utils/databaseUtils";
 
@@ -1164,19 +1165,6 @@ export default function Checkout() {
           const booking = await loadBookingData(resumeBookingId);
           
           if (booking && booking.customerID === user.uid) {
-            // Check if at least 24 hours have passed since booking was created
-            if (booking.createdAt) {
-              const createdDate = new Date(booking.createdAt);
-              const now = new Date();
-              const hoursSinceCreation = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
-              
-              if (hoursSinceCreation < 24) {
-                console.log('⏳ [RESUME] Booking too recent - created', hoursSinceCreation.toFixed(1), 'hours ago. Must wait 24 hours.');
-                // Don't show the resume prompt yet - booking is too recent
-                return;
-              }
-            }
-            
             // Check if booking is already completed or confirmed - can't resume completed bookings
             // Note: Deferred bookings should be handled separately through the profile page
             const bookingStatus = booking.status || 'pending';
@@ -2215,6 +2203,16 @@ export default function Checkout() {
               setPaymentId(`wallet-${Date.now()}`);
               setPaymentCompleted(true);
               
+              // Delete pending/deferred bookings with overlapping items
+              if (user && existingBooking.orderDetails?.items) {
+                const itemNames = existingBooking.orderDetails.items.map(item => item.name);
+                await deletePendingBookingsWithOverlappingItems(
+                  user.uid,
+                  pendingBookingId,
+                  itemNames
+                );
+              }
+              
               // Handle gift card creation
               const giftCardsInCart = cart.filter(item => item.isGiftCard);
               // Debug log removed));
@@ -2531,6 +2529,16 @@ export default function Checkout() {
             if (success) {
               setPaymentId(paymentId);
               setPaymentCompleted(true);
+              
+              // Delete pending/deferred bookings with overlapping items
+              if (user && updatedBooking.orderDetails?.items) {
+                const itemNames = updatedBooking.orderDetails.items.map(item => item.name);
+                await deletePendingBookingsWithOverlappingItems(
+                  user.uid,
+                  pendingBookingId,
+                  itemNames
+                );
+              }
               
               // Use the status from the updated booking
               const finalStatus = updatedBooking.status || 'unknown';

@@ -2,7 +2,7 @@
 
 import { getFirestore, doc, setDoc, getDoc, collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import { getDatabase, ref, set, get, child, push } from "firebase/database";
+import { getDatabase, ref, set, get, child, push, remove } from "firebase/database";
 
 // Type definitions for new data structures
 export interface BookingData {
@@ -1203,3 +1203,84 @@ export const cancelMembership = async (userId: string): Promise<boolean> => {
     return false;
   }
 };
+
+/**
+ * Delete pending and deferred bookings that have overlapping items with the completed booking
+ * This cleans up abandoned bookings when a user completes a new payment
+ * @param userId - The user's ID
+ * @param completedBookingId - The ID of the booking that was just completed (to exclude it)
+ * @param completedBookingItems - Array of item names from the completed booking
+ * @returns Number of bookings deleted
+ */
+export async function deletePendingBookingsWithOverlappingItems(
+  userId: string,
+  completedBookingId: string,
+  completedBookingItems: string[]
+): Promise<number> {
+  try {
+    console.log('🗑️ [CLEANUP] Checking for pending/deferred bookings to delete...', {
+      userId,
+      completedBookingId,
+      itemCount: completedBookingItems.length
+    });
+
+    const db = getDatabase();
+    const bookingsRef = ref(db, 'bookings');
+    const snapshot = await get(bookingsRef);
+
+    if (!snapshot.exists()) {
+      console.log('🗑️ [CLEANUP] No bookings found in database');
+      return 0;
+    }
+
+    const allBookings = snapshot.val();
+    let deletedCount = 0;
+
+    // Find all pending and deferred bookings for this user
+    for (const bookingId of Object.keys(allBookings)) {
+      const booking = allBookings[bookingId];
+
+      // Skip if not this user's booking
+      if (booking.customerID !== userId) {
+        continue;
+      }
+
+      // Skip the booking that was just completed
+      if (bookingId === completedBookingId) {
+        continue;
+      }
+
+      // Only target pending and deferred bookings
+      if (booking.status !== 'pending' && booking.status !== 'deferred') {
+        continue;
+      }
+
+      // Check if this booking has any overlapping items
+      const bookingItems = booking.orderDetails?.items || [];
+      const bookingItemNames = bookingItems.map((item: any) => item.name);
+
+      const hasOverlap = bookingItemNames.some((itemName: string) =>
+        completedBookingItems.includes(itemName)
+      );
+
+      if (hasOverlap) {
+        console.log(`🗑️ [CLEANUP] Deleting ${booking.status} booking ${bookingId} with overlapping items:`, {
+          overlappingItems: bookingItemNames.filter((name: string) => completedBookingItems.includes(name))
+        });
+
+        // Delete the booking from database
+        const bookingToDeleteRef = ref(db, `bookings/${bookingId}`);
+        await remove(bookingToDeleteRef);
+        deletedCount++;
+
+        console.log(`✅ [CLEANUP] Deleted booking ${bookingId}`);
+      }
+    }
+
+    console.log(`🗑️ [CLEANUP] Cleanup complete. Deleted ${deletedCount} booking(s)`);
+    return deletedCount;
+  } catch (error) {
+    console.error('❌ [CLEANUP] Error deleting pending bookings:', error);
+    return 0;
+  }
+}
