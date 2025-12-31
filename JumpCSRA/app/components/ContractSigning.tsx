@@ -46,74 +46,62 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
   // Initialize contract sections when component mounts
   useEffect(() => {
     if (contractSections.length === 0) {
+      const renterName = userProfile?.name || user?.displayName || 'Renter';
+      
       const sections: ContractSection[] = [
         {
-          id: "payment-policy",
-          title: "Payment Policy",
-          content: "Customer agrees to pay the total rental fee as specified in this agreement. Payment is due in full at the time of booking unless otherwise arranged. Late fees may apply for overdue payments.",
+          id: "renter-responsibilities",
+          title: "Renter Responsibilities",
+          content: `Renter (${renterName}) agrees to:\n\n1. Provide a 110volt/20amp electric circuit per unit within 75ft, or rent a generator.\n\n2. Ensure Jumpers remove shoes, eyeglasses, and any sharp objects.\n\n3. Supervise jumpers to go down the slide feet first, one rider at a time per lane.\n\n4. In the event of high wind / rain ensure all participants exit the unit.\n\n5. Supervise jumpers to not climb on the outside of the inflatable.\n\n6. Provide a water hose that reaches to the water rental or add one to your rental order.`,
           isInitialed: false,
           isFinePrint: false
         },
         {
-          id: "damage-liability",
-          title: "Damage and Liability",
-          content: "Customer is responsible for any damage to rental equipment beyond normal wear and tear. Customer agrees to supervise the use of all equipment and ensure it is used safely and appropriately.",
+          id: "damage-waiver",
+          title: "Damage Waiver",
+          content: "A $50 temporary damage/cleaning hold (not a charge) will be placed on the renter's card and released after pickup and inspection if the inflatable is returned clean, dry, fully inflated, and undamaged. The $50 may be charged if the unit is damaged, excessively dirty, contains water, is not inflated at pickup, or has food, drinks, candy, pet marks, water balloons, silly string, soap, paint, or other substances on or inside the inflatable.\n\nTo avoid charges, the renter agrees to re-inflate the unit by 7:00 AM, rinse and drain mud as needed, remove all water and debris, and keep the inflatable fully inflated until our team arrives.",
           isInitialed: false,
           isFinePrint: false
         },
         {
-          id: "delivery-setup",
-          title: "Delivery and Setup",
-          content: "Jump CSRA will deliver and set up equipment at the specified location. Customer must ensure adequate space and access for delivery. Setup area must be clear of debris and level.",
+          id: "cancellation-policy",
+          title: "Cancellation and Rain Policy",
+          content: "Once signed, this contract is a legally binding agreement. If you need to cancel or reschedule your rental, please review the following policy:\n\n• Cancel 14+ days before your event: You'll receive a full refund.\n• Cancel within 6–13 days of your event: You'll receive a gift card for 100% of your payment, which can be used for any future rental—no expiration date.\n• Cancel with less than 5 days' notice: You'll receive a gift card for 50% of your payment. The remaining 50% is non-refundable.\n\nIf Jump CSRA cancels due to weather: You will receive a full refund.\n\nWe encourage you to keep an eye on the forecast and communicate with us early if concerns arise. Our goal is to work with you and make sure your event is a success—safely.",
           isInitialed: false,
           isFinePrint: false
         },
         {
-          id: "weather-conditions",
-          title: "Weather and Cancellation",
-          content: "Outdoor events are subject to weather conditions. Jump CSRA reserves the right to cancel or postpone delivery for unsafe weather conditions including high winds, storms, or severe weather warnings.",
-          isInitialed: false,
-          isFinePrint: false
-        },
-        {
-          id: "safety-compliance",
-          title: "Safety and Compliance",
-          content: "Customer agrees to follow all safety guidelines and capacity limits for rental equipment. Adult supervision is required at all times during use. Customer is responsible for ensuring all participants follow safety rules.",
-          isInitialed: false,
-          isFinePrint: false
-        },
-        {
-          id: "liability-waiver",
-          title: "Liability Waiver",
-          content: "Customer acknowledges that use of rental equipment involves inherent risks. Customer agrees to hold Jump CSRA harmless from any injuries or damages that may occur during the rental period, except in cases of gross negligence by Jump CSRA.",
+          id: "assumption-of-risk",
+          title: "Assumption of Risk & Liability Waiver",
+          content: "Customer (\"Lessee\") acknowledges and understands that the use of inflatable and amusement rental equipment involves inherent and unavoidable risks, including but not limited to bodily injury, property damage, paralysis, or death. Lessee voluntarily assumes all such risks associated with the delivery, setup, possession, use, operation, and return of the equipment. To the fullest extent permitted by the laws of the States of Georgia and South Carolina, Lessee hereby releases, waives, and discharges Jump CSRA (\"Lessor\"), its owners, officers, employees, and agents from any and all claims, demands, causes of action, or liability arising out of or related to the rental or use of the equipment, except to the extent caused by Lessor's gross negligence or willful misconduct as determined by a court of competent jurisdiction. Lessor shall not be liable for injuries or damages resulting from acts of God, weather conditions, or other circumstances beyond Lessor's reasonable control.",
           isInitialed: false,
           isFinePrint: true
         },
         {
           id: "indemnification",
-          title: "Indemnification",
-          content: "Customer agrees to indemnify and hold harmless Jump CSRA, its officers, employees, and agents from any claims, damages, losses, or expenses arising from Customer's use of the rental equipment or breach of this agreement.",
+          title: "Indemnification & Hold Harmless",
+          content: "Lessee agrees to indemnify, defend, and hold harmless Jump CSRA, its owners, officers, employees, and agents from and against any and all claims, actions, damages, losses, liabilities, costs, and expenses, including reasonable attorney's fees, arising from or related to Lessee's use, misuse, supervision, or operation of the rental equipment, or from any breach of this Agreement, except to the extent prohibited by applicable law. Lessee further assumes full responsibility for any loss, theft, damage, or destruction of the equipment during the rental period and any extension thereof, regardless of cause, ordinary wear and tear excepted.",
           isInitialed: false,
           isFinePrint: true
         },
         {
           id: "equipment-care",
-          title: "Equipment Care and Return",
-          content: "Customer is responsible for the proper care of all rental equipment. Equipment must be returned in the same condition as received, allowing for normal wear. Customer will be charged for cleaning fees if equipment is returned excessively dirty.",
+          title: "Equipment Care, Cleaning, Return & Force Majeure",
+          content: "Lessee agrees to properly supervise and care for the rental equipment at all times and to return it in the same condition as received, normal wear and tear excepted. Lessee acknowledges that excessive dirt, sand, mud, food, drink, or other debris may result in additional cleaning fees. Neither party shall be liable for failure or delay in performance due to events beyond their reasonable control, including but not limited to severe weather, natural disasters, acts of God, governmental orders, or other force majeure events.",
           isInitialed: false,
           isFinePrint: true
         },
         {
-          id: "force-majeure",
-          title: "Force Majeure",
-          content: "Neither party shall be liable for any failure to perform due to unforeseen circumstances or causes beyond their reasonable control, including but not limited to acts of God, natural disasters, government regulations, or other force majeure events.",
+          id: "governing-law",
+          title: "Governing Law, Merger & Severability",
+          content: "This Agreement, together with the signed Instruction Manual and Reservation Form, constitutes the entire agreement between Lessor and Lessee and supersedes all prior or contemporaneous agreements or representations. This Agreement shall be governed by and construed in accordance with the laws of the State of Georgia or the State of South Carolina, depending on the location where the rental equipment is delivered and used. Any amendment must be in writing and signed by all parties. If any provision of this Agreement is found to be invalid or unenforceable, the remaining provisions shall continue in full force and effect.",
           isInitialed: false,
           isFinePrint: true
         }
       ];
       setContractSections(sections);
     }
-  }, [contractSections.length]);
+  }, [contractSections.length, userProfile, user]);
 
   // Auto-generate initials from user profile
   useEffect(() => {
