@@ -3820,7 +3820,7 @@ export default function Checkout() {
               </div>
               
               {/* Desktop-specific styles */}
-              <style jsx>{`
+              <style>{`
                 @media (min-width: 768px) {
                   .order-item-content-wrapper {
                     flex-direction: row !important;
