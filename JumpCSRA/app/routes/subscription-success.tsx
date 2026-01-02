@@ -164,7 +164,7 @@ export default function SubscriptionSuccess() {
   if (loading) {
     return (
       <>
-        <RouterNav hideIcons={true} />
+        <RouterNav hideIcons={true} userName={user?.displayName || undefined} isLoggedIn={!!user} />
         <div style={{ 
           minHeight: '60vh', 
           display: 'flex', 
@@ -182,7 +182,7 @@ export default function SubscriptionSuccess() {
   if (!user) {
     return (
       <>
-        <RouterNav hideIcons={true} />
+        <RouterNav hideIcons={true} userName={user?.displayName || undefined} isLoggedIn={!!user} />
         <div style={{ 
           minHeight: '60vh', 
           display: 'flex', 
@@ -218,7 +218,7 @@ export default function SubscriptionSuccess() {
   if (cancelled === 'true') {
     return (
       <>
-        <RouterNav hideIcons={true} />
+        <RouterNav hideIcons={true} userName={user?.displayName || undefined} isLoggedIn={!!user} />
         <div style={{ 
           minHeight: '60vh', 
           display: 'flex', 
@@ -278,7 +278,7 @@ export default function SubscriptionSuccess() {
   if (success === 'true') {
     return (
       <>
-        <RouterNav hideIcons={true} />
+        <RouterNav hideIcons={true} userName={user?.displayName || undefined} isLoggedIn={!!user} />
         <div style={{ 
           minHeight: '60vh', 
           display: 'flex', 
@@ -449,7 +449,7 @@ export default function SubscriptionSuccess() {
   // Default fallback
   return (
     <>
-      <RouterNav hideIcons={true} />
+      <RouterNav hideIcons={true} userName={user?.displayName || undefined} isLoggedIn={!!user} />
       <div style={{ 
         minHeight: '60vh', 
         display: 'flex', 

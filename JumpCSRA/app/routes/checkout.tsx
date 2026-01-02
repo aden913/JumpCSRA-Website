@@ -224,6 +224,7 @@ export default function Checkout() {
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
   const [deliveryCost, setDeliveryCost] = useState<number>(0);
   const [deliverySkipped, setDeliverySkipped] = useState<boolean>(false); // Track if delivery was skipped for dev
+  const [addressConfirmed, setAddressConfirmed] = useState<boolean>(false); // Track if user confirmed their address
   const [contractSigned, setContractSigned] = useState<boolean>(false);
   const [showContract, setShowContract] = useState<boolean>(false);
   const [calculatingDistance, setCalculatingDistance] = useState<boolean>(false);
@@ -524,10 +525,11 @@ export default function Checkout() {
       case 'cart-delivery':
         // Must have items in cart
         if (cart.length === 0) return false;
-        // If has inflateables, must have delivery address, location, all event settings, AND calculated delivery
+        // If has inflateables, must have delivery address, location, all event settings, calculated delivery, AND address confirmed
         if (hasInflateables) {
           return deliveryAddress.trim().length > 0 && 
                  deliveryCost >= 0 && 
+                 addressConfirmed && // Require address confirmation
                  cartSettings.location.trim().length > 0 &&
                  cartSettings.duration && 
                  cartSettings.surface && 
@@ -1111,6 +1113,7 @@ export default function Checkout() {
       console.log('  - Value changed, resetting failed addresses and delivery cost');
       setFailedAddresses(new Set());
       setDeliveryCost(0); // Reset delivery cost for new address
+      setAddressConfirmed(false); // Reset confirmation when address changes
     }
     
     console.log('  - Setting deliveryAddress to:', value);
@@ -3406,6 +3409,8 @@ export default function Checkout() {
               hideCartIcon={true}
               hideNavbarDropdown={true}
               hideMobileSidebar={true}
+              userName={user?.displayName || undefined}
+              isLoggedIn={!!user}
             />
             <div className="membership-checkout-wrapper">
               <MembershipCheckout onSuccess={() => navigate('/profile')} />
@@ -3419,7 +3424,9 @@ export default function Checkout() {
               hideCartIcon={true} // Hide cart icon on checkout page
               hideNavbarDropdown={true} // Hide the navbar category dropdown
               hideMobileSidebar={true} // Hide mobile menu toggle on checkout page
-          walletBalance={userWallet?.balance || 0}
+              walletBalance={userWallet?.balance || 0}
+              userName={user?.displayName || undefined}
+              isLoggedIn={!!user}
           searchBarComponent={
             <SearchBar
               inflateables={inflateables}
@@ -3925,6 +3932,8 @@ export default function Checkout() {
                     setDeliveryAddress(inputValue);
                     console.log('🔍 [CALCULATE BUTTON] Calling calculateDeliveryDistance with:', inputValue);
                     calculateDeliveryDistance(inputValue);
+                    // Set address as confirmed when user clicks this button
+                    setAddressConfirmed(true);
                   } else {
                     notifications.show({
                       title: '📍 Address Required',
@@ -3936,7 +3945,7 @@ export default function Checkout() {
                 }}
                 disabled={calculatingDistance || !deliveryAddress.trim()}
                 style={{
-                  backgroundColor: calculatingDistance ? '#6c757d' : '#007bff',
+                  backgroundColor: calculatingDistance ? '#6c757d' : (addressConfirmed ? '#28a745' : '#007bff'),
                   color: 'white',
                   border: 'none',
                   padding: '0.75rem 1.5rem',
@@ -3947,7 +3956,7 @@ export default function Checkout() {
                   marginBottom: '1rem'
                 }}
               >
-                {calculatingDistance ? 'Calculating...' : 'Confirm Address'}
+                {calculatingDistance ? 'Calculating...' : (addressConfirmed ? '✓ Address Confirmed' : 'Confirm Address')}
               </button>
               
               {/* Development Skip Button */}
@@ -3963,6 +3972,7 @@ export default function Checkout() {
                     }
                     setDeliveryCost(0);
                     setCalculatingDistance(false);
+                    setAddressConfirmed(true); // Skip address confirmation in dev mode
                     notifications.show({
                       title: '🚧 Development Mode',
                       message: 'Delivery calculation skipped for testing',
@@ -4265,6 +4275,11 @@ export default function Checkout() {
             id="btn-main-flow"
             onClick={() => goToNextStep()}
             disabled={!canShowNextButton()}
+            style={{
+              opacity: canShowNextButton() ? 1 : 0.5,
+              cursor: canShowNextButton() ? 'pointer' : 'not-allowed',
+              backgroundColor: canShowNextButton() ? undefined : '#6c757d'
+            }}
           >
             {getNextStepButtonText()}
           </button>

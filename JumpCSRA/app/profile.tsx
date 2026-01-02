@@ -1840,7 +1840,7 @@ export default function Profile() {
   return (
     <>
       {/* Hide RouterNav on mobile */}
-      {!isMobile && <RouterNav hideIcons={true} hideMobileSidebar={true} />}
+      {!isMobile && <RouterNav hideIcons={true} hideMobileSidebar={true} userName={user?.displayName || undefined} isLoggedIn={!!user} />}
 
       {/* Mobile Profile Menu Toggle Button - Hide when sidebar is open */}
       {isMobile && !isProfileSidebarOpen && (
