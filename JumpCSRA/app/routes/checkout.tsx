@@ -1657,6 +1657,42 @@ export default function Checkout() {
     return endDate;
   };
 
+  // Calculate event start time from event date and delivery time
+  const calculateEventStart = (eventDate: Date, deliveryTime: string): Date => {
+    const eventStart = new Date(eventDate);
+    
+    // Parse delivery time (e.g., "8am", "12pm", "3pm")
+    const timeStr = deliveryTime.toLowerCase();
+    const hour = parseInt(timeStr);
+    const isPM = timeStr.includes('pm');
+    
+    // Convert to 24-hour format
+    let hour24 = hour;
+    if (isPM && hour !== 12) {
+      hour24 = hour + 12;
+    } else if (!isPM && hour === 12) {
+      hour24 = 0;
+    }
+    
+    eventStart.setHours(hour24, 0, 0, 0);
+    return eventStart;
+  };
+
+  // Calculate event end time from event start and duration
+  const calculateEventEnd = (eventStart: Date, duration: string): Date => {
+    const eventEnd = new Date(eventStart);
+    
+    if (duration === "24hours") {
+      eventEnd.setDate(eventStart.getDate() + 1);
+    } else if (duration === "48hours") {
+      eventEnd.setDate(eventStart.getDate() + 2);
+    } else { // 4hours
+      eventEnd.setHours(eventStart.getHours() + 4);
+    }
+    
+    return eventEnd;
+  };
+
   // Calculate available quantity for an item considering cart items and last-minute additions
   const getAvailableQuantityForItem = (itemName: string): number => {
     const availability = itemAvailability.get(itemName);
@@ -3116,6 +3152,7 @@ export default function Checkout() {
       let firstName = userData?.firstName || "";
       let lastName = userData?.lastName || "";
       let fullName = userData?.name || user.displayName || "";
+      let phone = userData?.phone || userData?.phoneNumber || "";
       
       // If we don't have firstName/lastName but have a full name, split it
       if (!firstName && !lastName && fullName) {
@@ -3133,6 +3170,17 @@ export default function Checkout() {
       const orderID = generateOrderID();
       const contractID = generateContractID();
 
+      // Calculate event start and end times
+      let eventStart: string | undefined;
+      let eventEnd: string | undefined;
+      
+      if (calendarDateRange[0] && cartSettings.deliveryTime && cartSettings.duration) {
+        const startTime = calculateEventStart(calendarDateRange[0], cartSettings.deliveryTime);
+        const endTime = calculateEventEnd(startTime, cartSettings.duration);
+        eventStart = startTime.toISOString();
+        eventEnd = endTime.toISOString();
+      }
+
       // Prepare booking data
       const bookingData: BookingData = {
         orderID,
@@ -3142,7 +3190,8 @@ export default function Checkout() {
           firstName,
           lastName,
           name: fullName,
-          email: user.email || ""
+          email: user.email || "",
+          phone: phone
         },
         orderDetails: {
           eventDate: `${calendarDateRange[0]?.toLocaleDateString()} - ${calendarDateRange[1]?.toLocaleDateString()}`,
@@ -3150,6 +3199,8 @@ export default function Checkout() {
           deliveryAddress: deliveryAddress,
           surface: cartSettings.surface,
           deliveryTime: cartSettings.deliveryTime,
+          ...(eventStart && { eventStart }),
+          ...(eventEnd && { eventEnd }),
           items: [
             ...cart.map(item => ({
               name: item.name,
