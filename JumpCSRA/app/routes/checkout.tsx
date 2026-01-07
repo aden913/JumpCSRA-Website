@@ -297,6 +297,7 @@ export default function Checkout() {
   // Availability tracking state
   const [itemAvailability, setItemAvailability] = useState<Map<string, ItemAvailability>>(new Map());
   const [loadingAvailability, setLoadingAvailability] = useState(false);
+  const [availableDurations, setAvailableDurations] = useState<Set<string>>(new Set(['4hours', '24hours', '48hours']));
   
   // Email state for promotional gift cards
   const [promotionalGiftCardEmail, setPromotionalGiftCardEmail] = useState<string>("");
@@ -1486,6 +1487,13 @@ export default function Checkout() {
     }
   }, [currentStep, partyEssentials.length]);
 
+  // Check available durations when selected date or cart changes
+  useEffect(() => {
+    if (calendarDateRange[0]) {
+      checkAvailableDurations(calendarDateRange[0]);
+    }
+  }, [calendarDateRange[0], cart]);
+
   // Current cart state debug removed
   // Validate and clean cart when dates change
   useEffect(() => {
@@ -1655,6 +1663,64 @@ export default function Checkout() {
       endDate.setHours(startDate.getHours() + 4);
     }
     return endDate;
+  };
+
+  // Check which durations are available for all items in the cart
+  const checkAvailableDurations = async (startDate: Date) => {
+    if (!startDate || cart.length === 0) {
+      setAvailableDurations(new Set(['4hours', '24hours', '48hours']));
+      return;
+    }
+
+    // Skip checking for gift cards and memberships only
+    const itemsToCheck = cart.filter(item => !item.isGiftCard && !item.isMembership);
+    if (itemsToCheck.length === 0) {
+      setAvailableDurations(new Set(['4hours', '24hours', '48hours']));
+      return;
+    }
+
+    try {
+      const inflateablesData = await loadInflateablesData();
+      const durations = ['4hours', '24hours', '48hours'];
+      const availableDurationsSet = new Set<string>();
+
+      // Check each duration
+      for (const duration of durations) {
+        const endDate = calculateEndDate(startDate, duration);
+        let allItemsAvailable = true;
+
+        // Check availability for each item in cart
+        for (const item of itemsToCheck) {
+          const inflateable = inflateablesData.find(inf => inf.name === item.name);
+          if (!inflateable) continue;
+
+          const totalQuantity = inflateable.quantity || 1;
+          const availability = await checkItemAvailability(
+            item.name,
+            totalQuantity,
+            startDate,
+            endDate,
+            pendingBookingId // Exclude current booking if editing
+          );
+
+          // Check if enough quantity is available for this item
+          if (availability.availableQuantity < (item.quantity || 1)) {
+            allItemsAvailable = false;
+            break;
+          }
+        }
+
+        if (allItemsAvailable) {
+          availableDurationsSet.add(duration);
+        }
+      }
+
+      setAvailableDurations(availableDurationsSet);
+    } catch (error) {
+      console.error('Error checking duration availability:', error);
+      // On error, allow all durations to avoid blocking user
+      setAvailableDurations(new Set(['4hours', '24hours', '48hours']));
+    }
   };
 
   // Calculate event start time from event date and delivery time
@@ -3498,9 +3564,7 @@ export default function Checkout() {
           }
         />
       <div className="checkout-container">
-      <h1 className="checkout-title">
-        Complete Your Order
-      </h1>
+     
 
       {/* Deferred Booking Special Handling */}
       {pendingBookingId && isDeferredBooking && (
@@ -4148,10 +4212,29 @@ export default function Checkout() {
                     }}
                   >
                     <option value="">Select duration</option>
-                    <option value="4hours">4 Hours (-10%)</option>
-                    <option value="24hours">24 Hours (Standard)</option>
-                    <option value="48hours">48 Hours (+50%)</option>
+                    <option value="4hours" disabled={!availableDurations.has('4hours')}>
+                      4 Hours (-10%){!availableDurations.has('4hours') ? ' - Unavailable' : ''}
+                    </option>
+                    <option value="24hours" disabled={!availableDurations.has('24hours')}>
+                      24 Hours (Standard){!availableDurations.has('24hours') ? ' - Unavailable' : ''}
+                    </option>
+                    <option value="48hours" disabled={!availableDurations.has('48hours')}>
+                      48 Hours (+50%){!availableDurations.has('48hours') ? ' - Unavailable' : ''}
+                    </option>
                   </select>
+                  {calendarDateRange[0] && !availableDurations.has(cartSettings.duration) && cartSettings.duration && (
+                    <div style={{
+                      backgroundColor: '#fff3cd',
+                      border: '1px solid #ffc107',
+                      borderRadius: '4px',
+                      padding: '0.5rem',
+                      fontSize: '0.85rem',
+                      color: '#856404',
+                      marginTop: '0.25rem'
+                    }}>
+                      ⚠️ Selected duration unavailable - items are booked during this timeframe. Please choose another duration.
+                    </div>
+                  )}
                 </label>
 
                 <label style={{
