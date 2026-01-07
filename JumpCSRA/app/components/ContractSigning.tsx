@@ -116,29 +116,15 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
     }
   }, [userProfile, customerInitials]);
 
-  // Focus first unsigned initial box when component mounts
+  // Scroll to top of page when component mounts
   useEffect(() => {
     // Small delay to ensure DOM is ready
     const timer = setTimeout(() => {
-      const firstUnsignedSection = contractSections.find(section => !section.isFinePrint && !section.isInitialed);
-      if (firstUnsignedSection) {
-        const firstInitialBox = document.querySelector(`[data-section-id="${firstUnsignedSection.id}"] .initial-box`);
-        if (firstInitialBox) {
-          firstInitialBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          setTimeout(() => (firstInitialBox as HTMLElement).focus(), 500);
-        }
-      } else if (contractSections.length > 0) {
-        // All sections are initialed, focus the signature input
-        const signatureInput = document.querySelector('.signature-input');
-        if (signatureInput) {
-          signatureInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          setTimeout(() => (signatureInput as HTMLElement).focus(), 500);
-        }
-      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }, 200);
     
     return () => clearTimeout(timer);
-  }, [contractSections]);
+  }, []);
 
   // Handle section initialing
   const handleSectionInitial = (sectionId: string) => {
@@ -215,6 +201,25 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
     setTypedSignature("");
   };
 
+  // Function to focus the next unsigned initial box
+  const focusNextUnsignedBox = () => {
+    const firstUnsignedSection = contractSections.find(section => !section.isFinePrint && !section.isInitialed);
+    if (firstUnsignedSection) {
+      const firstInitialBox = document.querySelector(`[data-section-id="${firstUnsignedSection.id}"] .initial-box`);
+      if (firstInitialBox) {
+        firstInitialBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => (firstInitialBox as HTMLElement).focus(), 500);
+      }
+    } else if (contractSections.length > 0) {
+      // All sections are initialed, focus the signature input
+      const signatureInput = document.querySelector('.signature-input');
+      if (signatureInput) {
+        signatureInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => (signatureInput as HTMLElement).focus(), 500);
+      }
+    }
+  };
+
   return (
     <>
       {/* Contract Header */}
@@ -222,6 +227,28 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
         <h1 className="contract-title">
           JUMP CSRA PARTY RENTAL AGREEMENT
         </h1>
+      </div>
+
+      {/* Quick Navigation Button */}
+      <div style={{ display: 'flex', justifyContent: 'center', margin: '1rem 0' }}>
+        <button
+          onClick={focusNextUnsignedBox}
+          style={{
+            backgroundColor: '#28a745',
+            color: 'white',
+            border: 'none',
+            padding: '0.75rem 1.5rem',
+            borderRadius: '4px',
+            fontSize: '1rem',
+            cursor: 'pointer',
+            fontWeight: '600',
+            transition: 'background-color 0.2s'
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#218838'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#28a745'}
+        >
+          {allSectionsInitialed() ? '📝 Sign Contract' : 'Start Signing'}
+        </button>
       </div>
 
       {/* Contract Details */}
