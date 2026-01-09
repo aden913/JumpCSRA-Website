@@ -7,7 +7,7 @@ export async function getUnavailableInflateables(
   endDate: Date, 
   excludeBookingId?: string
 ): Promise<Set<string>> {
-  // Checking availability for date range
+  console.log(`🔍 [LANDING PAGE AVAILABILITY] Checking availability for ${startDate.toISOString()} to ${endDate.toISOString()}`);
   
   // Convert to date-only strings to avoid timezone issues
   const selectedStartDay = startDate.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -25,7 +25,7 @@ export async function getUnavailableInflateables(
   
   if (snapshot.exists()) {
     const bookings = snapshot.val();
-    // Found bookings to check
+    console.log(`📋 [LANDING PAGE] Found ${Object.keys(bookings).length} total bookings to check`);
     
     Object.entries(bookings).forEach(([bookingId, booking]: [string, any]) => {
       // Skip membershipBookings node (handled separately)
@@ -46,22 +46,34 @@ export async function getUnavailableInflateables(
       
       // Checking booking
       
-      // Parse the eventDate string (format: "MM/DD/YYYY - MM/DD/YYYY")
-      const eventDateString = booking.orderDetails?.eventDate;
-      if (!eventDateString) {
-        // Booking missing eventDate
-        return;
-      }
+      // Use eventStart/eventEnd if available (new format), otherwise parse eventDate string
+      let bookingStart: Date;
+      let bookingEnd: Date;
       
-      // Extract start and end dates from the string
-      const dateRange = eventDateString.split(' - ');
-      if (dateRange.length !== 2) {
-        // Booking has invalid eventDate format
-        return;
+      if (booking.orderDetails?.eventStart && booking.orderDetails?.eventEnd) {
+        // New format with explicit start and end times
+        bookingStart = new Date(booking.orderDetails.eventStart);
+        bookingEnd = new Date(booking.orderDetails.eventEnd);
+        console.log(`  📅 Booking ${bookingId}: Using eventStart/eventEnd: ${bookingStart.toISOString()} to ${bookingEnd.toISOString()}`);
+      } else {
+        // Legacy format - parse the eventDate string (format: "MM/DD/YYYY - MM/DD/YYYY")
+        const eventDateString = booking.orderDetails?.eventDate;
+        if (!eventDateString) {
+          // Booking missing eventDate
+          return;
+        }
+        
+        // Extract start and end dates from the string
+        const dateRange = eventDateString.split(' - ');
+        if (dateRange.length !== 2) {
+          // Booking has invalid eventDate format
+          return;
+        }
+        
+        bookingStart = new Date(dateRange[0]);
+        bookingEnd = new Date(dateRange[1]);
+        console.log(`  📅 Booking ${bookingId}: Parsed from eventDate: ${bookingStart.toISOString()} to ${bookingEnd.toISOString()}`);
       }
-      
-      const bookingStart = new Date(dateRange[0]);
-      const bookingEnd = new Date(dateRange[1]);
       
       // Check if dates are valid
       if (isNaN(bookingStart.getTime()) || isNaN(bookingEnd.getTime())) {
@@ -69,29 +81,33 @@ export async function getUnavailableInflateables(
         return;
       }
       
-      // Convert booking dates to date-only strings
-      const bookingStartDay = bookingStart.toISOString().split('T')[0];
-      const bookingEndDay = bookingEnd.toISOString().split('T')[0];
+      // Normalize dates to day-only for comparison (remove time component)
+      const bookingStartDay = new Date(bookingStart.getFullYear(), bookingStart.getMonth(), bookingStart.getDate());
+      const bookingEndDay = new Date(bookingEnd.getFullYear(), bookingEnd.getMonth(), bookingEnd.getDate());
+      const selectedStartDay = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+      const selectedEndDay = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
       
-      // Check for day overlap (if any day overlaps, consider it unavailable)
+      // Check for day overlap
       const hasOverlap = (bookingStartDay <= selectedEndDay && bookingEndDay >= selectedStartDay);
       
-      // Booking dates overlap check
+      console.log(`  🔍 Overlap check: [${bookingStartDay.toDateString()} to ${bookingEndDay.toDateString()}] vs [${selectedStartDay.toDateString()} to ${selectedEndDay.toDateString()}] = ${hasOverlap}`);
       
       if (hasOverlap) {
         // Get items from the booking and mark them as unavailable
         const items = booking.orderDetails?.items || [];
-        // Booking has items
+        console.log(`  ⚠️ OVERLAP FOUND: Booking ${bookingId} has ${items.length} items`);
         
         items.forEach((item: any) => {
           if (item.name && !item.name.toLowerCase().includes('gift card') && !item.name.toLowerCase().includes('membership')) {
-            // Marking as unavailable
+            console.log(`    ❌ Marking "${item.name}" as unavailable`);
             unavailable.add(item.name);
           }
         });
       }
     });
   }
+  
+  console.log(`✅ [LANDING PAGE] Total unavailable items: ${unavailable.size}`, Array.from(unavailable));
   
   // Check membership bookings (keeping existing logic for this part)
   const membershipBookingsRef = ref(db, "bookings/membershipBookings");

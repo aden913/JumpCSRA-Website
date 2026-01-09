@@ -1658,12 +1658,16 @@ export default function Checkout() {
   // Calculate end date based on duration (similar to CartSidebar)
   const calculateEndDate = (startDate: Date, duration: string): Date => {
     const endDate = new Date(startDate);
+    console.log(`🔍 [CALC END DATE] startDate: ${startDate.toISOString()}, duration: "${duration}"`);
     if (duration === "24hours") {
       endDate.setDate(startDate.getDate() + 1);
+      console.log(`  ✅ Added 1 day, endDate: ${endDate.toISOString()}`);
     } else if (duration === "48hours") {
       endDate.setDate(startDate.getDate() + 2);
+      console.log(`  ✅ Added 2 days, endDate: ${endDate.toISOString()}`);
     } else { // 4hours
       endDate.setHours(startDate.getHours() + 4);
+      console.log(`  ✅ Added 4 hours, endDate: ${endDate.toISOString()}`);
     }
     return endDate;
   };

@@ -52,8 +52,12 @@ export async function checkItemAvailability(
       loadLegacyBookings()
     ]);
     
+    console.log(`📋 [AVAILABILITY] Loaded ${regularBookings.length} regular bookings, ${membershipBookings.length} membership bookings, ${legacyBookings.length} legacy bookings`);
+    
     let bookedQuantity = 0;
     const conflictingBookings: ItemAvailability['conflictingBookings'] = [];
+    
+    console.log(`🔍 [AVAILABILITY] Checking ${itemName} for ${startDate.toISOString()} to ${endDate.toISOString()}`);
     
     // Check regular bookings (only count confirmed and deposited bookings)
     regularBookings.forEach(booking => {
@@ -62,17 +66,29 @@ export async function checkItemAvailability(
         return;
       }
       
-      const bookingStart = new Date(booking.orderDetails?.eventDate || booking.createdAt);
-      const bookingEnd = new Date(bookingStart);
+      // Use eventStart/eventEnd if available (new format), otherwise calculate from eventDate and duration
+      let bookingStart: Date;
+      let bookingEnd: Date;
       
-      // Add duration if specified (default to 1 day)
-      const duration = parseDuration(booking.orderDetails?.duration);
-      bookingEnd.setDate(bookingEnd.getDate() + duration);
+      if (booking.orderDetails?.eventStart && booking.orderDetails?.eventEnd) {
+        // New format with explicit start and end times
+        bookingStart = new Date(booking.orderDetails.eventStart);
+        bookingEnd = new Date(booking.orderDetails.eventEnd);
+        console.log(`  📅 Booking ${booking.bookingId}: Using eventStart/eventEnd: ${bookingStart.toISOString()} to ${bookingEnd.toISOString()}`);
+      } else {
+        // Legacy format - calculate from eventDate and duration
+        bookingStart = new Date(booking.orderDetails?.eventDate || booking.createdAt);
+        bookingEnd = new Date(bookingStart);
+        const duration = parseDuration(booking.orderDetails?.duration);
+        bookingEnd.setDate(bookingEnd.getDate() + duration);
+        console.log(`  📅 Booking ${booking.bookingId}: Calculated from duration: ${bookingStart.toISOString()} to ${bookingEnd.toISOString()}`);
+      }
       
       // Check for date overlap
       if (datesOverlap(startDate, endDate, bookingStart, bookingEnd)) {
         const itemQuantity = getBookedItemQuantity(booking.orderDetails?.items || [], itemName);
         if (itemQuantity > 0) {
+          console.log(`  ⚠️ CONFLICT: Booking ${booking.bookingId} has ${itemQuantity} of ${itemName}`);
           bookedQuantity += itemQuantity;
           conflictingBookings?.push({
             type: 'regular',
@@ -116,12 +132,21 @@ export async function checkItemAvailability(
     legacyBookings.forEach(booking => {
       if (booking.status === 'cancelled' || booking.bookingId === excludeBookingId) return;
       
-      const bookingStart = new Date(booking.orderDetails?.eventDate || booking.contractDate);
-      const bookingEnd = new Date(bookingStart);
+      // Use eventStart/eventEnd if available (new format), otherwise calculate from eventDate and duration
+      let bookingStart: Date;
+      let bookingEnd: Date;
       
-      // Add duration if specified (default to 1 day)
-      const duration = parseDuration(booking.orderDetails?.duration);
-      bookingEnd.setDate(bookingEnd.getDate() + duration);
+      if (booking.orderDetails?.eventStart && booking.orderDetails?.eventEnd) {
+        // New format with explicit start and end times
+        bookingStart = new Date(booking.orderDetails.eventStart);
+        bookingEnd = new Date(booking.orderDetails.eventEnd);
+      } else {
+        // Legacy format - calculate from eventDate and duration
+        bookingStart = new Date(booking.orderDetails?.eventDate || booking.contractDate);
+        bookingEnd = new Date(bookingStart);
+        const duration = parseDuration(booking.orderDetails?.duration);
+        bookingEnd.setDate(bookingEnd.getDate() + duration);
+      }
       
       // Check for date overlap
       if (datesOverlap(startDate, endDate, bookingStart, bookingEnd)) {
@@ -137,6 +162,8 @@ export async function checkItemAvailability(
         }
       }
     });
+    
+    console.log(`✅ [AVAILABILITY] ${itemName}: Total=${totalQuantity}, Booked=${bookedQuantity}, Available=${totalQuantity - bookedQuantity}`);
     
     const availableQuantity = Math.max(0, totalQuantity - bookedQuantity);
     
@@ -311,21 +338,34 @@ export async function getAvailableMembershipInflateables(
         
         // Checking regular booking
         
-        // Parse event date - handle date range format "MM/DD/YYYY - MM/DD/YYYY"
-        let eventDateStr = booking.orderDetails?.eventDate || booking.createdAt;
-        if (eventDateStr && typeof eventDateStr === 'string' && eventDateStr.includes(' - ')) {
-          // Extract start date from range format
-          eventDateStr = eventDateStr.split(' - ')[0].trim();
+        // Use eventStart/eventEnd if available (new format), otherwise calculate from eventDate and duration
+        let bookingStart: Date;
+        let bookingEnd: Date;
+        
+        if (booking.orderDetails?.eventStart && booking.orderDetails?.eventEnd) {
+          // New format with explicit start and end times
+          bookingStart = new Date(booking.orderDetails.eventStart);
+          bookingEnd = new Date(booking.orderDetails.eventEnd);
+        } else {
+          // Legacy format - parse event date (handle date range format "MM/DD/YYYY - MM/DD/YYYY")
+          let eventDateStr = booking.orderDetails?.eventDate || booking.createdAt;
+          if (eventDateStr && typeof eventDateStr === 'string' && eventDateStr.includes(' - ')) {
+            // Extract start date from range format
+            eventDateStr = eventDateStr.split(' - ')[0].trim();
+          }
+          
+          bookingStart = new Date(eventDateStr);
+          bookingEnd = new Date(bookingStart);
+          
+          // Add duration if specified (default to 1 day)
+          const duration = parseDuration(booking.orderDetails?.duration);
+          bookingEnd.setDate(bookingEnd.getDate() + duration);
         }
         
-        const bookingStart = new Date(eventDateStr);
-        const bookingEnd = new Date(bookingStart);
-        
         // Failed to parse regular booking date
-        
-        // Add duration if specified (default to 1 day)
-        const duration = parseDuration(booking.orderDetails?.duration);
-        bookingEnd.setDate(bookingEnd.getDate() + duration);
+        if (isNaN(bookingStart.getTime())) {
+          return false; // Skip invalid dates
+        }
         
         // Check if delivery date falls within the regular booking period
         const deliveryFallsInBooking = nextDeliveryDate >= bookingStart && nextDeliveryDate <= bookingEnd;
@@ -348,24 +388,34 @@ export async function getAvailableMembershipInflateables(
         // Only exclude cancelled bookings - all confirmed bookings use shared inventory
         if (booking.status === 'cancelled') return false;
         
-        // Parse event date - handle date range format "MM/DD/YYYY - MM/DD/YYYY"
-        let eventDateStr = booking.orderDetails?.eventDate || booking.contractDate;
-        if (eventDateStr && typeof eventDateStr === 'string' && eventDateStr.includes(' - ')) {
-          // Extract start date from range format
-          eventDateStr = eventDateStr.split(' - ')[0].trim();
-        }
+        // Use eventStart/eventEnd if available (new format), otherwise calculate from eventDate and duration
+        let bookingStart: Date;
+        let bookingEnd: Date;
         
-        const bookingStart = new Date(eventDateStr);
-        const bookingEnd = new Date(bookingStart);
+        if (booking.orderDetails?.eventStart && booking.orderDetails?.eventEnd) {
+          // New format with explicit start and end times
+          bookingStart = new Date(booking.orderDetails.eventStart);
+          bookingEnd = new Date(booking.orderDetails.eventEnd);
+        } else {
+          // Legacy format - parse event date (handle date range format "MM/DD/YYYY - MM/DD/YYYY")
+          let eventDateStr = booking.orderDetails?.eventDate || booking.contractDate;
+          if (eventDateStr && typeof eventDateStr === 'string' && eventDateStr.includes(' - ')) {
+            // Extract start date from range format
+            eventDateStr = eventDateStr.split(' - ')[0].trim();
+          }
+          
+          bookingStart = new Date(eventDateStr);
+          bookingEnd = new Date(bookingStart);
+          
+          // Add duration if specified (default to 1 day)
+          const duration = parseDuration(booking.orderDetails?.duration);
+          bookingEnd.setDate(bookingEnd.getDate() + duration);
+        }
         
         // Failed to parse legacy booking date
         if (isNaN(bookingStart.getTime())) {
           return false; // Skip invalid dates
         }
-        
-        // Add duration if specified (default to 1 day)
-        const duration = parseDuration(booking.orderDetails?.duration);
-        bookingEnd.setDate(bookingEnd.getDate() + duration);
         
         // Check if delivery date falls within the legacy booking period
         const deliveryFallsInBooking = nextDeliveryDate >= bookingStart && nextDeliveryDate <= bookingEnd;
@@ -597,7 +647,17 @@ function datesOverlap(
   start2: Date, 
   end2: Date
 ): boolean {
-  return start1 <= end2 && start2 <= end1;
+  // Normalize dates to start of day for proper date-only comparison
+  const s1 = new Date(start1.getFullYear(), start1.getMonth(), start1.getDate());
+  const e1 = new Date(end1.getFullYear(), end1.getMonth(), end1.getDate());
+  const s2 = new Date(start2.getFullYear(), start2.getMonth(), start2.getDate());
+  const e2 = new Date(end2.getFullYear(), end2.getMonth(), end2.getDate());
+  
+  const overlaps = s1 <= e2 && s2 <= e1;
+  
+  console.log(`    🔍 Overlap check: [${s1.toDateString()} to ${e1.toDateString()}] vs [${s2.toDateString()} to ${e2.toDateString()}] = ${overlaps}`);
+  
+  return overlaps;
 }
 
 function getBookedItemQuantity(items: any[], itemName: string): number {
