@@ -572,10 +572,11 @@ export default function Checkout() {
         case 'cart-delivery':
           // Must have items in cart
           if (cart.length === 0) return false;
-          // If has inflateables, must have delivery address, location, all event settings, AND calculated delivery
+          // If has inflateables, must have delivery address, location, all event settings, calculated delivery, AND address confirmed
           if (hasInflateables) {
             return deliveryAddress.trim().length > 0 && 
                    deliveryCost >= 0 &&
+                   addressConfirmed && // Require address confirmation
                    cartSettings.location.trim().length > 0 &&
                    cartSettings.duration && 
                    cartSettings.surface && 
