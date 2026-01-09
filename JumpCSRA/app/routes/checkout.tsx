@@ -530,6 +530,7 @@ export default function Checkout() {
         if (hasInflateables) {
           return deliveryAddress.trim().length > 0 && 
                  deliveryCost >= 0 && 
+                 !calculatingDistance && // Block progression while calculating
                  addressConfirmed && // Require address confirmation
                  cartSettings.location.trim().length > 0 &&
                  cartSettings.duration && 
@@ -576,6 +577,7 @@ export default function Checkout() {
           if (hasInflateables) {
             return deliveryAddress.trim().length > 0 && 
                    deliveryCost >= 0 &&
+                   !calculatingDistance && // Block button while calculating
                    addressConfirmed && // Require address confirmation
                    cartSettings.location.trim().length > 0 &&
                    cartSettings.duration && 
