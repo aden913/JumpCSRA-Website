@@ -74,13 +74,30 @@ export async function checkItemAvailability(
         // New format with explicit start and end times
         bookingStart = new Date(booking.orderDetails.eventStart);
         bookingEnd = new Date(booking.orderDetails.eventEnd);
-        console.log(`  📅 Booking ${booking.bookingId}: Using eventStart/eventEnd: ${bookingStart.toISOString()} to ${bookingEnd.toISOString()}`);
+        
+        // Validate dates
+        if (isNaN(bookingStart.getTime()) || isNaN(bookingEnd.getTime())) {
+          console.warn(`  ⚠️ Invalid eventStart/eventEnd for booking ${booking.bookingId}, falling back to eventDate`);
+          bookingStart = new Date(booking.orderDetails?.eventDate || booking.createdAt);
+          bookingEnd = new Date(bookingStart);
+          const duration = parseDuration(booking.orderDetails?.duration);
+          bookingEnd.setDate(bookingEnd.getDate() + duration);
+        } else {
+          console.log(`  📅 Booking ${booking.bookingId}: Using eventStart/eventEnd: ${bookingStart.toISOString()} to ${bookingEnd.toISOString()}`);
+        }
       } else {
         // Legacy format - calculate from eventDate and duration
         bookingStart = new Date(booking.orderDetails?.eventDate || booking.createdAt);
         bookingEnd = new Date(bookingStart);
         const duration = parseDuration(booking.orderDetails?.duration);
         bookingEnd.setDate(bookingEnd.getDate() + duration);
+        
+        // Validate dates
+        if (isNaN(bookingStart.getTime()) || isNaN(bookingEnd.getTime())) {
+          console.warn(`  ⚠️ Invalid dates calculated from eventDate for booking ${booking.bookingId}, skipping`);
+          return;
+        }
+        
         console.log(`  📅 Booking ${booking.bookingId}: Calculated from duration: ${bookingStart.toISOString()} to ${bookingEnd.toISOString()}`);
       }
       
@@ -113,6 +130,12 @@ export async function checkItemAvailability(
       const bookingEnd = new Date(deliveryDate);
       bookingEnd.setDate(bookingEnd.getDate() + 1); // Membership bookings are typically 1 day
       
+      // Validate dates
+      if (isNaN(bookingStart.getTime()) || isNaN(bookingEnd.getTime())) {
+        console.warn(`  ⚠️ Invalid dates for membership booking ${booking.bookingId}, skipping`);
+        return;
+      }
+      
       // Check for date overlap
       if (datesOverlap(startDate, endDate, bookingStart, bookingEnd)) {
         // Check if this membership booking uses the requested item
@@ -140,12 +163,32 @@ export async function checkItemAvailability(
         // New format with explicit start and end times
         bookingStart = new Date(booking.orderDetails.eventStart);
         bookingEnd = new Date(booking.orderDetails.eventEnd);
+        
+        // Validate dates
+        if (isNaN(bookingStart.getTime()) || isNaN(bookingEnd.getTime())) {
+          console.warn(`  ⚠️ Invalid eventStart/eventEnd for legacy booking ${booking.bookingId}, falling back to eventDate`);
+          bookingStart = new Date(booking.orderDetails?.eventDate || booking.eventDate || booking.createdAt);
+          bookingEnd = new Date(bookingStart);
+          const duration = parseDuration(booking.orderDetails?.duration || booking.duration);
+          bookingEnd.setDate(bookingEnd.getDate() + duration);
+          
+          if (isNaN(bookingStart.getTime()) || isNaN(bookingEnd.getTime())) {
+            console.warn(`  ⚠️ Still invalid dates for legacy booking ${booking.bookingId}, skipping`);
+            return;
+          }
+        }
       } else {
         // Legacy format - calculate from eventDate and duration
         bookingStart = new Date(booking.orderDetails?.eventDate || booking.contractDate);
         bookingEnd = new Date(bookingStart);
         const duration = parseDuration(booking.orderDetails?.duration);
         bookingEnd.setDate(bookingEnd.getDate() + duration);
+        
+        // Validate dates
+        if (isNaN(bookingStart.getTime()) || isNaN(bookingEnd.getTime())) {
+          console.warn(`  ⚠️ Invalid dates calculated from legacy eventDate for booking ${booking.bookingId}, skipping`);
+          return;
+        }
       }
       
       // Check for date overlap

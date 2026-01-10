@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useRef, useEffect, useState } from 'react';
 import { loadGoogleMapsAPI, isGoogleMapsLoaded } from '../utils/googleMapsLoader';
 
@@ -12,23 +14,50 @@ interface GooglePlacesAutocompleteProps {
   inputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
+/**
+ * Extract ZIP (postal_code) from Google Places result
+ */
+function getPostalCode(place: google.maps.places.PlaceResult): string | null {
+  if (!place.address_components) return null;
+
+  const postal = place.address_components.find(component =>
+    component.types.includes('postal_code')
+  );
+
+  return postal?.long_name ?? null;
+}
+
 export function GooglePlacesAutocomplete({
   value,
   onChange,
   onPlaceSelected,
   disabled = false,
   style = {},
-  placeholder = "Enter an address",
+  placeholder = 'Enter an address',
   name,
   inputRef: externalInputRef
 }: GooglePlacesAutocompleteProps) {
   const internalInputRef = useRef<HTMLInputElement>(null);
-  const inputRef = externalInputRef || internalInputRef;
+  const inputRef = externalInputRef ?? internalInputRef;
+
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSelectingPlace, setIsSelectingPlace] = useState(false);
+  const [localValue, setLocalValue] = useState(value);
 
-  // Load Google Maps API
+  /**
+   * Sync controlled value → local value
+   */
+  useEffect(() => {
+    if (!isSelectingPlace && value !== localValue) {
+      setLocalValue(value);
+    }
+  }, [value, isSelectingPlace, localValue]);
+
+  /**
+   * Load Google Maps API
+   */
   useEffect(() => {
     if (isGoogleMapsLoaded()) {
       setIsLoaded(true);
@@ -36,79 +65,74 @@ export function GooglePlacesAutocomplete({
     }
 
     loadGoogleMapsAPI()
-      .then(() => {
-        setIsLoaded(true);
-      })
-      .catch((error) => {
-        // Failed to load Google Maps API
-      });
+      .then(() => setIsLoaded(true))
+      .catch(() => {});
   }, []);
 
-  // Initialize autocomplete
+  /**
+   * Initialize Places Autocomplete
+   */
   useEffect(() => {
     if (!isLoaded || !inputRef.current || autocompleteRef.current) return;
 
-    // Double-check that Google Places Autocomplete is available
-    if (!window.google?.maps?.places?.Autocomplete) {
-      setTimeout(() => {
-        // Trigger re-check by toggling isLoaded state
-        setIsLoaded(false);
-        setTimeout(() => setIsLoaded(true), 100);
-      }, 200);
-      return;
-    }
+    if (!window.google?.maps?.places?.Autocomplete) return;
 
-    try {
-      autocompleteRef.current = new google.maps.places.Autocomplete(inputRef.current, {
+    autocompleteRef.current = new google.maps.places.Autocomplete(
+      inputRef.current,
+      {
         types: ['address'],
-        componentRestrictions: { country: 'us' }, // Restrict to US addresses
-      });
+        componentRestrictions: { country: 'us' },
+        fields: [
+          'formatted_address',
+          'address_components',
+          'geometry',
+          'place_id'
+        ]
+      }
+    );
 
-      const autocomplete = autocompleteRef.current;
+    const autocomplete = autocompleteRef.current;
 
-      // Listen for place selection
-      autocomplete.addListener('place_changed', () => {
-        const place = autocomplete.getPlace();
-        
-        // Validate that we have a proper place with formatted address and geometry
-        if (place.formatted_address && place.geometry?.location) {
-          setIsSelectingPlace(true);
-          
-          // Use Google's exact formatted address
-          const validatedAddress = place.formatted_address;
-          
-          // Call onPlaceSelected first to mark as valid Google selection
-          if (onPlaceSelected) {
-            onPlaceSelected(place);
-          }
-          
-          // Call onChange to update the parent state immediately
-          // This ensures the input field gets the correct value from the parent
-          if (onChange) {
-            onChange(validatedAddress);
-          }
-          
-          // Ensure the input field shows the validated address
-          // This is a backup in case the parent state update is delayed
-          setTimeout(() => {
-            if (inputRef.current && inputRef.current.value !== validatedAddress) {
-              inputRef.current.value = validatedAddress;
-            }
-          }, 10);
-          
-          // Reset flag after a short delay
-          setTimeout(() => setIsSelectingPlace(false), 100);
-        } else {
-          // Invalid place selection - clear the field or show error
-          if (inputRef.current) {
-            inputRef.current.value = '';
-          }
-          onChange('');
-        }
-      });
-    } catch (error) {
-      console.error('Error initializing Google Places Autocomplete:', error);
-    }
+    autocomplete.addListener('place_changed', () => {
+      const place = autocomplete.getPlace();
+
+      if (!place.formatted_address || !place.geometry?.location) {
+        onChange('');
+        return;
+      }
+
+      setIsSelectingPlace(true);
+
+      const zip = getPostalCode(place);
+
+      let finalAddress = place.formatted_address;
+
+      // Google often omits ZIP from formatted_address — append it
+      if (zip && !finalAddress.includes(zip)) {
+        finalAddress = `${finalAddress}, ${zip}`;
+      }
+
+      // Update immediately
+      setLocalValue(finalAddress);
+
+      if (inputRef.current) {
+        inputRef.current.value = finalAddress;
+      }
+
+      onChange(finalAddress);
+      onPlaceSelected?.(place);
+
+console.table(
+  place.address_components?.map(c => ({
+    types: c.types.join(", "),
+    value: c.long_name
+  }))
+);
+
+
+      // Allow normal typing again
+      setTimeout(() => setIsSelectingPlace(false), 100);
+    });
 
     return () => {
       if (autocompleteRef.current) {
@@ -117,37 +141,33 @@ export function GooglePlacesAutocomplete({
     };
   }, [isLoaded, onChange, onPlaceSelected]);
 
+  /**
+   * Handle manual typing
+   */
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isSelectingPlace) return;
+
     const typedValue = e.target.value;
-    
-    // Don't trigger onChange if we're currently selecting a place from Google Places
-    if (isSelectingPlace) {
-      return;
-    }
-    
-    // Call onChange to update the parent component's state
-    // The parent component will handle validation logic
-    if (onChange) {
-      onChange(typedValue);
-    }
+    setLocalValue(typedValue);
+    onChange(typedValue);
   };
 
   return (
     <input
       ref={inputRef}
       name={name}
-      value={value}
+      value={localValue}
       onChange={handleInputChange}
       disabled={disabled}
+      placeholder={placeholder}
+      autoComplete="off"
       style={{
         minWidth: '200px',
-        width: `${Math.max(200, (value.length * 8) + 40)}px`,
+        width: `${Math.max(200, localValue.length * 8 + 40)}px`,
         maxWidth: '100%',
         transition: 'width 0.2s ease',
         ...style
       }}
-      placeholder={placeholder}
-      autoComplete="off"
     />
   );
 }

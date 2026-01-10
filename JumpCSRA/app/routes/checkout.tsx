@@ -1061,39 +1061,34 @@ export default function Checkout() {
   };
 
   // Handle Google Places address selection
+  // Handle Google Places address selection
+  // NOTE: The address is actually set via onChange callback from GooglePlacesAutocomplete component
+  // This function just tracks that it was a valid Google selection and triggers calculation
   const handlePlaceSelected = (place: google.maps.places.PlaceResult) => {
     console.log('🔍 [PLACE SELECTED] handlePlaceSelected called');
     console.log('  - place.formatted_address:', place.formatted_address);
+    console.log('  - place.address_components:', place.address_components);
+    
     // Only accept valid places with formatted address and location
     if (place.formatted_address && place.geometry?.location && place.place_id) {
-      const googleAddress = place.formatted_address;
-      console.log('🔍 [PLACE SELECTED] googleAddress:', googleAddress);
-      console.log('🔍 [PLACE SELECTED] googleAddress LENGTH:', googleAddress.length);
-      
-      // Debug log removed
-      // Debug log removed
-      // Debug log removed
-      // Debug log removed
-      // Debug log removed
-      
       // Set flag to prevent manual input from overriding this selection
       setIsSelectingGooglePlace(true);
       
-      // Add this address to our set of valid Google Places addresses
-      setGooglePlacesAddresses(prev => new Set(prev).add(googleAddress));
+      // The address will be set by onChange callback from GooglePlacesAutocomplete
+      // which has already validated and constructed the address with zip code
       
-      // Update delivery address with the Google address
-      console.log('🔍 [PLACE SELECTED] About to setDeliveryAddress:', googleAddress);
-      setDeliveryAddress(googleAddress);
-      
-      // Clear the flag after a short delay
+      // We'll trigger the distance calculation after the state updates
+      // Use a short timeout to ensure deliveryAddress state is updated first
       setTimeout(() => {
         setIsSelectingGooglePlace(false);
-      }, 100);
-      
-      // Automatically calculate distance when a place is selected
-      console.log('🔍 [PLACE SELECTED] About to calculateDeliveryDistance:', googleAddress);
-      calculateDeliveryDistance(googleAddress);
+        
+        // At this point, deliveryAddress should be set by onChange
+        // Trigger calculation with the current state
+        if (deliveryAddress) {
+          console.log('🔍 [PLACE SELECTED] Triggering calculateDeliveryDistance with:', deliveryAddress);
+          calculateDeliveryDistance(deliveryAddress);
+        }
+      }, 150); // Longer delay to ensure onChange has updated deliveryAddress
     }
   };
 
@@ -1103,13 +1098,6 @@ export default function Checkout() {
     console.log('  - New value:', value);
     console.log('  - New value length:', value.length);
     console.log('  - Current deliveryAddress state:', deliveryAddress);
-    console.log('  - isSelectingGooglePlace:', isSelectingGooglePlace);
-    
-    // Don't override if we're currently selecting a Google Place
-    if (isSelectingGooglePlace) {
-      console.log('  - BLOCKED: Currently selecting Google Place');
-      return;
-    }
     
     // Clear the failed addresses set when user changes the address
     // This allows them to retry calculation with a corrected address
@@ -4052,6 +4040,9 @@ export default function Checkout() {
                   if (inputValue) {
                     // Sync the state with the full address from the input
                     setDeliveryAddress(inputValue);
+                    // IMPORTANT: Save to localStorage immediately when user confirms
+                    localStorage.setItem('deliveryAddress', inputValue);
+                    console.log('🔍 [CALCULATE BUTTON] Saved to localStorage:', inputValue);
                     console.log('🔍 [CALCULATE BUTTON] Calling calculateDeliveryDistance with:', inputValue);
                     calculateDeliveryDistance(inputValue);
                     // Set address as confirmed when user clicks this button
