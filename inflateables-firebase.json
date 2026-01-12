@@ -1,4 +1,4 @@
-{
+﻿{
   "Adventure Island": {
     "name": "Adventure Island",
     "img": "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/adventure-island.webp",
@@ -19,7 +19,12 @@
     "dry": true,
     "category": "bounce-house",
     "quantity": 1,
-    "membership": false
+    "membership": false,
+    "blower": "1.5",
+    "anchor": 6,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Castle Tower": {
     "name": "Castle Tower",
@@ -44,7 +49,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Castle Tower/castle-tower-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Castle Tower/castle-tower-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Castle Tower/castle-tower-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 5,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Color Blast Castle": {
     "name": "Color Blast Castle",
@@ -69,7 +79,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Color Blast Castle/color-blast-castle-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Color Blast Castle/color-blast-castle-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Color Blast Castle/color-blast-castle-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 4,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Cotton Candy Castle": {
     "name": "Cotton Candy Castle",
@@ -94,7 +109,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Cotton Candy Castle/cotton-candy-castle-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Cotton Candy Castle/cotton-candy-castle-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Cotton Candy Castle/cotton-candy-castle-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 4,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Custom Theme Party": {
     "name": "Custom Theme Party",
@@ -119,7 +139,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Custom Theme Party/custom-theme-party-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Custom Theme Party/custom-theme-party-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Custom Theme Party/custom-theme-party-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 4,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Fun Factory": {
     "name": "Fun Factory",
@@ -144,7 +169,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Fun Factory/fun-factory-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Fun Factory/fun-factory-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Fun Factory/fun-factory-8.webp"
-    ]
+    ],
+    "blower": "1.0",
+    "anchor": 4,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Princess Castle": {
     "name": "Princess Castle",
@@ -169,7 +199,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Princess Castle/princess-castle-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Princess Castle/princess-castle-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Princess Castle/princess-castle-8.webp"
-    ]
+    ],
+    "blower": "1.0",
+    "anchor": 4,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Princess Palace": {
     "name": "Princess Palace",
@@ -194,7 +229,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Princess Palace/princess-palace-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Princess Palace/princess-palace-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Princess Palace/princess-palace-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 6,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Sports Court": {
     "name": "Sports Court",
@@ -219,7 +259,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Sports Court/sports-court-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Sports Court/sports-court-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Sports Court/sports-court-8.webp"
-    ]
+    ],
+    "blower": "1.0",
+    "anchor": 4,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Tunnel Tower": {
     "name": "Tunnel Tower",
@@ -244,7 +289,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tunnel Tower/tunnel-tower-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tunnel Tower/tunnel-tower-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tunnel Tower/tunnel-tower-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 4,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Twinkle Tower": {
     "name": "Twinkle Tower",
@@ -269,7 +319,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Twinkle Tower/twinkle-tower-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Twinkle Tower/twinkle-tower-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Twinkle Tower/twinkle-tower-8.webp"
-    ]
+    ],
+    "blower": "1.0",
+    "anchor": 4,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Wrecking Ball": {
     "name": "Wrecking Ball",
@@ -294,7 +349,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Wrecking Ball/wrecking-ball-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Wrecking Ball/wrecking-ball-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Wrecking Ball/wrecking-ball-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 5,
+    "additionalItems": "4 Wrecking Balls",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Axe Throwing": {
     "name": "Axe Throwing",
@@ -319,7 +379,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Axe Throwing/axe-throwing-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Axe Throwing/axe-throwing-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Axe Throwing/axe-throwing-8.webp"
-    ]
+    ],
+    "blower": "",
+    "anchor": "",
+    "additionalItems": "",
+    "setupTime": 10,
+    "breakdownTime": 10
   },
   "Beer Pong": {
     "name": "Beer Pong",
@@ -344,7 +409,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Beer Pong/beer-pong-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Beer Pong/beer-pong-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Beer Pong/beer-pong-8.webp"
-    ]
+    ],
+    "blower": "",
+    "anchor": "",
+    "additionalItems": "",
+    "setupTime": 10,
+    "breakdownTime": 10
   },
   "Corn Hole": {
     "name": "Corn Hole",
@@ -369,7 +439,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Corn Hole/corn-hole-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Corn Hole/corn-hole-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Corn Hole/corn-hole-8.webp"
-    ]
+    ],
+    "blower": "",
+    "anchor": "",
+    "additionalItems": "",
+    "setupTime": 10,
+    "breakdownTime": 10
   },
   "Double Jump Shot": {
     "name": "Double Jump Shot",
@@ -394,7 +469,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Double Jump Shot/double-jump-shot-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Double Jump Shot/double-jump-shot-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Double Jump Shot/double-jump-shot-8.webp"
-    ]
+    ],
+    "blower": "1.0",
+    "anchor": 4,
+    "additionalItems": "",
+    "setupTime": 15,
+    "breakdownTime": 15
   },
   "Dunk Tank": {
     "name": "Dunk Tank",
@@ -419,7 +499,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Dunk Tank/dunk-tank-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Dunk Tank/dunk-tank-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Dunk Tank/dunk-tank-8.webp"
-    ]
+    ],
+    "blower": "",
+    "anchor": "",
+    "additionalItems": "Banner, 3 softballs, Swing arm",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Gladiator Joust": {
     "name": "Gladiator Joust",
@@ -444,7 +529,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Gladiator Joust/gladiator-joust-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Gladiator Joust/gladiator-joust-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Gladiator Joust/gladiator-joust-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 4,
+    "additionalItems": "Pedastals",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Home Run Challenge": {
     "name": "Home Run Challenge",
@@ -469,7 +559,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Home Run Challenge/home-run-challenge-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Home Run Challenge/home-run-challenge-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Home Run Challenge/home-run-challenge-8.webp"
-    ]
+    ],
+    "blower": "1.0",
+    "anchor": 4,
+    "additionalItems": "",
+    "setupTime": 15,
+    "breakdownTime": 15
   },
   "Inflatable Dancer": {
     "name": "Inflatable Dancer",
@@ -487,8 +582,12 @@
     "membership": false,
     "detailImages": [
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Inflatable Dancer/inflatable-dancer-1.webp"
-      
-    ]
+    ],
+    "blower": "",
+    "anchor": "",
+    "additionalItems": "",
+    "setupTime": 10,
+    "breakdownTime": 10
   },
   "Chair Metal Black": {
     "name": "Chair Metal Black",
@@ -506,7 +605,12 @@
     "membership": false,
     "detailImages": [
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Chair Metal Black/chair-metal-black-1.webp"
-    ]
+    ],
+    "blower": "",
+    "anchor": "",
+    "additionalItems": "",
+    "setupTime": 10,
+    "breakdownTime": 10
   },
   "Chair Plastic White": {
     "name": "Chair Plastic White",
@@ -524,7 +628,12 @@
     "membership": false,
     "detailImages": [
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Chair Plastic White/chair-plastic-white-1.webp"
-    ]
+    ],
+    "blower": "",
+    "anchor": "",
+    "additionalItems": "",
+    "setupTime": 10,
+    "breakdownTime": 10
   },
   "Wireless Speaker": {
     "name": "Wireless Speaker",
@@ -542,7 +651,12 @@
     "membership": false,
     "detailImages": [
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Wireless Speaker/wireless-speaker-1.webp"
-    ]
+    ],
+    "blower": "",
+    "anchor": "",
+    "additionalItems": "",
+    "setupTime": 10,
+    "breakdownTime": 10
   },
   "Sno-Kone Party Pack": {
     "name": "Sno-Kone Party Pack",
@@ -560,7 +674,12 @@
     "membership": false,
     "detailImages": [
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Sno-Kone Party Pack/sno-kone-party-pack-1.webp"
-    ]
+    ],
+    "blower": "",
+    "anchor": "",
+    "additionalItems": "25 cups, 2 Syrups",
+    "setupTime": 10,
+    "breakdownTime": 10
   },
   "Table Event Style": {
     "name": "Table Event Style",
@@ -578,7 +697,12 @@
     "membership": false,
     "detailImages": [
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Table Event Style/table-event-style-1.webp"
-    ]
+    ],
+    "blower": "",
+    "anchor": "",
+    "additionalItems": "",
+    "setupTime": 10,
+    "breakdownTime": 10
   },
   "Gift Card": {
     "name": "Gift Card",
@@ -601,7 +725,12 @@
     "membership": false,
     "detailImages": [
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Gift Card/gift-card-1.webp"
-    ]
+    ],
+    "blower": "",
+    "anchor": "",
+    "additionalItems": "",
+    "setupTime": 0,
+    "breakdownTime": 0
   },
   "Table Black": {
     "name": "Table Black",
@@ -619,7 +748,12 @@
     "membership": false,
     "detailImages": [
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Table Black/table-black-1.webp"
-    ]
+    ],
+    "blower": "",
+    "anchor": "",
+    "additionalItems": "",
+    "setupTime": 10,
+    "breakdownTime": 10
   },
   "Table White": {
     "name": "Table White",
@@ -637,7 +771,12 @@
     "membership": false,
     "detailImages": [
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Table White/table-white-1.webp"
-    ]
+    ],
+    "blower": "",
+    "anchor": "",
+    "additionalItems": "",
+    "setupTime": 10,
+    "breakdownTime": 10
   },
   "Tent Large": {
     "name": "Tent Large",
@@ -655,7 +794,12 @@
     "membership": false,
     "detailImages": [
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tent Large/tent-large-1.webp"
-    ]
+    ],
+    "blower": "",
+    "anchor": "",
+    "additionalItems": "",
+    "setupTime": 10,
+    "breakdownTime": 10
   },
   "Tent Small": {
     "name": "Tent Small",
@@ -673,7 +817,12 @@
     "membership": false,
     "detailImages": [
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tent Small/tent-small-1.webp"
-    ]
+    ],
+    "blower": "",
+    "anchor": "",
+    "additionalItems": "",
+    "setupTime": 10,
+    "breakdownTime": 10
   },
   "Yard Letters": {
     "name": "Yard Letters",
@@ -691,7 +840,12 @@
     "membership": false,
     "detailImages": [
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Yard Letters/yard-letters-1.webp"
-    ]
+    ],
+    "blower": "",
+    "anchor": "",
+    "additionalItems": "",
+    "setupTime": 10,
+    "breakdownTime": 10
   },
   "Adrenaline Rush": {
     "name": "Adrenaline Rush",
@@ -713,7 +867,12 @@
     "dry": true,
     "category": "obstacle",
     "quantity": 1,
-    "membership": false
+    "membership": false,
+    "blower": "1.5",
+    "anchor": 7,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "High Velocity Obstacle": {
     "name": "High Velocity Obstacle",
@@ -738,7 +897,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/High Velocity Obstacle/high-velocity-obstacle-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/High Velocity Obstacle/high-velocity-obstacle-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/High Velocity Obstacle/high-velocity-obstacle-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 4,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "High Velocity Slide": {
     "name": "High Velocity Slide",
@@ -763,7 +927,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/High Velocity Slide/high-velocity-slide-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/High Velocity Slide/high-velocity-slide-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/High Velocity Slide/high-velocity-slide-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 6,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "High Velocity Obstacle and Slide": {
     "name": "High Velocity Obstacle and Slide",
@@ -788,7 +957,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/High Velocity Obstacle and Slide/high-velocity-obstacle-and-slide-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/High Velocity Obstacle and Slide/high-velocity-obstacle-and-slide-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/High Velocity Obstacle and Slide/high-velocity-obstacle-and-slide-8.webp"
-    ]
+    ],
+    "blower": "1.5,1.5",
+    "anchor": 10,
+    "additionalItems": "",
+    "setupTime": 60,
+    "breakdownTime": 60
   },
   "Mega Rush Obstacle": {
     "name": "Mega Rush Obstacle",
@@ -813,7 +987,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Mega Rush Obstacle/mega-rush-obstacle-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Mega Rush Obstacle/mega-rush-obstacle-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Mega Rush Obstacle/mega-rush-obstacle-8.webp"
-    ]
+    ],
+    "blower": "1.0",
+    "anchor": 4,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Mega Rush Slide": {
     "name": "Mega Rush Slide",
@@ -838,7 +1017,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Mega Rush Slide/mega-rush-slide-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Mega Rush Slide/mega-rush-slide-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Mega Rush Slide/mega-rush-slide-8.webp"
-    ]
+    ],
+    "blower": "1.5,1.0",
+    "anchor": 6,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Mega Rush Obstacle and Slide": {
     "name": "Mega Rush Obstacle and Slide",
@@ -863,7 +1047,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Mega Rush Obstacle and Slide/mega-rush-obstacle-and-slide-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Mega Rush Obstacle and Slide/mega-rush-obstacle-and-slide-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Mega Rush Obstacle and Slide/mega-rush-obstacle-and-slide-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 10,
+    "additionalItems": "",
+    "setupTime": 60,
+    "breakdownTime": 60
   },
   "Nitro Clash Obstacle": {
     "name": "Nitro Clash Obstacle",
@@ -888,7 +1077,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Nitro Clash Obstacle/nitro-clash-obstacle-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Nitro Clash Obstacle/nitro-clash-obstacle-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Nitro Clash Obstacle/nitro-clash-obstacle-8.webp"
-    ]
+    ],
+    "blower": "1.0",
+    "anchor": 4,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Nitro Clash Slide": {
     "name": "Nitro Clash Slide",
@@ -913,7 +1107,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Nitro Clash Slide/nitro-clash-slide-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Nitro Clash Slide/nitro-clash-slide-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Nitro Clash Slide/nitro-clash-slide-8.webp"
-    ]
+    ],
+    "blower": "1.5,1.0",
+    "anchor": 6,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Nitro Clash Obstacle and Slide": {
     "name": "Nitro Clash Obstacle and Slide",
@@ -938,7 +1137,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Nitro Clash Obstacle and Slide/nitro-clash-obstacle-and-slide-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Nitro Clash Obstacle and Slide/nitro-clash-obstacle-and-slide-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Nitro Clash Obstacle and Slide/nitro-clash-obstacle-and-slide-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 10,
+    "additionalItems": "",
+    "setupTime": 60,
+    "breakdownTime": 60
   },
   "Beach Blast": {
     "name": "Beach Blast",
@@ -958,7 +1162,12 @@
     "dry": true,
     "category": "slide",
     "quantity": 1,
-    "membership": true
+    "membership": true,
+    "blower": "1.0",
+    "anchor": 6,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Color Chaos": {
     "name": "Color Chaos",
@@ -983,7 +1192,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Color Chaos/color-chaos-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Color Chaos/color-chaos-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Color Chaos/color-chaos-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 6,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Fire and Ice": {
     "name": "Fire and Ice",
@@ -1008,7 +1222,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Fire and Ice/fire-and-ice-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Fire and Ice/fire-and-ice-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Fire and Ice/fire-and-ice-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 7,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Fun in the Sun": {
     "name": "Fun in the Sun",
@@ -1033,7 +1252,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Fun in the Sun/fun-in-the-sun-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Fun in the Sun/fun-in-the-sun-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Fun in the Sun/fun-in-the-sun-8.webp"
-    ]
+    ],
+    "blower": "1.0",
+    "anchor": 6,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "H2O Slip and slide": {
     "name": "H2O Slip and slide",
@@ -1058,7 +1282,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/H2O Slip and slide/h2o-slip-and-slide-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/H2O Slip and slide/h2o-slip-and-slide-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/H2O Slip and slide/h2o-slip-and-slide-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 4,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Hang Time": {
     "name": "Hang Time",
@@ -1083,7 +1312,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Hang Time/hang-time-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Hang Time/hang-time-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Hang Time/hang-time-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 8,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Surfs Up Slip false Slide": {
     "name": "Surfs Up Slip false Slide",
@@ -1108,7 +1342,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Surfs Up Slip false Slide/surfs-up-slip-false-slide-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Surfs Up Slip false Slide/surfs-up-slip-false-slide-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Surfs Up Slip false Slide/surfs-up-slip-false-slide-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 4,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Tidal Wave": {
     "name": "Tidal Wave",
@@ -1133,7 +1372,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tidal Wave/tidal-wave-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tidal Wave/tidal-wave-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tidal Wave/tidal-wave-8.webp"
-    ]
+    ],
+    "blower": "1.5,1.5,1.5",
+    "anchor": 18,
+    "additionalItems": "",
+    "setupTime": 60,
+    "breakdownTime": 60
   },
   "Tiki Rush Slip n Slide": {
     "name": "Tiki Rush Slip n Slide",
@@ -1158,7 +1402,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tiki Rush Slip n Slide/tiki-rush-slip-n-slide-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tiki Rush Slip n Slide/tiki-rush-slip-n-slide-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tiki Rush Slip n Slide/tiki-rush-slip-n-slide-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 4,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Tropical Jungle": {
     "name": "Tropical Jungle",
@@ -1183,7 +1432,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tropical Jungle/tropical-jungle-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tropical Jungle/tropical-jungle-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Tropical Jungle/tropical-jungle-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 6,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Turbo Speed": {
     "name": "Turbo Speed",
@@ -1208,7 +1462,12 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Turbo Speed/turbo-speed-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Turbo Speed/turbo-speed-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Turbo Speed/turbo-speed-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 6,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   },
   "Wave Rider": {
     "name": "Wave Rider",
@@ -1233,6 +1492,11 @@
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Wave Rider/wave-rider-6.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Wave Rider/wave-rider-7.webp",
       "https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/detail-images/Wave Rider/wave-rider-8.webp"
-    ]
+    ],
+    "blower": "1.5",
+    "anchor": 8,
+    "additionalItems": "",
+    "setupTime": 30,
+    "breakdownTime": 30
   }
 }
