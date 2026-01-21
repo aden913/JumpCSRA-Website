@@ -13,6 +13,13 @@ import EmailTestingDashboard from "./components/EmailTestingDashboard";
 import CloudFunctionTestingDashboard from "./components/CloudFunctionTestingDashboard";
 import "./app.css";
 
+// Action handler to prevent POST errors
+export async function action({ request }: Route.ActionArgs) {
+  // This prevents "no action for route" errors
+  // Individual routes should handle their own actions
+  return new Response(null, { status: 405, statusText: "Method Not Allowed" });
+}
+
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
@@ -24,6 +31,8 @@ export const links: Route.LinksFunction = () => [
     rel: "stylesheet",
     href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
   },
+  { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+  { rel: "apple-touch-icon-precomposed", href: "/apple-touch-icon-precomposed.png" },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
