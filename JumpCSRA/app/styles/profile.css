@@ -2,6 +2,13 @@
 @import './responsive.css';
 
 html, body{ background-color: white;}
+
+.profile-wrapper {
+  position: relative;
+  margin: 2rem auto;
+  max-width: 900px;
+}
+
 .profile-container {
   display: -webkit-flex;
   display: -ms-flexbox;
@@ -12,8 +19,6 @@ html, body{ background-color: white;}
   border-radius: 16px;
   -webkit-box-shadow: 0 2px 16px rgba(0,0,0,0.07);
   box-shadow: 0 2px 16px rgba(0,0,0,0.07);
-  margin: 2rem auto;
-  max-width: 900px;
 }
 .profile-left {
   width: 220px;
@@ -57,6 +62,7 @@ html, body{ background-color: white;}
 .profile-right {
   flex: 1;
   padding: 2rem 2.5rem;
+  position: relative;
 }
 .profile-info {
   display: -webkit-flex;
@@ -237,6 +243,39 @@ html, body{ background-color: white;}
   float: right;
   margin-left: auto;
   display: block;
+}
+
+/* Back button positioned at top right above container */
+.profile-back-btn-fixed {
+  height:3rem;
+  background: #1976d2;
+  border: none;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0.75rem 1.5rem;
+  -webkit-border-radius: 8px;
+  border-radius: 8px;
+  -webkit-box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  -webkit-transition: all 0.2s ease;
+  transition: all 0.2s ease;
+  z-index: 10;
+  margin-bottom: 1rem;
+}
+
+.profile-back-btn-fixed:hover {
+  background: #1565c0;
+  -webkit-box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  -webkit-transform: translateY(-2px);
+  transform: translateY(-2px);
+}
+
+.profile-back-btn-fixed:active {
+  -webkit-transform: translateY(0);
+  transform: translateY(0);
 }
 
 /* Booking History Styles */
@@ -1510,13 +1549,26 @@ gap: 1rem;
     display: none;
   }
   
-  .profile-container {
+  .profile-wrapper {
     margin: 1rem;
+  }
+  
+  .profile-container {
     -webkit-border-radius: 12px;
     border-radius: 12px;
   }
   
   .profile-right {
     padding: 1.5rem;
+  }
+
+  /* Adjust back button for mobile */
+  .profile-back-btn-fixed {
+    position: relative;
+    display: block;
+    margin-bottom: 1rem;
+    width: auto;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
   }
 }

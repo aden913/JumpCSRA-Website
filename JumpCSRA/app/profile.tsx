@@ -1842,6 +1842,8 @@ export default function Profile() {
       {/* Hide RouterNav on mobile */}
       {!isMobile && <RouterNav hideIcons={true} hideMobileSidebar={true} userName={user?.displayName || undefined} isLoggedIn={!!user} />}
 
+   
+
       {/* Mobile Profile Menu Toggle Button - Hide when sidebar is open */}
       {isMobile && !isProfileSidebarOpen && (
         <button 
@@ -1882,10 +1884,14 @@ export default function Profile() {
         </>
       )}
 
-      <div className="profile-container">
-        {/* Desktop Profile Sidebar - Hidden on Mobile/Tablet */}
-        {!isMobile && (
-          <div className="profile-left">
+      {/* Back button - positioned above container */}
+      <div className="profile-wrapper">
+       
+
+        <div className="profile-container">
+          {/* Desktop Profile Sidebar - Hidden on Mobile/Tablet */}
+          {!isMobile && (
+            <div className="profile-left">
             <div className="profile-tabs">
               {TABS.map((tab, idx) => (
                 <button
@@ -3814,19 +3820,19 @@ export default function Profile() {
         ) : (
           <div>Unknown tab selected</div>
         )}
+        </div>
 
-        {/* Back button */}
-      <div style={{ marginBottom: "1rem" }}>
         <button
-          className="profile-back-btn"
+          className="profile-back-btn-fixed"
           onClick={() => navigate("/home")}
+          title="Back to home"
         >
-          &larr; Back
+          X
         </button>
-      </div>
+
       </div>
     </div>
-    
+
     {/* Booking Details Modal */}
     {showBookingDetails && selectedBooking && (
       <div className="modal-overlay fade-in" onClick={() => setShowBookingDetails(false)}>
