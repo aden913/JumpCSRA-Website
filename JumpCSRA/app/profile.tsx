@@ -56,6 +56,9 @@ export default function Profile() {
   const [showPasswordModal, setShowPasswordModal] = useState<"email" | "password" | null>(null);
   const [confirmPassword, setConfirmPassword] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+  const [forgotPasswordMsg, setForgotPasswordMsg] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -696,6 +699,19 @@ export default function Profile() {
       } else {
         setAuthError("Authentication failed. Please try again.");
       }
+    }
+  };
+
+  // Handle forgot password
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotPasswordMsg(null);
+    try {
+      const { sendPasswordResetEmail } = await import("firebase/auth");
+      await sendPasswordResetEmail(auth, forgotPasswordEmail);
+      setForgotPasswordMsg("Password reset email sent!");
+    } catch (err: any) {
+      setForgotPasswordMsg(err.message || "Failed to send reset email.");
     }
   };
 
@@ -2178,16 +2194,86 @@ export default function Profile() {
                   {authError && (
                     <div style={{ color: "#c00", marginBottom: "1rem" }}>{authError}</div>
                   )}
-                  <button className="profile-save-btn" onClick={handleConfirmPassword}>
-                    Confirm
-                  </button>
+                  <div style={{ display: "flex", gap: "1rem", marginBottom: "1rem" }}>
+                    <button className="profile-save-btn" onClick={handleConfirmPassword} style={{ flex: 1, margin: 0 }}>
+                      Confirm
+                    </button>
+                    <button
+                      className="profile-edit-btn"
+                      style={{ flex: 1, margin: 0 }}
+                      onClick={() => setShowPasswordModal(null)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
                   <button
-                    className="profile-edit-btn"
-                    style={{ marginLeft: "1rem" }}
-                    onClick={() => setShowPasswordModal(null)}
+                    onClick={() => {
+                      setShowPasswordModal(null);
+                      setShowForgotPassword(true);
+                      setForgotPasswordEmail(user?.email || "");
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#1976d2",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      fontSize: "0.9rem",
+                      padding: 0
+                    }}
                   >
-                    Cancel
+                    Forgot your password?
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* Forgot Password Modal */}
+            {showForgotPassword && (
+              <div
+                className="modal-overlay fade-in"
+                onClick={() => setShowForgotPassword(false)}
+              >
+                <div className="modal-shadow" />
+                <div
+                  className="modal-content popup"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <h2 className="modal-title">Reset Password</h2>
+                  <form onSubmit={handleForgotPassword} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <label htmlFor="forgotPasswordEmail" style={{ fontWeight: 500 }}>Enter your email:</label>
+                    <input
+                      id="forgotPasswordEmail"
+                      type="email"
+                      value={forgotPasswordEmail}
+                      onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                      required
+                      placeholder="Email address"
+                      className="identifier-input"
+                      style={{ width: "100%", padding: "0.5rem", fontSize: "1rem", backgroundColor: "#4e4e4e15" }}
+                    />
+                    <div style={{ display: "flex", gap: "1rem", marginTop: "1rem" }}>
+                      <button className="profile-save-btn" type="submit" style={{ flex: 1, margin: 0 }}>
+                        Send Reset Email
+                      </button>
+                      <button
+                        type="button"
+                        className="profile-edit-btn"
+                        style={{ flex: 1, margin: 0 }}
+                        onClick={() => {
+                          setShowForgotPassword(false);
+                          setForgotPasswordMsg(null);
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    {forgotPasswordMsg && (
+                      <div style={{ color: forgotPasswordMsg.includes("sent") ? "#4caf50" : "#c00", marginTop: "1rem", textAlign: "center" }}>
+                        {forgotPasswordMsg}
+                      </div>
+                    )}
+                  </form>
                 </div>
               </div>
             )}
