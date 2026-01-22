@@ -101,9 +101,10 @@ export default function Login() {
   // Check URL parameters
   const [searchParams] = useSearchParams();
   const autoSignUp = searchParams.get('signup') === 'true';
+  const autoSignIn = searchParams.get('signin') === 'true';
   
   // States
-  const [showSignInForm, setShowSignInForm] = useState(autoSignUp);
+  const [showSignInForm, setShowSignInForm] = useState(autoSignUp || autoSignIn);
   const [isSignUp, setIsSignUp] = useState(autoSignUp);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

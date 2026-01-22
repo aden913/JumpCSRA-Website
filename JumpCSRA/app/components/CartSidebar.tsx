@@ -1571,7 +1571,7 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
               <button
                 onClick={() => {
                   setShowLoginPrompt(false);
-                  navigate('/');
+                  navigate('/?signin=true');
                 }}
                 style={{
                   backgroundColor: '#007bff',

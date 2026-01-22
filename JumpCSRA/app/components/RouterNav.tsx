@@ -273,7 +273,7 @@ export function RouterNav({ onNavClick, cartCount, cartSubtotal, selectedDates, 
               <div className="icon-container">
                 <li style={{ position: "relative" }} className="right-icon">
                   <Link 
-                    to={isLoggedIn ? "/profile" : "/"}
+                    to={isLoggedIn ? "/profile" : "/?signin=true"}
                     style={{ 
                       display: "inline-block",
                       color: "white",
@@ -305,11 +305,11 @@ export function RouterNav({ onNavClick, cartCount, cartSubtotal, selectedDates, 
             <div className="sidebar-action-buttons">
               {!hideIcons && (
                 <Link 
-                  to={isLoggedIn ? "/profile" : "/"}
+                  to={isLoggedIn ? "/profile" : "/?signin=true"}
                   className="sidebar-action-btn sidebar-profile-btn"
                   onClick={closeMobileSidebar}
                 >
-                  {isLoggedIn && userName ? userName : "Log In"}
+                  {isLoggedIn && userName ? userName : "Sign In"}
                 </Link>
               )}
               {!hideIcons && !hideCartIcon && (
