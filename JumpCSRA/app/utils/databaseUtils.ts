@@ -29,6 +29,7 @@ export interface BookingData {
       price: number;
     }>;
     totalAmount: number;
+    notes?: string;
   };
   paymentDetails: {
     totalAmount: number;

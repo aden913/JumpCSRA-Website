@@ -242,6 +242,7 @@ export default function Checkout() {
   const [actualAmountPaid, setActualAmountPaid] = useState<number | null>(null);
   const [isDeferredBooking, setIsDeferredBooking] = useState<boolean>(false);
   const [tipAmount, setTipAmount] = useState<number>(0);
+  const [eventNotes, setEventNotes] = useState<string>('');
   
   // Store completed order data for display after cart is cleared
   const [completedOrderCart, setCompletedOrderCart] = useState<CartItem[]>([]);
@@ -1261,6 +1262,11 @@ export default function Checkout() {
             // Restore tip if it was set
             if (booking.paymentDetails?.tip) {
               setTipAmount(booking.paymentDetails.tip);
+            }
+
+            // Restore event notes if they were set
+            if (booking.orderDetails?.notes) {
+              setEventNotes(booking.orderDetails.notes);
             }
             
             // Clear the resume flag
@@ -5120,6 +5126,55 @@ export default function Checkout() {
                   <option value={20}>$20</option>
                 </select>
                 {tipAmount > 0}
+              </div>
+            </div>
+          )}
+
+          {/* Event Notes Section */}
+          {!requiresPhoneCall && (
+            <div style={{ 
+              marginBottom: '2rem',
+              padding: '1rem',
+              backgroundColor: '#fff9e6',
+              border: '2px solid #ffa726',
+              borderRadius: '8px'
+            }}>
+              <h3 style={{ marginBottom: '1rem', color: '#f57c00' }}>Event Notes (Optional)</h3>
+              <div>
+                <label htmlFor="event-notes" style={{ fontWeight: '500', color: '#333', display: 'block', marginBottom: '0.5rem' }}>
+                  Any special instructions or notes about your event?
+                </label>
+                <textarea
+                  id="event-notes"
+                  value={eventNotes}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value.length <= 500) {
+                      setEventNotes(value);
+                    }
+                  }}
+                  maxLength={500}
+                  placeholder="Add any special instructions, setup preferences, or notes for the event..."
+                  style={{
+                    width: '100%',
+                    minHeight: '100px',
+                    padding: '0.75rem',
+                    borderRadius: '4px',
+                    border: '1px solid #ffa726',
+                    fontSize: '1rem',
+                    fontFamily: 'inherit',
+                    resize: 'vertical',
+                    backgroundColor: 'white'
+                  }}
+                />
+                <div style={{ 
+                  marginTop: '0.5rem', 
+                  fontSize: '0.875rem', 
+                  color: '#666',
+                  textAlign: 'right'
+                }}>
+                  {eventNotes.length}/500 characters
+                </div>
               </div>
             </div>
           )}
