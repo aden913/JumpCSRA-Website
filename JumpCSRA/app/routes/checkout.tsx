@@ -1563,7 +1563,17 @@ export default function Checkout() {
   const durationMultipliers: Record<string, number> = {
     "4hours": 0.9,  // 10% discount
     "24hours": 1.0, // Base price
+    "24hours-pickup6": 1.0, // Base price + $10 pickup fee
+    "24hours-pickup7": 1.0, // Base price + $20 pickup fee
+    "24hours-pickup8": 1.0, // Base price + $30 pickup fee
     "48hours": 1.5, // 50% increase
+  };
+
+  // Pickup time fees for 24-hour duration options
+  const pickupTimeFees: Record<string, number> = {
+    "24hours-pickup6": 10,
+    "24hours-pickup7": 20,
+    "24hours-pickup8": 30,
   };
 
   // Calculate cart total including last-minute additions
@@ -1624,7 +1634,8 @@ export default function Checkout() {
   
   const surfaceAdj = cartSettings.surface ? (surfacePrices[cartSettings.surface] || 0) * nonGiftCardItemCount : 0;
   const timeAdj = cartSettings.deliveryTime ? (timePrices[cartSettings.deliveryTime] || 0) * uniqueNonGiftCardItemCount : 0;
-  const subtotal = cartTotal + lastMinuteTotal + surfaceAdj + timeAdj;
+  const pickupFee = cartSettings.duration && pickupTimeFees[cartSettings.duration] ? pickupTimeFees[cartSettings.duration] : 0;
+  const subtotal = cartTotal + lastMinuteTotal + surfaceAdj + timeAdj + pickupFee;
   const total = subtotal + deliveryCost + tipAmount;
 
   // Load inflateables data function (similar to CartSidebar)
@@ -1751,6 +1762,18 @@ export default function Checkout() {
     
     if (duration === "24hours") {
       eventEnd.setDate(eventStart.getDate() + 1);
+    } else if (duration === "24hours-pickup6") {
+      // 24 hours with pickup at 6 PM
+      eventEnd.setDate(eventStart.getDate() + 1);
+      eventEnd.setHours(18, 0, 0, 0); // 6 PM
+    } else if (duration === "24hours-pickup7") {
+      // 24 hours with pickup at 7 PM
+      eventEnd.setDate(eventStart.getDate() + 1);
+      eventEnd.setHours(19, 0, 0, 0); // 7 PM
+    } else if (duration === "24hours-pickup8") {
+      // 24 hours with pickup at 8 PM
+      eventEnd.setDate(eventStart.getDate() + 1);
+      eventEnd.setHours(20, 0, 0, 0); // 8 PM
     } else if (duration === "48hours") {
       eventEnd.setDate(eventStart.getDate() + 2);
     } else { // 4hours
@@ -4221,6 +4244,15 @@ export default function Checkout() {
                     </option>
                     <option value="24hours" disabled={!availableDurations.has('24hours')}>
                       24 Hours (Standard){!availableDurations.has('24hours') ? ' - Unavailable' : ''}
+                    </option>
+                    <option value="24hours-pickup6" disabled={!availableDurations.has('24hours')}>
+                      24 Hours (pick up at 6 PM +$10){!availableDurations.has('24hours') ? ' - Unavailable' : ''}
+                    </option>
+                    <option value="24hours-pickup7" disabled={!availableDurations.has('24hours')}>
+                      24 Hours (pick up at 7 PM +$20){!availableDurations.has('24hours') ? ' - Unavailable' : ''}
+                    </option>
+                    <option value="24hours-pickup8" disabled={!availableDurations.has('24hours')}>
+                      24 Hours (pick up at 8 PM +$30){!availableDurations.has('24hours') ? ' - Unavailable' : ''}
                     </option>
                     <option value="48hours" disabled={!availableDurations.has('48hours')}>
                       48 Hours (+50%){!availableDurations.has('48hours') ? ' - Unavailable' : ''}
