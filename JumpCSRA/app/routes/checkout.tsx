@@ -1636,7 +1636,8 @@ export default function Checkout() {
   const timeAdj = cartSettings.deliveryTime ? (timePrices[cartSettings.deliveryTime] || 0) * uniqueNonGiftCardItemCount : 0;
   const pickupFee = cartSettings.duration && pickupTimeFees[cartSettings.duration] ? pickupTimeFees[cartSettings.duration] : 0;
   const subtotal = cartTotal + lastMinuteTotal + surfaceAdj + timeAdj + pickupFee;
-  const total = subtotal + deliveryCost + tipAmount;
+  const salesTax = subtotal * 0.08; // 8% sales tax
+  const total = subtotal + salesTax + deliveryCost + tipAmount;
 
   // Load inflateables data function (similar to CartSidebar)
   const loadInflateablesData = async (): Promise<any[]> => {
@@ -4425,6 +4426,12 @@ export default function Checkout() {
               <span>${timeAdj.toFixed(2)}</span>
             </div>
           )}
+          {pickupFee > 0 && (
+            <div className="pricing-row">
+              <span>Late Pickup Fee:</span>
+              <span>${pickupFee.toFixed(2)}</span>
+            </div>
+          )}
           
           {deliveryCost > 0 && (
             <div className="pricing-row">
@@ -4432,6 +4439,10 @@ export default function Checkout() {
               <span>${deliveryCost.toFixed(2)}</span>
             </div>
           )}
+          <div className="pricing-row">
+            <span>Sales Tax (8%):</span>
+            <span>${salesTax.toFixed(2)}</span>
+          </div>
           <div className="pricing-total">
             <span>Total:</span>
             <span>${total.toFixed(2)}</span>
@@ -4557,6 +4568,9 @@ export default function Checkout() {
               const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
               const price = isWeekend ? item.weekendPrice : item.weekdayPrice;
               const currentQuantity = lastMinuteAdditions[item.name] || 0;
+              const itemSubtotal = currentQuantity * price * durationMultiplier;
+              const itemTax = itemSubtotal * 0.08;
+              const itemTotal = itemSubtotal + itemTax;
               
               return (
                 <div
@@ -4576,7 +4590,9 @@ export default function Checkout() {
                   {currentQuantity > 0 ? (
                     <div className="party-essential-selected">
                       <p className="party-essential-added-info">
-                        Added: {currentQuantity} x ${price} = ${(currentQuantity * price * durationMultiplier).toFixed(2)}
+                        Added: {currentQuantity} x ${price} = ${itemTotal.toFixed(2)}
+                        <br />
+                        <small style={{ color: '#666' }}>(includes ${itemTax.toFixed(2)} tax)</small>
                       </p>
                       <button
                         id={`btn-change-qty-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
@@ -4653,17 +4669,28 @@ export default function Checkout() {
                   if (!item) return null;
                   const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
                   const price = isWeekend ? item.weekendPrice : item.weekdayPrice;
+                  const itemSubtotal = quantity * price * durationMultiplier;
+                  const itemTax = itemSubtotal * 0.08;
+                  const itemTotal = itemSubtotal + itemTax;
                   return (
                     <div key={itemName} className="essentials-item-row">
                       <span>{itemName} x{quantity}</span>
-                      <span>${(quantity * price * durationMultiplier).toFixed(2)}</span>
+                      <span>${itemTotal.toFixed(2)}</span>
                     </div>
                   );
                 })
               }
+              <div className="essentials-subtotal" style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid #dee2e6' }}>
+                <span>Subtotal:</span>
+                <span>${lastMinuteTotal.toFixed(2)}</span>
+              </div>
+              <div className="essentials-tax">
+                <span>Sales Tax (8%):</span>
+                <span>${(lastMinuteTotal * 0.08).toFixed(2)}</span>
+              </div>
               <div className="essentials-total">
                 <span>Essentials Total:</span>
-                <span>${lastMinuteTotal.toFixed(2)}</span>
+                <span>${(lastMinuteTotal + lastMinuteTotal * 0.08).toFixed(2)}</span>
               </div>
             </div>
           )}
@@ -5019,6 +5046,12 @@ export default function Checkout() {
                   <span>${timeAdj.toFixed(2)}</span>
                 </div>
               )}
+              {pickupFee > 0 && (
+                <div className="pricing-row">
+                  <span>Late Pickup Fee:</span>
+                  <span>${pickupFee.toFixed(2)}</span>
+                </div>
+              )}
               {lastMinuteTotal > 0 && (
                 <div className="pricing-row">
                   <span>Party Essentials:</span>
@@ -5031,6 +5064,10 @@ export default function Checkout() {
                   <span>${deliveryCost.toFixed(2)}</span>
                 </div>
               )}
+              <div className="pricing-row">
+                <span>Sales Tax (8%):</span>
+                <span>${salesTax.toFixed(2)}</span>
+              </div>
               <div className="pricing-total">
                 <span>Total:</span>
                 <span>${total.toFixed(2)}</span>
