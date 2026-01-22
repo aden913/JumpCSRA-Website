@@ -1562,13 +1562,17 @@ gap: 1rem;
     padding: 1.5rem;
   }
 
-  /* Adjust back button for mobile */
+  /* Position back button at bottom for mobile */
   .profile-back-btn-fixed {
-    position: relative;
-    display: block;
-    margin-bottom: 1rem;
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    left: auto;
+    top: auto;
+    margin: 0;
     width: auto;
-    padding: 0.6rem 1.2rem;
-    font-size: 0.9rem;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    z-index: 1000;
   }
 }
