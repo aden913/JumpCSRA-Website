@@ -4465,7 +4465,7 @@ export default function Checkout() {
             onClick={() => goToNextStep()}
             disabled={!canShowNextButton()}
           >
-            {getNextStepButtonText()}
+            {getNextStepButtonText()} →
           </button>
         </div>
       </div>
@@ -4714,7 +4714,7 @@ export default function Checkout() {
             onClick={() => goToNextStep()}
             disabled={!canShowNextButton()}
           >
-            {getNextStepButtonText()}
+            {getNextStepButtonText()} →
           </button>
         </div>
       </div>
@@ -4752,7 +4752,7 @@ export default function Checkout() {
               disabled={!isContractValid}
             >
               {isContractValid
-                ? 'Complete Contract & Proceed to Payment'
+                ? 'Complete Contract & Proceed to Payment →'
                 : 'Complete All Required Fields Above'}
             </button>
           </div>
