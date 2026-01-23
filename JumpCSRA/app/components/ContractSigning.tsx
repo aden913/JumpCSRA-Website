@@ -28,6 +28,11 @@ interface ContractSigningProps {
     signature: string, 
     initials: string 
   }) => void;
+  onValidationChange?: (isValid: boolean, contractData: { 
+    sections: ContractSection[], 
+    signature: string, 
+    initials: string 
+  }) => void;
 }
 
 export const ContractSigning: React.FC<ContractSigningProps> = ({
@@ -36,12 +41,25 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
   calendarDateRange,
   deliveryAddress,
   total,
-  onContractComplete
+  onContractComplete,
+  onValidationChange
 }) => {
   // Contract state
   const [typedSignature, setTypedSignature] = useState<string>("");
   const [customerInitials, setCustomerInitials] = useState<string>("");
   const [contractSections, setContractSections] = useState<ContractSection[]>([]);
+
+  // Notify parent when validation state changes
+  useEffect(() => {
+    if (onValidationChange) {
+      const isValid = allSectionsInitialed() && typedSignature.trim() !== '';
+      onValidationChange(isValid, {
+        sections: contractSections,
+        signature: typedSignature,
+        initials: customerInitials
+      });
+    }
+  }, [contractSections, typedSignature, customerInitials, onValidationChange]);
 
   // Initialize contract sections when component mounts
   useEffect(() => {
@@ -399,23 +417,6 @@ export const ContractSigning: React.FC<ContractSigningProps> = ({
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Contract Completion Button */}
-      <div className="contract-completion">
-        <button
-          onClick={() => onContractComplete({
-            sections: contractSections,
-            signature: typedSignature,
-            initials: customerInitials
-          })}
-          disabled={!allSectionsInitialed() || !typedSignature.trim()}
-          className={`completion-button ${allSectionsInitialed() && typedSignature.trim() ? 'enabled' : 'disabled'}`}
-        >
-          {allSectionsInitialed() && typedSignature.trim() 
-            ? 'Complete Contract & Proceed to Payment' 
-            : 'Complete All Required Fields Above'}
-        </button>
       </div>
     </>
   );

@@ -226,6 +226,8 @@ export default function Checkout() {
   const [deliverySkipped, setDeliverySkipped] = useState<boolean>(false); // Track if delivery was skipped for dev
   const [addressConfirmed, setAddressConfirmed] = useState<boolean>(false); // Track if user confirmed their address
   const [contractSigned, setContractSigned] = useState<boolean>(false);
+  const [contractValidData, setContractValidData] = useState<any>(null);
+  const [isContractValid, setIsContractValid] = useState<boolean>(false);
   const [showContract, setShowContract] = useState<boolean>(false);
   const [calculatingDistance, setCalculatingDistance] = useState<boolean>(false);
   const [failedAddresses, setFailedAddresses] = useState<Set<string>>(new Set()); // Track failed calculation attempts
@@ -904,6 +906,12 @@ export default function Checkout() {
   useEffect(() => {
     // Debug log removed
   }, [deliveryAddress]);
+
+  // Handle contract validation changes
+  const handleContractValidationChange = (isValid: boolean, contractData: any) => {
+    setIsContractValid(isValid);
+    setContractValidData(contractData);
+  };
 
   // Handle contract completion - called by ContractSigning component
   const handleContractCompletion = async (contractData: { 
@@ -4451,16 +4459,11 @@ export default function Checkout() {
         
         {/* Navigation Buttons */}
         <div className="checkout-navigation-buttons">
-        
           <button
+            className="btn-next"
             id="btn-main-flow"
             onClick={() => goToNextStep()}
             disabled={!canShowNextButton()}
-            style={{
-              opacity: canShowNextButton() ? 1 : 0.5,
-              cursor: canShowNextButton() ? 'pointer' : 'not-allowed',
-              backgroundColor: canShowNextButton() ? undefined : '#6c757d'
-            }}
           >
             {getNextStepButtonText()}
           </button>
@@ -4699,26 +4702,19 @@ export default function Checkout() {
         {/* Navigation Buttons */}
         <div className="checkout-navigation-buttons">
           <button
+            className="btn-back"
+            id="btn-back-party-essentials"
+            onClick={goToPreviousStep}
+          >
+            ← Back to Cart & Delivery
+          </button>
+          <button
+            className="btn-next"
             id="btn-continue-party-essentials"
             onClick={() => goToNextStep()}
             disabled={!canShowNextButton()}
           >
             {getNextStepButtonText()}
-          </button>
-          <button
-            id="btn-back-party-essentials"
-            onClick={goToPreviousStep}
-            style={{
-              backgroundColor: '#6c757d',
-              color: 'white',
-              border: 'none',
-              padding: '1rem 2rem',
-              borderRadius: '4px',
-              fontSize: '1rem',
-              cursor: 'pointer'
-            }}
-          >
-            ← Back to Cart & Delivery
           </button>
         </div>
       </div>
@@ -4735,26 +4731,29 @@ export default function Checkout() {
             deliveryAddress={deliveryAddress}
             total={total}
             onContractComplete={handleContractCompletion}
+            onValidationChange={handleContractValidationChange}
           />
         )}
         
-        {/* Contract Step Back Button - Always show when in contract step */}
+        {/* Contract Navigation Buttons - Back and complete buttons in same row */}
         {currentStep === 'contract' && (
           <div className="checkout-navigation-buttons">
             <button
+              className="btn-back"
               id="btn-back-contract-only"
               onClick={goToPreviousStep}
-              style={{
-                backgroundColor: '#6c757d',
-                color: 'white',
-                border: 'none',
-                padding: '1rem 2rem',
-                borderRadius: '4px',
-                fontSize: '1rem',
-                cursor: 'pointer'
-              }}
             >
               ← Back to Order Summary
+            </button>
+            <button
+              className="btn-next"
+              id="btn-complete-contract"
+              onClick={() => contractValidData && handleContractCompletion(contractValidData)}
+              disabled={!isContractValid}
+            >
+              {isContractValid
+                ? 'Complete Contract & Proceed to Payment'
+                : 'Complete All Required Fields Above'}
             </button>
           </div>
         )}
@@ -5591,11 +5590,12 @@ export default function Checkout() {
           <div className="checkout-navigation-buttons">
             {!isDeferredBooking && (
               <button
+                className="btn-back"
                 id="btn-back-contract"
                 onClick={goToPreviousStep}
                 disabled={processingPayment}
               >
-                Back to Contract
+                ← Back to Contract
               </button>
             )}
           </div>

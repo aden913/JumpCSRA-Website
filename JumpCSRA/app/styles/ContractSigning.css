@@ -357,22 +357,31 @@
 }
 
 .completion-button {
+  background-color: #007bff;
   color: white;
   border: none;
   padding: 1rem 2rem;
-  -webkit-border-radius: 8px;
-  border-radius: 8px;
+  -webkit-border-radius: 4px;
+  border-radius: 4px;
   font-size: 1.1rem;
   font-weight: bold;
+  cursor: pointer;
+  -webkit-transition: background-color 0.2s;
+  transition: background-color 0.2s;
 }
 
 .completion-button.enabled {
-  background-color: #28a745;
+  background-color: #007bff;
   cursor: pointer;
+}
+
+.completion-button.enabled:hover {
+  background-color: #0056b3;
 }
 
 .completion-button.disabled {
   background-color: #6c757d;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
