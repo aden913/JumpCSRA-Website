@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { flushSync } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router";
 import { LocalStorageDebugger } from "../components/LocalStorageDebugger";
@@ -908,10 +908,10 @@ export default function Checkout() {
   }, [deliveryAddress]);
 
   // Handle contract validation changes
-  const handleContractValidationChange = (isValid: boolean, contractData: any) => {
+  const handleContractValidationChange = useCallback((isValid: boolean, contractData: any) => {
     setIsContractValid(isValid);
     setContractValidData(contractData);
-  };
+  }, []);
 
   // Handle contract completion - called by ContractSigning component
   const handleContractCompletion = async (contractData: { 
@@ -5506,13 +5506,13 @@ export default function Checkout() {
                   maxWidth: '500px',
                   margin: '0 auto'
                 }}>
-                  <PayPalScriptProvider options={{ 
+                  <PayPalScriptProvider options={{
                     clientId: "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0", // Your PayPal sandbox client ID
                     currency: "USD",
                     intent: "capture",
                     components: "buttons,funding-eligibility",
-                    "enable-funding": "card,paylater",
-                    "disable-funding": "venmo"
+                    "enable-funding": "card,paylater,venmo",
+                    "disable-funding": ""
                   }}>
                     {/* Credit/Debit Card Button */}
                     <div style={{ width: '100%' }}>
@@ -5546,6 +5546,26 @@ export default function Checkout() {
                           tagline: false
                         }}
                         fundingSource="paypal"
+                        createOrder={createPayPalOrder}
+                        onApprove={onPayPalApprove}
+                        onError={onPayPalError}
+                        disabled={processingPayment}
+                        forceReRender={[calculatePayPalAmount()]}
+                      />
+                    </div>
+                    
+                    {/* Venmo Button */}
+                    <div style={{ width: '100%' }}>
+                      <PayPalButtons
+                        style={{ 
+                          layout: "vertical",
+                          color: "blue",
+                          shape: "rect",
+                          label: "pay",
+                          height: 45,
+                          tagline: false
+                        }}
+                        fundingSource="venmo"
                         createOrder={createPayPalOrder}
                         onApprove={onPayPalApprove}
                         onError={onPayPalError}
