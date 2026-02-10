@@ -11,8 +11,8 @@ sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
 
 Forthekids5867
 Jumpsra123!
-aden@170.187.145.7
-2600:3c02::200:a1ff:fef6:9d2e
+root@139.177.204.161
+thisistherootpassword
 
 twilio recovery:PTU1YXUUUQY7T9Y7Y68PP915
 aden

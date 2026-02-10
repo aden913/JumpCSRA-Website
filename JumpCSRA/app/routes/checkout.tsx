@@ -1673,7 +1673,7 @@ export default function Checkout() {
   const calculateEndDate = (startDate: Date, duration: string): Date => {
     const endDate = new Date(startDate);
     console.log(`🔍 [CALC END DATE] startDate: ${startDate.toISOString()}, duration: "${duration}"`);
-    if (duration === "24hours") {
+    if (duration === "24hours" || duration === "24hours-pickup6" || duration === "24hours-pickup7" || duration === "24hours-pickup8") {
       endDate.setDate(startDate.getDate() + 1);
       console.log(`  ✅ Added 1 day, endDate: ${endDate.toISOString()}`);
     } else if (duration === "48hours") {
@@ -4267,7 +4267,12 @@ export default function Checkout() {
                       48 Hours (+50%){!availableDurations.has('48hours') ? ' - Unavailable' : ''}
                     </option>
                   </select>
-                  {calendarDateRange[0] && !availableDurations.has(cartSettings.duration) && cartSettings.duration && (
+                  {calendarDateRange[0] && cartSettings.duration && (() => {
+                    // Check if the selected duration is available
+                    // For 24-hour pickup variants, check against '24hours' availability
+                    const durationToCheck = cartSettings.duration.startsWith('24hours') ? '24hours' : cartSettings.duration;
+                    return !availableDurations.has(durationToCheck);
+                  })() && (
                     <div style={{
                       backgroundColor: '#fff3cd',
                       border: '1px solid #ffc107',

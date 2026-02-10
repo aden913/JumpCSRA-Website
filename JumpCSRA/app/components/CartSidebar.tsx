@@ -585,6 +585,9 @@ export function CartSidebar({ open, onClose, cart, setCart, calendarDateRange, d
         endDate.setHours(endDate.getHours() + 4);
         break;
       case "24hours":
+      case "24hours-pickup6":
+      case "24hours-pickup7":
+      case "24hours-pickup8":
         endDate.setDate(endDate.getDate() + 1);
         break;
       case "48hours":
