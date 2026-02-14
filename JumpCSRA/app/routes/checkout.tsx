@@ -739,6 +739,21 @@ export default function Checkout() {
           }
         }
         
+        // Restore payment information if deposit was already paid
+        if (bookingData.status === 'deposited' && bookingData.paymentDetails) {
+          const depositAlreadyPaid = bookingData.paymentDetails.depositAmount || 0;
+          if (depositAlreadyPaid > 0) {
+            setActualAmountPaid(depositAlreadyPaid);
+            setPaymentType('full'); // Remaining balance is always full payment of what's left
+            console.log(`💰 [BOOKING LOAD] Deposit already paid: $${depositAlreadyPaid.toFixed(2)}`);
+          }
+          
+          // Restore tip if it was included in the deposit
+          if (bookingData.paymentDetails.tip) {
+            setTipAmount(bookingData.paymentDetails.tip);
+          }
+        }
+        
         // Debug log removed:", bookingId);
         
       } else {
@@ -1645,7 +1660,8 @@ export default function Checkout() {
   const pickupFee = cartSettings.duration && pickupTimeFees[cartSettings.duration] ? pickupTimeFees[cartSettings.duration] : 0;
   const subtotal = cartTotal + lastMinuteTotal + surfaceAdj + timeAdj + pickupFee;
   const salesTax = subtotal * 0.08; // 8% sales tax
-  const total = subtotal + salesTax + deliveryCost + tipAmount;
+  const totalBeforeDeposit = subtotal + salesTax + deliveryCost + tipAmount;
+  const total = Math.max(0, totalBeforeDeposit - (actualAmountPaid || 0)); // Subtract deposit already paid
 
   // Load inflateables data function (similar to CartSidebar)
   const loadInflateablesData = async (): Promise<any[]> => {
@@ -1997,7 +2013,12 @@ export default function Checkout() {
   const calculateWalletApplicableAmount = () => {
     if (!userWallet || !useWalletFirst) return 0;
     
-    const paymentAmount = parseFloat(paymentType === 'deposit' ? calculateDepositAmount() : calculateTotalAmount());
+    let paymentAmount = parseFloat(paymentType === 'deposit' ? calculateDepositAmount() : calculateTotalAmount());
+    
+    // Subtract any deposit already paid (for resumed bookings)
+    const alreadyPaid = actualAmountPaid || 0;
+    paymentAmount = Math.max(0, paymentAmount - alreadyPaid);
+    
     return Math.min(userWallet.balance, paymentAmount);
   };
 
@@ -2013,6 +2034,10 @@ export default function Checkout() {
       // For normal/deferred processing, use standard payment logic
       totalPayment = parseFloat(paymentType === 'deposit' ? calculateDepositAmount() : calculateTotalAmount());
     }
+    
+    // Subtract any deposit already paid (for resumed bookings)
+    const alreadyPaid = actualAmountPaid || 0;
+    totalPayment = Math.max(0, totalPayment - alreadyPaid);
     
     const walletApplied = calculateWalletApplicableAmount();
     return Math.max(0, totalPayment - walletApplied);
@@ -4987,6 +5012,11 @@ export default function Checkout() {
             <div style={{ marginBottom: '0.5rem', color: '#666' }}>
               <strong>Delivery:</strong> ${deliveryCost.toFixed(2)}
             </div>
+            {actualAmountPaid && actualAmountPaid > 0 && (
+              <div style={{ marginBottom: '0.5rem', color: '#28a745', fontWeight: 'bold' }}>
+                <strong>Deposit Already Paid:</strong> -${actualAmountPaid.toFixed(2)}
+              </div>
+            )}
             <div style={{ 
               fontSize: '1.2rem', 
               fontWeight: 'bold', 
@@ -5072,6 +5102,12 @@ export default function Checkout() {
                 <span>Sales Tax (8%):</span>
                 <span>${salesTax.toFixed(2)}</span>
               </div>
+              {actualAmountPaid && actualAmountPaid > 0 && (
+                <div className="pricing-row" style={{ color: '#28a745', fontWeight: 'bold' }}>
+                  <span>Deposit Already Paid:</span>
+                  <span>-${actualAmountPaid.toFixed(2)}</span>
+                </div>
+              )}
               <div className="pricing-total">
                 <span>Total:</span>
                 <span>${total.toFixed(2)}</span>
@@ -5167,7 +5203,7 @@ export default function Checkout() {
           })()}
 
           {/* Tip Your Driver Section */}
-          {!requiresPhoneCall && (
+          {!requiresPhoneCall && !actualAmountPaid && (
             <div style={{ 
               marginBottom: '2rem',
               padding: '1rem',
@@ -5204,7 +5240,7 @@ export default function Checkout() {
           )}
 
           {/* Event Notes Section */}
-          {!requiresPhoneCall && (
+          {!requiresPhoneCall && !actualAmountPaid && (
             <div style={{ 
               marginBottom: '2rem',
               padding: '1rem',
@@ -5248,6 +5284,25 @@ export default function Checkout() {
                 }}>
                   {eventNotes.length}/500 characters
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Already Paid Deposit Section */}
+          {!requiresPhoneCall && actualAmountPaid && actualAmountPaid > 0 && (
+            <div style={{ 
+              marginBottom: '2rem',
+              padding: '1rem',
+              backgroundColor: '#e3f2fd',
+              border: '2px solid #2196F3',
+              borderRadius: '8px'
+            }}>
+              <h3 style={{ marginBottom: '0.5rem', color: '#1976d2' }}>✅ Deposit Already Paid</h3>
+              <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#1565c0' }}>
+                ${actualAmountPaid.toFixed(2)}
+              </div>
+              <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.5rem' }}>
+                Remaining balance: ${(parseFloat(calculateTotalAmount()) - actualAmountPaid).toFixed(2)}
               </div>
             </div>
           )}
@@ -5299,7 +5354,12 @@ export default function Checkout() {
                   Use Wallet First
                 </label>
               </div>
-              {useWalletFirst && walletAppliedAmount >= parseFloat(paymentType === 'deposit' ? calculateDepositAmount() : calculateTotalAmount()) && (
+              {useWalletFirst && (() => {
+                const totalPayment = parseFloat(paymentType === 'deposit' ? calculateDepositAmount() : calculateTotalAmount());
+                const alreadyPaid = actualAmountPaid || 0;
+                const remainingAmount = Math.max(0, totalPayment - alreadyPaid);
+                return walletAppliedAmount >= remainingAmount;
+              })() && (
                 <div style={{ 
                   padding: '1rem',
                   backgroundColor: '#c8e6c9',
@@ -5360,8 +5420,8 @@ export default function Checkout() {
                 </div>
               )}
               
-              {/* Hide payment options if booking is deferred */}
-              {!isDeferredBooking && (
+              {/* Hide payment options if booking is deferred or if deposit was already paid */}
+              {!isDeferredBooking && !actualAmountPaid && (
                 <div>
                   {/* Payment Type Selection */}
                   <div style={{ 
@@ -5482,6 +5542,8 @@ export default function Checkout() {
                   </div>
                 )}
               </div>
+            </div>
+          )}
               
               {processingPayment && (
                 <div style={{ 
@@ -5613,7 +5675,7 @@ export default function Checkout() {
           )}
           
           <div className="checkout-navigation-buttons">
-            {!isDeferredBooking && (
+            {!isDeferredBooking && !actualAmountPaid && (
               <button
                 className="btn-back"
                 id="btn-back-contract"
@@ -5625,7 +5687,6 @@ export default function Checkout() {
             )}
           </div>
         </div>
-      )}
 
       {currentStep === 'payment' && paymentCompleted && (
         <div style={{ 
@@ -5818,7 +5879,6 @@ export default function Checkout() {
           </a>
         </div>
       </footer>
-      </div>
 
       {/* Mobile Bottom Menu */}
       <MobileBottomMenu
