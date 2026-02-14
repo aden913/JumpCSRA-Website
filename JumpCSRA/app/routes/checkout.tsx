@@ -242,6 +242,7 @@ export default function Checkout() {
   const [bookingLoadedFromUrl, setBookingLoadedFromUrl] = useState<boolean>(false);
   const [paymentType, setPaymentType] = useState<'full' | 'deposit'>('full');
   const [actualAmountPaid, setActualAmountPaid] = useState<number | null>(null);
+  const [originalBookingTotal, setOriginalBookingTotal] = useState<number | null>(null);
   const [isDeferredBooking, setIsDeferredBooking] = useState<boolean>(false);
   const [tipAmount, setTipAmount] = useState<number>(0);
   const [eventNotes, setEventNotes] = useState<string>('');
@@ -745,7 +746,10 @@ export default function Checkout() {
           if (depositAlreadyPaid > 0) {
             setActualAmountPaid(depositAlreadyPaid);
             setPaymentType('full'); // Remaining balance is always full payment of what's left
-            console.log(`💰 [BOOKING LOAD] Deposit already paid: $${depositAlreadyPaid.toFixed(2)}`);
+            // Store the original booking total (which already includes tax) to avoid recalculating
+            const originalTotal = bookingData.orderDetails?.totalAmount || bookingData.paymentDetails.totalAmount || 0;
+            setOriginalBookingTotal(originalTotal);
+            console.log(`💰 [BOOKING LOAD] Deposit already paid: $${depositAlreadyPaid.toFixed(2)}, Original total: $${originalTotal.toFixed(2)}`);
           }
           
           // Restore tip if it was included in the deposit
@@ -1661,7 +1665,10 @@ export default function Checkout() {
   const subtotal = cartTotal + lastMinuteTotal + surfaceAdj + timeAdj + pickupFee;
   const salesTax = subtotal * 0.08; // 8% sales tax
   const totalBeforeDeposit = subtotal + salesTax + deliveryCost + tipAmount;
-  const total = Math.max(0, totalBeforeDeposit - (actualAmountPaid || 0)); // Subtract deposit already paid
+  // If completing a deposited booking, use the original total to avoid double-taxing
+  const total = originalBookingTotal !== null 
+    ? Math.max(0, originalBookingTotal - (actualAmountPaid || 0)) 
+    : Math.max(0, totalBeforeDeposit - (actualAmountPaid || 0)); // Subtract deposit already paid
 
   // Load inflateables data function (similar to CartSidebar)
   const loadInflateablesData = async (): Promise<any[]> => {
@@ -2015,9 +2022,8 @@ export default function Checkout() {
     
     let paymentAmount = parseFloat(paymentType === 'deposit' ? calculateDepositAmount() : calculateTotalAmount());
     
-    // Subtract any deposit already paid (for resumed bookings)
-    const alreadyPaid = actualAmountPaid || 0;
-    paymentAmount = Math.max(0, paymentAmount - alreadyPaid);
+    // Note: deposit already paid is already subtracted in calculateTotalAmount()
+    // so we don't need to subtract it again here
     
     return Math.min(userWallet.balance, paymentAmount);
   };
@@ -2035,9 +2041,8 @@ export default function Checkout() {
       totalPayment = parseFloat(paymentType === 'deposit' ? calculateDepositAmount() : calculateTotalAmount());
     }
     
-    // Subtract any deposit already paid (for resumed bookings)
-    const alreadyPaid = actualAmountPaid || 0;
-    totalPayment = Math.max(0, totalPayment - alreadyPaid);
+    // Note: deposit already paid is already subtracted in calculateTotalAmount()
+    // so we don't need to subtract it again here
     
     const walletApplied = calculateWalletApplicableAmount();
     return Math.max(0, totalPayment - walletApplied);
@@ -2347,7 +2352,15 @@ export default function Checkout() {
           const oldTip = existingBooking.paymentDetails.tip || 0;
           const baseTotalAmount = existingBooking.orderDetails.totalAmount - oldTip;
           const totalAmount = baseTotalAmount + tipAmount;
-          const depositAmount = walletAppliedAmount;
+          
+          // Check if this is completing a deposited booking
+          const isCompletingDeposit = existingBooking.status === 'deposited';
+          const previousDepositAmount = existingBooking.paymentDetails?.depositAmount || 0;
+          
+          // Determine deposit amount - add to existing if completing a deposit
+          const depositAmount = isCompletingDeposit 
+            ? previousDepositAmount + walletAppliedAmount 
+            : walletAppliedAmount;
 
           // Update booking status
           const statusUpdated = await updateBookingStatusBasedOnPayment(pendingBookingId, depositAmount, totalAmount);
@@ -2376,6 +2389,18 @@ export default function Checkout() {
             existingBooking.paymentDetails.paymentStatus = 'completed';
             existingBooking.paymentDetails.paymentDate = new Date().toISOString();
             existingBooking.updatedAt = new Date().toISOString();
+            
+            // Add payment to payment history
+            if (!existingBooking.paymentDetails.paymentHistory) {
+              existingBooking.paymentDetails.paymentHistory = [];
+            }
+            existingBooking.paymentDetails.paymentHistory.push({
+              orderID: pendingBookingId,
+              amount: walletAppliedAmount,
+              timestamp: new Date().toISOString(),
+              paymentType: isCompletingDeposit ? 'remaining_balance' : (paymentType === 'deposit' ? 'deposit' : 'full'),
+              paymentMethod: 'Wallet'
+            });
             
             const success = await saveBookingData(existingBooking);
             if (success) {
@@ -2674,9 +2699,16 @@ export default function Checkout() {
           const baseTotalAmount = existingBooking.orderDetails.totalAmount - oldTip;
           const totalAmount = baseTotalAmount + tipAmount;
           
-          // Determine deposit amount based on payment type
+          // Check if this is completing a deposited booking
+          const isCompletingDeposit = existingBooking.status === 'deposited';
+          const previousDepositAmount = existingBooking.paymentDetails?.depositAmount || 0;
+          
+          // Determine deposit amount based on payment type and existing deposit
           let depositAmount: number;
-          if (paymentType === 'deposit') {
+          if (isCompletingDeposit) {
+            // Add the new payment to the existing deposit
+            depositAmount = previousDepositAmount + totalPaidAmount;
+          } else if (paymentType === 'deposit') {
             depositAmount = totalPaidAmount; // The total paid amount (PayPal + Wallet) is the deposit
           } else {
             depositAmount = totalPaidAmount; // Full payment means the full amount is the deposit
@@ -2703,6 +2735,20 @@ export default function Checkout() {
             updatedBooking.paymentDetails.paymentStatus = 'completed';
             updatedBooking.paymentDetails.paymentDate = new Date().toISOString();
             updatedBooking.updatedAt = new Date().toISOString();
+            
+            // Add payment to payment history
+            if (!updatedBooking.paymentDetails.paymentHistory) {
+              updatedBooking.paymentDetails.paymentHistory = [];
+            }
+            updatedBooking.paymentDetails.paymentHistory.push({
+              orderID: data.orderID,
+              amount: totalPaidAmount,
+              timestamp: new Date().toISOString(),
+              paymentType: isCompletingDeposit ? 'remaining_balance' : (paymentType === 'deposit' ? 'deposit' : 'full'),
+              paymentMethod: useWalletFirst && walletAppliedAmount > 0 
+                ? `PayPal: $${payPalAmount.toFixed(2)}, Wallet: $${walletAppliedAmount.toFixed(2)}`
+                : 'PayPal'
+            });
             
             const success = await saveBookingData(updatedBooking);
             if (success) {

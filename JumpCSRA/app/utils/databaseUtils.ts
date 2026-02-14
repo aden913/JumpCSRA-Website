@@ -41,6 +41,13 @@ export interface BookingData {
     paypalTransactionId?: string;
     paymentStatus: 'pending' | 'completed' | 'failed';
     paymentDate?: string;
+    paymentHistory?: Array<{
+      orderID: string;
+      amount: number;
+      timestamp: string;
+      paymentType: 'deposit' | 'full' | 'remaining_balance';
+      paymentMethod: string;
+    }>;
   };
   notes?: Array<{
     type: 'system' | 'admin' | 'customer';
