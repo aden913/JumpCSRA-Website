@@ -10,14 +10,15 @@ import { getStorage } from "firebase/storage";
 // https://firebase.google.com/docs/web/setup#available-libraries
 
 // Your web app's Firebase configuration
+// These are public Firebase client keys - safe to commit
 export const firebaseConfig = {
-  apiKey: "AIzaSyDs39ycP3-tg21iBpWul8cp6hoqoKhI2cE",
-  authDomain: "pppro-b060e.firebaseapp.com",
-  databaseURL: "https://pppro-b060e-default-rtdb.firebaseio.com",
-  projectId: "pppro-b060e",
-  storageBucket: "pppro-b060e.firebasestorage.app",
-  messagingSenderId: "819237875595",
-  appId: "1:819237875595:web:1ee4ce4c815c1b4d2f498e"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDs39ycP3-tg21iBpWul8cp6hoqoKhI2cE",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "pppro-b060e.firebaseapp.com",
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://pppro-b060e-default-rtdb.firebaseio.com",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "pppro-b060e",
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "pppro-b060e.firebasestorage.app",
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "819237875595",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:819237875595:web:1ee4ce4c815c1b4d2f498e"
 };
 
 // Initialize Firebase

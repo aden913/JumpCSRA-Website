@@ -4137,7 +4137,12 @@ export default function Profile() {
                     </div>
                     <div className="section-content">
                       {section.content ? (
-                        <div dangerouslySetInnerHTML={{ __html: section.content.replace(/\n/g, '<br>') }} />
+                        <div dangerouslySetInnerHTML={{ 
+                          __html: section.content
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/\n/g, '<br>') 
+                        }} />
                       ) : (
                         <p>No content available</p>
                       )}

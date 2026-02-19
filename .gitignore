@@ -4,6 +4,9 @@ JumpCSRA/node_modules/
 serverFiles/node_modules/
 functions/node_modules/
 
+# Firebase Functions (deployed to Firebase, not needed in repo)
+functions/
+
 # Monorepo workspace files
 .yarn/
 .pnp.*

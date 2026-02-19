@@ -397,12 +397,6 @@ export function Welcome() {
 
   return (
     <>
-      {/* Google Maps API for Places Autocomplete */}
-      <script
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB4F9liX4qhB8-lAsNSbaNadZ8dsxjE2Ao&libraries=places"
-        async
-        defer
-      ></script>
       <MantineProvider>
         {/* Dev Tools - Hidden for mobile testing */}
         {/* <ViewportDebugger /> */}

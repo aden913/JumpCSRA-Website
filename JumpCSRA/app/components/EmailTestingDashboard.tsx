@@ -23,21 +23,29 @@ export default function EmailTestingDashboard() {
   const [selectedServer, setSelectedServer] = useState(0);
 
   // Available email servers to test
+  // Get credentials from environment variables
+  const getEmailApiKey = () => {
+    if (typeof window !== 'undefined' && (window as any).ENV?.EMAIL_API_KEY) {
+      return (window as any).ENV.EMAIL_API_KEY;
+    }
+    return import.meta.env.VITE_EMAIL_API_KEY || 'jumpcsra_secure_api_key_2024';
+  };
+
   const emailServers: ServerConfig[] = [
     {
       name: 'Production Server',
-      url: 'http://170.187.145.7:3001',
-      apiKey: 'jumpcsra_secure_api_key_2024'
+      url: import.meta.env.VITE_EMAIL_SERVICE_URL || 'http://170.187.145.7:3001',
+      apiKey: getEmailApiKey()
     },
     {
-      name: 'Local Development',
+      name: 'Local Server',
       url: 'http://localhost:3001',
-      apiKey: 'jumpcsra_secure_api_key_2024'
+      apiKey: getEmailApiKey()
     },
     {
       name: 'Alternative Port',
       url: 'http://170.187.145.7:3000',
-      apiKey: 'jumpcsra_secure_api_key_2024'
+      apiKey: getEmailApiKey()
     }
   ];
 

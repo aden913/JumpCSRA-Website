@@ -57,15 +57,19 @@ class BackendEmailService {
   }
 
   private getBaseURL(): string {
-    // Always use production email server since it's the only one running
-    // In the future, you could run a local email server for development
-    return 'http://170.187.145.7:3001';
+    // Use environment variable or fallback to production
+    if (typeof window !== 'undefined' && (window as any).ENV?.EMAIL_SERVICE_URL) {
+      return (window as any).ENV.EMAIL_SERVICE_URL;
+    }
+    return import.meta.env.VITE_EMAIL_SERVICE_URL || 'http://170.187.145.7:3001';
   }
 
   private getApiKey(): string {
-    // In production, this should come from a secure source
-    // For now, using a consistent key that matches your server
-    return 'jumpcsra_secure_api_key_2024';
+    // Get API key from environment variable
+    if (typeof window !== 'undefined' && (window as any).ENV?.EMAIL_API_KEY) {
+      return (window as any).ENV.EMAIL_API_KEY;
+    }
+    return import.meta.env.VITE_EMAIL_API_KEY || 'jumpcsra_secure_api_key_2024';
   }
 
   private async makeRequest(endpoint: string, data: any = null, method: string = 'POST'): Promise<any> {
