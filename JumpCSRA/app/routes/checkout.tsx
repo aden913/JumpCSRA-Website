@@ -4072,7 +4072,7 @@ export default function Checkout() {
                     }}>
                       ${item.isGiftCard 
                         ? ((item.giftCardValue || item.price) * item.quantity).toFixed(2)
-                        : (item.price * item.quantity * durationMultiplier).toFixed(2)
+                        : (getItemDisplayPrice(item, idx) * item.quantity).toFixed(2)
                       }
                     </div>
                   </div>
@@ -4578,26 +4578,19 @@ export default function Checkout() {
           <div className="pricing-row">
             <span>Cart Subtotal:</span>
             <span>${(() => {
-              // Calculate base price without duration multiplier
-              const baseCartTotal = cart.reduce((sum, item) => {
+              // Calculate base price with wet surcharges and duration multiplier
+              const baseCartTotal = cart.reduce((sum, item, index) => {
                 if (item.isGiftCard) {
                   return sum + (item.giftCardValue || item.price) * item.quantity;
                 } else {
-                  return sum + item.price * item.quantity; // No duration multiplier here
+                  return sum + getItemDisplayPrice(item, index) * item.quantity;
                 }
               }, 0);
               return baseCartTotal.toFixed(2);
             })()}</span>
           </div>
           {(() => {
-            // Calculate duration charge
-            const baseCartTotal = cart.reduce((sum, item) => {
-              if (item.isGiftCard) {
-                return sum + (item.giftCardValue || item.price) * item.quantity;
-              } else {
-                return sum + item.price * item.quantity;
-              }
-            }, 0);
+            // Calculate duration charge separately for display purposes
             const rentalSubtotal = cart.reduce((sum, item) => {
               if (!item.isGiftCard && !item.isMembership) {
                 return sum + item.price * item.quantity;
@@ -5159,7 +5152,7 @@ export default function Checkout() {
                       />
                     )}
                     <div className="payment-summary-details">
-                      <div className="payment-summary-name">• {item.name} - ${item.price.toFixed(2)}</div>
+                      <div className="payment-summary-name">• {item.name} - ${getItemDisplayPrice(item, index).toFixed(2)}</div>
                       {!item.isGiftCard && !item.isMembership && (
                         <div className="payment-summary-type">
                           Type: {wetDrySelection}
@@ -5203,11 +5196,11 @@ export default function Checkout() {
               <div className="pricing-row">
                 <span>Cart Subtotal:</span>
                 <span>${(() => {
-                  const baseCartTotal = cart.reduce((sum, item) => {
+                  const baseCartTotal = cart.reduce((sum, item, index) => {
                     if (item.isGiftCard) {
                       return sum + (item.giftCardValue || item.price) * item.quantity;
                     } else {
-                      return sum + item.price * item.quantity;
+                      return sum + getItemDisplayPrice(item, index) * item.quantity;
                     }
                   }, 0);
                   return baseCartTotal.toFixed(2);
