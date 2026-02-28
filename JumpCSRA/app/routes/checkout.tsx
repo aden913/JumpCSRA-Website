@@ -615,6 +615,8 @@ export default function Checkout() {
           // Debug log removed
           setCurrentStep('payment');
           setVisitedSteps(prev => new Set([...prev, 'payment']));
+          // Scroll to top of page
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }
       }
     }
@@ -890,6 +892,9 @@ export default function Checkout() {
       setCurrentStep('payment');
       setVisitedSteps(prev => new Set([...prev, 'payment']));
       
+      // Scroll to top of page
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
       notifications.show({
         title: '✅ Booking Loaded',
         message: 'Your booking has been loaded. You can now complete payment.',
@@ -955,7 +960,7 @@ export default function Checkout() {
       // Event date check
       
       // Save contract and booking with determined status
-      const result = await saveBookingAndContract(initialStatus, 'full', 0, undefined, undefined, contractData);
+      const result = await saveBookingAndContract(initialStatus, 'full', 0, undefined, undefined, undefined, contractData);
       if (result) {
         const { orderID, contractID } = result;
         setPendingBookingId(orderID); // Store orderID for payment processing
@@ -979,6 +984,9 @@ export default function Checkout() {
         // Direct navigation to payment step to avoid state dependency issues
         setCurrentStep('payment');
         setVisitedSteps(prev => new Set([...prev, 'payment']));
+        
+        // Scroll to top of page
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         
         // Navigated directly to payment step
       } else {
@@ -1285,6 +1293,9 @@ export default function Checkout() {
             setCurrentStep('payment');
             setVisitedSteps(new Set(['cart-delivery', 'party-essentials', 'contract', 'payment']));
             setContractSigned(true);
+            
+            // Scroll to top of page
+            window.scrollTo({ top: 0, behavior: 'smooth' });
             
             // Restore tip if it was set
             if (booking.paymentDetails?.tip) {
@@ -2016,6 +2027,37 @@ export default function Checkout() {
     return remainingOnInflatables.toFixed(2);
   };
 
+  // Helper function to update all items with capture IDs based on payment method
+  const updateItemCaptureIds = (booking: BookingData, captureId: string | null, useWallet: boolean): BookingData => {
+    const updatedBooking = { ...booking };
+    
+    if (!updatedBooking.orderDetails.items) return updatedBooking;
+    
+    updatedBooking.orderDetails.items = updatedBooking.orderDetails.items.map(item => {
+      const itemCaptureIds = item.captureIds || [];
+      
+      // Build the capture IDs to add
+      const newCaptureIds: string[] = [];
+      
+      // Add wallet if wallet was used
+      if (useWallet && !itemCaptureIds.includes('wallet')) {
+        newCaptureIds.push('wallet');
+      }
+      
+      // Add PayPal capture ID if it exists
+      if (captureId && !itemCaptureIds.includes(captureId)) {
+        newCaptureIds.push(captureId);
+      }
+      
+      return {
+        ...item,
+        captureIds: [...itemCaptureIds, ...newCaptureIds]
+      };
+    });
+    
+    return updatedBooking;
+  };
+
   // Calculate how much wallet balance can be applied
   const calculateWalletApplicableAmount = () => {
     if (!userWallet || !useWalletFirst) return 0;
@@ -2271,6 +2313,9 @@ export default function Checkout() {
     setCurrentStep('payment');
     setVisitedSteps(prev => new Set([...prev, 'payment']));
     
+    // Scroll to top of page
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
     // Debug log removed
   };
 
@@ -2291,11 +2336,25 @@ export default function Checkout() {
 
     const strategy = getDeferredBookingStrategy();
     
+    // Build product names list for description
+    const productNames = cart
+      .filter(item => !item.isGiftCard) // Exclude gift cards from product list
+      .map(item => item.name)
+      .join(', ');
+    
     let baseDescription;
     if (strategy.strategy === 'partial') {
       const composition = analyzeCartComposition();
-      baseDescription = `Jump CSRA Partial Order - Gift Cards/Memberships (${composition.giftCardItems.length + composition.membershipItems.length} item(s))`;
+      const partialProducts = [...composition.giftCardItems, ...composition.membershipItems]
+        .map(item => item.name)
+        .join(', ');
+      baseDescription = `Rental: ${partialProducts || 'Gift Cards/Memberships'}`;
+    } else if (productNames) {
+      baseDescription = paymentType === 'deposit' 
+        ? `Rental (50% Deposit): ${productNames}`
+        : `Rental: ${productNames}`;
     } else {
+      // Fallback if no product names (e.g., gift cards only)
       baseDescription = paymentType === 'deposit' 
         ? `Jump CSRA Rental - 50% Deposit (${cart.length} item(s))`
         : `Jump CSRA Party Rental - Full Payment (${cart.length} item(s))`;
@@ -2305,6 +2364,11 @@ export default function Checkout() {
       ? `${baseDescription} - After Wallet: $${walletAppliedAmount.toFixed(2)}`
       : baseDescription;
     
+    // Truncate description if too long (PayPal has a 127 character limit)
+    const finalDescription = description.length > 127 
+      ? description.substring(0, 124) + '...'
+      : description;
+    
     return actions.order.create({
       purchase_units: [
         {
@@ -2312,10 +2376,16 @@ export default function Checkout() {
             value: payPalAmount.toFixed(2),
             currency_code: "USD"
           },
-          description: description
+          description: finalDescription,
+          custom_id: pendingBookingId || `order-${Date.now()}`,
+          invoice_id: pendingBookingId || undefined
         }
       ],
-      intent: "CAPTURE"
+      intent: "CAPTURE",
+      application_context: {
+        brand_name: "Jump CSRA Party Rentals",
+        shipping_preference: "NO_SHIPPING"
+      }
     });
   };
 
@@ -2390,26 +2460,28 @@ export default function Checkout() {
             existingBooking.paymentDetails.paymentDate = new Date().toISOString();
             existingBooking.updatedAt = new Date().toISOString();
             
+            // Update all items with 'wallet' capture ID
+            const bookingWithWalletCapture = updateItemCaptureIds(existingBooking, null, true);
+            
             // Add payment to payment history
-            if (!existingBooking.paymentDetails.paymentHistory) {
-              existingBooking.paymentDetails.paymentHistory = [];
+            if (!bookingWithWalletCapture.paymentDetails.paymentHistory) {
+              bookingWithWalletCapture.paymentDetails.paymentHistory = [];
             }
-            existingBooking.paymentDetails.paymentHistory.push({
-              orderID: pendingBookingId,
+            bookingWithWalletCapture.paymentDetails.paymentHistory.push({
               amount: walletAppliedAmount,
               timestamp: new Date().toISOString(),
               paymentType: isCompletingDeposit ? 'remaining_balance' : (paymentType === 'deposit' ? 'deposit' : 'full'),
               paymentMethod: 'Wallet'
             });
             
-            const success = await saveBookingData(existingBooking);
+            const success = await saveBookingData(bookingWithWalletCapture);
             if (success) {
               setPaymentId(`wallet-${Date.now()}`);
               setPaymentCompleted(true);
               
               // Delete pending/deferred bookings with overlapping items
-              if (user && existingBooking.orderDetails?.items) {
-                const itemNames = existingBooking.orderDetails.items.map(item => item.name);
+              if (user && bookingWithWalletCapture.orderDetails?.items) {
+                const itemNames = bookingWithWalletCapture.orderDetails.items.map(item => item.name);
                 await deletePendingBookingsWithOverlappingItems(
                   user.uid,
                   pendingBookingId,
@@ -2654,8 +2726,22 @@ export default function Checkout() {
     
     try {
       const details = await actions.order.capture();
-      const paymentId = details.id;
+      
+      // Extract all relevant PayPal IDs
+      const paypalOrderId = details.id; // This is the order ID (for overall order reference)
+      const captureDetails = details.purchase_units[0]?.payments?.captures[0];
+      const captureId = captureDetails?.id; // This is the capture ID (used for refunds)
+      const transactionId = captureDetails?.supplementary_data?.related_ids?.order_id || 
+                           captureDetails?.id; // Transaction ID (appears in PayPal reports)
       const payPalAmount = parseFloat(details.purchase_units[0].amount.value);
+      
+      console.log('💳 PayPal Payment Details (Full Capture):', {
+        orderId: paypalOrderId,
+        captureId: captureId,
+        transactionId: transactionId,
+        amount: payPalAmount,
+        fullCaptureObject: captureDetails // Log full capture for debugging
+      });
       
       // Handle wallet transaction if wallet was used
       let walletTransactionId = null;
@@ -2668,7 +2754,7 @@ export default function Checkout() {
             type: 'withdrawal',
             description: `Order payment - ${cart.length} item(s)`,
             orderID: data.orderID,
-            paypalTransactionId: paymentId
+            paypalTransactionId: captureId
           });
           
           if (walletTransactionSuccess) {
@@ -2730,18 +2816,24 @@ export default function Checkout() {
             updatedBooking.paymentDetails.depositAmount = depositAmount;
             updatedBooking.paymentDetails.remainingBalance = totalAmount - depositAmount;
             updatedBooking.paymentDetails.tip = tipAmount;
-            updatedBooking.paymentDetails.paypalOrderId = data.orderID;
-            updatedBooking.paymentDetails.paypalTransactionId = paymentId;
+            updatedBooking.paymentDetails.paypalOrderId = paypalOrderId;
+            (updatedBooking.paymentDetails as any).paypalCaptureId = captureId; // Store capture ID for refunds
+            (updatedBooking.paymentDetails as any).paypalTransactionId = transactionId; // Store transaction ID for reports
             updatedBooking.paymentDetails.paymentStatus = 'completed';
             updatedBooking.paymentDetails.paymentDate = new Date().toISOString();
             updatedBooking.updatedAt = new Date().toISOString();
             
+            // Update all items with capture IDs (wallet if used, plus PayPal capture ID)
+            const bookingWithCaptureIds = updateItemCaptureIds(updatedBooking, captureId, useWalletFirst && walletAppliedAmount > 0);
+            
             // Add payment to payment history
-            if (!updatedBooking.paymentDetails.paymentHistory) {
-              updatedBooking.paymentDetails.paymentHistory = [];
+            if (!bookingWithCaptureIds.paymentDetails.paymentHistory) {
+              bookingWithCaptureIds.paymentDetails.paymentHistory = [];
             }
-            updatedBooking.paymentDetails.paymentHistory.push({
-              orderID: data.orderID,
+            bookingWithCaptureIds.paymentDetails.paymentHistory.push({
+              paypalOrderId: paypalOrderId,
+              paypalCaptureId: captureId,
+              paypalTransactionId: transactionId,
               amount: totalPaidAmount,
               timestamp: new Date().toISOString(),
               paymentType: isCompletingDeposit ? 'remaining_balance' : (paymentType === 'deposit' ? 'deposit' : 'full'),
@@ -2750,14 +2842,14 @@ export default function Checkout() {
                 : 'PayPal'
             });
             
-            const success = await saveBookingData(updatedBooking);
+            const success = await saveBookingData(bookingWithCaptureIds);
             if (success) {
-              setPaymentId(paymentId);
+              setPaymentId(captureId);
               setPaymentCompleted(true);
               
               // Delete pending/deferred bookings with overlapping items
-              if (user && updatedBooking.orderDetails?.items) {
-                const itemNames = updatedBooking.orderDetails.items.map(item => item.name);
+              if (user && bookingWithCaptureIds.orderDetails?.items) {
+                const itemNames = bookingWithCaptureIds.orderDetails.items.map(item => item.name);
                 await deletePendingBookingsWithOverlappingItems(
                   user.uid,
                   pendingBookingId,
@@ -2766,7 +2858,7 @@ export default function Checkout() {
               }
               
               // Use the status from the updated booking
-              const finalStatus = updatedBooking.status || 'unknown';
+              const finalStatus = bookingWithCaptureIds.status || 'unknown';
               
               let message: string;
               if (paymentType === 'deposit') {
@@ -2988,8 +3080,9 @@ export default function Checkout() {
                   requiresPhoneCall: false, // Set based on your business logic
                   
                   // PayPal transaction details (for reference)
-                  paypalOrderId: data.orderID,
-                  paypalTransactionId: paymentId
+                  paypalOrderId: paypalOrderId,
+                  paypalCaptureId: captureId,
+                  paypalTransactionId: transactionId
                 };
 
                 // Debug log removed
@@ -3297,6 +3390,7 @@ export default function Checkout() {
     paymentType: 'full' | 'deposit' = 'full',
     depositAmount: number = 0,
     paypalOrderId?: string,
+    paypalCaptureId?: string,
     paypalTransactionId?: string,
     contractInfo?: { sections: any[], signature: string, initials: string }
   ): Promise<{orderID: string, contractID: string} | null> => {
@@ -3375,7 +3469,8 @@ export default function Checkout() {
             ...cart.map(item => ({
               name: item.name,
               quantity: item.quantity,
-              price: item.isGiftCard ? (item.giftCardValue || item.price) : item.price
+              price: item.isGiftCard ? (item.giftCardValue || item.price) : item.price,
+              captureIds: [] // Will be populated when payment is made
             })),
             ...Object.entries(lastMinuteAdditions)
               .filter(([_, quantity]) => quantity > 0)
@@ -3383,7 +3478,7 @@ export default function Checkout() {
                 const item = partyEssentials.find(p => p.name === itemName);
                 const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
                 const price = item ? (isWeekend ? item.weekendPrice : item.weekdayPrice) : 0;
-                return { name: itemName, quantity, price };
+                return { name: itemName, quantity, price, captureIds: [] }; // Will be populated when payment is made
               })
           ],
           totalAmount: total,
@@ -3396,6 +3491,7 @@ export default function Checkout() {
           paymentType: paymentType,
           tip: tipAmount,
           ...(paypalOrderId && { paypalOrderId }),
+          ...(paypalCaptureId && { paypalCaptureId }),
           ...(paypalTransactionId && { paypalTransactionId }),
           paymentStatus: bookingStatus === 'confirmed' ? 'completed' : 'pending',
           ...(bookingStatus === 'confirmed' && { paymentDate: new Date().toISOString() })

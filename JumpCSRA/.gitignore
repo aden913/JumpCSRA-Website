@@ -7,6 +7,10 @@
 /.react-router/
 /build/
 
+# Environment variables
+.env
+.env.local
+.env.*.local
 
 jumpcsrainfo.txt
 todo.txt

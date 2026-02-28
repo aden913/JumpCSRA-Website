@@ -27,6 +27,7 @@ export interface BookingData {
       name: string;
       quantity: number;
       price: number;
+      captureIds?: string[]; // Track which payments funded this item (for refunds)
     }>;
     totalAmount: number;
     notes?: string;
@@ -37,12 +38,15 @@ export interface BookingData {
     remainingBalance: number;
     paymentType: 'full' | 'deposit';
     tip: number;
-    paypalOrderId?: string;
-    paypalTransactionId?: string;
+    paypalOrderId?: string; // PayPal Order ID (overall order reference)
+    paypalCaptureId?: string; // Capture ID (used for refunds via PayPal API)
+    paypalTransactionId?: string; // Transaction ID (appears in PayPal reports/statements)
     paymentStatus: 'pending' | 'completed' | 'failed';
     paymentDate?: string;
     paymentHistory?: Array<{
-      orderID: string;
+      paypalOrderId?: string; // PayPal Order ID
+      paypalCaptureId?: string; // Capture ID for refunds
+      paypalTransactionId?: string; // Transaction ID for reports
       amount: number;
       timestamp: string;
       paymentType: 'deposit' | 'full' | 'remaining_balance';
