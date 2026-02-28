@@ -1674,7 +1674,8 @@ export default function Checkout() {
   const timeAdj = cartSettings.deliveryTime ? (timePrices[cartSettings.deliveryTime] || 0) * uniqueNonGiftCardItemCount : 0;
   const pickupFee = cartSettings.duration && pickupTimeFees[cartSettings.duration] ? pickupTimeFees[cartSettings.duration] : 0;
   const subtotal = cartTotal + lastMinuteTotal + surfaceAdj + timeAdj + pickupFee;
-  const salesTax = subtotal * 0.08; // 8% sales tax
+  // Only calculate sales tax for new bookings, not when resuming a deposited booking (tax was already paid)
+  const salesTax = originalBookingTotal !== null ? 0 : subtotal * 0.08; // 8% sales tax
   const totalBeforeDeposit = subtotal + salesTax + deliveryCost + tipAmount;
   // If completing a deposited booking, use the original total to avoid double-taxing
   const total = originalBookingTotal !== null 
@@ -1988,12 +1989,19 @@ export default function Checkout() {
 
   // Calculate 50% deposit amount (only for inflatables)
   const calculateDepositAmount = () => {
-    const giftCardTotal = calculateGiftCardTotal();
-    const inflatableTotal = calculateInflatableTotal();
-    const depositOnInflatables = inflatableTotal * 0.5;
+    // Calculate gift card portion with tax
+    const giftCardSubtotal = calculateGiftCardTotal();
+    const giftCardTax = giftCardSubtotal * 0.08;
+    const giftCardTotalWithTax = giftCardSubtotal + giftCardTax;
     
-    // Total deposit payment = full gift card amount + 50% of inflatables
-    const result = (giftCardTotal + depositOnInflatables).toFixed(2);
+    // Get the full total amount
+    const fullTotal = parseFloat(calculateTotalAmount());
+    
+    // Remaining after gift cards (this is what we split 50/50)
+    const remainingAmount = fullTotal - giftCardTotalWithTax;
+    
+    // Deposit = full gift card amount + 50% of remaining
+    const result = (giftCardTotalWithTax + (remainingAmount * 0.5)).toFixed(2);
     
     return result;
   };
@@ -2021,10 +2029,19 @@ export default function Checkout() {
 
   // Calculate remaining balance after deposit
   const calculateRemainingBalance = () => {
-    const inflatableTotal = calculateInflatableTotal();
-    const remainingOnInflatables = inflatableTotal * 0.5;
-    // Gift cards are paid in full with deposit, so no remaining balance for them
-    return remainingOnInflatables.toFixed(2);
+    // Calculate gift card portion with tax
+    const giftCardSubtotal = calculateGiftCardTotal();
+    const giftCardTax = giftCardSubtotal * 0.08;
+    const giftCardTotalWithTax = giftCardSubtotal + giftCardTax;
+    
+    // Get the full total amount
+    const fullTotal = parseFloat(calculateTotalAmount());
+    
+    // Remaining after gift cards (this is what we split 50/50)
+    const remainingAmount = fullTotal - giftCardTotalWithTax;
+    
+    // Remaining balance = 50% of the remaining amount
+    return (remainingAmount * 0.5).toFixed(2);
   };
 
   // Helper function to update all items with capture IDs based on payment method
@@ -2369,6 +2386,11 @@ export default function Checkout() {
       ? description.substring(0, 124) + '...'
       : description;
     
+    // Generate unique invoice ID to avoid duplicates (PayPal requires each transaction to have unique invoice_id)
+    const uniqueInvoiceId = pendingBookingId 
+      ? `${pendingBookingId}-${paymentType}-${Date.now()}`
+      : undefined;
+    
     return actions.order.create({
       purchase_units: [
         {
@@ -2378,7 +2400,7 @@ export default function Checkout() {
           },
           description: finalDescription,
           custom_id: pendingBookingId || `order-${Date.now()}`,
-          invoice_id: pendingBookingId || undefined
+          invoice_id: uniqueInvoiceId
         }
       ],
       intent: "CAPTURE",
