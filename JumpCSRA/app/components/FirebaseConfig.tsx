@@ -11,14 +11,24 @@ import { getStorage } from "firebase/storage";
 
 // Your web app's Firebase configuration
 // All values must be provided via environment variables (.env file)
+// For SSR: Use process.env (server) or import.meta.env (client)
+const getEnvVar = (name: string) => {
+  if (typeof process !== 'undefined' && process.env) {
+    // Server-side: try non-prefixed first, then VITE_ prefixed
+    return process.env[name] || process.env[`VITE_${name}`];
+  }
+  // Client-side: use import.meta.env with VITE_ prefix
+  return (import.meta.env as any)[`VITE_${name}`];
+};
+
 export const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+  apiKey: getEnvVar('FIREBASE_API_KEY'),
+  authDomain: getEnvVar('FIREBASE_AUTH_DOMAIN'),
+  databaseURL: getEnvVar('FIREBASE_DATABASE_URL'),
+  projectId: getEnvVar('FIREBASE_PROJECT_ID'),
+  storageBucket: getEnvVar('FIREBASE_STORAGE_BUCKET'),
+  messagingSenderId: getEnvVar('FIREBASE_MESSAGING_SENDER_ID'),
+  appId: getEnvVar('FIREBASE_APP_ID')
 };
 
 // Initialize Firebase
