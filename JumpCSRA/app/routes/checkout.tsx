@@ -1579,9 +1579,9 @@ export default function Checkout() {
   // Pricing calculations (copied from CartSidebar logic)
   const surfacePrices: Record<string, number> = {
     "grass-stakes": 0,
-    "grass-sandbags": 25,
-    "concrete": 25,
-    "indoor": 25,
+    "grass-sandbags": 50,
+    "concrete": 50,
+    "indoor": 50,
   };
   
   const timePrices: Record<string, number> = {
@@ -3467,6 +3467,20 @@ export default function Checkout() {
         eventEnd = endTime.toISOString();
       }
 
+      // Calculate adjustment totals for order
+      const totalTax = salesTax;
+      const totalEventStart = timeAdj;
+      const totalEventDuration = pickupFee;
+      const totalSurface = surfaceAdj;
+      const totalDelivery = deliveryCost;
+
+      // Calculate per-item share of distributed costs (for items that aren't gift cards)
+      const nonGiftCardItemCount = cart.filter(item => !item.isGiftCard && !item.isMembership).length + 
+        Object.values(lastMinuteAdditions).filter(qty => qty > 0).length;
+      
+      const eventStartPerItem = nonGiftCardItemCount > 0 ? totalEventStart / nonGiftCardItemCount : 0;
+      const surfacePerItem = nonGiftCardItemCount > 0 ? totalSurface / nonGiftCardItemCount : 0;
+
       // Prepare booking data
       const bookingData: BookingData = {
         orderID,
@@ -3488,22 +3502,77 @@ export default function Checkout() {
           ...(eventStart && { eventStart }),
           ...(eventEnd && { eventEnd }),
           items: [
-            ...cart.map(item => ({
-              name: item.name,
-              quantity: item.quantity,
-              price: item.isGiftCard ? (item.giftCardValue || item.price) : item.price,
-              captureIds: [] // Will be populated when payment is made
-            })),
+            ...cart.map((item, index) => {
+              const basePrice = item.isGiftCard ? (item.giftCardValue || item.price) : item.price;
+              
+              // For gift cards and memberships, no adjustments
+              if (item.isGiftCard || item.isMembership) {
+                return {
+                  name: item.name,
+                  quantity: item.quantity,
+                  price: basePrice,
+                  captureIds: [] // Will be populated when payment is made
+                };
+              }
+              
+              // Calculate adjusted price for non-gift-card items
+              let itemSubtotal = basePrice * durationMultiplier;
+              
+              // Add wet surcharge if applicable
+              const supportsWetDry = item.wetDry === "Wet/Dry";
+              if (supportsWetDry && cartSettings.wetDrySelections?.[index] === "Wet") {
+                itemSubtotal += 50;
+              }
+              
+              // Add per-item distributed costs
+              itemSubtotal += eventStartPerItem;
+              itemSubtotal += surfacePerItem;
+              
+              // Add sales tax to this item's subtotal
+              const itemTax = itemSubtotal * 0.08;
+              const adjustedPrice = itemSubtotal + itemTax;
+              
+              return {
+                name: item.name,
+                quantity: item.quantity,
+                price: basePrice,
+                adjustedPrice: parseFloat(adjustedPrice.toFixed(2)),
+                captureIds: [] // Will be populated when payment is made
+              };
+            }),
             ...Object.entries(lastMinuteAdditions)
               .filter(([_, quantity]) => quantity > 0)
               .map(([itemName, quantity]) => {
                 const item = partyEssentials.find(p => p.name === itemName);
                 const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
-                const price = item ? (isWeekend ? item.weekendPrice : item.weekdayPrice) : 0;
-                return { name: itemName, quantity, price, captureIds: [] }; // Will be populated when payment is made
+                const basePrice = item ? (isWeekend ? item.weekendPrice : item.weekdayPrice) : 0;
+                
+                // Calculate adjusted price for party essentials
+                let itemSubtotal = basePrice * durationMultiplier;
+                
+                // Add per-item distributed costs
+                itemSubtotal += eventStartPerItem;
+                itemSubtotal += surfacePerItem;
+                
+                // Add sales tax to this item's subtotal
+                const itemTax = itemSubtotal * 0.08;
+                const adjustedPrice = itemSubtotal + itemTax;
+                
+                return {
+                  name: itemName,
+                  quantity,
+                  price: basePrice,
+                  adjustedPrice: parseFloat(adjustedPrice.toFixed(2)),
+                  captureIds: [] // Will be populated when payment is made
+                };
               })
           ],
           totalAmount: total,
+          adjustmentTax: parseFloat(totalTax.toFixed(2)),
+          adjustmentEventStart: parseFloat(totalEventStart.toFixed(2)),
+          adjustmentEventDuration: parseFloat(totalEventDuration.toFixed(2)),
+          adjustmentSurface: parseFloat(totalSurface.toFixed(2)),
+          adjustmentDelivery: parseFloat(totalDelivery.toFixed(2)),
           ...(tipAmount > 0 && { tip: tipAmount })
         },
         paymentDetails: {

@@ -26,10 +26,16 @@ export interface BookingData {
     items: Array<{
       name: string;
       quantity: number;
-      price: number;
+      price: number; // Original flat product price
+      adjustedPrice?: number; // Price including all adjustments (duration, wet, tax, surface, time) except delivery
       captureIds?: string[]; // Track which payments funded this item (for refunds)
     }>;
     totalAmount: number;
+    adjustmentTax?: number; // Total sales tax for the order
+    adjustmentEventStart?: number; // Total early delivery charges
+    adjustmentEventDuration?: number; // Late pickup fee
+    adjustmentSurface?: number; // Total surface type charges
+    adjustmentDelivery?: number; // Delivery cost
     notes?: string;
   };
   paymentDetails: {
