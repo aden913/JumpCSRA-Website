@@ -3,6 +3,54 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
-export default defineConfig({
-  plugins: [tailwindcss(), reactRouter(), tsconfigPaths()],
+export default defineConfig(({ mode }) => {
+  console.log('🔧 Vite Config - Build Mode:', mode);
+  console.log('🔧 Vite Config - NODE_ENV:', process.env.NODE_ENV);
+  
+  // Log which Firebase env vars are available at build time
+  const firebaseVars = Object.keys(process.env).filter(k => k.includes('FIREBASE'));
+  console.log('🔧 Available FIREBASE env vars at build time:', firebaseVars.length > 0 ? firebaseVars : 'NONE');
+  
+  return {
+    plugins: [tailwindcss(), reactRouter(), tsconfigPaths()],
+    
+    // Define environment variables explicitly for production builds
+    // This ensures they're available even if not in a .env file
+    define: {
+      // Log what we're trying to define
+      ...(mode === 'production' && console.log('🔧 Defining production env vars from process.env')),
+      
+      // Make process.env VITE_ variables available
+      'import.meta.env.VITE_FIREBASE_API_KEY': JSON.stringify(
+        process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY
+      ),
+      'import.meta.env.VITE_FIREBASE_AUTH_DOMAIN': JSON.stringify(
+        process.env.VITE_FIREBASE_AUTH_DOMAIN || process.env.FIREBASE_AUTH_DOMAIN
+      ),
+      'import.meta.env.VITE_FIREBASE_DATABASE_URL': JSON.stringify(
+        process.env.VITE_FIREBASE_DATABASE_URL || process.env.FIREBASE_DATABASE_URL
+      ),
+      'import.meta.env.VITE_FIREBASE_PROJECT_ID': JSON.stringify(
+        process.env.VITE_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID
+      ),
+      'import.meta.env.VITE_FIREBASE_STORAGE_BUCKET': JSON.stringify(
+        process.env.VITE_FIREBASE_STORAGE_BUCKET || process.env.FIREBASE_STORAGE_BUCKET
+      ),
+      'import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID': JSON.stringify(
+        process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || process.env.FIREBASE_MESSAGING_SENDER_ID
+      ),
+      'import.meta.env.VITE_FIREBASE_APP_ID': JSON.stringify(
+        process.env.VITE_FIREBASE_APP_ID || process.env.FIREBASE_APP_ID
+      ),
+      'import.meta.env.VITE_GOOGLE_MAPS_API_KEY': JSON.stringify(
+        process.env.VITE_GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+      ),
+      'import.meta.env.VITE_EMAIL_SERVICE_URL': JSON.stringify(
+        process.env.VITE_EMAIL_SERVICE_URL || process.env.EMAIL_SERVICE_URL
+      ),
+      'import.meta.env.VITE_EMAIL_API_KEY': JSON.stringify(
+        process.env.VITE_EMAIL_API_KEY || process.env.EMAIL_API_KEY
+      ),
+    },
+  };
 });

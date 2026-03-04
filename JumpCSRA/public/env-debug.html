@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Environment Debug</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #666;
+            margin-top: 24px;
+        }
+        .status {
+            padding: 12px;
+            border-radius: 4px;
+            margin: 8px 0;
+            font-family: monospace;
+        }
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            color: #721c24;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            color: #856404;
+        }
+        .info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            color: #0c5460;
+        }
+        .env-var {
+            background: #f8f9fa;
+            padding: 8px 12px;
+            margin: 4px 0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        .env-var .key {
+            color: #0066cc;
+            font-weight: bold;
+        }
+        .env-var .value {
+            color: #006600;
+        }
+        .missing {
+            color: #cc0000;
+            font-weight: bold;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 8px 4px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button.secondary {
+            background: #2196F3;
+        }
+        button.secondary:hover {
+            background: #0b7dda;
+        }
+        #console-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 16px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .log-error { color: #f48771; }
+        .log-warn { color: #dcdcaa; }
+        .log-success { color: #4ec9b0; }
+        .log-info { color: #9cdcfe; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 Firebase Environment Variables Debug Tool</h1>
+        <p>This page helps you diagnose Firebase environment variable issues in production.</p>
+        
+        <h2>📋 Instructions</h2>
+        <div class="info status">
+            1. Open your browser's Developer Tools (F12)<br>
+            2. Check the Console tab for Firebase Configuration Debug logs<br>
+            3. Review the results below
+        </div>
+        
+        <button onclick="checkEnvironment()">🔍 Check Environment</button>
+        <button class="secondary" onclick="copyToClipboard()">📋 Copy Report</button>
+        <button class="secondary" onclick="location.reload()">🔄 Refresh</button>
+    </div>
+
+    <div class="container">
+        <h2>Environment Check Results</h2>
+        <div id="results"></div>
+    </div>
+
+    <div class="container">
+        <h2>Console Output</h2>
+        <div id="console-output">Waiting for environment check...</div>
+    </div>
+
+    <script>
+        let consoleLog = [];
+        
+        // Capture console logs
+        const originalConsole = {
+            log: console.log,
+            error: console.error,
+            warn: console.warn,
+            info: console.info
+        };
+
+        function captureConsole() {
+            console.log = function(...args) {
+                consoleLog.push({ type: 'log', message: args.join(' ') });
+                originalConsole.log.apply(console, args);
+            };
+            console.error = function(...args) {
+                consoleLog.push({ type: 'error', message: args.join(' ') });
+                originalConsole.error.apply(console, args);
+            };
+            console.warn = function(...args) {
+                consoleLog.push({ type: 'warn', message: args.join(' ') });
+                originalConsole.warn.apply(console, args);
+            };
+        }
+
+        function checkEnvironment() {
+            consoleLog = [];
+            captureConsole();
+            
+            const results = document.getElementById('results');
+            const consoleOutput = document.getElementById('console-output');
+            
+            let html = '<h3>Environment Variables (import.meta.env)</h3>';
+            
+            // Check for import.meta.env
+            if (typeof import.meta !== 'undefined' && import.meta.env) {
+                const env = import.meta.env;
+                const firebaseVars = [
+                    'VITE_FIREBASE_API_KEY',
+                    'VITE_FIREBASE_AUTH_DOMAIN',
+                    'VITE_FIREBASE_DATABASE_URL',
+                    'VITE_FIREBASE_PROJECT_ID',
+                    'VITE_FIREBASE_STORAGE_BUCKET',
+                    'VITE_FIREBASE_MESSAGING_SENDER_ID',
+                    'VITE_FIREBASE_APP_ID'
+                ];
+                
+                let allPresent = true;
+                firebaseVars.forEach(varName => {
+                    const value = env[varName];
+                    const present = !!value;
+                    allPresent = allPresent && present;
+                    
+                    html += '<div class="env-var">';
+                    html += '<span class="key">' + varName + ':</span> ';
+                    if (present) {
+                        // Show first 20 chars and length
+                        const truncated = String(value).substring(0, 20);
+                        html += '<span class="value">' + truncated + '... (' + String(value).length + ' chars)</span>';
+                    } else {
+                        html += '<span class="missing">❌ MISSING</span>';
+                    }
+                    html += '</div>';
+                });
+                
+                if (allPresent) {
+                    html += '<div class="success status">✅ All required Firebase environment variables are present!</div>';
+                } else {
+                    html += '<div class="error status">❌ Some Firebase environment variables are missing. The app was likely built without these variables available.</div>';
+                    html += '<div class="warning status">⚠️ Solution: Set VITE_ prefixed environment variables BEFORE running npm run build</div>';
+                }
+            } else {
+                html += '<div class="error status">❌ import.meta.env is not available. This might be a build issue.</div>';
+            }
+            
+            html += '<h3>Environment Context</h3>';
+            html += '<div class="env-var"><span class="key">Mode:</span> <span class="value">' + (import.meta?.env?.MODE || 'unknown') + '</span></div>';
+            html += '<div class="env-var"><span class="key">Dev:</span> <span class="value">' + (import.meta?.env?.DEV ? 'Yes' : 'No') + '</span></div>';
+            html += '<div class="env-var"><span class="key">Prod:</span> <span class="value">' + (import.meta?.env?.PROD ? 'Yes' : 'No') + '</span></div>';
+            html += '<div class="env-var"><span class="key">SSR:</span> <span class="value">' + (import.meta?.env?.SSR ? 'Yes' : 'No') + '</span></div>';
+            
+            results.innerHTML = html;
+            
+            // Display console logs
+            setTimeout(() => {
+                let consoleHtml = '';
+                consoleLog.forEach(log => {
+                    const className = 'log-' + log.type;
+                    consoleHtml += '<div class="' + className + '">[' + log.type.toUpperCase() + '] ' + log.message + '</div>';
+                });
+                consoleOutput.innerHTML = consoleHtml || '<div class="log-info">No console output captured</div>';
+            }, 500);
+        }
+        
+        function copyToClipboard() {
+            const results = document.getElementById('results').innerText;
+            const console = document.getElementById('console-output').innerText;
+            const report = 'FIREBASE ENVIRONMENT DEBUG REPORT\n' +
+                          '=================================\n\n' +
+                          results + '\n\n' +
+                          'CONSOLE OUTPUT:\n' +
+                          '===============\n' +
+                          console;
+            
+            navigator.clipboard.writeText(report).then(() => {
+                alert('Report copied to clipboard!');
+            });
+        }
+        
+        // Auto-run on page load
+        window.addEventListener('load', () => {
+            setTimeout(checkEnvironment, 1000);
+        });
+    </script>
+</body>
+</html>
