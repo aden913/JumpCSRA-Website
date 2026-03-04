@@ -5,7 +5,7 @@
  */
 var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.chargeVaultedPayment = exports.createVaultCustomer = exports.processPayPalRefund = exports.testPayPalConnection = exports.createPayPalInvoice = exports.createPayPalInvoicePayload = exports.getPayPalAccessToken = void 0;
+exports.getOrderDetails = exports.captureVaultOrder = exports.createVaultOrder = exports.chargeVaultedPayment = exports.createVaultCustomer = exports.processPayPalRefund = exports.testPayPalConnection = exports.createPayPalInvoice = exports.createPayPalInvoicePayload = exports.getPayPalAccessToken = void 0;
 const functions = require("firebase-functions");
 // PayPal configuration
 const PAYPAL_CLIENT_ID = "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0";
@@ -455,4 +455,142 @@ const chargeVaultedPayment = async (data) => {
     }
 };
 exports.chargeVaultedPayment = chargeVaultedPayment;
+/**
+ * Create PayPal order with vault attributes for card saving
+ * @param orderData - Order details including amount, saveCard checkbox, customerId
+ * @returns PayPal order response
+ */
+const createVaultOrder = async (orderData) => {
+    try {
+        console.log('🏦 Creating PayPal order with vault attributes:', {
+            amount: orderData.amount,
+            saveCard: orderData.saveCard,
+            customerId: orderData.customerId,
+            orderId: orderData.orderId
+        });
+        const accessToken = await (0, exports.getPayPalAccessToken)();
+        const orderPayload = {
+            intent: 'CAPTURE',
+            purchase_units: [
+                {
+                    reference_id: orderData.orderId || `order-${Date.now()}`,
+                    amount: {
+                        currency_code: orderData.currency || 'USD',
+                        value: orderData.amount
+                    }
+                }
+            ]
+        };
+        // Add vault attributes if user wants to save card
+        if (orderData.saveCard) {
+            orderPayload.payment_source = {
+                card: {
+                    attributes: {
+                        vault: {
+                            store_in_vault: 'ON_SUCCESS'
+                        }
+                    }
+                }
+            };
+            // For returning customers, include their customer ID
+            if (orderData.customerId) {
+                orderPayload.payment_source.card.attributes.vault.customer_id = orderData.customerId;
+            }
+        }
+        console.log('📤 Sending order creation request:', JSON.stringify(orderPayload, null, 2));
+        const response = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify(orderPayload)
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            console.error('❌ Order creation failed:', result);
+            throw new Error(`Failed to create order: ${result.message || 'Unknown error'}`);
+        }
+        console.log('✅ Order created successfully:', result.id);
+        return result;
+    }
+    catch (error) {
+        console.error('❌ Error creating vault order:', error);
+        throw error;
+    }
+};
+exports.createVaultOrder = createVaultOrder;
+/**
+ * Capture PayPal order and retrieve vault information
+ * @param orderId - PayPal order ID to capture
+ * @returns Capture response with vault details
+ */
+const captureVaultOrder = async (orderId) => {
+    var _a, _b, _c, _d;
+    try {
+        console.log('💰 Capturing PayPal order:', orderId);
+        const accessToken = await (0, exports.getPayPalAccessToken)();
+        const response = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders/${orderId}/capture`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            console.error('❌ Capture failed:', result);
+            throw new Error(`Failed to capture order: ${result.message || 'Unknown error'}`);
+        }
+        console.log('✅ Order captured successfully');
+        console.log('💳 Payment source:', JSON.stringify(result.payment_source, null, 2));
+        // Check for vault information
+        if ((_c = (_b = (_a = result.payment_source) === null || _a === void 0 ? void 0 : _a.card) === null || _b === void 0 ? void 0 : _b.attributes) === null || _c === void 0 ? void 0 : _c.vault) {
+            const vault = result.payment_source.card.attributes.vault;
+            console.log('🔐 Vault information found:', {
+                vaultId: vault.id,
+                customerId: (_d = vault.customer) === null || _d === void 0 ? void 0 : _d.id,
+                status: vault.status
+            });
+        }
+        else {
+            console.log('ℹ️ No vault information in capture response');
+        }
+        return result;
+    }
+    catch (error) {
+        console.error('❌ Error capturing vault order:', error);
+        throw error;
+    }
+};
+exports.captureVaultOrder = captureVaultOrder;
+/**
+ * Get full order details (useful when vault status is APPROVED and vault ID isn't immediately available)
+ * @param orderId - PayPal order ID
+ * @returns Full order details
+ */
+const getOrderDetails = async (orderId) => {
+    try {
+        console.log('🔍 Fetching order details:', orderId);
+        const accessToken = await (0, exports.getPayPalAccessToken)();
+        const response = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders/${orderId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            console.error('❌ Failed to get order details:', result);
+            throw new Error(`Failed to get order details: ${result.message || 'Unknown error'}`);
+        }
+        return result;
+    }
+    catch (error) {
+        console.error('❌ Error getting order details:', error);
+        throw error;
+    }
+};
+exports.getOrderDetails = getOrderDetails;
 //# sourceMappingURL=paypalService.js.map

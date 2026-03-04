@@ -44,7 +44,9 @@ import {
   deferBooking,
   getUserWallet,
   addWalletTransaction,
-  deletePendingBookingsWithOverlappingItems
+  deletePendingBookingsWithOverlappingItems,
+  getUserPaymentInfo,
+  addSavedPaymentMethod
 } from "../utils/databaseUtils";
 import type { BookingData, ContractData, UserWallet } from "../utils/databaseUtils";
 
@@ -311,6 +313,12 @@ export default function Checkout() {
   const [typedSignature, setTypedSignature] = useState<string>("");
   const [contractSections, setContractSections] = useState<any[]>([]);
   const [contractMetadata, setContractMetadata] = useState<any>(null);
+  
+  // Save card info checkbox state
+  const [saveCardInfo, setSaveCardInfo] = useState<boolean>(true);
+  
+  // PayPal customer ID cache (loaded once to avoid repeated DB calls)
+  const [paypalCustomerId, setPaypalCustomerId] = useState<string | undefined>(undefined);
   
   // Contract helper function
   const allSectionsInitialed = (): boolean => {
@@ -1364,6 +1372,27 @@ export default function Checkout() {
     loadWallet();
   }, [user]);
 
+  // Load PayPal customer ID for card vaulting (cached to prevent repeated DB calls)
+  useEffect(() => {
+    const loadPayPalCustomerId = async () => {
+      if (!user || !saveCardInfo) {
+        setPaypalCustomerId(undefined);
+        return;
+      }
+      
+      try {
+        const paymentInfo = await getUserPaymentInfo(user.uid);
+        setPaypalCustomerId(paymentInfo?.paypalCustomerId);
+        console.log('💳 Loaded PayPal customer ID:', paymentInfo?.paypalCustomerId || 'None (first-time)');
+      } catch (error) {
+        console.error("Error loading PayPal customer ID:", error);
+        setPaypalCustomerId(undefined);
+      }
+    };
+
+    loadPayPalCustomerId();
+  }, [user, saveCardInfo]); // Re-load when user changes or when checkbox is toggled
+
   // Save delivery address to localStorage when it changes
   useEffect(() => {
     console.log('🔍 [ADDRESS DEBUG] deliveryAddress state changed:', deliveryAddress);
@@ -2342,7 +2371,7 @@ export default function Checkout() {
   };
 
   // PayPal payment handlers
-  const createPayPalOrder = (data: any, actions: any) => {
+  const createPayPalOrder = async (data: any, actions: any) => {
     // Calculate PayPal amount (total payment minus wallet application)
     const payPalAmount = calculatePayPalAmount();
     
@@ -2390,25 +2419,43 @@ export default function Checkout() {
     const uniqueInvoiceId = pendingBookingId 
       ? `${pendingBookingId}-${paymentType}-${Date.now()}`
       : undefined;
-    
-    return actions.order.create({
-      purchase_units: [
-        {
-          amount: {
-            value: payPalAmount.toFixed(2),
-            currency_code: "USD"
-          },
-          description: finalDescription,
-          custom_id: pendingBookingId || `order-${Date.now()}`,
-          invoice_id: uniqueInvoiceId
-        }
-      ],
-      intent: "CAPTURE",
-      application_context: {
-        brand_name: "Jump CSRA Party Rentals",
-        shipping_preference: "NO_SHIPPING"
+
+    try {
+      console.log('🏦 Creating PayPal order via Cloud Function:', {
+        amount: payPalAmount.toFixed(2),
+        saveCard: saveCardInfo,
+        orderId: pendingBookingId,
+        customerId: paypalCustomerId || 'None (first-time)'
+      });
+
+      // Get Firebase app and functions
+      const { app } = await import('../components/FirebaseConfig');
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const functions = getFunctions(app);
+
+      // Call server-side order creation with cached customer ID
+      const createOrderFn = httpsCallable(functions, 'createPayPalVaultOrder');
+      const result = await createOrderFn({
+        amount: payPalAmount.toFixed(2),
+        currency: 'USD',
+        saveCard: saveCardInfo,
+        customerId: paypalCustomerId, // Use cached value
+        orderId: pendingBookingId
+      });
+
+      const responseData = result.data as any;
+      
+      if (!responseData.success || !responseData.orderId) {
+        throw new Error('Failed to create order');
       }
-    });
+
+      console.log('✅ Order created successfully:', responseData.orderId);
+      return responseData.orderId;
+
+    } catch (error) {
+      console.error('❌ Error creating PayPal order:', error);
+      throw error;
+    }
   };
 
   // Handle wallet-only payment (no PayPal required)
@@ -2757,13 +2804,90 @@ export default function Checkout() {
                            captureDetails?.id; // Transaction ID (appears in PayPal reports)
       const payPalAmount = parseFloat(details.purchase_units[0].amount.value);
       
-      console.log('💳 PayPal Payment Details (Full Capture):', {
+      console.log('💳 PayPal Payment Captured:', {
         orderId: paypalOrderId,
         captureId: captureId,
         transactionId: transactionId,
-        amount: payPalAmount,
-        fullCaptureObject: captureDetails // Log full capture for debugging
+        amount: payPalAmount
       });
+
+      // Call server-side capture to get vault information if card saving is enabled
+      if (saveCardInfo && user) {
+        try {
+          console.log('🔐 Fetching vault information from server...');
+          
+          const { app } = await import('../components/FirebaseConfig');
+          const { getFunctions, httpsCallable } = await import('firebase/functions');
+          const functions = getFunctions(app);
+          
+          const captureOrderFn = httpsCallable(functions, 'capturePayPalVaultOrder');
+          const vaultResult = await captureOrderFn({ orderId: paypalOrderId });
+          const vaultData = (vaultResult.data as any);
+          
+          console.log('💳 Vault response:', vaultData);
+          
+          if (vaultData.success && vaultData.vaultData) {
+            const vault = vaultData.vaultData;
+            
+            // Save the card information to Firestore
+            if (vault.vaultId && vault.brand && vault.last4) {
+              console.log('💾 Saving card to Firestore:', {
+                vaultId: vault.vaultId,
+                brand: vault.brand,
+                last4: vault.last4,
+                customerId: vault.customerId
+              });
+              
+              const { addSavedPaymentMethod } = await import('../utils/databaseUtils');
+              const { doc, setDoc } = await import('firebase/firestore');
+              const { firestore } = await import('../components/FirebaseConfig');
+              
+              // Save the customer ID for future use
+              if (vault.customerId) {
+                const paymentInfoRef = doc(firestore, `users/${user.uid}/paymentInfo/data`);
+                await setDoc(paymentInfoRef, {
+                  paypalCustomerId: vault.customerId
+                }, { merge: true });
+                console.log('✅ Customer ID saved');
+              }
+              
+              // Add the payment method
+              const cardSaved = await addSavedPaymentMethod(user.uid, {
+                type: 'card',
+                paypalVaultId: vault.vaultId,
+                cardType: vault.brand,
+                lastFour: vault.last4,
+                isDefault: false
+              });
+              
+              if (cardSaved) {
+                console.log('✅ Card saved successfully!');
+                notifications.show({
+                  title: '💳 Card Saved',
+                  message: `Your ${vault.brand} ending in ${vault.last4} has been saved for future use!`,
+                  color: 'green',
+                  autoClose: 5000,
+                });
+              } else {
+                console.log('⚠️ Card was not saved (possibly duplicate or limit reached)');
+              }
+            } else if (vault.status === 'APPROVED') {
+              console.log('⏳ Vault status is APPROVED - card will be saved asynchronously');
+              notifications.show({
+                title: 'Card Being Saved',
+                message: 'Your card is being processed and will be available soon.',
+                color: 'blue',
+                autoClose: 5000,
+              });
+            }
+          } else {
+            console.log('ℹ️ No vault data returned - card was not saved');
+          }
+        } catch (vaultError) {
+          console.error('❌ Error processing vault data:', vaultError);
+          // Don't fail the payment if card saving fails
+        }
+      }
       
       // Handle wallet transaction if wallet was used
       let walletTransactionId = null;
@@ -3157,6 +3281,137 @@ export default function Checkout() {
                   color: 'red',
                   autoClose: 10000,
                 });
+              }
+              
+              // Save payment method if user opted in
+              if (saveCardInfo && user) {
+                try {
+                  console.log('💾 Attempting to save payment method...');
+                  console.log('💾 Full details object:', details);
+                  console.log('💾 Payment source (order level):', details.payment_source);
+                  console.log('💾 Payment source (capture level):', captureDetails?.payment_source);
+                  console.log('💾 Payer info:', details.payer);
+                  
+                  // Check multiple locations for payment_source
+                  const paymentSource = details.payment_source || 
+                                       captureDetails?.payment_source ||
+                                       details.payer?.payment_source;
+                  
+                  if (!paymentSource) {
+                    console.log('⚠️ No payment_source found - card vaulting may not be enabled');
+                    console.log('⚠️ This might happen if the order was created without vault attributes');
+                    return; // Exit early if no payment source
+                  }
+                  
+                  console.log('💾 Found payment source:', paymentSource);
+                  
+                  const currentPaymentInfo = await getUserPaymentInfo(user.uid);
+                  
+                  if (currentPaymentInfo) {
+                    // Extract card or PayPal information
+                    let paymentMethod: any = null;
+                    
+                    if (paymentSource.card) {
+                      const cardData = paymentSource.card;
+                      console.log('💳 Card data found:', cardData);
+                      
+                      // Check if we already have this card (same brand and last4)
+                      const isDuplicate = currentPaymentInfo.savedPaymentMethods.some(
+                        (method: any) => method.type === 'card' && 
+                                  method.cardType?.toLowerCase() === cardData.brand?.toLowerCase() && 
+                                  method.lastFour === cardData.last_digits
+                      );
+                      
+                      if (isDuplicate) {
+                        console.log('⚠️ Card already saved, skipping duplicate');
+                      } else if (currentPaymentInfo.savedPaymentMethods.length >= 5) {
+                        console.log('⚠️ Maximum of 5 payment methods reached');
+                        notifications.show({
+                          title: '⚠️ Card Limit Reached',
+                          message: 'You have reached the maximum of 5 saved cards. Remove one to add a new card.',
+                          color: 'yellow',
+                          autoClose: 6000,
+                        });
+                      } else {
+                        // Extract vault ID if available, otherwise use a payment identifier
+                        const vaultId = cardData.attributes?.vault?.id || 
+                                       cardData.vault_id || 
+                                       details.id;
+                        
+                        paymentMethod = {
+                          paypalVaultId: vaultId,
+                          type: 'card' as const,
+                          lastFour: cardData.last_digits || '',
+                          cardType: cardData.brand || 'Unknown',
+                          expiryMonth: cardData.expiry?.substring(5, 7) || '',
+                          expiryYear: cardData.expiry?.substring(0, 4) || '',
+                          isDefault: currentPaymentInfo.savedPaymentMethods.length === 0
+                        };
+                        
+                        console.log('💾 Saving card payment method:', paymentMethod);
+                        const saved = await addSavedPaymentMethod(user.uid, paymentMethod);
+                        
+                        if (saved) {
+                          console.log('✅ Card payment method saved successfully');
+                          notifications.show({
+                            title: '💳 Card Saved',
+                            message: `${paymentMethod.cardType} ending in ${paymentMethod.lastFour} has been saved for future use`,
+                            color: 'blue',
+                            autoClose: 5000,
+                          });
+                        }
+                      }
+                    } else if (paymentSource.paypal) {
+                      const paypalData = paymentSource.paypal;
+                      console.log('💙 PayPal data found:', paypalData);
+                      
+                      // Check if we already have a PayPal account saved with this email/account ID
+                      const isDuplicate = currentPaymentInfo.savedPaymentMethods.some(
+                        (method: any) => method.type === 'paypal' && 
+                                  method.paypalVaultId === (paypalData.attributes?.vault?.id || paypalData.account_id)
+                      );
+                      
+                      if (isDuplicate) {
+                        console.log('⚠️ PayPal account already saved, skipping duplicate');
+                      } else if (currentPaymentInfo.savedPaymentMethods.length >= 5) {
+                        console.log('⚠️ Maximum of 5 payment methods reached');
+                        notifications.show({
+                          title: '⚠️ Payment Method Limit Reached',
+                          message: 'You have reached the maximum of 5 saved payment methods.',
+                          color: 'yellow',
+                          autoClose: 6000,
+                        });
+                      } else {
+                        const vaultId = paypalData.attributes?.vault?.id || 
+                                       paypalData.vault_id || 
+                                       paypalData.account_id || 
+                                       details.id;
+                        
+                        paymentMethod = {
+                          paypalVaultId: vaultId,
+                          type: 'paypal' as const,
+                          isDefault: currentPaymentInfo.savedPaymentMethods.length === 0
+                        };
+                        
+                        console.log('💾 Saving PayPal payment method:', paymentMethod);
+                        const saved = await addSavedPaymentMethod(user.uid, paymentMethod);
+                        
+                        if (saved) {
+                          console.log('✅ PayPal payment method saved successfully');
+                          notifications.show({
+                            title: '💙 PayPal Saved',
+                            message: 'PayPal account has been saved for future use',
+                            color: 'blue',
+                            autoClose: 5000,
+                          });
+                        }
+                      }
+                    }
+                  }
+                } catch (saveError) {
+                  console.error('Error saving payment method:', saveError);
+                  // Don't show error to user as payment was successful
+                }
               }
               
               // Store cart data before clearing for order summary display
@@ -5780,6 +6035,46 @@ export default function Checkout() {
                   textAlign: 'center'
                 }}>
                   <p style={{ margin: 0, color: '#1976d2' }}>Processing payment...</p>
+                </div>
+              )}
+              
+              {/* Save card information checkbox */}
+              {(!useWalletFirst || calculatePayPalAmount() > 0) && (
+                <div style={{
+                  padding: '1rem',
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: '8px',
+                  border: '1px solid #dee2e6',
+                  marginBottom: '1rem',
+                  textAlign: 'center'
+                }}>
+                  <label style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    cursor: 'pointer',
+                    fontSize: '0.95rem',
+                    color: '#333'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={saveCardInfo}
+                      onChange={(e) => setSaveCardInfo(e.target.checked)}
+                      style={{
+                        width: '18px',
+                        height: '18px',
+                        cursor: 'pointer'
+                      }}
+                    />
+                    <span>Save card info for faster checkout</span>
+                  </label>
+                  <div style={{
+                    fontSize: '0.8rem',
+                    color: '#666',
+                    marginTop: '0.25rem'
+                  }}>
+                    Your payment information will be securely stored (max 5 cards)
+                  </div>
                 </div>
               )}
               

@@ -5027,3 +5027,122 @@ export const sendChatMessage = functions.https.onCall(async (data: {
     }
   }
 });
+
+/**
+ * Create PayPal order with vault attributes for card saving
+ * Called from client-side checkout
+ */
+export const createPayPalVaultOrder = functions.https.onCall(async (data, context) => {
+  try {
+    console.log('🎫 Creating PayPal order with vault:', {
+      userId: context.auth?.uid,
+      amount: data.amount,
+      saveCard: data.saveCard
+    });
+
+    // Validate request
+    if (!data.amount || isNaN(parseFloat(data.amount)) || parseFloat(data.amount) <= 0) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Invalid amount provided'
+      );
+    }
+
+    // Import PayPal service
+    const { createVaultOrder } = require('./services/paypalService');
+
+    // Create order with vault attributes
+    const order = await createVaultOrder({
+      amount: data.amount,
+      currency: data.currency || 'USD',
+      saveCard: data.saveCard || false,
+      customerId: data.customerId || undefined,
+      orderId: data.orderId || undefined
+    });
+
+    return {
+      success: true,
+      orderId: order.id,
+      order: order
+    };
+
+  } catch (error: any) {
+    console.error('❌ Error creating vault order:', error);
+    
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    
+    throw new functions.https.HttpsError(
+      'internal',
+      `Failed to create PayPal order: ${error.message}`,
+      { error: error.message }
+    );
+  }
+});
+
+/**
+ * Capture PayPal order and retrieve vault information
+ * Called after user approves payment
+ */
+export const capturePayPalVaultOrder = functions.https.onCall(async (data, context) => {
+  try {
+    console.log('💰 Capturing PayPal order:', {
+      userId: context.auth?.uid,
+      orderId: data.orderId
+    });
+
+    // Validate request
+    if (!data.orderId) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Order ID is required'
+      );
+    }
+
+    // Import PayPal service
+    const { captureVaultOrder } = require('./services/paypalService');
+
+    // Capture order
+    const captureResult = await captureVaultOrder(data.orderId);
+
+    // Extract vault information
+    let vaultData = null;
+    if (captureResult.payment_source?.card?.attributes?.vault) {
+      const vault = captureResult.payment_source.card.attributes.vault;
+      const card = captureResult.payment_source.card;
+      
+      vaultData = {
+        vaultId: vault.id,
+        customerId: vault.customer?.id,
+        status: vault.status,
+        brand: card.brand,
+        last4: card.last_digits,
+        cardType: card.type || 'credit'
+      };
+
+      console.log('🔐 Vault data extracted:', vaultData);
+    }
+
+    return {
+      success: true,
+      captureId: captureResult.id,
+      status: captureResult.status,
+      vaultData: vaultData,
+      fullResponse: captureResult
+    };
+
+  } catch (error: any) {
+    console.error('❌ Error capturing vault order:', error);
+    
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    
+    throw new functions.https.HttpsError(
+      'internal',
+      `Failed to capture PayPal order: ${error.message}`,
+      { error: error.message }
+    );
+  }
+});

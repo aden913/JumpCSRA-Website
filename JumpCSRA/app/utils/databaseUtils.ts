@@ -131,6 +131,7 @@ export interface UserPaymentInfo {
   userId: string;
   savedPaymentMethods: SavedPaymentMethod[];
   paypalVaultId?: string; // PayPal vault customer ID for recurring billing
+  paypalCustomerId?: string; // PayPal customer ID for card vaulting
   billingAddress: {
     firstName: string;
     lastName: string;
@@ -1302,3 +1303,47 @@ export async function deletePendingBookingsWithOverlappingItems(
     return 0;
   }
 }
+
+/**
+ * Get a Firestore document
+ * @param path - Document path (e.g., 'users/userId/paymentInfo/data')
+ * @returns Document data or null if not found
+ */
+export const getDocument = async (path: string): Promise<any | null> => {
+  try {
+    const { initFirebase } = await import('./firebase');
+    const app = initFirebase();
+    const db = getFirestore(app);
+    const docRef = doc(db, path);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      return docSnap.data();
+    }
+    return null;
+  } catch (error) {
+    console.error(`Error getting document ${path}:`, error);
+    return null;
+  }
+};
+
+/**
+ * Update a Firestore document (merges with existing data)
+ * @param path - Document path (e.g., 'users/userId/paymentInfo/data')
+ * @param data - Data to update
+ * @returns Success status
+ */
+export const updateDocument = async (path: string, data: any): Promise<boolean> => {
+  try {
+    const { initFirebase } = await import('./firebase');
+    const app = initFirebase();
+    const db = getFirestore(app);
+    const docRef = doc(db, path);
+    
+    await setDoc(docRef, data, { merge: true });
+    return true;
+  } catch (error) {
+    console.error(`Error updating document ${path}:`, error);
+    return false;
+  }
+};

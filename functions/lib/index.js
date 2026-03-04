@@ -1,7 +1,7 @@
 "use strict";
 var _a, _b, _c, _d, _e, _f;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendChatMessage = exports.createMembershipBooking = exports.dailySubscriptionCleanup = exports.triggerPayPalSetup = exports.debugSubscriptionDatabase = exports.activateSubscription = exports.reactivatePayPalSubscription = exports.cancelPayPalSubscription = exports.getPayPalSubscriptionDetails = exports.paypalSubscriptionWebhook = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.sendMembershipCancellationEmail = exports.testMembershipConfirmationEmail = exports.sendAccountDeletionEmail = exports.autoCompleteBookings = exports.autoCancelPendingOrders = exports.processScheduledEmails = exports.triggerTestEmail = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendMembershipWelcomeEmail = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.testPayPalDebug = exports.setupPayPalPlansStandalone = exports.testFunction = exports.debugEnvironment = void 0;
+exports.capturePayPalVaultOrder = exports.createPayPalVaultOrder = exports.sendChatMessage = exports.createMembershipBooking = exports.dailySubscriptionCleanup = exports.triggerPayPalSetup = exports.debugSubscriptionDatabase = exports.activateSubscription = exports.reactivatePayPalSubscription = exports.cancelPayPalSubscription = exports.getPayPalSubscriptionDetails = exports.paypalSubscriptionWebhook = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.sendMembershipCancellationEmail = exports.testMembershipConfirmationEmail = exports.sendAccountDeletionEmail = exports.autoCompleteBookings = exports.autoCancelPendingOrders = exports.processScheduledEmails = exports.triggerTestEmail = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendMembershipWelcomeEmail = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.testPayPalDebug = exports.setupPayPalPlansStandalone = exports.testFunction = exports.debugEnvironment = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const sgMail = require("@sendgrid/mail");
@@ -4321,6 +4321,96 @@ exports.sendChatMessage = functions.https.onCall(async (data, context) => {
         else {
             throw new functions.https.HttpsError('internal', 'Failed to send message. Please try again or call us directly.', { error: error instanceof Error ? error.message : 'Unknown error' });
         }
+    }
+});
+/**
+ * Create PayPal order with vault attributes for card saving
+ * Called from client-side checkout
+ */
+exports.createPayPalVaultOrder = functions.https.onCall(async (data, context) => {
+    var _a;
+    try {
+        console.log('🎫 Creating PayPal order with vault:', {
+            userId: (_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid,
+            amount: data.amount,
+            saveCard: data.saveCard
+        });
+        // Validate request
+        if (!data.amount || isNaN(parseFloat(data.amount)) || parseFloat(data.amount) <= 0) {
+            throw new functions.https.HttpsError('invalid-argument', 'Invalid amount provided');
+        }
+        // Import PayPal service
+        const { createVaultOrder } = require('./services/paypalService');
+        // Create order with vault attributes
+        const order = await createVaultOrder({
+            amount: data.amount,
+            currency: data.currency || 'USD',
+            saveCard: data.saveCard || false,
+            customerId: data.customerId || undefined,
+            orderId: data.orderId || undefined
+        });
+        return {
+            success: true,
+            orderId: order.id,
+            order: order
+        };
+    }
+    catch (error) {
+        console.error('❌ Error creating vault order:', error);
+        if (error instanceof functions.https.HttpsError) {
+            throw error;
+        }
+        throw new functions.https.HttpsError('internal', `Failed to create PayPal order: ${error.message}`, { error: error.message });
+    }
+});
+/**
+ * Capture PayPal order and retrieve vault information
+ * Called after user approves payment
+ */
+exports.capturePayPalVaultOrder = functions.https.onCall(async (data, context) => {
+    var _a, _b, _c, _d, _e;
+    try {
+        console.log('💰 Capturing PayPal order:', {
+            userId: (_a = context.auth) === null || _a === void 0 ? void 0 : _a.uid,
+            orderId: data.orderId
+        });
+        // Validate request
+        if (!data.orderId) {
+            throw new functions.https.HttpsError('invalid-argument', 'Order ID is required');
+        }
+        // Import PayPal service
+        const { captureVaultOrder } = require('./services/paypalService');
+        // Capture order
+        const captureResult = await captureVaultOrder(data.orderId);
+        // Extract vault information
+        let vaultData = null;
+        if ((_d = (_c = (_b = captureResult.payment_source) === null || _b === void 0 ? void 0 : _b.card) === null || _c === void 0 ? void 0 : _c.attributes) === null || _d === void 0 ? void 0 : _d.vault) {
+            const vault = captureResult.payment_source.card.attributes.vault;
+            const card = captureResult.payment_source.card;
+            vaultData = {
+                vaultId: vault.id,
+                customerId: (_e = vault.customer) === null || _e === void 0 ? void 0 : _e.id,
+                status: vault.status,
+                brand: card.brand,
+                last4: card.last_digits,
+                cardType: card.type || 'credit'
+            };
+            console.log('🔐 Vault data extracted:', vaultData);
+        }
+        return {
+            success: true,
+            captureId: captureResult.id,
+            status: captureResult.status,
+            vaultData: vaultData,
+            fullResponse: captureResult
+        };
+    }
+    catch (error) {
+        console.error('❌ Error capturing vault order:', error);
+        if (error instanceof functions.https.HttpsError) {
+            throw error;
+        }
+        throw new functions.https.HttpsError('internal', `Failed to capture PayPal order: ${error.message}`, { error: error.message });
     }
 });
 //# sourceMappingURL=index.js.map
