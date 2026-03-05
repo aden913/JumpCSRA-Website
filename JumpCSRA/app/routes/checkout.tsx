@@ -327,8 +327,48 @@ export default function Checkout() {
   
   // Helper function to get the current cart for display
   // Uses completed order cart if payment is done, otherwise uses active cart
+  const convertLastMinuteAdditionsToCartItems = (): CartItem[] => {
+    // Filter inflateables directly to get party essentials
+    const partyEssentialsItems = inflateables.filter(item => 
+      item.category && item.category.toLowerCase() === "party-essentials" && 
+      !item.isGiftCard
+    );
+    
+    if (partyEssentialsItems.length === 0) return [];
+    
+    return Object.entries(lastMinuteAdditions)
+      .filter(([_, quantity]) => quantity > 0)
+      .map(([itemName, quantity]) => {
+        const item = partyEssentialsItems.find(p => p.name === itemName);
+        if (!item) return null;
+        
+        const isWeekend = calendarDateRange[0] && (calendarDateRange[0].getDay() === 0 || calendarDateRange[0].getDay() === 6);
+        const price = isWeekend ? item.weekendPrice : item.weekdayPrice;
+        
+        return {
+          id: `party-essential-${itemName}`,
+          name: itemName,
+          price: price,
+          quantity: quantity,
+          category: 'party-essentials',
+          wetDry: 'N/A',
+          wet: false,
+          dry: false
+        } as CartItem;
+      })
+      .filter((item): item is CartItem => item !== null);
+  };
+
   const getDisplayCart = (): CartItem[] => {
-    return paymentCompleted && completedOrderCart.length > 0 ? completedOrderCart : cart;
+    const baseCart = paymentCompleted && completedOrderCart.length > 0 ? completedOrderCart : cart;
+    
+    // Include party essentials in cart display for steps 1 and 4
+    if (currentStep === 'cart-delivery' || currentStep === 'payment') {
+      const partyEssentialsCartItems = convertLastMinuteAdditionsToCartItems();
+      return [...baseCart, ...partyEssentialsCartItems];
+    }
+    
+    return baseCart;
   };
 
   // Helper function to calculate display price for a cart item including wet surcharge
@@ -1075,6 +1115,22 @@ export default function Checkout() {
       if (routeData.routes && routeData.routes.length > 0) {
         const distanceMeters = routeData.routes[0].distance;
         const distanceMiles = distanceMeters * 0.000621371; // Convert meters to miles
+        
+        // Check if distance exceeds 200 miles
+        if (distanceMiles > 200) {
+          setDeliveryCost(0);
+          setAddressConfirmed(false);
+          setFailedAddresses(prev => new Set(prev).add(destinationAddress));
+          
+          notifications.show({
+            title: '❌ Delivery Distance Exceeded',
+            message: `This address is ${Math.round(distanceMiles)} miles away. We only deliver within 200 miles of our location. Please contact us at (803) 221-0466 for special arrangements.`,
+            color: 'red',
+            autoClose: 8000,
+          });
+          return;
+        }
+        
         const cost = Math.round(distanceMiles * 6); // $6 per mile, rounded
         
         // Debug log removed
@@ -1117,6 +1173,9 @@ export default function Checkout() {
     if (place.formatted_address && place.geometry?.location && place.place_id) {
       // Set flag to prevent manual input from overriding this selection
       setIsSelectingGooglePlace(true);
+      
+      // Add this address to the set of valid Google Places addresses
+      setGooglePlacesAddresses(prev => new Set(prev).add(place.formatted_address!));
       
       // The address will be set by onChange callback from GooglePlacesAutocomplete
       // which has already validated and constructed the address with zip code
@@ -1533,7 +1592,7 @@ export default function Checkout() {
     };
 
     checkAvailability();
-  }, [calendarDateRange[0], cartSettings.duration, cart, lastMinuteAdditions, partyEssentials.length]);
+  }, [calendarDateRange[0], cartSettings.duration, lastMinuteAdditions, partyEssentials.length]); // Removed 'cart' to prevent unnecessary rechecks
 
   // Update carousel scroll position when party essentials step is active
   useEffect(() => {
@@ -1886,6 +1945,17 @@ export default function Checkout() {
 
   // Add item to last-minute additions
   const handleAddLastMinuteItem = (itemName: string, quantity: number) => {
+    // Defensive validation
+    if (!quantity || quantity < 1) {
+      console.error('❌ Invalid quantity:', quantity, 'for item:', itemName);
+      notifications.show({
+        title: 'Invalid Quantity',
+        message: 'Please select a valid quantity.',
+        color: 'red',
+      });
+      return;
+    }
+    
     // Validate availability before adding
     const availableQuantity = getAvailableQuantityForItem(itemName);
     
@@ -1897,6 +1967,8 @@ export default function Checkout() {
       });
       return;
     }
+    
+    console.log(`✅ Adding ${itemName}: quantity=${quantity}, price will be calculated as price*${quantity}`);
     
     setLastMinuteAdditions(prev => ({
       ...prev,
@@ -2359,8 +2431,16 @@ export default function Checkout() {
     setCurrentStep('payment');
     setVisitedSteps(prev => new Set([...prev, 'payment']));
     
-    // Scroll to top of page
+    // Scroll to top of page (Safari/iOS compatible)
+    // Try smooth scroll first
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Safari/iOS fallback - force scroll to top after a brief delay
+    setTimeout(() => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0; // For older browsers
+    }, 100);
     
     // Debug log removed
   };
@@ -4511,7 +4591,8 @@ export default function Checkout() {
                   fontSize: '0.9rem',
                   flexShrink: 0,
                   alignSelf: 'center',
-                  whiteSpace: 'nowrap'
+                  whiteSpace: 'nowrap',
+                  marginRight: '2rem'
                 }}
               >
                 Remove
@@ -4589,6 +4670,26 @@ export default function Checkout() {
                   console.log('🔍 [CALCULATE BUTTON] deliveryAddress state:', deliveryAddress);
                   console.log('🔍 [CALCULATE BUTTON] addressInputRef value:', inputValue);
                   if (inputValue) {
+                    // Validate address format - must have:
+                    // 1. At least one number (street number)
+                    // 2. At least one comma (separating components)
+                    // 3. At least 20 characters (reasonable address length)
+                    // 4. Contains both letters and numbers
+                    const hasNumber = /\d/.test(inputValue);
+                    const hasComma = inputValue.includes(',');
+                    const hasLetters = /[a-zA-Z]/.test(inputValue);
+                    const isLongEnough = inputValue.length >= 20;
+                    
+                    if (!hasNumber || !hasComma || !hasLetters || !isLongEnough) {
+                      notifications.show({
+                        title: '❌ Invalid Address',
+                        message: 'Please select a complete address from the Google autocomplete dropdown, including street number, city, and state (e.g., "123 Main St, Augusta, GA 30901").',
+                        color: 'red',
+                        autoClose: 7000,
+                      });
+                      return;
+                    }
+                    
                     // Sync the state with the full address from the input
                     setDeliveryAddress(inputValue);
                     // IMPORTANT: Save to localStorage immediately when user confirms
@@ -4684,122 +4785,12 @@ export default function Checkout() {
               }}>Event Settings</h3>
               
               <div className="cart-dropdowns" style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+                display: 'flex',
+                flexDirection: 'column',
                 gap: '1.25rem',
                 marginBottom: '1.5rem'
               }}>
-                <label style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.5rem',
-                  fontSize: '0.95rem',
-                  fontWeight: '500',
-                  color: '#495057'
-                }}>
-                  <span style={{ color: '#212529' }}>Event Start Time:</span>
-                  <select 
-                    value={cartSettings.deliveryTime} 
-                    onChange={e => cartSettings.setDeliveryTime(e.target.value)} 
-                    required
-                    style={{
-                      padding: '0.75rem',
-                      border: '1px solid #ced4da',
-                      borderRadius: '6px',
-                      fontSize: '1rem',
-                      backgroundColor: 'white',
-                      cursor: 'pointer',
-                      transition: 'border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out'
-                    }}
-                  >
-                    <option value="">Select time</option>
-                    {getAvailableDeliveryTimes().map(timeOption => (
-                      <option key={timeOption.value} value={timeOption.value}>
-                        {timeOption.label}
-                      </option>
-                    ))}
-                    {getAvailableDeliveryTimes().length === 0 && (
-                      <option value="" disabled>
-                        No times available
-                      </option>
-                    )}
-                  </select>
-                  {getAvailableDeliveryTimes().length === 0 && calendarDateRange[0] && (
-                    <div style={{ 
-                      color: '#dc3545', 
-                      fontSize: '0.8rem', 
-                      marginTop: '0.25rem',
-                      fontStyle: 'italic',
-                      lineHeight: '1.4'
-                    }}>
-                      Same-day bookings require at least 2 hours notice. Please select a different date or call (803) 221-0466 for urgent requests.
-                    </div>
-                  )}
-                </label>
-
-                <label style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.5rem',
-                  fontSize: '0.95rem',
-                  fontWeight: '500',
-                  color: '#495057'
-                }}>
-                  <span style={{ color: '#212529' }}>Event Duration:</span>
-                  <select 
-                    value={cartSettings.duration} 
-                    onChange={e => cartSettings.setDuration(e.target.value)} 
-                    required
-                    style={{
-                      padding: '0.75rem',
-                      border: '1px solid #ced4da',
-                      borderRadius: '6px',
-                      fontSize: '1rem',
-                      backgroundColor: 'white',
-                      cursor: 'pointer',
-                      transition: 'border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out'
-                    }}
-                  >
-                    <option value="">Select duration</option>
-                    <option value="4hours" disabled={!availableDurations.has('4hours')}>
-                      4 Hours (-10%){!availableDurations.has('4hours') ? ' - Unavailable' : ''}
-                    </option>
-                    <option value="24hours" disabled={!availableDurations.has('24hours')}>
-                      24 Hours (Standard){!availableDurations.has('24hours') ? ' - Unavailable' : ''}
-                    </option>
-                    <option value="24hours-pickup6" disabled={!availableDurations.has('24hours')}>
-                      24 Hours (pick up at 6 PM +$10){!availableDurations.has('24hours') ? ' - Unavailable' : ''}
-                    </option>
-                    <option value="24hours-pickup7" disabled={!availableDurations.has('24hours')}>
-                      24 Hours (pick up at 7 PM +$20){!availableDurations.has('24hours') ? ' - Unavailable' : ''}
-                    </option>
-                    <option value="24hours-pickup8" disabled={!availableDurations.has('24hours')}>
-                      24 Hours (pick up at 8 PM +$30){!availableDurations.has('24hours') ? ' - Unavailable' : ''}
-                    </option>
-                    <option value="48hours" disabled={!availableDurations.has('48hours')}>
-                      48 Hours (+50%){!availableDurations.has('48hours') ? ' - Unavailable' : ''}
-                    </option>
-                  </select>
-                  {calendarDateRange[0] && cartSettings.duration && (() => {
-                    // Check if the selected duration is available
-                    // For 24-hour pickup variants, check against '24hours' availability
-                    const durationToCheck = cartSettings.duration.startsWith('24hours') ? '24hours' : cartSettings.duration;
-                    return !availableDurations.has(durationToCheck);
-                  })() && (
-                    <div style={{
-                      backgroundColor: '#fff3cd',
-                      border: '1px solid #ffc107',
-                      borderRadius: '4px',
-                      padding: '0.5rem',
-                      fontSize: '0.85rem',
-                      color: '#856404',
-                      marginTop: '0.25rem'
-                    }}>
-                      ⚠️ Selected duration unavailable - items are booked during this timeframe. Please choose another duration.
-                    </div>
-                  )}
-                </label>
-
+                {/* Step 1: Event Location Type - Always shown */}
                 <label style={{
                   display: 'flex',
                   flexDirection: 'column',
@@ -4830,36 +4821,169 @@ export default function Checkout() {
                   </select>
                 </label>
 
-                <label style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.5rem',
-                  fontSize: '0.95rem',
-                  fontWeight: '500',
-                  color: '#495057'
-                }}>
-                  <span style={{ color: '#212529' }}>Surface Type:</span>
-                  <select 
-                    value={cartSettings.surface} 
-                    onChange={e => cartSettings.setSurface(e.target.value)} 
-                    required
-                    style={{
-                      padding: '0.75rem',
-                      border: '1px solid #ced4da',
-                      borderRadius: '6px',
-                      fontSize: '1rem',
-                      backgroundColor: 'white',
-                      cursor: 'pointer',
-                      transition: 'border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out'
-                    }}
-                  >
-                    <option value="">Select surface</option>
-                    <option value="grass-stakes">Grass (stakes)</option>
-                    <option value="grass-sandbags">Grass (sandbags) (+$50)</option>
-                    <option value="concrete">Concrete/Pavement (+$50)</option>
-                    <option value="indoor">Indoor (+$50)</option>
-                  </select>
-                </label>
+                {/* Step 2: Surface Type - Show only after location is selected */}
+                {cartSettings.location && (
+                  <label style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.5rem',
+                    fontSize: '0.95rem',
+                    fontWeight: '500',
+                    color: '#495057'
+                  }}>
+                    <span style={{ color: '#212529' }}>Surface Type:</span>
+                    <select 
+                      value={cartSettings.surface} 
+                      onChange={e => cartSettings.setSurface(e.target.value)} 
+                      required
+                      style={{
+                        padding: '0.75rem',
+                        border: '1px solid #ced4da',
+                        borderRadius: '6px',
+                        fontSize: '1rem',
+                        backgroundColor: 'white',
+                        cursor: 'pointer',
+                        transition: 'border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out'
+                      }}
+                    >
+                      <option value="">Select surface</option>
+                      <option value="grass-stakes">Grass (stakes)</option>
+                      <option value="grass-sandbags">Grass (sandbags) (+$50)</option>
+                      <option value="concrete">Concrete/Pavement (+$50)</option>
+                      <option value="indoor">Indoor (+$50)</option>
+                    </select>
+                  </label>
+                )}
+
+                {/* Step 3: Event Start Time - Show only after surface is selected */}
+                {cartSettings.location && cartSettings.surface && (
+                  <label style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.5rem',
+                    fontSize: '0.95rem',
+                    fontWeight: '500',
+                    color: '#495057'
+                  }}>
+                    <span style={{ color: '#212529' }}>Event Start Time:</span>
+                    <select 
+                      value={cartSettings.deliveryTime} 
+                      onChange={e => cartSettings.setDeliveryTime(e.target.value)} 
+                      required
+                      style={{
+                        padding: '0.75rem',
+                        border: '1px solid #ced4da',
+                        borderRadius: '6px',
+                        fontSize: '1rem',
+                        backgroundColor: 'white',
+                        cursor: 'pointer',
+                        transition: 'border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out'
+                      }}
+                    >
+                      <option value="">Select time</option>
+                      {getAvailableDeliveryTimes().map(timeOption => (
+                        <option key={timeOption.value} value={timeOption.value}>
+                          {timeOption.label}
+                        </option>
+                      ))}
+                      {getAvailableDeliveryTimes().length === 0 && (
+                        <option value="" disabled>
+                          No times available
+                        </option>
+                      )}
+                    </select>
+                    {getAvailableDeliveryTimes().length === 0 && calendarDateRange[0] && (
+                      <div style={{ 
+                        color: '#dc3545', 
+                        fontSize: '0.8rem', 
+                        marginTop: '0.25rem',
+                        fontStyle: 'italic',
+                        lineHeight: '1.4'
+                      }}>
+                        Same-day bookings require at least 2 hours notice. Please select a different date or call (803) 221-0466 for urgent requests.
+                      </div>
+                    )}
+                  </label>
+                )}
+
+                {/* Step 4: Event Duration - Show only after start time is selected */}
+                {cartSettings.location && cartSettings.surface && cartSettings.deliveryTime && (
+                  <label style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.5rem',
+                    fontSize: '0.95rem',
+                    fontWeight: '500',
+                    color: '#495057'
+                  }}>
+                    <span style={{ color: '#212529' }}>Event Duration:</span>
+                    <select 
+                      value={cartSettings.duration} 
+                      onChange={e => cartSettings.setDuration(e.target.value)} 
+                      required
+                      style={{
+                        padding: '0.75rem',
+                        border: '1px solid #ced4da',
+                        borderRadius: '6px',
+                        fontSize: '1rem',
+                        backgroundColor: 'white',
+                        cursor: 'pointer',
+                        transition: 'border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out'
+                      }}
+                    >
+                      <option value="">Select duration</option>
+                      {/* Disable 4 hours if start time is 1 PM or later (afternoon/evening) */}
+                      {(() => {
+                        const timeValue = cartSettings.deliveryTime.toLowerCase();
+                        const hour = parseInt(timeValue.replace(/[^\d]/g, '') || '0');
+                        const isPM = timeValue.includes('pm');
+                        // Disable 4 hours for 1pm and later (but not 12pm/noon)
+                        const disable4Hours = isPM && hour >= 1 && hour !== 12;
+                        
+                        return (
+                          <>
+                            <option value="4hours" disabled={!availableDurations.has('4hours') || disable4Hours}>
+                              4 Hours (-10%){!availableDurations.has('4hours') ? ' - Unavailable' : disable4Hours ? ' - Not available for afternoon/evening events' : ''}
+                            </option>
+                            <option value="24hours" disabled={!availableDurations.has('24hours')}>
+                              24 Hours (Standard){!availableDurations.has('24hours') ? ' - Unavailable' : ''}
+                            </option>
+                            <option value="24hours-pickup6" disabled={!availableDurations.has('24hours')}>
+                              24 Hours (pick up at 6 PM +$10){!availableDurations.has('24hours') ? ' - Unavailable' : ''}
+                            </option>
+                            <option value="24hours-pickup7" disabled={!availableDurations.has('24hours')}>
+                              24 Hours (pick up at 7 PM +$20){!availableDurations.has('24hours') ? ' - Unavailable' : ''}
+                            </option>
+                            <option value="24hours-pickup8" disabled={!availableDurations.has('24hours')}>
+                              24 Hours (pick up at 8 PM +$30){!availableDurations.has('24hours') ? ' - Unavailable' : ''}
+                            </option>
+                            <option value="48hours" disabled={!availableDurations.has('48hours')}>
+                              48 Hours (+50%){!availableDurations.has('48hours') ? ' - Unavailable' : ''}
+                            </option>
+                          </>
+                        );
+                      })()}
+                    </select>
+                    {calendarDateRange[0] && cartSettings.duration && (() => {
+                      // Check if the selected duration is available
+                      // For 24-hour pickup variants, check against '24hours' availability
+                      const durationToCheck = cartSettings.duration.startsWith('24hours') ? '24hours' : cartSettings.duration;
+                      return !availableDurations.has(durationToCheck);
+                    })() && (
+                      <div style={{
+                        backgroundColor: '#fff3cd',
+                        border: '1px solid #ffc107',
+                        borderRadius: '4px',
+                        padding: '0.5rem',
+                        fontSize: '0.85rem',
+                        color: '#856404',
+                        marginTop: '0.25rem'
+                      }}>
+                        ⚠️ Selected duration unavailable - items are booked during this timeframe. Please choose another duration.
+                      </div>
+                    )}
+                  </label>
+                )}
               </div>
 
               <div style={{
@@ -5452,63 +5576,6 @@ export default function Checkout() {
             </div>
           )}
           
-          {/* Order Summary */}
-          <div style={{ 
-            marginBottom: '2rem', 
-            padding: '1rem', 
-            backgroundColor: '#f8f9fa', 
-            borderRadius: '4px' 
-          }}>
-            <div style={{ marginBottom: '0.5rem' }}>
-              <strong>Items:</strong>
-              {getDisplayCart().map((item, index) => {
-                const wetDrySelection = cartSettings.wetDrySelections[index] || 'Dry';
-                return (
-                  <div key={index} className="payment-summary-item">
-                    {!item.isGiftCard && !item.isMembership && (
-                      <img 
-                        src={getProductImage(item.name)} 
-                        alt={item.name}
-                        className="payment-summary-image"
-                        onError={(e) => {
-                          e.currentTarget.src = 'https://storage.googleapis.com/pppro-b060e.firebasestorage.app/inflateables/default.webp';
-                        }}
-                      />
-                    )}
-                    <div className="payment-summary-details">
-                      <div className="payment-summary-name">• {item.name} - ${getItemDisplayPrice(item, index).toFixed(2)}</div>
-                      {!item.isGiftCard && !item.isMembership && (
-                        <div className="payment-summary-type">
-                          Type: {wetDrySelection}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div style={{ marginBottom: '0.5rem', color: '#666' }}>
-              <strong>Subtotal:</strong> ${getDisplayCartTotal().toFixed(2)}
-            </div>
-            <div style={{ marginBottom: '0.5rem', color: '#666' }}>
-              <strong>Delivery:</strong> ${deliveryCost.toFixed(2)}
-            </div>
-            {actualAmountPaid && actualAmountPaid > 0 && (
-              <div style={{ marginBottom: '0.5rem', color: '#28a745', fontWeight: 'bold' }}>
-                <strong>Deposit Already Paid:</strong> -${actualAmountPaid.toFixed(2)}
-              </div>
-            )}
-            <div style={{ 
-              fontSize: '1.2rem', 
-              fontWeight: 'bold', 
-              borderTop: '1px solid #ddd', 
-              paddingTop: '0.5rem',
-              color: '#333'
-            }}>
-              <strong>Total: ${calculateTotalAmount()}</strong>
-            </div>
-          </div>
-
           {/* Detailed Pricing Breakdown */}
           <div style={{ 
             marginBottom: '2rem', 

@@ -14,8 +14,36 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [tailwindcss(), reactRouter(), tsconfigPaths()],
     
+    // Dev server configuration for Cloudflare Tunnel support
+    server: {
+      // Allow external connections (required for tunnels)
+      host: '0.0.0.0',
+      port: 5173,
+      strictPort: false,
+      // Don't open browser automatically
+      open: false,
+      // Enable CORS for dev
+      cors: true,
+      // Proper headers for SSR
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
+    },
+    
+    // Preview server configuration (for testing production builds)
+    preview: {
+      host: '0.0.0.0',
+      port: 4173,
+      strictPort: false,
+      cors: true,
+    },
+    
     // Define environment variables explicitly for production builds
     // This ensures they're available even if not in a .env file
+    // NOTE: These are read from environment variables at build time
+    // Set them in .env.production or export before running npm run build
     define: {
       // Log what we're trying to define
       ...(mode === 'production' && console.log('🔧 Defining production env vars from process.env')),

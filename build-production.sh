@@ -8,16 +8,22 @@ echo "🚀 Starting production build with environment variables..."
 echo ""
 
 # Set all required environment variables for the build
-export VITE_FIREBASE_API_KEY=AIzaSyDs39ycP3-tg21iBpWul8cp6hoqoKhI2cE
-export VITE_FIREBASE_AUTH_DOMAIN=pppro-b060e.firebaseapp.com
-export VITE_FIREBASE_DATABASE_URL=https://pppro-b060e-default-rtdb.firebaseio.com
-export VITE_FIREBASE_PROJECT_ID=pppro-b060e
-export VITE_FIREBASE_STORAGE_BUCKET=pppro-b060e.firebasestorage.app
-export VITE_FIREBASE_MESSAGING_SENDER_ID=819237875595
-export VITE_FIREBASE_APP_ID=1:819237875595:web:1ee4ce4c815c1b4d2f498e
-export VITE_GOOGLE_MAPS_API_KEY=AIzaSyC2sy437445zrOR1YMXuMjiSrH3ZY8D0uo
-export VITE_EMAIL_SERVICE_URL=http://173.230.132.127:3001
-export VITE_EMAIL_API_KEY=your_email_api_key_here
+# TODO: Replace these with your actual values or source from a secure .env file
+export VITE_FIREBASE_API_KEY="your_firebase_api_key_here"
+export VITE_FIREBASE_AUTH_DOMAIN="your_firebase_auth_domain_here"
+export VITE_FIREBASE_DATABASE_URL="your_firebase_database_url_here"
+export VITE_FIREBASE_PROJECT_ID="your_firebase_project_id_here"
+export VITE_FIREBASE_STORAGE_BUCKET="your_firebase_storage_bucket_here"
+export VITE_FIREBASE_MESSAGING_SENDER_ID="your_firebase_messaging_sender_id_here"
+export VITE_FIREBASE_APP_ID="your_firebase_app_id_here"
+export VITE_GOOGLE_MAPS_API_KEY="your_google_maps_api_key_here"
+export VITE_EMAIL_SERVICE_URL="http://your_email_service_url_here"
+export VITE_EMAIL_API_KEY="your_email_api_key_here"
+
+# Or source from a secure .env file:
+# if [ -f ".env.production.local" ]; then
+#   export $(cat .env.production.local | grep -v '^#' | xargs)
+# fi
 
 echo "✅ Environment variables exported"
 echo ""

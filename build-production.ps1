@@ -7,16 +7,24 @@ Write-Host "🚀 Starting production build with environment variables..." -Foreg
 Write-Host ""
 
 # Set all required environment variables for the build
-$env:VITE_FIREBASE_API_KEY = "AIzaSyDs39ycP3-tg21iBpWul8cp6hoqoKhI2cE"
-$env:VITE_FIREBASE_AUTH_DOMAIN = "pppro-b060e.firebaseapp.com"
-$env:VITE_FIREBASE_DATABASE_URL = "https://pppro-b060e-default-rtdb.firebaseio.com"
-$env:VITE_FIREBASE_PROJECT_ID = "pppro-b060e"
-$env:VITE_FIREBASE_STORAGE_BUCKET = "pppro-b060e.firebasestorage.app"
-$env:VITE_FIREBASE_MESSAGING_SENDER_ID = "819237875595"
-$env:VITE_FIREBASE_APP_ID = "1:819237875595:web:1ee4ce4c815c1b4d2f498e"
-$env:VITE_GOOGLE_MAPS_API_KEY = "AIzaSyC2sy437445zrOR1YMXuMjiSrH3ZY8D0uo"
-$env:VITE_EMAIL_SERVICE_URL = "http://173.230.132.127:3001"
+# TODO: Replace these with your actual values or load from a secure .env file
+$env:VITE_FIREBASE_API_KEY = "your_firebase_api_key_here"
+$env:VITE_FIREBASE_AUTH_DOMAIN = "your_firebase_auth_domain_here"
+$env:VITE_FIREBASE_DATABASE_URL = "your_firebase_database_url_here"
+$env:VITE_FIREBASE_PROJECT_ID = "your_firebase_project_id_here"
+$env:VITE_FIREBASE_STORAGE_BUCKET = "your_firebase_storage_bucket_here"
+$env:VITE_FIREBASE_MESSAGING_SENDER_ID = "your_firebase_messaging_sender_id_here"
+$env:VITE_FIREBASE_APP_ID = "your_firebase_app_id_here"
+$env:VITE_GOOGLE_MAPS_API_KEY = "your_google_maps_api_key_here"
+$env:VITE_EMAIL_SERVICE_URL = "http://your_email_service_url_here"
 $env:VITE_EMAIL_API_KEY = "your_email_api_key_here"
+
+# Or load from a secure .env file:
+# Get-Content ".env.production.local" | ForEach-Object {
+#     if ($_ -match '^([^=]+)=(.*)$') {
+#         Set-Item -Path "env:$($matches[1])" -Value $matches[2]
+#     }
+# }
 
 Write-Host "✅ Environment variables set" -ForegroundColor Green
 Write-Host ""

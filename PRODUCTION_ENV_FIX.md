@@ -4,74 +4,67 @@
 
 You're seeing `Firebase: Error (auth/invalid-api-key)` in production because **Vite bakes environment variables into the build at BUILD TIME**, not runtime.
 
-Your ecosystem.config.cjs sets environment variables when PM2 runs the app, but by then:
-- The code is already built
-- The variables aren't in the bundled JavaScript
-- Firebase receives `undefined` for the API key
+## Two Scenarios:
 
-## The Solution
+### Scenario A: Building on Production Server (Your Setup with PM2)
 
-You need to have the environment variables available **when you build the app** on the server.
-
-### Option 1: Set Environment Variables Before Building (RECOMMENDED)
-
-On your production server, create a `.env.production` file or export the variables before building:
+**Good news:** Your ecosystem.config.cjs already has all the env vars! You just need to build **on the server** where those variables exist.
 
 ```bash
 # On your production server at /var/www/JumpCSRA-Website/JumpCSRA/
+cd /var/www/JumpCSRA-Website/JumpCSRA
 
-# Create .env.production file
+# Since PM2's ecosystem.config.cjs defines the VITE_* variables,
+# they're already in your server environment. Just build:
+npm run build
+
+# Restart PM2
+pm2 restart ssr-server
+```
+
+**Why this works:**
+- Your ecosystem.config.cjs sets `VITE_FIREBASE_API_KEY`, etc.
+- These are available server-wide (not just to PM2)
+- When you run `npm run build`, Vite reads them from `process.env`
+- The client bundle is built with correct Firebase config
+
+### Scenario B: Building Locally and Uploading
+
+If you build on your local machine and upload the build folder, you need a local `.env.production` file:
+
+```bash
+# On your LOCAL machine at JumpCSRA/
 cat > .env.production << 'EOF'
-VITE_FIREBASE_API_KEY=AIzaSyDs39ycP3-tg21iBpWul8cp6hoqoKhI2cE
-VITE_FIREBASE_AUTH_DOMAIN=pppro-b060e.firebaseapp.com
-VITE_FIREBASE_DATABASE_URL=https://pppro-b060e-default-rtdb.firebaseio.com
-VITE_FIREBASE_PROJECT_ID=pppro-b060e
-VITE_FIREBASE_STORAGE_BUCKET=pppro-b060e.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=819237875595
-VITE_FIREBASE_APP_ID=1:819237875595:web:1ee4ce4c815c1b4d2f498e
-VITE_GOOGLE_MAPS_API_KEY=AIzaSyC2sy437445zrOR1YMXuMjiSrH3ZY8D0uo
-VITE_EMAIL_SERVICE_URL=http://173.230.132.127:3001
-VITE_EMAIL_API_KEY=your_email_api_key_here
+VITE_FIREBASE_API_KEY=your_firebase_api_key_here
+VITE_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain_here
+# ... (all other vars)
 EOF
-```
 
-Then rebuild:
-```bash
-cd /var/www/JumpCSRA-Website/JumpCSRA
-npm run build
-pm2 restart ssr-server
-```
-
-### Option 2: Export Variables in Your Build Script
-
-Update your build/deployment script to export variables first:
-
-```bash
-#!/bin/bash
-cd /var/www/JumpCSRA-Website/JumpCSRA
-
-# Export environment variables
-export VITE_FIREBASE_API_KEY=AIzaSyDs39ycP3-tg21iBpWul8cp6hoqoKhI2cE
-export VITE_FIREBASE_AUTH_DOMAIN=pppro-b060e.firebaseapp.com
-export VITE_FIREBASE_DATABASE_URL=https://pppro-b060e-default-rtdb.firebaseio.com
-export VITE_FIREBASE_PROJECT_ID=pppro-b060e
-export VITE_FIREBASE_STORAGE_BUCKET=pppro-b060e.firebasestorage.app
-export VITE_FIREBASE_MESSAGING_SENDER_ID=819237875595
-export VITE_FIREBASE_APP_ID=1:819237875595:web:1ee4ce4c815c1b4d2f498e
-export VITE_GOOGLE_MAPS_API_KEY=AIzaSyC2sy437445zrOR1YMXuMjiSrH3ZY8D0uo
-export VITE_EMAIL_SERVICE_URL=http://173.230.132.127:3001
-export VITE_EMAIL_API_KEY=your_email_api_key_here
-
-# Build with variables available
+# Build locally
 npm run build
 
-# Restart the server
-pm2 restart ssr-server
+# Upload the build folder to server
+# Then restart PM2
 ```
 
-### Option 3: Use the Vite define Plugin (Already Done)
+## The Root Cause Explained
 
-I've updated `vite.config.ts` to use the `define` option which will read from `process.env` during build. This means if you export the variables before building, they'll be included.
+## The Root Cause Explained
+
+**Build Time vs Runtime:**
+- **Build time** = when you run `npm run build` (Vite compiles your code)
+- **Runtime** = when PM2 runs your SSR server
+
+**The issue:**
+- Client-side JavaScript needs Firebase config **baked into the bundle** at build time
+- PM2's ecosystem.config.cjs provides env vars at runtime (too late for client code)
+- BUT: Those env vars are available server-wide, not just to PM2 process
+
+**The solution:**
+- Build on your production server (where ecosystem.config.cjs env vars exist)
+- Vite reads them from the environment during build
+- Client bundle gets correct Firebase config
+- PM2 then serves the correctly-built app
 
 ## Verifying the Fix
 
@@ -92,25 +85,24 @@ After rebuilding with environment variables available:
 
 ## Important Notes
 
-- **Build-time vs Runtime**: Vite variables are build-time only
-- **VITE_ Prefix**: Client-side variables must start with `VITE_`
-- **Rebuild Required**: Any env var change requires a rebuild
-- **Security**: These vars are public in the client bundle (that's okay for Firebase config)
+- **Build-time vs Runtime**: Client-side code needs variables at BUILD time, not runtime
+- **PM2 ecosystem.config.cjs**: Sets variables for the entire server environment (not just PM2)
+- **Where to build**: Always build on the server where your ecosystem.config.cjs exists
+- **Rebuild Required**: Any env var change requires rebuilding the client bundle
+- **Security**: Firebase client config is meant to be public in the client bundle (that's okay)
 - **Server vs Client**: 
-  - Server (SSR): Can use runtime env vars from ecosystem.config.cjs
-  - Client (browser): Needs build-time env vars
-
-## Debugging
-
-Added comprehensive logging to `FirebaseConfig.tsx`:
-- Shows environment context (client/server, dev/prod)
-- Lists available environment variables
-- Shows which config values are found vs missing
-- Logs initialization success/failure
-- Provides clear error messages
-
-Check the browser console for detailed debug output!
+  - Server (SSR): Can use runtime env vars from PM2
+  - Client (browser): Needs build-time env vars baked into JavaScript
 
 ## Questions?
 
-The key takeaway: **Environment variables must be available when running `npm run build`**, not just when running the app with PM2.
+**Q: Why not just use ecosystem.config.cjs env vars?**  
+A: You ARE! But you need to build where they exist. PM2's env vars are available server-wide.
+
+**Q: Do I need .env.production if I have ecosystem.config.cjs?**  
+A: No! Just build on the server. The ecosystem env vars are already there.
+
+**Q: Why does this work in development?**  
+A: Dev mode uses Vite dev server which reads env vars in real-time. Production bundles them at build time.
+
+The key takeaway: **Build on your production server where ecosystem.config.cjs env vars exist.**

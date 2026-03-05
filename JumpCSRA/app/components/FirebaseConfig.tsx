@@ -1,10 +1,10 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
-import { getDatabase, connectDatabaseEmulator } from "firebase/database";
-import { getStorage } from "firebase/storage";
+import { initializeApp, type FirebaseApp } from "firebase/app";
+import { getAuth, type Auth } from "firebase/auth";
+import { getFirestore, type Firestore } from "firebase/firestore";
+import { getFunctions, connectFunctionsEmulator, type Functions } from "firebase/functions";
+import { getDatabase, connectDatabaseEmulator, type Database } from "firebase/database";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
@@ -100,7 +100,12 @@ console.groupEnd();
 
 // Initialize Firebase
 console.log('🚀 Initializing Firebase app...');
-let app, auth, firestore, functions, database, storage;
+let app: FirebaseApp;
+let auth: Auth;
+let firestore: Firestore;
+let functions: Functions;
+let database: Database;
+let storage: FirebaseStorage;
 
 try {
   app = initializeApp(firebaseConfig);
