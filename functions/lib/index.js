@@ -1,7 +1,7 @@
 "use strict";
 var _a, _b, _c, _d, _e, _f;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.capturePayPalVaultOrder = exports.createPayPalVaultOrder = exports.sendChatMessage = exports.createMembershipBooking = exports.dailySubscriptionCleanup = exports.triggerPayPalSetup = exports.debugSubscriptionDatabase = exports.activateSubscription = exports.reactivatePayPalSubscription = exports.cancelPayPalSubscription = exports.getPayPalSubscriptionDetails = exports.paypalSubscriptionWebhook = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.sendMembershipCancellationEmail = exports.testMembershipConfirmationEmail = exports.sendAccountDeletionEmail = exports.autoCompleteBookings = exports.autoCancelPendingOrders = exports.processScheduledEmails = exports.triggerTestEmail = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendMembershipWelcomeEmail = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = exports.testPayPalDebug = exports.setupPayPalPlansStandalone = exports.testFunction = exports.debugEnvironment = void 0;
+exports.capturePayPalVaultOrder = exports.createPayPalVaultOrder = exports.sendChatMessage = exports.createMembershipBooking = exports.dailySubscriptionCleanup = exports.triggerPayPalSetup = exports.debugSubscriptionDatabase = exports.activateSubscription = exports.reactivatePayPalSubscription = exports.cancelPayPalSubscription = exports.getPayPalSubscriptionDetails = exports.paypalSubscriptionWebhook = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.sendMembershipCancellationEmail = exports.sendAccountDeletionEmail = exports.autoProcessBookings = exports.processScheduledEmails = exports.processCampaigns = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendMembershipWelcomeEmail = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const sgMail = require("@sendgrid/mail");
@@ -20,118 +20,6 @@ function getBaseUrl() {
         return 'https://jumpcsra.com';
     }
 }
-// Debug function to test environment detection
-exports.debugEnvironment = functions.https.onCall(async (data, context) => {
-    return {
-        FUNCTIONS_EMULATOR: process.env.FUNCTIONS_EMULATOR,
-        NODE_ENV: process.env.NODE_ENV,
-        isProduction: process.env.FUNCTIONS_EMULATOR !== 'true',
-        baseUrl: getBaseUrl(),
-        returnUrl: `${getBaseUrl()}/subscription-success?success=true`,
-        cancelUrl: `${getBaseUrl()}/subscription-success?cancelled=true`
-    };
-});
-// Export test function
-var test_1 = require("./test");
-Object.defineProperty(exports, "testFunction", { enumerable: true, get: function () { return test_1.testFunction; } });
-// Export standalone PayPal setup function
-var paypal_setup_1 = require("./paypal-setup");
-Object.defineProperty(exports, "setupPayPalPlansStandalone", { enumerable: true, get: function () { return paypal_setup_1.setupPayPalPlansStandalone; } });
-exports.testPayPalDebug = functions.https.onCall(async (data, context) => {
-    var _a;
-    const PAYPAL_CLIENT_ID = "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0";
-    const PAYPAL_CLIENT_SECRET = ((_a = functions.config().paypal) === null || _a === void 0 ? void 0 : _a.client_secret) || "YOUR_PAYPAL_CLIENT_SECRET";
-    const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com";
-    try {
-        // Get access token
-        console.log('Getting PayPal access token...');
-        const tokenResponse = await fetch(`${PAYPAL_BASE_URL}/v1/oauth2/token`, {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'Accept-Language': 'en_US',
-                'Authorization': `Basic ${Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_CLIENT_SECRET}`).toString('base64')}`
-            },
-            body: 'grant_type=client_credentials'
-        });
-        console.log('Token response status:', tokenResponse.status);
-        const tokenData = await tokenResponse.json();
-        if (!tokenResponse.ok) {
-            console.log('Token error:', JSON.stringify(tokenData, null, 2));
-            throw new Error('Failed to get access token');
-        }
-        const accessToken = tokenData.access_token;
-        console.log('Access token obtained:', accessToken ? 'YES' : 'NO');
-        // Create simple invoice
-        console.log('Creating simple invoice...');
-        const simpleInvoice = {
-            detail: {
-                invoice_number: `TEST-${Date.now()}`,
-                invoice_date: new Date().toISOString().split('T')[0],
-                currency_code: "USD"
-            },
-            invoicer: {
-                name: {
-                    given_name: "JumpCSRA",
-                    surname: "Party Rentals"
-                },
-                email_address: "jumpcsra@gmail.com"
-            },
-            primary_recipients: [
-                {
-                    billing_info: {
-                        name: {
-                            given_name: "Test",
-                            surname: "Customer"
-                        },
-                        email_address: "test@example.com"
-                    }
-                }
-            ],
-            items: [
-                {
-                    name: "Test Item",
-                    description: "Test invoice item",
-                    quantity: "1",
-                    unit_amount: {
-                        currency_code: "USD",
-                        value: "100.00"
-                    }
-                }
-            ]
-        };
-        const createResponse = await fetch(`${PAYPAL_BASE_URL}/v2/invoicing/invoices`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${accessToken}`,
-                'PayPal-Request-Id': `TEST-${Date.now()}`
-            },
-            body: JSON.stringify(simpleInvoice)
-        });
-        console.log('Create response status:', createResponse.status);
-        console.log('Create response ok:', createResponse.ok);
-        if (!createResponse.ok) {
-            const errorText = await createResponse.text();
-            console.log('Create error response:', errorText);
-            return { success: false, error: errorText };
-        }
-        const invoice = await createResponse.json();
-        console.log('PAYPAL RESPONSE FULL:', JSON.stringify(invoice, null, 2));
-        console.log('PAYPAL Invoice ID:', invoice.id);
-        console.log('PAYPAL Response keys:', Object.keys(invoice));
-        return {
-            success: true,
-            invoiceId: invoice.id,
-            responseKeys: Object.keys(invoice),
-            hasId: !!invoice.id
-        };
-    }
-    catch (error) {
-        console.error('PayPal test error:', error);
-        return { success: false, error: error.message || 'Unknown error' };
-    }
-});
 // Initialize Firebase Admin
 admin.initializeApp();
 // Initialize SendGrid with API key from environment variables
@@ -2186,188 +2074,256 @@ function generateRebookingReminderEmailHTML(booking, bookingId) {
   `;
 }
 // ============================================================================
-// MANUAL EMAIL TESTING FUNCTIONS - For immediate testing via frontend
+// SCHEDULED EMAIL SYSTEM - Unified Firestore-based email processing
 // ============================================================================
-// Manual email testing function (callable from frontend)
-exports.triggerTestEmail = functions.https.onCall(async (data, context) => {
-    console.log('🧪 MANUAL TEST: Triggering test email:', data);
-    try {
-        const db = admin.database();
-        switch (data.emailType) {
-            case 'cart-abandonment':
-                if (!data.userId)
-                    throw new Error('userId required for cart abandonment email');
-                const cartRef = db.ref(`carts/${data.userId}`);
-                const cartSnapshot = await cartRef.once('value');
-                if (cartSnapshot.exists()) {
-                    await sendCartAbandonmentEmail(cartSnapshot.val(), data.userId);
-                    return { success: true, message: 'Cart abandonment email sent' };
-                }
-                throw new Error('Cart not found');
-            case 'deposit-reminder':
-                if (!data.bookingId)
-                    throw new Error('bookingId required for deposit reminder email');
-                const bookingRef = db.ref(`bookings/${data.bookingId}`);
-                const bookingSnapshot = await bookingRef.once('value');
-                if (bookingSnapshot.exists()) {
-                    await sendDepositReminderEmail(bookingSnapshot.val(), data.bookingId);
-                    return { success: true, message: 'Deposit reminder email sent' };
-                }
-                throw new Error('Booking not found');
-            case 'event-confirmation':
-                if (!data.bookingId)
-                    throw new Error('bookingId required for event confirmation email');
-                const eventBookingRef = db.ref(`bookings/${data.bookingId}`);
-                const eventBookingSnapshot = await eventBookingRef.once('value');
-                if (eventBookingSnapshot.exists()) {
-                    await sendEventConfirmationEmail(eventBookingSnapshot.val(), data.bookingId);
-                    return { success: true, message: 'Event confirmation email sent' };
-                }
-                throw new Error('Booking not found');
-            case 'post-event-thanks':
-                if (!data.bookingId)
-                    throw new Error('bookingId required for post-event email');
-                const postEventBookingRef = db.ref(`bookings/${data.bookingId}`);
-                const postEventBookingSnapshot = await postEventBookingRef.once('value');
-                if (postEventBookingSnapshot.exists()) {
-                    await sendPostEventThanksEmail(postEventBookingSnapshot.val(), data.bookingId);
-                    return { success: true, message: 'Post-event thank you email sent' };
-                }
-                throw new Error('Booking not found');
-            case 'rebooking-reminder':
-                if (!data.bookingId)
-                    throw new Error('bookingId required for rebooking reminder email');
-                const rebookingBookingRef = db.ref(`bookings/${data.bookingId}`);
-                const rebookingBookingSnapshot = await rebookingBookingRef.once('value');
-                if (rebookingBookingSnapshot.exists()) {
-                    await sendRebookingReminderEmail(rebookingBookingSnapshot.val(), data.bookingId);
-                    return { success: true, message: 'Rebooking reminder email sent' };
-                }
-                throw new Error('Booking not found');
-            case 'membership-confirmation':
-                if (!data.bookingId)
-                    throw new Error('bookingId required for membership confirmation email');
-                const membershipBookingRef = db.ref(`bookings/membershipBookings/${data.bookingId}`);
-                const membershipBookingSnapshot = await membershipBookingRef.once('value');
-                if (membershipBookingSnapshot.exists()) {
-                    await sendMembershipConfirmationEmail(membershipBookingSnapshot.val(), data.bookingId);
-                    return { success: true, message: 'Membership confirmation email sent' };
-                }
-                throw new Error('Membership booking not found');
-            case 'membership-event-confirmation':
-                if (!data.bookingId)
-                    throw new Error('bookingId required for membership event confirmation email');
-                const membershipEventBookingRef = db.ref(`bookings/membershipBookings/${data.bookingId}`);
-                const membershipEventBookingSnapshot = await membershipEventBookingRef.once('value');
-                if (membershipEventBookingSnapshot.exists()) {
-                    await sendMembershipEventConfirmationEmail(membershipEventBookingSnapshot.val(), data.bookingId);
-                    return { success: true, message: 'Membership event confirmation email sent' };
-                }
-                throw new Error('Membership booking not found');
-            case 'membership-post-event-thanks':
-                if (!data.bookingId)
-                    throw new Error('bookingId required for membership post-event email');
-                const membershipPostEventBookingRef = db.ref(`bookings/membershipBookings/${data.bookingId}`);
-                const membershipPostEventBookingSnapshot = await membershipPostEventBookingRef.once('value');
-                if (membershipPostEventBookingSnapshot.exists()) {
-                    await sendMembershipPostEventThanksEmail(membershipPostEventBookingSnapshot.val(), data.bookingId);
-                    return { success: true, message: 'Membership post-event thank you email sent' };
-                }
-                throw new Error('Membership booking not found');
-            case 'process-all-scheduled':
-                const now = Date.now();
-                await processCartAbandonmentEmails(db, now);
-                await processDepositReminderEmails(db, now);
-                await processEventConfirmationEmails(db, now);
-                await processPostEventEmails(db, now);
-                await processRebookingReminderEmails(db, now);
-                await processMembershipEventConfirmationEmails(db, now);
-                await processMembershipPostEventEmails(db, now);
-                return { success: true, message: 'All scheduled emails processed (including membership)' };
-            default:
-                throw new Error('Invalid email type. Use: cart-abandonment, deposit-reminder, event-confirmation, post-event-thanks, rebooking-reminder, membership-confirmation, membership-event-confirmation, membership-post-event-thanks, or process-all-scheduled');
-        }
-    }
-    catch (error) {
-        console.error('❌ MANUAL TEST: Error:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-        return { success: false, error: errorMessage };
-    }
-});
-// ============================================================================
-// SCHEDULED EMAIL SYSTEM - Checks database daily for emails to send
-// ============================================================================
-// Environment variable for testing mode (speeds up email timing)
-const emailConfig = functions.config().email || {};
-const isTestingMode = emailConfig.testing_mode === 'true';
-console.log(`📧 EMAIL SCHEDULER: Testing mode ${isTestingMode ? 'ENABLED' : 'DISABLED'}`);
-// Email timing constants (in milliseconds)
-const EMAIL_TIMING = {
-    CART_ABANDONMENT: isTestingMode ? 1 * 60 * 1000 : 24 * 60 * 60 * 1000, // 1 min vs 24 hours
-    DEPOSIT_REMINDER: isTestingMode ? 2 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000, // 2 min vs 7 days
-    EVENT_CONFIRMATION: isTestingMode ? 3 * 60 * 1000 : 3 * 24 * 60 * 60 * 1000, // 3 min vs 3 days
-    POST_EVENT_THANKS: isTestingMode ? 4 * 60 * 1000 : 1 * 24 * 60 * 60 * 1000, // 4 min vs 1 day
-    REBOOKING_REMINDER: isTestingMode ? 5 * 60 * 1000 : 9 * 30 * 24 * 60 * 60 * 1000 // 5 min vs 9 months
-};
-console.log('📧 EMAIL TIMING CONFIG:', {
-    testingMode: isTestingMode,
-    cartAbandonment: isTestingMode ? '1 minute' : '24 hours',
-    depositReminder: isTestingMode ? '2 minutes' : '7 days',
-    eventConfirmation: isTestingMode ? '3 minutes' : '3 days',
-    postEventThanks: isTestingMode ? '4 minutes' : '1 day',
-    rebookingReminder: isTestingMode ? '5 minutes' : '9 months'
-});
-// Main scheduled function to process all email types
-exports.processScheduledEmails = functions.pubsub
-    .schedule(isTestingMode ? '*/2 * * * *' : '0 */6 * * *') // Every 2 minutes in testing, every 6 hours in production
-    .timeZone('America/New_York') // EST/EDT timezone
+// Process one-time campaign emails from Firestore
+exports.processCampaigns = functions.pubsub
+    .schedule('* * * * *') // Run every minute
+    .timeZone('America/New_York')
     .onRun(async (context) => {
-    console.log(`🕐 SCHEDULER: Running scheduled email processor... (Testing Mode: ${isTestingMode})`);
+    console.log('📧 CAMPAIGNS: Processing campaign emails...');
     try {
         const db = admin.database();
         const now = Date.now();
-        // Process cart abandonment emails
-        await processCartAbandonmentEmails(db, now);
-        // Process deposit reminder emails
-        await processDepositReminderEmails(db, now);
-        // Process event confirmation emails
-        await processEventConfirmationEmails(db, now);
-        // Process post-event thank you emails
-        await processPostEventEmails(db, now);
-        // Process rebooking reminder emails
-        await processRebookingReminderEmails(db, now);
-        // Process membership booking emails
-        await processMembershipEventConfirmationEmails(db, now);
-        await processMembershipPostEventEmails(db, now);
-        console.log('✅ SCHEDULER: All scheduled emails processed successfully');
+        // Query campaigns that are scheduled and ready to send
+        const campaignsRef = db.ref('emails/campaigns');
+        const campaignsSnapshot = await campaignsRef.once('value');
+        if (!campaignsSnapshot.exists()) {
+            console.log('No campaigns found');
+            return null;
+        }
+        const campaigns = campaignsSnapshot.val();
+        let sentCount = 0;
+        for (const [campaignId, campaign] of Object.entries(campaigns)) {
+            const campaignData = campaign;
+            // Skip if not scheduled or not ready to send
+            if (campaignData.status !== 'scheduled' || campaignData.sendTime > now) {
+                continue;
+            }
+            try {
+                console.log(`📧 Processing campaign: ${campaignId}, Template: ${campaignData.templateId}`);
+                // Get recipients based on audience
+                const recipients = await getAudienceEmails(campaignData.audience);
+                if (recipients.length === 0) {
+                    console.log(`⚠️ No recipients found for audience: ${campaignData.audience}`);
+                    await campaignsRef.child(campaignId).update({
+                        status: 'failed',
+                        error: 'No recipients found',
+                        processedAt: admin.database.ServerValue.TIMESTAMP
+                    });
+                    continue;
+                }
+                // Send emails to all recipients
+                for (const recipient of recipients) {
+                    const msg = {
+                        to: recipient.email,
+                        from: { email: 'jumpcsra@gmail.com', name: 'JumpCSRA Party Rentals' },
+                        templateId: campaignData.templateId,
+                        dynamicTemplateData: Object.assign(Object.assign({}, campaignData.dynamicData), { recipientName: recipient.name || 'Valued Customer' })
+                    };
+                    await sgMail.send(msg);
+                }
+                // Mark campaign as sent
+                await campaignsRef.child(campaignId).update({
+                    status: 'sent',
+                    sentAt: admin.database.ServerValue.TIMESTAMP,
+                    recipientCount: recipients.length
+                });
+                sentCount++;
+                console.log(`✅ Campaign ${campaignId} sent to ${recipients.length} recipients`);
+            }
+            catch (error) {
+                console.error(`❌ Error processing campaign ${campaignId}:`, error);
+                await campaignsRef.child(campaignId).update({
+                    status: 'failed',
+                    error: error instanceof Error ? error.message : 'Unknown error',
+                    processedAt: admin.database.ServerValue.TIMESTAMP
+                });
+            }
+        }
+        console.log(`✅ CAMPAIGNS: Processed ${sentCount} campaigns`);
+        return null;
     }
     catch (error) {
-        console.error('❌ SCHEDULER: Error processing scheduled emails:', error);
+        console.error('❌ CAMPAIGNS: Error:', error);
         throw error;
     }
 });
+// Process recurring scheduled emails from Realtime Database
+exports.processScheduledEmails = functions.pubsub
+    .schedule('*/5 * * * *') // Run every 5 minutes
+    .timeZone('America/New_York')
+    .onRun(async (context) => {
+    console.log('📧 SCHEDULED: Processing scheduled emails...');
+    try {
+        const db = admin.database();
+        const nowMillis = Date.now();
+        // Get all active scheduled email configurations
+        const scheduledRef = db.ref('emails/scheduledEmails');
+        const scheduledSnapshot = await scheduledRef.once('value');
+        if (!scheduledSnapshot.exists()) {
+            console.log('No scheduled emails configured');
+            return null;
+        }
+        const scheduledEmails = scheduledSnapshot.val();
+        for (const [emailType, config] of Object.entries(scheduledEmails)) {
+            const emailConfig = config;
+            // Skip if not active
+            if (emailConfig.status !== 'active') {
+                continue;
+            }
+            try {
+                console.log(`📧 Processing scheduled email type: ${emailType}`);
+                // Check if it's time to send based on nextSendTime
+                if (emailConfig.nextSendTime && emailConfig.nextSendTime > nowMillis) {
+                    console.log(`⏰ Not yet time for ${emailType}, next send: ${new Date(emailConfig.nextSendTime).toISOString()}`);
+                    continue;
+                }
+                // Process based on email type
+                let sentCount = 0;
+                switch (emailType) {
+                    case 'cartAbandonment':
+                        sentCount = await processCartAbandonmentEmails(db, nowMillis, emailConfig);
+                        break;
+                    case 'depositReminder':
+                        sentCount = await processDepositReminderEmails(db, nowMillis, emailConfig);
+                        break;
+                    case 'eventConfirmation':
+                        sentCount = await processEventConfirmationEmails(db, nowMillis, emailConfig);
+                        break;
+                    case 'postEventThanks':
+                        sentCount = await processPostEventEmails(db, nowMillis, emailConfig);
+                        break;
+                    case 'rebookingReminder':
+                        sentCount = await processRebookingReminderEmails(db, nowMillis, emailConfig);
+                        break;
+                    case 'membershipEventConfirmation':
+                        sentCount = await processMembershipEventConfirmationEmails(db, nowMillis, emailConfig);
+                        break;
+                    case 'membershipPostEventThanks':
+                        sentCount = await processMembershipPostEventEmails(db, nowMillis, emailConfig);
+                        break;
+                    default:
+                        console.log(`⚠️ Unknown email type: ${emailType}`);
+                }
+                // Update last sent time and optionally nextSendTime for recurring
+                await scheduledRef.child(emailType).update({
+                    lastSent: admin.database.ServerValue.TIMESTAMP,
+                    lastSentCount: sentCount,
+                    nextSendTime: emailConfig.recurrence ? calculateNextSendTime(emailConfig.recurrence) : null
+                });
+                console.log(`✅ Processed ${emailType}: ${sentCount} emails sent`);
+            }
+            catch (error) {
+                console.error(`❌ Error processing ${emailType}:`, error);
+            }
+        }
+        console.log('✅ SCHEDULED: All scheduled emails processed');
+        return null;
+    }
+    catch (error) {
+        console.error('❌ SCHEDULED: Error:', error);
+        throw error;
+    }
+});
+// Helper function to get audience emails based on type
+async function getAudienceEmails(audience) {
+    var _a, _b;
+    const db = admin.database();
+    const recipients = [];
+    try {
+        switch (audience) {
+            case 'members':
+                // Get all active subscription members from RTDB
+                const membersSnapshot = await db.ref('subscriptions').once('value');
+                if (membersSnapshot.exists()) {
+                    const subscriptions = membersSnapshot.val();
+                    for (const sub of Object.values(subscriptions)) {
+                        if (sub.status === 'active' && sub.userEmail) {
+                            recipients.push({
+                                email: sub.userEmail,
+                                name: sub.userName || sub.userEmail
+                            });
+                        }
+                    }
+                }
+                break;
+            case 'all':
+                // Get all customers from bookings
+                const bookingsSnapshot = await db.ref('bookings').once('value');
+                const emails = new Set();
+                if (bookingsSnapshot.exists()) {
+                    const bookings = bookingsSnapshot.val();
+                    for (const booking of Object.values(bookings)) {
+                        if ((_a = booking.customerInfo) === null || _a === void 0 ? void 0 : _a.email) {
+                            emails.add(booking.customerInfo.email);
+                        }
+                    }
+                }
+                emails.forEach(email => recipients.push({ email }));
+                break;
+            case 'recent':
+                // Get customers from bookings in last 6 months
+                const sixMonthsAgo = Date.now() - (6 * 30 * 24 * 60 * 60 * 1000);
+                const recentBookingsSnapshot = await db.ref('bookings').once('value');
+                const recentEmails = new Set();
+                if (recentBookingsSnapshot.exists()) {
+                    const bookings = recentBookingsSnapshot.val();
+                    for (const booking of Object.values(bookings)) {
+                        const bookingDate = new Date(booking.orderDate).getTime();
+                        if (bookingDate >= sixMonthsAgo && ((_b = booking.customerInfo) === null || _b === void 0 ? void 0 : _b.email)) {
+                            recentEmails.add(booking.customerInfo.email);
+                        }
+                    }
+                }
+                recentEmails.forEach(email => recipients.push({ email }));
+                break;
+        }
+    }
+    catch (error) {
+        console.error(`❌ Error getting audience emails for ${audience}:`, error);
+    }
+    return recipients;
+}
+// Helper function to calculate next send time for recurring emails
+function calculateNextSendTime(recurrence) {
+    const now = Date.now();
+    let nextTime = now;
+    switch (recurrence) {
+        case 'hourly':
+            nextTime += 60 * 60 * 1000;
+            break;
+        case 'daily':
+            nextTime += 24 * 60 * 60 * 1000;
+            break;
+        case 'weekly':
+            nextTime += 7 * 24 * 60 * 60 * 1000;
+            break;
+        case 'monthly':
+            nextTime += 30 * 24 * 60 * 60 * 1000;
+            break;
+    }
+    return nextTime;
+}
 // Helper function to process cart abandonment emails
-async function processCartAbandonmentEmails(db, now) {
+async function processCartAbandonmentEmails(db, now, config) {
     try {
         console.log('📧 SCHEDULER: Checking cart abandonment emails...');
+        const TIMING = (config === null || config === void 0 ? void 0 : config.triggerDelay) || (24 * 60 * 60 * 1000); // Default 24 hours
         const cartsRef = db.ref('carts');
         const snapshot = await cartsRef.once('value');
         if (!snapshot.exists()) {
-            console.log('📧 SCHEDULER: No carts found');
-            return;
+            return 0;
         }
         const carts = snapshot.val();
         let emailsSent = 0;
         for (const [userId, cartData] of Object.entries(carts)) {
             const cart = cartData;
-            // Skip if cart is empty or user already checked out
             if (!cart.cartItems || cart.cartItems.length === 0)
                 continue;
-            // Check if cart abandonment email should be sent
             const cartLastUpdated = cart.lastUpdated || cart.createdAt || now;
             const timeSinceUpdate = now - cartLastUpdated;
-            if (timeSinceUpdate >= EMAIL_TIMING.CART_ABANDONMENT) {
-                // Check if we already sent this email
+            if (timeSinceUpdate >= TIMING) {
                 const emailSentKey = `cartAbandonment_${userId}_${cartLastUpdated}`;
                 const emailRef = db.ref(`emailsSent/${emailSentKey}`);
                 const emailSentSnapshot = await emailRef.once('value');
@@ -2378,21 +2334,23 @@ async function processCartAbandonmentEmails(db, now) {
                 }
             }
         }
-        console.log(`📧 SCHEDULER: Sent ${emailsSent} cart abandonment emails`);
+        console.log(`📧 Sent ${emailsSent} cart abandonment emails`);
+        return emailsSent;
     }
     catch (error) {
-        console.error('❌ SCHEDULER: Error processing cart abandonment emails:', error);
+        console.error('❌ Error processing cart abandonment emails:', error);
+        return 0;
     }
 }
 // Helper function to process deposit reminder emails
-async function processDepositReminderEmails(db, now) {
+async function processDepositReminderEmails(db, now, config) {
     try {
         console.log('📧 SCHEDULER: Checking deposit reminder emails...');
+        const TIMING = (config === null || config === void 0 ? void 0 : config.triggerDelay) || (7 * 24 * 60 * 60 * 1000); // Default 7 days before event
         const bookingsRef = db.ref('bookings');
         const snapshot = await bookingsRef.once('value');
         if (!snapshot.exists()) {
-            console.log('📧 SCHEDULER: No bookings found');
-            return;
+            return 0;
         }
         const bookings = snapshot.val();
         let emailsSent = 0;
@@ -2405,8 +2363,8 @@ async function processDepositReminderEmails(db, now) {
                 continue;
             const eventDate = new Date(booking.eventDate).getTime();
             const timeUntilEvent = eventDate - now;
-            // Send reminder 7 days before event (or testing interval)
-            if (timeUntilEvent <= EMAIL_TIMING.DEPOSIT_REMINDER && timeUntilEvent > 0) {
+            // Send reminder based on configured timing
+            if (timeUntilEvent <= TIMING && timeUntilEvent > 0) {
                 const emailSentKey = `depositReminder_${bookingId}`;
                 const emailRef = db.ref(`emailsSent/${emailSentKey}`);
                 const emailSentSnapshot = await emailRef.once('value');
@@ -2417,21 +2375,23 @@ async function processDepositReminderEmails(db, now) {
                 }
             }
         }
-        console.log(`📧 SCHEDULER: Sent ${emailsSent} deposit reminder emails`);
+        console.log(`📧 Sent ${emailsSent} deposit reminder emails`);
+        return emailsSent;
     }
     catch (error) {
-        console.error('❌ SCHEDULER: Error processing deposit reminder emails:', error);
+        console.error('❌ Error processing deposit reminder emails:', error);
+        return 0;
     }
 }
 // Helper function to process event confirmation emails
-async function processEventConfirmationEmails(db, now) {
+async function processEventConfirmationEmails(db, now, config) {
     try {
         console.log('📧 SCHEDULER: Checking event confirmation emails...');
+        const TIMING = (config === null || config === void 0 ? void 0 : config.triggerDelay) || (3 * 24 * 60 * 60 * 1000); // Default 3 days before event
         const bookingsRef = db.ref('bookings');
         const snapshot = await bookingsRef.once('value');
         if (!snapshot.exists()) {
-            console.log('📧 SCHEDULER: No bookings found');
-            return;
+            return 0;
         }
         const bookings = snapshot.val();
         let emailsSent = 0;
@@ -2442,8 +2402,8 @@ async function processEventConfirmationEmails(db, now) {
                 continue;
             const eventDate = new Date(booking.eventDate).getTime();
             const timeUntilEvent = eventDate - now;
-            // Send confirmation 3 days before event
-            if (timeUntilEvent <= EMAIL_TIMING.EVENT_CONFIRMATION && timeUntilEvent > 0) {
+            // Send confirmation based on configured timing
+            if (timeUntilEvent <= TIMING && timeUntilEvent > 0) {
                 const emailSentKey = `eventConfirmation_${bookingId}`;
                 const emailRef = db.ref(`emailsSent/${emailSentKey}`);
                 const emailSentSnapshot = await emailRef.once('value');
@@ -2454,21 +2414,23 @@ async function processEventConfirmationEmails(db, now) {
                 }
             }
         }
-        console.log(`📧 SCHEDULER: Sent ${emailsSent} event confirmation emails`);
+        console.log(`📧 Sent ${emailsSent} event confirmation emails`);
+        return emailsSent;
     }
     catch (error) {
-        console.error('❌ SCHEDULER: Error processing event confirmation emails:', error);
+        console.error('❌ Error processing event confirmation emails:', error);
+        return 0;
     }
 }
 // Helper function to process post-event thank you emails
-async function processPostEventEmails(db, now) {
+async function processPostEventEmails(db, now, config) {
     try {
         console.log('📧 SCHEDULER: Checking post-event emails...');
+        const TIMING = (config === null || config === void 0 ? void 0 : config.triggerDelay) || (24 * 60 * 60 * 1000); // Default 1 day after event
         const bookingsRef = db.ref('bookings');
         const snapshot = await bookingsRef.once('value');
         if (!snapshot.exists()) {
-            console.log('📧 SCHEDULER: No bookings found');
-            return;
+            return 0;
         }
         const bookings = snapshot.val();
         let emailsSent = 0;
@@ -2479,8 +2441,8 @@ async function processPostEventEmails(db, now) {
                 continue;
             const eventDate = new Date(booking.eventDate).getTime();
             const timeSinceEvent = now - eventDate;
-            // Send thank you 1 day after event
-            if (timeSinceEvent >= EMAIL_TIMING.POST_EVENT_THANKS) {
+            // Send thank you based on configured timing
+            if (timeSinceEvent >= TIMING) {
                 const emailSentKey = `postEventThanks_${bookingId}`;
                 const emailRef = db.ref(`emailsSent/${emailSentKey}`);
                 const emailSentSnapshot = await emailRef.once('value');
@@ -2491,21 +2453,23 @@ async function processPostEventEmails(db, now) {
                 }
             }
         }
-        console.log(`📧 SCHEDULER: Sent ${emailsSent} post-event emails`);
+        console.log(`📧 Sent ${emailsSent} post-event emails`);
+        return emailsSent;
     }
     catch (error) {
-        console.error('❌ SCHEDULER: Error processing post-event emails:', error);
+        console.error('❌ Error processing post-event emails:', error);
+        return 0;
     }
 }
 // Helper function to process rebooking reminder emails
-async function processRebookingReminderEmails(db, now) {
+async function processRebookingReminderEmails(db, now, config) {
     try {
         console.log('📧 SCHEDULER: Checking rebooking reminder emails...');
+        const TIMING = (config === null || config === void 0 ? void 0 : config.triggerDelay) || (9 * 30 * 24 * 60 * 60 * 1000); // Default 9 months after event
         const bookingsRef = db.ref('bookings');
         const snapshot = await bookingsRef.once('value');
         if (!snapshot.exists()) {
-            console.log('📧 SCHEDULER: No bookings found');
-            return;
+            return 0;
         }
         const bookings = snapshot.val();
         let emailsSent = 0;
@@ -2516,8 +2480,8 @@ async function processRebookingReminderEmails(db, now) {
                 continue;
             const eventDate = new Date(booking.eventDate).getTime();
             const timeSinceEvent = now - eventDate;
-            // Send rebooking reminder 9 months after event
-            if (timeSinceEvent >= EMAIL_TIMING.REBOOKING_REMINDER) {
+            // Send reminder based on configured timing
+            if (timeSinceEvent >= TIMING) {
                 const emailSentKey = `rebookingReminder_${bookingId}`;
                 const emailRef = db.ref(`emailsSent/${emailSentKey}`);
                 const emailSentSnapshot = await emailRef.once('value');
@@ -2528,24 +2492,26 @@ async function processRebookingReminderEmails(db, now) {
                 }
             }
         }
-        console.log(`📧 SCHEDULER: Sent ${emailsSent} rebooking reminder emails`);
+        console.log(`📧 Sent ${emailsSent} rebooking reminder emails`);
+        return emailsSent;
     }
     catch (error) {
-        console.error('❌ SCHEDULER: Error processing rebooking reminder emails:', error);
+        console.error('❌ Error processing rebooking reminder emails:', error);
+        return 0;
     }
 }
 // ============================================================================
 // MEMBERSHIP BOOKING EMAIL PROCESSING - For Jump Club monthly deliveries
 // ============================================================================
 // Helper function to process membership event confirmation emails
-async function processMembershipEventConfirmationEmails(db, now) {
+async function processMembershipEventConfirmationEmails(db, now, config) {
     try {
         console.log('📧 SCHEDULER: Checking membership event confirmation emails...');
+        const TIMING = (config === null || config === void 0 ? void 0 : config.triggerDelay) || (3 * 24 * 60 * 60 * 1000); // Default 3 days before delivery
         const membershipBookingsRef = db.ref('bookings/membershipBookings');
         const snapshot = await membershipBookingsRef.once('value');
         if (!snapshot.exists()) {
-            console.log('📧 SCHEDULER: No membership bookings found');
-            return;
+            return 0;
         }
         const membershipBookings = snapshot.val();
         let emailsSent = 0;
@@ -2567,8 +2533,8 @@ async function processMembershipEventConfirmationEmails(db, now) {
                 continue;
             const eventDateTime = eventDate.getTime();
             const timeUntilEvent = eventDateTime - now;
-            // Send confirmation 3 days before delivery
-            if (timeUntilEvent <= EMAIL_TIMING.EVENT_CONFIRMATION && timeUntilEvent > 0) {
+            // Send confirmation based on configured timing
+            if (timeUntilEvent <= TIMING && timeUntilEvent > 0) {
                 const emailSentKey = `membershipEventConfirmation_${bookingId}`;
                 const emailRef = db.ref(`emailsSent/${emailSentKey}`);
                 const emailSentSnapshot = await emailRef.once('value');
@@ -2579,21 +2545,23 @@ async function processMembershipEventConfirmationEmails(db, now) {
                 }
             }
         }
-        console.log(`📧 SCHEDULER: Sent ${emailsSent} membership event confirmation emails`);
+        console.log(`📧 Sent ${emailsSent} membership event confirmation emails`);
+        return emailsSent;
     }
     catch (error) {
-        console.error('❌ SCHEDULER: Error processing membership event confirmation emails:', error);
+        console.error('❌ Error processing membership event confirmation emails:', error);
+        return 0;
     }
 }
 // Helper function to process membership post-event thank you emails
-async function processMembershipPostEventEmails(db, now) {
+async function processMembershipPostEventEmails(db, now, config) {
     try {
         console.log('📧 SCHEDULER: Checking membership post-event emails...');
+        const TIMING = (config === null || config === void 0 ? void 0 : config.triggerDelay) || (24 * 60 * 60 * 1000); // Default 1 day after delivery
         const membershipBookingsRef = db.ref('bookings/membershipBookings');
         const snapshot = await membershipBookingsRef.once('value');
         if (!snapshot.exists()) {
-            console.log('📧 SCHEDULER: No membership bookings found');
-            return;
+            return 0;
         }
         const membershipBookings = snapshot.val();
         let emailsSent = 0;
@@ -2615,8 +2583,8 @@ async function processMembershipPostEventEmails(db, now) {
                 continue;
             const eventDateTime = eventDate.getTime();
             const timeSinceEvent = now - eventDateTime;
-            // Send thank you 1 day after delivery
-            if (timeSinceEvent >= EMAIL_TIMING.POST_EVENT_THANKS) {
+            // Send thank you based on configured timing
+            if (timeSinceEvent >= TIMING) {
                 const emailSentKey = `membershipPostEventThanks_${bookingId}`;
                 const emailRef = db.ref(`emailsSent/${emailSentKey}`);
                 const emailSentSnapshot = await emailRef.once('value');
@@ -2627,10 +2595,12 @@ async function processMembershipPostEventEmails(db, now) {
                 }
             }
         }
-        console.log(`📧 SCHEDULER: Sent ${emailsSent} membership post-event emails`);
+        console.log(`📧 Sent ${emailsSent} membership post-event emails`);
+        return emailsSent;
     }
     catch (error) {
-        console.error('❌ SCHEDULER: Error processing membership post-event emails:', error);
+        console.error('❌ Error processing membership post-event emails:', error);
+        return 0;
     }
 }
 // Helper function to calculate next delivery date for a weekday
@@ -2651,199 +2621,151 @@ function calculateNextWeekdayDate(weekday) {
     targetDate.setHours(10, 0, 0, 0); // Default to 10 AM delivery
     return targetDate;
 }
-// Scheduled function to auto-cancel pending orders on event day
-exports.autoCancelPendingOrders = functions.pubsub
+// ============================================================================
+// AUTOMATED BOOKING PROCESSING - Cancels pending and completes finished bookings
+// ============================================================================
+// Scheduled function to auto-process bookings (cancel pending, complete finished)
+exports.autoProcessBookings = functions.pubsub
     .schedule('0 8 * * *') // Run daily at 8 AM
     .timeZone('America/New_York') // EST/EDT timezone
     .onRun(async (context) => {
     var _a, _b, _c, _d;
-    console.log('Running auto-cancel pending orders function...');
+    console.log('🔄 Running automated booking processing...');
     try {
         const db = admin.database();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        let cancelledCount = 0;
+        let completedCount = 0;
+        // ============= Part 1: Cancel pending bookings (unpaid orders past event date) =============
+        console.log('❌ Checking for pending bookings to cancel...');
         const bookingsRef = db.ref('bookings');
         const snapshot = await bookingsRef.once('value');
-        if (!snapshot.exists()) {
-            console.log('No bookings found');
-            return null;
-        }
-        const bookings = snapshot.val();
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Start of today
-        let cancelledCount = 0;
-        for (const [bookingId, booking] of Object.entries(bookings)) {
-            const bookingData = booking;
-            // Only process pending bookings
-            if (bookingData.status !== 'pending') {
-                continue;
-            }
-            // Check if event date is today or in the past
-            const eventDateStr = (_a = bookingData.orderDetails) === null || _a === void 0 ? void 0 : _a.eventDate;
-            if (!eventDateStr) {
-                continue;
-            }
-            // Parse event date (assuming format like "MM/DD/YYYY - MM/DD/YYYY")
-            const dateRange = eventDateStr.split(' - ');
-            const startDateStr = dateRange[0];
-            try {
-                const eventDate = new Date(startDateStr);
-                eventDate.setHours(0, 0, 0, 0);
-                // If event date is today or has passed, cancel the booking
-                if (eventDate <= today) {
-                    console.log(`Cancelling booking ${bookingId} with event date ${startDateStr}`);
-                    // Update booking status to cancelled
-                    await bookingsRef.child(bookingId).update({
-                        status: 'cancelled',
-                        updatedAt: new Date().toISOString(),
-                        notes: admin.database.ServerValue.increment(1) // Will create array if doesn't exist
-                    });
-                    // Add cancellation note
-                    await bookingsRef.child(`${bookingId}/notes`).push({
-                        type: 'system',
-                        message: 'Booking auto-cancelled due to event date passing without payment completion',
-                        timestamp: new Date().toISOString()
-                    });
-                    // Send cancellation notification email
-                    try {
-                        if ((_b = bookingData.customerInfo) === null || _b === void 0 ? void 0 : _b.email) {
-                            const msg = {
-                                to: bookingData.customerInfo.email,
-                                from: {
-                                    email: 'jumpcsra@gmail.com',
-                                    name: 'JumpCSRA Party Rentals'
-                                },
-                                subject: `Booking Cancelled - Order #${bookingData.orderID}`,
-                                html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                      <div style="background: #f8d7da; color: #721c24; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                        <h2>Booking Cancelled</h2>
-                        <p>Your booking #${bookingData.orderID} has been automatically cancelled because the event date has passed without payment completion.</p>
-                      </div>
-                      
-                      <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
-                        <h3>Booking Details:</h3>
-                        <p><strong>Order ID:</strong> ${bookingData.orderID}</p>
-                        <p><strong>Event Date:</strong> ${eventDateStr}</p>
-                        <p><strong>Total Amount:</strong> $${((_d = (_c = bookingData.orderDetails) === null || _c === void 0 ? void 0 : _c.totalAmount) === null || _d === void 0 ? void 0 : _d.toFixed(2)) || '0.00'}</p>
-                        <p><strong>Cancelled Date:</strong> ${new Date().toLocaleDateString()}</p>
-                      </div>
-                      
-                      <div style="margin-top: 20px; padding: 15px; background: #d1ecf1; border-radius: 8px;">
-                        <p><strong>Need to rebook?</strong> Visit <a href="https://jumpcsra.com">jumpcsra.com</a> to place a new order.</p>
-                        <p>If you have questions, please contact us at jumpcsra@gmail.com or (803) 221-0466.</p>
-                      </div>
-                      
-                      <div style="text-align: center; margin-top: 30px; color: #666; font-size: 14px;">
-                        <p>JumpCSRA Party Rentals</p>
-                        <p>Making Your Events Unforgettable</p>
-                      </div>
-                    </div>
-                  `,
-                                categories: ['booking-cancellation', 'automated'],
-                                customArgs: {
-                                    bookingId: bookingId,
-                                    reason: 'auto-cancel-event-date-passed'
-                                }
-                            };
-                            if (sendGridApiKey) {
-                                await sgMail.send(msg);
-                                console.log(`Cancellation email sent to ${bookingData.customerInfo.email} for booking ${bookingId}`);
-                            }
-                        }
-                    }
-                    catch (emailError) {
-                        console.error(`Error sending cancellation email for booking ${bookingId}:`, emailError);
-                    }
-                    cancelledCount++;
-                }
-            }
-            catch (dateError) {
-                console.error(`Error parsing event date for booking ${bookingId}:`, dateError);
-            }
-        }
-        console.log(`Auto-cancellation complete. Cancelled ${cancelledCount} bookings.`);
-        return null;
-    }
-    catch (error) {
-        console.error('Error in auto-cancel function:', error);
-        return null;
-    }
-});
-// Scheduled function to auto-complete confirmed bookings after event completion
-exports.autoCompleteBookings = functions.pubsub
-    .schedule('0 9 * * *') // Run daily at 9 AM (1 hour after cancel function)
-    .timeZone('America/New_York') // EST/EDT timezone
-    .onRun(async (context) => {
-    console.log('🏁 Running auto-complete confirmed bookings function...');
-    try {
-        const db = admin.database();
-        let completedCount = 0;
-        // Process regular bookings
-        console.log('📋 Checking regular bookings...');
-        const bookingsRef = db.ref('bookings');
-        const bookingsSnapshot = await bookingsRef.once('value');
-        if (bookingsSnapshot.exists()) {
-            const bookings = bookingsSnapshot.val();
+        if (snapshot.exists()) {
+            const bookings = snapshot.val();
             for (const [bookingId, booking] of Object.entries(bookings)) {
                 const bookingData = booking;
-                // Skip membershipBookings node and only process confirmed bookings
-                if (bookingId === 'membershipBookings' || bookingData.status !== 'confirmed') {
+                // Skip membershipBookings node
+                if (bookingId === 'membershipBookings') {
                     continue;
                 }
-                // Check if booking should be completed
-                const shouldComplete = await shouldCompleteBooking(bookingData, 'regular');
-                if (shouldComplete) {
-                    console.log(`🎉 Completing regular booking ${bookingId}`);
-                    await bookingsRef.child(bookingId).update({
-                        status: 'completed',
-                        completedAt: admin.database.ServerValue.TIMESTAMP,
-                        updatedAt: new Date().toISOString()
-                    });
-                    // Add completion note
-                    await bookingsRef.child(`${bookingId}/notes`).push({
-                        type: 'system',
-                        message: 'Booking auto-completed - event has concluded',
-                        timestamp: new Date().toISOString()
-                    });
-                    completedCount++;
+                // Process pending bookings for cancellation
+                if (bookingData.status === 'pending') {
+                    const eventDateStr = (_a = bookingData.orderDetails) === null || _a === void 0 ? void 0 : _a.eventDate;
+                    if (eventDateStr) {
+                        try {
+                            const dateRange = eventDateStr.split(' - ');
+                            const startDateStr = dateRange[0];
+                            const eventDate = new Date(startDateStr);
+                            eventDate.setHours(0, 0, 0, 0);
+                            // Cancel if event date has passed
+                            if (eventDate <= today) {
+                                console.log(`❌ Cancelling pending booking ${bookingId} (event date: ${startDateStr})`);
+                                await bookingsRef.child(bookingId).update({
+                                    status: 'cancelled',
+                                    updatedAt: new Date().toISOString()
+                                });
+                                await bookingsRef.child(`${bookingId}/notes`).push({
+                                    type: 'system',
+                                    message: 'Booking auto-cancelled - event date passed without payment',
+                                    timestamp: new Date().toISOString()
+                                });
+                                // Send cancellation email
+                                if (((_b = bookingData.customerInfo) === null || _b === void 0 ? void 0 : _b.email) && sendGridApiKey) {
+                                    try {
+                                        const msg = {
+                                            to: bookingData.customerInfo.email,
+                                            from: { email: 'jumpcsra@gmail.com', name: 'JumpCSRA Party Rentals' },
+                                            subject: `Booking Cancelled - Order #${bookingData.orderID}`,
+                                            html: `
+                          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                            <div style="background: #f8d7da; color: #721c24; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                              <h2>Booking Cancelled</h2>
+                              <p>Your booking #${bookingData.orderID} has been automatically cancelled because the event date passed without payment completion.</p>
+                            </div>
+                            <div style="background: #f8f9fa; padding: 20px; border-radius: 8px;">
+                              <h3>Booking Details:</h3>
+                              <p><strong>Order ID:</strong> ${bookingData.orderID}</p>
+                              <p><strong>Event Date:</strong> ${eventDateStr}</p>
+                              <p><strong>Total Amount:</strong> $${((_d = (_c = bookingData.orderDetails) === null || _c === void 0 ? void 0 : _c.totalAmount) === null || _d === void 0 ? void 0 : _d.toFixed(2)) || '0.00'}</p>
+                              <p><strong>Cancelled Date:</strong> ${new Date().toLocaleDateString()}</p>
+                            </div>
+                            <div style="margin-top: 20px; padding: 15px; background: #d1ecf1; border-radius: 8px;">
+                              <p><strong>Need to rebook?</strong> Visit <a href="https://jumpcsra.com">jumpcsra.com</a> to place a new order.</p>
+                              <p>Questions? Contact us at jumpcsra@gmail.com or (803) 221-0466.</p>
+                            </div>
+                          </div>
+                        `,
+                                            categories: ['booking-cancellation', 'automated'],
+                                            customArgs: { bookingId, reason: 'auto-cancel-event-date-passed' }
+                                        };
+                                        await sgMail.send(msg);
+                                        console.log(`✉️ Cancellation email sent to ${bookingData.customerInfo.email}`);
+                                    }
+                                    catch (emailError) {
+                                        console.error(`❌ Error sending cancellation email for ${bookingId}:`, emailError);
+                                    }
+                                }
+                                cancelledCount++;
+                            }
+                        }
+                        catch (dateError) {
+                            console.error(`❌ Error parsing event date for ${bookingId}:`, dateError);
+                        }
+                    }
+                }
+                // Process confirmed bookings for completion
+                if (bookingData.status === 'confirmed') {
+                    const shouldComplete = await shouldCompleteBooking(bookingData, 'regular');
+                    if (shouldComplete) {
+                        console.log(`✅ Completing regular booking ${bookingId}`);
+                        await bookingsRef.child(bookingId).update({
+                            status: 'completed',
+                            completedAt: admin.database.ServerValue.TIMESTAMP,
+                            updatedAt: new Date().toISOString()
+                        });
+                        await bookingsRef.child(`${bookingId}/notes`).push({
+                            type: 'system',
+                            message: 'Booking auto-completed - event has concluded',
+                            timestamp: new Date().toISOString()
+                        });
+                        completedCount++;
+                    }
                 }
             }
         }
-        // Process membership bookings
-        console.log('👑 Checking membership bookings...');
+        // ============= Part 2: Complete membership bookings =============
+        console.log('👑 Checking membership bookings for completion...');
         const membershipBookingsRef = db.ref('bookings/membershipBookings');
         const membershipSnapshot = await membershipBookingsRef.once('value');
         if (membershipSnapshot.exists()) {
             const membershipBookings = membershipSnapshot.val();
             for (const [bookingId, booking] of Object.entries(membershipBookings)) {
                 const bookingData = booking;
-                // Only process confirmed membership bookings
-                if (bookingData.bookingStatus !== 'confirmed') {
-                    continue;
-                }
-                // Check if membership booking should be completed
-                const shouldComplete = await shouldCompleteBooking(bookingData, 'membership');
-                if (shouldComplete) {
-                    console.log(`👑 Completing membership booking ${bookingId}`);
-                    await membershipBookingsRef.child(bookingId).update({
-                        bookingStatus: 'completed',
-                        completedAt: admin.database.ServerValue.TIMESTAMP,
-                        updatedAt: { '.sv': 'timestamp' }
-                    });
-                    // Add completion note
-                    await membershipBookingsRef.child(`${bookingId}/notes`).push({
-                        type: 'system',
-                        message: 'Membership booking auto-completed - delivery period has concluded',
-                        timestamp: new Date().toISOString()
-                    });
-                    completedCount++;
+                if (bookingData.bookingStatus === 'confirmed') {
+                    const shouldComplete = await shouldCompleteBooking(bookingData, 'membership');
+                    if (shouldComplete) {
+                        console.log(`👑 Completing membership booking ${bookingId}`);
+                        await membershipBookingsRef.child(bookingId).update({
+                            bookingStatus: 'completed',
+                            completedAt: admin.database.ServerValue.TIMESTAMP,
+                            updatedAt: { '.sv': 'timestamp' }
+                        });
+                        await membershipBookingsRef.child(`${bookingId}/notes`).push({
+                            type: 'system',
+                            message: 'Membership booking auto-completed - delivery period concluded',
+                            timestamp: new Date().toISOString()
+                        });
+                        completedCount++;
+                    }
                 }
             }
         }
-        console.log(`✅ Auto-completion process finished. Completed ${completedCount} bookings.`);
+        console.log(`✅ Booking processing complete. Cancelled: ${cancelledCount}, Completed: ${completedCount}`);
         return null;
     }
     catch (error) {
-        console.error('❌ Error in auto-complete bookings function:', error);
+        console.error('❌ Error in autoProcessBookings:', error);
         return null;
     }
 });
@@ -2855,23 +2777,17 @@ async function shouldCompleteBooking(bookingData, bookingType) {
         let eventDate;
         let completionDelayHours = 24; // Default 24 hours
         if (bookingType === 'membership') {
-            // For membership bookings, use actualDeliveryDate or fall back to other date fields
             const deliveryDateStr = bookingData.actualDeliveryDate || bookingData.deliveryDate;
             if (!deliveryDateStr) {
-                console.log(`⚠️ No delivery date found for membership booking`);
                 return false;
             }
             eventDate = new Date(deliveryDateStr);
-            // Membership bookings are always 24-hour completion (already set above)
         }
         else {
-            // For regular bookings, parse eventDate from orderDetails
             const eventDateStr = (_a = bookingData.orderDetails) === null || _a === void 0 ? void 0 : _a.eventDate;
             if (!eventDateStr) {
-                console.log(`⚠️ No event date found for regular booking`);
                 return false;
             }
-            // Parse event date (format: "MM/DD/YYYY - MM/DD/YYYY" or "MM/DD/YYYY")
             const dateRange = eventDateStr.split(' - ');
             const startDateStr = dateRange[0];
             eventDate = new Date(startDateStr);
@@ -2879,16 +2795,10 @@ async function shouldCompleteBooking(bookingData, bookingType) {
             const duration = (_b = bookingData.orderDetails) === null || _b === void 0 ? void 0 : _b.duration;
             if (duration === '48 hours' || duration === 48 || duration === '2 days') {
                 completionDelayHours = 48;
-                console.log(`⏰ Found 2-day event, using 48-hour completion delay`);
             }
         }
-        // Calculate completion threshold
         const completionTime = new Date(eventDate.getTime() + (completionDelayHours * 60 * 60 * 1000));
-        const shouldComplete = now >= completionTime;
-        if (shouldComplete) {
-            console.log(`✅ Booking should be completed: Event date ${eventDate.toISOString()}, Completion time ${completionTime.toISOString()}, Now ${now.toISOString()}`);
-        }
-        return shouldComplete;
+        return now >= completionTime;
     }
     catch (error) {
         console.error('❌ Error checking booking completion eligibility:', error);
@@ -2986,48 +2896,6 @@ exports.sendAccountDeletionEmail = functions.https.onCall(async (data, context) 
             console.error('SendGrid error response:', (_a = error.response) === null || _a === void 0 ? void 0 : _a.body);
         }
         throw new functions.https.HttpsError('internal', 'Failed to send account deletion email.');
-    }
-});
-// Test function to manually trigger membership confirmation email
-exports.testMembershipConfirmationEmail = functions.https.onCall(async (data, context) => {
-    try {
-        const testBooking = {
-            customerEmail: data.email || 'test@example.com',
-            customerName: 'Test User',
-            userName: 'Test User',
-            selectedInflatable: 'Castle Bounce House',
-            inflatableName: 'Castle Bounce House',
-            selectedWeekday: 'Saturday',
-            deliveryAddress: '123 Test Street, Test City, TS 12345',
-            selectedSurface: 'Grass',
-            surfaceType: 'Grass',
-            selectedStakesOrSandbags: 'Stakes',
-            anchoringMethod: 'Stakes'
-        };
-        // Also send a simple test email to check basic delivery
-        if (data.email) {
-            console.log('📧 TEST: Sending simple email to check delivery...');
-            const simpleMsg = {
-                to: data.email,
-                from: 'jumpcsra@gmail.com',
-                subject: 'Simple Test Email - Jump Club',
-                text: 'This is a simple text email to test if emails are reaching you. If you receive this, email delivery is working.',
-                html: '<p>This is a simple HTML email to test delivery. If you receive this, email delivery is working.</p>'
-            };
-            await sgMail.send(simpleMsg);
-            console.log('✅ TEST: Simple email sent');
-        }
-        await sendMembershipConfirmationEmail(testBooking, 'test-booking-123');
-        return {
-            success: true,
-            message: 'Test membership confirmation email sent',
-            sentTo: testBooking.customerEmail
-        };
-    }
-    catch (error) {
-        console.error('Error in test membership confirmation email:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-        throw new functions.https.HttpsError('internal', 'Failed to send test email: ' + errorMessage);
     }
 });
 // Send membership cancellation confirmation email
