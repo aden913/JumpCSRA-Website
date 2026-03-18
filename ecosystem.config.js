@@ -1,7 +1,7 @@
 module.exports = {
   apps: [{
     name: 'jumpcsra-server',
-    script: './node_modules/@react-router/serve/dist/cli.js',
+    script: "build/server/index.js",
     args: './JumpCSRA/build/server/index.js',
     cwd: '/var/www/JumpCSRA-Website/JumpCSRA',
     instances: 1,
