@@ -10,59 +10,43 @@ import { getStorage, type FirebaseStorage } from "firebase/storage";
 // https://firebase.google.com/docs/web/setup#available-libraries
 
 // Your web app's Firebase configuration
-// All values must be provided via environment variables (.env file)
-// For SSR: Use process.env (server) or import.meta.env (client)
+// For SSR compatibility with React Router v7:
+// - Server-side: Uses process.env
+// - Client-side: Uses window.__ENV__ injected by the server
 
-// Determine environment context
-const isServer = typeof process !== 'undefined' && process.env;
-const isClient = typeof window !== 'undefined';
-const isDev = import.meta.env?.DEV || false;
-const mode = import.meta.env?.MODE || 'unknown';
+// Check if running on server or client
+const isServer = typeof document === 'undefined';
+const isDev = typeof process !== 'undefined' ? process.env.NODE_ENV === 'development' : false;
 
 console.group('🔥 Firebase Configuration Debug');
 console.log('Environment Context:', {
   isServer,
-  isClient,
   isDev,
-  mode,
-  nodeEnv: isServer ? process.env.NODE_ENV : 'N/A'
+  nodeEnv: typeof process !== 'undefined' ? process.env.NODE_ENV : 'unknown'
 });
 
-// Log available import.meta.env keys (client-side)
-if (typeof import.meta !== 'undefined' && import.meta.env) {
-  const envKeys = Object.keys(import.meta.env).filter(k => k.includes('FIREBASE') || k.includes('VITE'));
-  console.log('Available import.meta.env keys:', envKeys);
-  console.log('import.meta.env VITE_ prefixed:', {
-    VITE_FIREBASE_API_KEY: import.meta.env.VITE_FIREBASE_API_KEY ? `${String(import.meta.env.VITE_FIREBASE_API_KEY).substring(0, 10)}...` : 'MISSING',
-    VITE_FIREBASE_AUTH_DOMAIN: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'MISSING',
-    VITE_FIREBASE_PROJECT_ID: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'MISSING'
-  });
-}
-
-// Log available process.env keys (server-side)
-if (isServer && process.env) {
-  const envKeys = Object.keys(process.env).filter(k => k.includes('FIREBASE'));
-  console.log('Available process.env FIREBASE keys:', envKeys.length > 0 ? envKeys : 'NONE');
-}
-
-const getEnvVar = (name: string) => {
-  let value;
+/**
+ * Get environment variable with fallback chain
+ * Tries multiple naming conventions for backward compatibility
+ */
+const getEnvVar = (name: string): string => {
+  let value: string | undefined;
   
-  if (typeof process !== 'undefined' && process.env) {
-    // Server-side: try non-prefixed first, then VITE_ prefixed
+  if (isServer && typeof process !== 'undefined') {
+    // Server-side: check process.env
     value = process.env[name] || process.env[`VITE_${name}`];
     console.log(`[Server] ${name}:`, value ? `${value.substring(0, 15)}... (${value.length} chars)` : '❌ MISSING');
-  } else {
-    // Client-side: use import.meta.env with VITE_ prefix
-    value = (import.meta.env as any)[`VITE_${name}`];
-    console.log(`[Client] ${name}:`, value ? `${String(value).substring(0, 15)}... (${String(value).length} chars)` : '❌ MISSING');
+  } else if (typeof window !== 'undefined' && (window as any).__ENV__) {
+    // Client-side: check window.__ENV__ (injected by server)
+    value = (window as any).__ENV__[name];
+    console.log(`[Client] ${name}:`, value ? `${String(value).substring(0, 15)}...` : '❌ MISSING');
   }
   
   if (!value) {
-    console.warn(`⚠️  Missing environment variable: ${name} (looking for VITE_${name})`);
+    console.warn(`⚠️  Missing environment variable: ${name}`);
   }
   
-  return value;
+  return value || '';
 };
 
 export const firebaseConfig = {

@@ -1,6 +1,9 @@
 import type { Config } from "@react-router/dev/config";
 
 export default {
+  // App directory
+  appDirectory: "app",
+  
   // Enable SSR
   ssr: true,
   
