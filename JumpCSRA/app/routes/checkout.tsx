@@ -114,6 +114,7 @@ export default function Checkout() {
   const cartSettings = useCartSettings();
   
   const [calendarDateRange, setCalendarDateRange] = useState<[Date | null, Date | null]>([null, null]);
+  const [latePickup, setLatePickup] = useState<string>(''); // For optional late pickup time (6pm/7pm/8pm)
 
   // Helper function to get product image from inflateables data
   const getProductImage = (productName: string): string => {
@@ -1697,9 +1698,9 @@ export default function Checkout() {
 
   // Pickup time fees for 24-hour duration options
   const pickupTimeFees: Record<string, number> = {
-    "24hours-pickup6": 10,
-    "24hours-pickup7": 20,
-    "24hours-pickup8": 30,
+    "24hours-pickup6": 20,
+    "24hours-pickup7": 30,
+    "24hours-pickup8": 40,
   };
 
   // Calculate cart total including last-minute additions
@@ -4149,7 +4150,6 @@ export default function Checkout() {
             <RouterNav
               categories={categories}
               onCategoryChange={() => {}} 
-              hideCartIcon={true}
               hideNavbarDropdown={true}
               hideMobileSidebar={true}
               userName={user?.displayName || undefined}
@@ -4164,7 +4164,6 @@ export default function Checkout() {
             <RouterNav
               categories={categories}
               onCategoryChange={() => {}} // No-op on checkout page since we don't filter products here
-              hideCartIcon={true} // Hide cart icon on checkout page
               hideNavbarDropdown={true} // Hide the navbar category dropdown
               hideMobileSidebar={true} // Hide mobile menu toggle on checkout page
               walletBalance={userWallet?.balance || 0}
@@ -4908,81 +4907,126 @@ export default function Checkout() {
 
                 {/* Step 4: Event Duration - Show only after start time is selected */}
                 {cartSettings.location && cartSettings.surface && cartSettings.deliveryTime && (
-                  <label style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '0.5rem',
-                    fontSize: '0.95rem',
-                    fontWeight: '500',
-                    color: '#495057'
-                  }}>
-                    <span style={{ color: '#212529' }}>Event Duration:</span>
-                    <select 
-                      value={cartSettings.duration} 
-                      onChange={e => cartSettings.setDuration(e.target.value)} 
-                      required
-                      style={{
-                        padding: '0.75rem',
-                        border: '1px solid #ced4da',
-                        borderRadius: '6px',
-                        fontSize: '1rem',
-                        backgroundColor: 'white',
-                        cursor: 'pointer',
-                        transition: 'border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out'
-                      }}
-                    >
-                      <option value="">Select duration</option>
-                      {/* Disable 4 hours if start time is 1 PM or later (afternoon/evening) */}
-                      {(() => {
-                        const timeValue = cartSettings.deliveryTime.toLowerCase();
-                        const hour = parseInt(timeValue.replace(/[^\d]/g, '') || '0');
-                        const isPM = timeValue.includes('pm');
-                        // Disable 4 hours for 1pm and later (but not 12pm/noon)
-                        const disable4Hours = isPM && hour >= 1 && hour !== 12;
-                        
-                        return (
-                          <>
-                            <option value="4hours" disabled={!availableDurations.has('4hours') || disable4Hours}>
-                              4 Hours (-10%){!availableDurations.has('4hours') ? ' - Unavailable' : disable4Hours ? ' - Not available for afternoon/evening events' : ''}
-                            </option>
-                            <option value="24hours" disabled={!availableDurations.has('24hours')}>
-                              24 Hours (Standard){!availableDurations.has('24hours') ? ' - Unavailable' : ''}
-                            </option>
-                            <option value="24hours-pickup6" disabled={!availableDurations.has('24hours')}>
-                              24 Hours (pick up at 6 PM +$10){!availableDurations.has('24hours') ? ' - Unavailable' : ''}
-                            </option>
-                            <option value="24hours-pickup7" disabled={!availableDurations.has('24hours')}>
-                              24 Hours (pick up at 7 PM +$20){!availableDurations.has('24hours') ? ' - Unavailable' : ''}
-                            </option>
-                            <option value="24hours-pickup8" disabled={!availableDurations.has('24hours')}>
-                              24 Hours (pick up at 8 PM +$30){!availableDurations.has('24hours') ? ' - Unavailable' : ''}
-                            </option>
-                            <option value="48hours" disabled={!availableDurations.has('48hours')}>
-                              48 Hours (+50%){!availableDurations.has('48hours') ? ' - Unavailable' : ''}
-                            </option>
-                          </>
-                        );
-                      })()}
-                    </select>
-                    {calendarDateRange[0] && cartSettings.duration && (() => {
-                      // Check if the selected duration is available
-                      // For 24-hour pickup variants, check against '24hours' availability
-                      const durationToCheck = cartSettings.duration.startsWith('24hours') ? '24hours' : cartSettings.duration;
-                      return !availableDurations.has(durationToCheck);
-                    })() && (
-                      <div style={{
-                        backgroundColor: '#fff3cd',
-                        border: '1px solid #ffc107',
-                        borderRadius: '4px',
-                        padding: '0.5rem',
-                        fontSize: '0.85rem',
-                        color: '#856404',
-                        marginTop: '0.25rem'
+                  <>
+                    <label style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.5rem',
+                      fontSize: '0.95rem',
+                      fontWeight: '500',
+                      color: '#495057'
+                    }}>
+                      <span style={{ color: '#212529' }}>Event Duration:</span>
+                      <select 
+                        value={cartSettings.duration.startsWith('24hours') ? '24hours' : cartSettings.duration} 
+                        onChange={e => {
+                          const newDuration = e.target.value;
+                          cartSettings.setDuration(newDuration);
+                          // Reset late pickup if not 24 hours
+                          if (newDuration !== '24hours') {
+                            setLatePickup('');
+                          }
+                        }} 
+                        required
+                        style={{
+                          padding: '0.75rem',
+                          border: '1px solid #ced4da',
+                          borderRadius: '6px',
+                          fontSize: '1rem',
+                          backgroundColor: 'white',
+                          cursor: 'pointer',
+                          transition: 'border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out'
+                        }}
+                      >
+                        <option value="">Select duration</option>
+                        {/* Disable 4 hours if start time is 1 PM or later (afternoon/evening) */}
+                        {(() => {
+                          const timeValue = cartSettings.deliveryTime.toLowerCase();
+                          const hour = parseInt(timeValue.replace(/[^\d]/g, '') || '0');
+                          const isPM = timeValue.includes('pm');
+                          // Disable 4 hours for 1pm and later (but not 12pm/noon)
+                          const disable4Hours = isPM && hour >= 1 && hour !== 12;
+                          
+                          return (
+                            <>
+                              <option value="4hours" disabled={!availableDurations.has('4hours') || disable4Hours}>
+                                4 Hours (-10%){!availableDurations.has('4hours') ? ' - Unavailable' : disable4Hours ? ' - Not available for afternoon/evening events' : ''}
+                              </option>
+                              <option value="24hours" disabled={!availableDurations.has('24hours')}>
+                                24 Hours (Standard){!availableDurations.has('24hours') ? ' - Unavailable' : ''}
+                              </option>
+                              <option value="48hours" disabled={!availableDurations.has('48hours')}>
+                                48 Hours (+50%){!availableDurations.has('48hours') ? ' - Unavailable' : ''}
+                              </option>
+                            </>
+                          );
+                        })()}
+                      </select>
+                      {calendarDateRange[0] && cartSettings.duration && (() => {
+                        // Check if the selected duration is available
+                        // For 24-hour pickup variants, check against '24hours' availability
+                        const durationToCheck = cartSettings.duration.startsWith('24hours') ? '24hours' : cartSettings.duration;
+                        return !availableDurations.has(durationToCheck);
+                      })() && (
+                        <div style={{
+                          backgroundColor: '#fff3cd',
+                          border: '1px solid #ffc107',
+                          borderRadius: '4px',
+                          padding: '0.5rem',
+                          fontSize: '0.85rem',
+                          color: '#856404',
+                          marginTop: '0.25rem'
+                        }}>
+                          ⚠️ Selected duration unavailable - items are booked during this timeframe. Please choose another duration.
+                        </div>
+                      )}
+                    </label>
+
+                    {/* Optional Late Pickup - Only shown when 24 hours is selected */}
+                    {(cartSettings.duration === '24hours' || cartSettings.duration.startsWith('24hours-pickup')) && (
+                      <label style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.5rem',
+                        fontSize: '0.95rem',
+                        fontWeight: '500',
+                        color: '#495057',
+                        marginTop: '0.5rem'
                       }}>
-                        ⚠️ Selected duration unavailable - items are booked during this timeframe. Please choose another duration.
-                      </div>
+                        <span style={{ color: '#212529' }}>
+                          <span style={{ fontSize: '0.85rem', color: '#6c757d' }}>Optional: </span>
+                          Pickup same day after 5pm
+                        </span>
+                        <select 
+                          value={latePickup}
+                          onChange={e => {
+                            const newLatePickup = e.target.value;
+                            setLatePickup(newLatePickup);
+                            // Update cartSettings.duration to include late pickup option
+                            if (newLatePickup) {
+                              cartSettings.setDuration(`24hours-${newLatePickup}`);
+                            } else {
+                              cartSettings.setDuration('24hours');
+                            }
+                          }} 
+                          style={{
+                            padding: '0.75rem',
+                            border: '1px solid #ced4da',
+                            borderRadius: '6px',
+                            fontSize: '1rem',
+                            backgroundColor: 'white',
+                            cursor: 'pointer',
+                            transition: 'border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out'
+                          }}
+                        >
+                          <option value="">Standard pickup</option>
+                          <option value="pickup6">6pm - $20</option>
+                          <option value="pickup7">7pm - $30</option>
+                          <option value="pickup8">8pm - $40</option>
+                        </select>
+                      </label>
                     )}
-                  </label>
+                  </>
                 )}
               </div>
 
@@ -5001,18 +5045,20 @@ export default function Checkout() {
                     const endDate = calendarDateRange[1];
                     if (!startDate || !endDate) return 'Not selected';
                     
+                    const timeDisplay = cartSettings.deliveryTime ? ` at ${cartSettings.deliveryTime}` : '';
+                    
                     if (cartSettings.duration === '4hours') {
-                      return startDate.toLocaleDateString();
-                    } else if (cartSettings.duration === '24hours') {
+                      return `${startDate.toLocaleDateString()}${timeDisplay}`;
+                    } else if (cartSettings.duration === '24hours' || cartSettings.duration.startsWith('24hours-pickup')) {
                       const nextDay = new Date(startDate);
                       nextDay.setDate(nextDay.getDate() + 1);
-                      return `${startDate.toLocaleDateString()} - ${nextDay.toLocaleDateString()}`;
+                      return `${startDate.toLocaleDateString()} - ${nextDay.toLocaleDateString()}${timeDisplay}`;
                     } else if (cartSettings.duration === '48hours') {
                       const twoDaysLater = new Date(startDate);
                       twoDaysLater.setDate(twoDaysLater.getDate() + 2);
-                      return `${startDate.toLocaleDateString()} - ${twoDaysLater.toLocaleDateString()}`;
+                      return `${startDate.toLocaleDateString()} - ${twoDaysLater.toLocaleDateString()}${timeDisplay}`;
                     } else {
-                      return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+                      return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}${timeDisplay}`;
                     }
                   })()}
                 </p>
@@ -5575,6 +5621,44 @@ export default function Checkout() {
               </button>
             </div>
           )}
+          
+          {/* Event Dates Display */}
+          <div style={{
+            backgroundColor: 'white',
+            marginBottom: '1rem',
+            padding: '1rem',
+            borderRadius: '4px',
+            border: '1px solid #dee2e6'
+          }}>
+            <p style={{
+              margin: 0,
+              fontSize: '1rem',
+              color: '#495057'
+            }}>
+              <strong style={{ color: '#212529' }}>Event Dates:</strong>{' '}
+              {(() => {
+                const startDate = calendarDateRange[0];
+                const endDate = calendarDateRange[1];
+                if (!startDate || !endDate) return 'Not selected';
+                
+                const timeDisplay = cartSettings.deliveryTime ? ` at ${cartSettings.deliveryTime}` : '';
+                
+                if (cartSettings.duration === '4hours') {
+                  return `${startDate.toLocaleDateString()}${timeDisplay}`;
+                } else if (cartSettings.duration === '24hours' || cartSettings.duration.startsWith('24hours-pickup')) {
+                  const nextDay = new Date(startDate);
+                  nextDay.setDate(nextDay.getDate() + 1);
+                  return `${startDate.toLocaleDateString()} - ${nextDay.toLocaleDateString()}${timeDisplay}`;
+                } else if (cartSettings.duration === '48hours') {
+                  const twoDaysLater = new Date(startDate);
+                  twoDaysLater.setDate(twoDaysLater.getDate() + 2);
+                  return `${startDate.toLocaleDateString()} - ${twoDaysLater.toLocaleDateString()}${timeDisplay}`;
+                } else {
+                  return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}${timeDisplay}`;
+                }
+              })()}
+            </p>
+          </div>
           
           {/* Detailed Pricing Breakdown */}
           <div style={{ 
