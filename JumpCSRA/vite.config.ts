@@ -28,6 +28,12 @@ export default defineConfig(({ mode }) => {
       open: false,
       // Enable CORS for dev
       cors: true,
+      // Allow Cloudflare tunnel hosts
+      allowedHosts: [
+        '.trycloudflare.com',
+        'localhost',
+        '127.0.0.1',
+      ],
       // Proper headers for SSR
       headers: {
         'Access-Control-Allow-Origin': '*',
