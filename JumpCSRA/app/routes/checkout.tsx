@@ -4724,7 +4724,7 @@ export default function Checkout() {
               </button>
               
               {/* Development Skip Button */}
-              {(typeof process !== 'undefined' ? process.env.NODE_ENV === 'development' : false) && (
+              {import.meta.env.DEV && (
                 <button
                   id="btn-skip-delivery"
                   onClick={() => {

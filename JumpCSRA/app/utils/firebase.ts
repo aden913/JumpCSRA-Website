@@ -6,11 +6,8 @@ const getEnvVar = (name: string) => {
     // Server-side: try non-prefixed first, then VITE_ prefixed
     return process.env[name] || process.env[`VITE_${name}`];
   }
-  // Client-side: use window.__ENV__ (injected by server)
-  if (typeof window !== 'undefined' && (window as any).__ENV__) {
-    return (window as any).__ENV__[name];
-  }
-  return '';
+  // Client-side: use import.meta.env with VITE_ prefix
+  return (import.meta.env as any)[`VITE_${name}`];
 };
 
 export const firebaseConfig = {

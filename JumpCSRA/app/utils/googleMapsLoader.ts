@@ -2,19 +2,7 @@
 // Note: You may see "net::ERR_BLOCKED_BY_CLIENT" errors in console for gen_204 requests.
 // These are Google's analytics/tracking requests being blocked by browser extensions (ad blockers, etc.)
 // and do NOT affect the functionality of Google Places autocomplete - they can be safely ignored.
-
-// Get API key from window.__ENV__ (injected by server) or environment variable
-const getGoogleMapsApiKey = (): string => {
-  if (typeof window !== 'undefined' && (window as any).__ENV__?.GOOGLE_MAPS_API_KEY) {
-    return (window as any).__ENV__.GOOGLE_MAPS_API_KEY;
-  }
-  if (typeof process !== 'undefined' && process.env) {
-    return process.env.GOOGLE_MAPS_API_KEY || process.env.VITE_GOOGLE_MAPS_API_KEY || '';
-  }
-  return '';
-};
-
-const GOOGLE_PLACES_API_KEY = getGoogleMapsApiKey();
+const GOOGLE_PLACES_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 interface GoogleMapsLoader {
   isLoaded: boolean;

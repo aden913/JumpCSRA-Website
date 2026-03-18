@@ -58,24 +58,18 @@ class BackendEmailService {
 
   private getBaseURL(): string {
     // Use environment variable or fallback to production
-    if (typeof window !== 'undefined' && (window as any).__ENV__?.EMAIL_SERVICE_URL) {
-      return (window as any).__ENV__.EMAIL_SERVICE_URL;
+    if (typeof window !== 'undefined' && (window as any).ENV?.EMAIL_SERVICE_URL) {
+      return (window as any).ENV.EMAIL_SERVICE_URL;
     }
-    if (typeof process !== 'undefined' && process.env) {
-      return process.env.EMAIL_SERVICE_URL || process.env.VITE_EMAIL_SERVICE_URL || 'http://170.187.145.7:3001';
-    }
-    return 'http://170.187.145.7:3001';
+    return import.meta.env.VITE_EMAIL_SERVICE_URL || 'http://170.187.145.7:3001';
   }
 
   private getApiKey(): string {
     // Get API key from environment variable
-    if (typeof window !== 'undefined' && (window as any).__ENV__?.EMAIL_API_KEY) {
-      return (window as any).__ENV__.EMAIL_API_KEY;
+    if (typeof window !== 'undefined' && (window as any).ENV?.EMAIL_API_KEY) {
+      return (window as any).ENV.EMAIL_API_KEY;
     }
-    if (typeof process !== 'undefined' && process.env) {
-      return process.env.EMAIL_API_KEY || process.env.VITE_EMAIL_API_KEY || 'jumpcsra_secure_api_key_2024';
-    }
-    return 'jumpcsra_secure_api_key_2024';
+    return import.meta.env.VITE_EMAIL_API_KEY || 'jumpcsra_secure_api_key_2024';
   }
 
   private async makeRequest(endpoint: string, data: any = null, method: string = 'POST'): Promise<any> {
