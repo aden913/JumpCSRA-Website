@@ -6,7 +6,7 @@ import { getFunctions, connectFunctionsEmulator, type Functions } from "firebase
 import { getDatabase, connectDatabaseEmulator, type Database } from "firebase/database";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 
-// Singleton pattern for SSR - use global to persist across requests
+// Singleton pattern for SSR - use globalThis to persist across requests
 declare global {
   var __firebaseApp: FirebaseApp | undefined;
   var __firebaseAuth: Auth | undefined;
@@ -42,15 +42,15 @@ let functions: Functions;
 let database: Database;
 let storage: FirebaseStorage;
 
-// Check if already initialized globally (works across SSR requests)
-if (global.__firebaseInitialized && global.__firebaseApp) {
+// Check if already initialized globally (works across SSR requests and browser)
+if (globalThis.__firebaseInitialized && globalThis.__firebaseApp) {
   // Reuse existing instances
-  app = global.__firebaseApp;
-  auth = global.__firebaseAuth!;
-  firestore = global.__firebaseFirestore!;
-  functions = global.__firebaseFunctions!;
-  database = global.__firebaseDatabase!;
-  storage = global.__firebaseStorage!;
+  app = globalThis.__firebaseApp;
+  auth = globalThis.__firebaseAuth!;
+  firestore = globalThis.__firebaseFirestore!;
+  functions = globalThis.__firebaseFunctions!;
+  database = globalThis.__firebaseDatabase!;
+  storage = globalThis.__firebaseStorage!;
 } else {
   // First initialization - also check getApps() as fallback
   const existingApps = getApps();
@@ -66,16 +66,14 @@ if (global.__firebaseInitialized && global.__firebaseApp) {
   database = getDatabase(app);
   storage = getStorage(app);
   
-  // Store in global for SSR persistence
-  if (typeof global !== 'undefined') {
-    global.__firebaseApp = app;
-    global.__firebaseAuth = auth;
-    global.__firebaseFirestore = firestore;
-    global.__firebaseFunctions = functions;
-    global.__firebaseDatabase = database;
-    global.__firebaseStorage = storage;
-    global.__firebaseInitialized = true;
-  }
+  // Store in globalThis for persistence (works in both Node.js and browser)
+  globalThis.__firebaseApp = app;
+  globalThis.__firebaseAuth = auth;
+  globalThis.__firebaseFirestore = firestore;
+  globalThis.__firebaseFunctions = functions;
+  globalThis.__firebaseDatabase = database;
+  globalThis.__firebaseStorage = storage;
+  globalThis.__firebaseInitialized = true;
 }
 
 export { app, auth, firestore, functions, database, storage, firebaseConfig };
