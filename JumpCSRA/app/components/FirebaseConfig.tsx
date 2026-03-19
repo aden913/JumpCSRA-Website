@@ -19,61 +19,107 @@ const isClient = typeof window !== 'undefined';
 const isDev = import.meta.env?.DEV || false;
 const mode = import.meta.env?.MODE || 'unknown';
 
-console.group('🔥 Firebase Configuration Debug');
+console.group('🔥 Firebase Configuration Debug - ENHANCED');
 console.log('Environment Context:', {
   isServer,
   isClient,
   isDev,
   mode,
-  nodeEnv: isServer ? process.env.NODE_ENV : 'N/A'
+  nodeEnv: isServer ? process.env.NODE_ENV : 'N/A',
+  timestamp: new Date().toISOString(),
+  buildTime: 'VITE vars are compiled at BUILD TIME, not runtime!'
 });
 
-// Log available import.meta.env keys (client-side)
+// CRITICAL: Check if import.meta.env has the values AT BUILD TIME
+console.log('🔍 Checking import.meta.env (these are BAKED IN at build time):');
+console.log('  - VITE_FIREBASE_API_KEY:', typeof import.meta.env.VITE_FIREBASE_API_KEY, 
+  import.meta.env.VITE_FIREBASE_API_KEY ? 
+    `"${String(import.meta.env.VITE_FIREBASE_API_KEY).substring(0, 10)}...${String(import.meta.env.VITE_FIREBASE_API_KEY).slice(-4)}" (${String(import.meta.env.VITE_FIREBASE_API_KEY).length} chars)` : 
+    '❌ UNDEFINED OR EMPTY');
+console.log('  - VITE_FIREBASE_AUTH_DOMAIN:', import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '❌ MISSING');
+console.log('  - VITE_FIREBASE_PROJECT_ID:', import.meta.env.VITE_FIREBASE_PROJECT_ID || '❌ MISSING');
+console.log('  - VITE_FIREBASE_APP_ID:', import.meta.env.VITE_FIREBASE_APP_ID ? 
+    `"${String(import.meta.env.VITE_FIREBASE_APP_ID).substring(0, 20)}...${String(import.meta.env.VITE_FIREBASE_APP_ID).slice(-4)}"` : 
+    '❌ MISSING');
+
+// Log available import.meta.env keys (ALL of them)
 if (typeof import.meta !== 'undefined' && import.meta.env) {
-  const envKeys = Object.keys(import.meta.env).filter(k => k.includes('FIREBASE') || k.includes('VITE'));
-  console.log('Available import.meta.env keys:', envKeys);
-  console.log('import.meta.env VITE_ prefixed:', {
-    VITE_FIREBASE_API_KEY: import.meta.env.VITE_FIREBASE_API_KEY ? `${String(import.meta.env.VITE_FIREBASE_API_KEY).substring(0, 10)}...` : 'MISSING',
-    VITE_FIREBASE_AUTH_DOMAIN: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'MISSING',
-    VITE_FIREBASE_PROJECT_ID: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'MISSING'
-  });
+  const allKeys = Object.keys(import.meta.env);
+  const firebaseKeys = allKeys.filter(k => k.includes('FIREBASE'));
+  const viteKeys = allKeys.filter(k => k.startsWith('VITE_'));
+  console.log(`📋 Total import.meta.env keys: ${allKeys.length}`);
+  console.log(`📋 FIREBASE-related keys: ${firebaseKeys.length}`, firebaseKeys);
+  console.log(`📋 VITE_-prefixed keys: ${viteKeys.length}`, viteKeys);
 }
 
-// Log available process.env keys (server-side)
+// Log available process.env keys (server-side - these DON'T WORK for Vite!)
 if (isServer && process.env) {
   const envKeys = Object.keys(process.env).filter(k => k.includes('FIREBASE'));
-  console.log('Available process.env FIREBASE keys:', envKeys.length > 0 ? envKeys : 'NONE');
+  console.log('⚠️  Server process.env FIREBASE keys (NOT used by Vite!):', envKeys.length > 0 ? envKeys : 'NONE');
 }
 
 const getEnvVar = (name: string) => {
-  let value;
+  // ALWAYS use import.meta.env for Vite builds (both client and server)
+  // Vite bakes these values into both bundles at build time
+  const value = (import.meta.env as any)[`VITE_${name}`];
+  const source = `import.meta.env.VITE_${name} (baked in at BUILD TIME)`;
   
-  if (typeof process !== 'undefined' && process.env) {
-    // Server-side: try non-prefixed first, then VITE_ prefixed
-    value = process.env[name] || process.env[`VITE_${name}`];
-    console.log(`[Server] ${name}:`, value ? `${value.substring(0, 15)}... (${value.length} chars)` : '❌ MISSING');
-  } else {
-    // Client-side: use import.meta.env with VITE_ prefix
-    value = (import.meta.env as any)[`VITE_${name}`];
-    console.log(`[Client] ${name}:`, value ? `${String(value).substring(0, 15)}... (${String(value).length} chars)` : '❌ MISSING');
-  }
+  const valuePreview = value ? 
+    `${String(value).substring(0, 15)}...${String(value).slice(-4)} (${String(value).length} chars)` : 
+    '❌ MISSING FROM BUILD';
+  
+  console.log(`${name}:`, valuePreview, `from ${source}`);
   
   if (!value) {
-    console.warn(`⚠️  Missing environment variable: ${name} (looking for VITE_${name})`);
+    console.error(`❌ CRITICAL: Missing ${name}! VITE_${name} was NOT set during build`);
   }
   
   return value;
 };
 
-export const firebaseConfig = {
-  apiKey: getEnvVar('FIREBASE_API_KEY'),
-  authDomain: getEnvVar('FIREBASE_AUTH_DOMAIN'),
-  databaseURL: getEnvVar('FIREBASE_DATABASE_URL'),
-  projectId: getEnvVar('FIREBASE_PROJECT_ID'),
-  storageBucket: getEnvVar('FIREBASE_STORAGE_BUCKET'),
-  messagingSenderId: getEnvVar('FIREBASE_MESSAGING_SENDER_ID'),
-  appId: getEnvVar('FIREBASE_APP_ID')
+const firebaseConfig = {
+  apiKey: getEnvVar("FIREBASE_API_KEY"),
+  authDomain: getEnvVar("FIREBASE_AUTH_DOMAIN"),
+  databaseURL: getEnvVar("FIREBASE_DATABASE_URL"),
+  projectId: getEnvVar("FIREBASE_PROJECT_ID"),
+  storageBucket: getEnvVar("FIREBASE_STORAGE_BUCKET"),
+  messagingSenderId: getEnvVar("FIREBASE_MESSAGING_SENDER_ID"),
+  appId: getEnvVar("FIREBASE_APP_ID"),
 };
+
+console.log('📦 Final Firebase Config Object:');
+console.log('  apiKey:', firebaseConfig.apiKey ? 
+  `"${firebaseConfig.apiKey.substring(0, 8)}...${firebaseConfig.apiKey.slice(-4)}" (${firebaseConfig.apiKey.length} chars, type: ${typeof firebaseConfig.apiKey})` : 
+  '❌ MISSING OR EMPTY');
+console.log('  authDomain:', firebaseConfig.authDomain || '❌ MISSING');
+console.log('  databaseURL:', firebaseConfig.databaseURL || '❌ MISSING');
+console.log('  projectId:', firebaseConfig.projectId || '❌ MISSING');
+console.log('  storageBucket:', firebaseConfig.storageBucket || '❌ MISSING');
+console.log('  messagingSenderId:', firebaseConfig.messagingSenderId || '❌ MISSING');
+console.log('  appId:', firebaseConfig.appId ? 
+  `"${firebaseConfig.appId.substring(0, 15)}...${firebaseConfig.appId.slice(-4)}" (${firebaseConfig.appId.length} chars)` : 
+  '❌ MISSING');
+
+// Validate critical fields
+const missingFields = Object.entries(firebaseConfig)
+  .filter(([_, value]) => !value)
+  .map(([key]) => key);
+
+if (missingFields.length > 0) {
+  console.error('❌❌❌ Firebase Config Error: Missing required fields:', missingFields);
+  console.error('');
+  console.error('🔧 TROUBLESHOOTING STEPS:');
+  console.error('1. Check that .env file exists with VITE_FIREBASE_* variables');
+  console.error('2. Make sure you ran: export VITE_FIREBASE_API_KEY="..." (for each var)');
+  console.error('3. Delete build folder: rm -rf build');
+  console.error('4. Rebuild: npm run build');
+  console.error('5. Check build logs above to see if VITE_ vars were available');
+  console.error('6. Remember: VITE_ vars must be set BEFORE build, not at PM2 runtime!');
+  console.error('');
+  console.error('This will cause Firebase initialization to fail!');
+} else {
+  console.log('✅✅✅ All Firebase config fields present and valid');
+}
 
 console.log('Final Firebase Config:', {
   apiKey: firebaseConfig.apiKey ? `${firebaseConfig.apiKey.substring(0, 10)}...` : '❌ MISSING',
@@ -83,18 +129,6 @@ console.log('Final Firebase Config:', {
   messagingSenderId: firebaseConfig.messagingSenderId || '❌ MISSING',
   appId: firebaseConfig.appId ? `${firebaseConfig.appId.substring(0, 20)}...` : '❌ MISSING'
 });
-
-// Validate critical fields
-const missingFields = Object.entries(firebaseConfig)
-  .filter(([_, value]) => !value)
-  .map(([key]) => key);
-
-if (missingFields.length > 0) {
-  console.error('❌ Firebase Config Error: Missing required fields:', missingFields);
-  console.error('This will cause Firebase initialization to fail!');
-} else {
-  console.log('✅ All Firebase config fields present');
-}
 
 console.groupEnd();
 
@@ -147,4 +181,4 @@ if (false && typeof window !== 'undefined' && window.location.hostname === 'loca
   // Note: Database emulator not configured, using production database
 }
 
-export { app, auth, firestore, functions, database, storage };
+export { app, auth, firestore, functions, database, storage, firebaseConfig };
