@@ -1,8 +1,7 @@
 module.exports = {
   apps: [{
     name: 'jumpcsra-server',
-    script: "build/server/index.js",
-    args: './JumpCSRA/build/server/index.js',
+    script: "server.js",
     cwd: '/var/www/JumpCSRA-Website/JumpCSRA',
     instances: 1,
     exec_mode: 'fork',

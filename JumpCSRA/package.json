@@ -6,7 +6,7 @@
     "test": "jest --config jest.config.mjs",
     "build": "react-router build",
     "dev": "react-router dev",
-    "start": "node --loader tsx server.ts",
+    "start": "node server.js",
     "typecheck": "react-router typegen && tsc"
   },
   "dependencies": {
