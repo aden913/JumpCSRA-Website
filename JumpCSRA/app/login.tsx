@@ -49,55 +49,19 @@ if (typeof window !== 'undefined' && window.crypto && !window.crypto.randomUUID)
   };
 }
 
-// Initialize Firebase once
-console.log('🔥 [LOGIN DEBUG] Checking Firebase apps...', getApps().length);
-console.log('🔥 [LOGIN DEBUG] Firebase config:', firebaseConfig);
-console.log('🔥 [LOGIN DEBUG] Environment:', process.env.NODE_ENV);
-console.log('🔥 [LOGIN DEBUG] Current URL:', typeof window !== 'undefined' ? window.location.href : 'SSR');
+// Import Firebase auth from centralized config (already initialized)
+import { auth } from "./components/FirebaseConfig";
 
-if (!getApps().length) {
-  console.log('🔥 [LOGIN DEBUG] Initializing Firebase app...');
-  try {
-    const app = initializeApp(firebaseConfig);
-    console.log('🔥 [LOGIN DEBUG] Firebase app initialized successfully:', app);
-  } catch (initError) {
-    console.error('🔥 [LOGIN DEBUG] Firebase initialization error:', initError);
-  }
-} else {
-  console.log('🔥 [LOGIN DEBUG] Firebase app already initialized');
+const provider = new GoogleAuthProvider();
+
+// Set auth persistence with error handling (only in browser)
+if (typeof window !== 'undefined') {
+  setPersistence(auth, browserLocalPersistence).catch((error) => {
+    console.error('Failed to set auth persistence:', error.message);
+  });
 }
 
-console.log('🔥 [LOGIN DEBUG] Getting auth instance...');
-const auth = getAuth();
-console.log('🔥 [LOGIN DEBUG] Auth instance:', auth);
-console.log('🔥 [LOGIN DEBUG] Auth app:', auth?.app);
-console.log('🔥 [LOGIN DEBUG] Auth currentUser:', auth?.currentUser);
-
-console.log('🔥 [LOGIN DEBUG] Creating Google provider...');
-const provider = new GoogleAuthProvider();
-console.log('🔥 [LOGIN DEBUG] Google provider:', provider);
-
-// Set auth persistence with error handling
-console.log('🔥 [LOGIN DEBUG] Setting auth persistence...');
-setPersistence(auth, browserLocalPersistence).then(() => {
-  console.log('🔥 [LOGIN DEBUG] Auth persistence set successfully');
-}).catch((error) => {
-  console.error('🔥 [LOGIN DEBUG] Failed to set auth persistence:', error);
-  console.error('🔥 [LOGIN DEBUG] Error details:', {
-    code: error.code,
-    message: error.message,
-    stack: error.stack
-  });
-  // Continue without persistence if it fails
-});
-
 export default function Login() {
-  console.log('🚀 [LOGIN DEBUG] Login component initializing...');
-  console.log('🚀 [LOGIN DEBUG] Current timestamp:', new Date().toISOString());
-  console.log('🚀 [LOGIN DEBUG] User agent:', typeof navigator !== 'undefined' ? navigator.userAgent : 'SSR');
-  console.log('🚀 [LOGIN DEBUG] Window object:', typeof window);
-  console.log('🚀 [LOGIN DEBUG] Document ready state:', typeof document !== 'undefined' ? document.readyState : 'SSR');
-  
   // Check URL parameters
   const [searchParams] = useSearchParams();
   const autoSignUp = searchParams.get('signup') === 'true';
@@ -128,13 +92,8 @@ export default function Login() {
 
   // Check if user is already authenticated
   useEffect(() => {
-    console.log('🔐 [AUTH CHECK DEBUG] Starting authentication check...');
-    console.log('🔐 [AUTH CHECK DEBUG] Auth object:', auth);
-    console.log('🔐 [AUTH CHECK DEBUG] Auth app:', auth?.app);
-    
     // Only run on client-side
     if (typeof window === 'undefined') {
-      console.log('🔐 [AUTH CHECK DEBUG] Server-side rendering, skipping auth check');
       setIsCheckingAuth(false);
       return;
     }
@@ -145,12 +104,9 @@ export default function Login() {
     // Check for recent auth check to prevent infinite loops
     const lastAuthCheck = typeof window !== 'undefined' ? localStorage.getItem('lastAuthCheck') : null;
     const now = Date.now();
-    console.log('🔐 [AUTH CHECK DEBUG] Last auth check:', lastAuthCheck);
-    console.log('🔐 [AUTH CHECK DEBUG] Current time:', now);
     
     // If we just checked auth within the last 5 seconds, skip this check
     if (lastAuthCheck && (now - parseInt(lastAuthCheck)) < 5000) {
-      console.log('🔐 [AUTH CHECK DEBUG] Recent auth check detected, skipping...');
       setIsCheckingAuth(false);
       return;
     }
@@ -159,73 +115,36 @@ export default function Login() {
     if (typeof window !== 'undefined') {
       localStorage.setItem('lastAuthCheck', now.toString());
     }
-    console.log('🔐 [AUTH CHECK DEBUG] Auth check timestamp stored');
     
-    // Add timeout to prevent indefinite hanging - increased to 15 seconds for production
-    const setAuthTimeout = () => {
-      console.log('🔐 [AUTH CHECK DEBUG] Setting 15 second timeout...');
-      authTimeout = setTimeout(() => {
-        if (!isAuthResolved) {
-          console.log('🔐 [AUTH CHECK DEBUG] Auth check timeout reached (15s), forcing resolution');
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('lastAuthCheck'); // Clear the check timestamp
-          }
-          setIsCheckingAuth(false);
-          isAuthResolved = true;
+    // Add timeout to prevent indefinite hanging
+    authTimeout = setTimeout(() => {
+      if (!isAuthResolved) {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('lastAuthCheck');
         }
-      }, 15000);
-    };
+        setIsCheckingAuth(false);
+        isAuthResolved = true;
+      }
+    }, 15000);
 
-    setAuthTimeout();
-
-    console.log('🔐 [AUTH CHECK DEBUG] Setting up auth state listener...');
     try {
       const unsubscribe = onAuthStateChanged(auth, async (user) => {
-        console.log('🔐 [AUTH CHECK DEBUG] Auth state changed, user:', user);
-        console.log('🔐 [AUTH CHECK DEBUG] User UID:', user?.uid);
-        console.log('🔐 [AUTH CHECK DEBUG] User email:', user?.email);
-        console.log('🔐 [AUTH CHECK DEBUG] User emailVerified:', user?.emailVerified);
-        console.log('🔐 [AUTH CHECK DEBUG] isAuthResolved:', isAuthResolved);
-        
-        if (isAuthResolved) {
-          console.log('🔐 [AUTH CHECK DEBUG] Auth already resolved, ignoring state change');
-          return; // Prevent multiple executions
-        }
+        if (isAuthResolved) return;
         
         clearTimeout(authTimeout);
         if (typeof window !== 'undefined') {
-          localStorage.removeItem('lastAuthCheck'); // Clear the check timestamp
+          localStorage.removeItem('lastAuthCheck');
         }
-        console.log('🔐 [AUTH CHECK DEBUG] Timeout cleared and timestamp removed');
         
         try {
           if (user) {
-            console.log('🔐 [AUTH CHECK DEBUG] User found, checking profile completeness...');
-            
             // Check if user has a complete profile in Firestore
             try {
-              console.log('🔐 [AUTH CHECK DEBUG] Getting Firestore instance...');
               const db = getFirestore();
-              console.log('🔐 [AUTH CHECK DEBUG] Firestore instance:', db);
-              
-              console.log('🔐 [AUTH CHECK DEBUG] Creating user document reference...');
               const userRef = doc(db, "users", user.uid);
-              console.log('🔐 [AUTH CHECK DEBUG] User reference:', userRef);
-              
-              console.log('🔐 [AUTH CHECK DEBUG] Fetching user document...');
               const userSnap = await getDoc(userRef);
-              console.log('🔐 [AUTH CHECK DEBUG] User document snapshot:', userSnap);
-              console.log('🔐 [AUTH CHECK DEBUG] Document exists:', userSnap.exists());
-              
-              if (userSnap.exists()) {
-                const userData = userSnap.data();
-                console.log('🔐 [AUTH CHECK DEBUG] User data:', userData);
-                console.log('🔐 [AUTH CHECK DEBUG] Has phone:', !!userData.phone);
-                console.log('🔐 [AUTH CHECK DEBUG] Has password:', !!userData.hasPassword);
-              }
 
               if (!userSnap.exists() || !userSnap.data().phone || !userSnap.data().hasPassword) {
-                console.log('🔐 [AUTH CHECK DEBUG] Incomplete profile detected, showing profile form');
                 // Incomplete profile - show profile completion form
                 setPendingUser(user);
                 setNeedsProfile(true);
@@ -234,64 +153,38 @@ export default function Login() {
                 return;
               }
 
-              // User is fully authenticated and has complete profile - redirect to home
-              console.log('🔐 [AUTH CHECK DEBUG] Complete profile found, redirecting to home');
+              // User is fully authenticated and has complete profile
               setRedirect(true);
               isAuthResolved = true;
             } catch (error: any) {
-              console.error('🔐 [AUTH CHECK DEBUG] Error checking user profile:', error);
-              console.error('🔐 [AUTH CHECK DEBUG] Error details:', {
-                code: error.code,
-                message: error.message,
-                stack: error.stack
-              });
+              console.error('Error checking user profile:', error.message);
               // If there's an error checking profile, still allow user to proceed
-              // They're authenticated, so let them through
-              console.log('🔐 [AUTH CHECK DEBUG] Profile check failed, allowing user through anyway');
               setRedirect(true);
               isAuthResolved = true;
             }
           } else {
-            // No user signed in, show login page
-            console.log('🔐 [AUTH CHECK DEBUG] No user found, showing login page');
+            // No user signed in
             setIsCheckingAuth(false);
             isAuthResolved = true;
           }
         } catch (error: any) {
-          console.error('🔐 [AUTH CHECK DEBUG] Error in auth state change handler:', error);
-          console.error('🔐 [AUTH CHECK DEBUG] Handler error details:', {
-            code: error.code,
-            message: error.message,
-            stack: error.stack
-          });
+          console.error('Error in auth state change handler:', error.message);
           setIsCheckingAuth(false);
           isAuthResolved = true;
         }
       });
-      
-      console.log('🔐 [AUTH CHECK DEBUG] Auth listener set up successfully:', unsubscribe);
 
       // Cleanup subscription on unmount
       return () => {
-        console.log('🔐 [AUTH CHECK DEBUG] Cleaning up auth listener...');
         clearTimeout(authTimeout);
         unsubscribe();
         if (typeof window !== 'undefined') {
-          localStorage.removeItem('lastAuthCheck'); // Clean up on unmount
+          localStorage.removeItem('lastAuthCheck');
         }
         isAuthResolved = true;
-        console.log('🔐 [AUTH CHECK DEBUG] Auth listener cleaned up');
       };
     } catch (error: any) {
-      console.error('🔐 [AUTH CHECK DEBUG] Error setting up auth listener:', error);
-      console.error('🔐 [AUTH CHECK DEBUG] Setup error details:', {
-        code: error.code,
-        message: error.message,
-        stack: error.stack
-      });
-      
-      // Fallback: clear checking state to prevent infinite loading
-      console.log('🔐 [AUTH CHECK DEBUG] Fallback: clearing checking state due to setup error');
+      console.error('Error setting up auth listener:', error.message);
       setIsCheckingAuth(false);
       if (typeof window !== 'undefined') {
         localStorage.removeItem('lastAuthCheck');
@@ -395,56 +288,30 @@ const handleCompleteProfile = async (e: React.FormEvent) => {
 };
 
 const handleGoogleLogin = async () => {
-  console.log('🔵 [GOOGLE LOGIN DEBUG] Starting Google login...');
-  console.log('🔵 [GOOGLE LOGIN DEBUG] isMobile:', isMobile);
-  console.log('🔵 [GOOGLE LOGIN DEBUG] Auth object:', auth);
-  console.log('🔵 [GOOGLE LOGIN DEBUG] Provider:', provider);
-  
   setError(null);
   try {
     let result;
     if (isMobile) {
-      console.log('🔵 [GOOGLE LOGIN DEBUG] Using redirect for mobile...');
       await signInWithRedirect(auth, provider);
-      console.log('🔵 [GOOGLE LOGIN DEBUG] Redirect initiated');
       return; // Exit here for mobile, redirect result will be handled by useEffect
     } else {
-      console.log('🔵 [GOOGLE LOGIN DEBUG] Using popup for desktop...');
-      console.log('🔵 [GOOGLE LOGIN DEBUG] Importing signInWithPopup...');
       const { signInWithPopup } = await import("firebase/auth");
-      console.log('🔵 [GOOGLE LOGIN DEBUG] signInWithPopup imported:', signInWithPopup);
-      console.log('🔵 [GOOGLE LOGIN DEBUG] Calling signInWithPopup...');
       result = await signInWithPopup(auth, provider);
-      console.log('🔵 [GOOGLE LOGIN DEBUG] Popup result:', result);
     }
 
     if (result?.user) {
-      console.log('🔵 [GOOGLE LOGIN DEBUG] User received from popup:', result.user);
-      
       try {
-        console.log('🔵 [GOOGLE LOGIN DEBUG] Getting Firestore instance...');
         const db = getFirestore();
-        console.log('🔵 [GOOGLE LOGIN DEBUG] Firestore instance:', db);
-        
         const userRef = doc(db, "users", result.user.uid);
-        console.log('🔵 [GOOGLE LOGIN DEBUG] User reference created:', userRef);
         
         // Wait a moment for auth to fully complete
-        console.log('🔵 [GOOGLE LOGIN DEBUG] Waiting for auth to settle...');
         await new Promise(resolve => setTimeout(resolve, 100));
         
         let userSnap;
         try {
-          console.log('🔵 [GOOGLE LOGIN DEBUG] Reading user document...');
           userSnap = await getDoc(userRef);
-          console.log('🔵 [GOOGLE LOGIN DEBUG] User document read successfully:', userSnap.exists());
         } catch (readError: any) {
-          console.error('🔵 [GOOGLE LOGIN DEBUG] Error reading user document:', readError);
-          console.error('🔵 [GOOGLE LOGIN DEBUG] Read error details:', {
-            code: readError.code,
-            message: readError.message,
-            stack: readError.stack
-          });
+          console.error('Error reading user document:', readError.message);
           if (readError.code === 'permission-denied') {
             setError("Database access denied. Please contact support if this persists.");
             return;
@@ -453,22 +320,15 @@ const handleGoogleLogin = async () => {
         }
 
         if (!userSnap.exists() || !userSnap.data().phone || !userSnap.data().hasPassword) {
-          console.log('🔵 [GOOGLE LOGIN DEBUG] Incomplete profile, showing completion form');
           // Incomplete profile → show form
           setPendingUser(result.user);
           setNeedsProfile(true);
           return;
         } else {
-          console.log('🔵 [GOOGLE LOGIN DEBUG] Complete profile found, redirecting');
           setRedirect(true);
         }
       } catch (dbError: any) {
-        console.error('🔵 [GOOGLE LOGIN DEBUG] Database error during Google login:', dbError);
-        console.error('🔵 [GOOGLE LOGIN DEBUG] Database error details:', {
-          code: dbError.code,
-          message: dbError.message,
-          stack: dbError.stack
-        });
+        console.error('Database error during Google login:', dbError.message);
         if (dbError.code === 'permission-denied') {
           setError("Database permissions error. Please contact support.");
         } else if (dbError.code === 'unavailable') {
@@ -477,17 +337,9 @@ const handleGoogleLogin = async () => {
           setError(`Database error: ${dbError.message}`);
         }
       }
-    } else {
-      console.log('🔵 [GOOGLE LOGIN DEBUG] No user in result');
     }
   } catch (err: any) {
-    console.error('🔵 [GOOGLE LOGIN DEBUG] Google login error:', err);
-    console.error('🔵 [GOOGLE LOGIN DEBUG] Error details:', {
-      code: err.code,
-      message: err.message,
-      stack: err.stack,
-      name: err.name
-    });
+    console.error('Google login error:', err.message);
     
     // Provide specific error messages
     if (err.code === 'auth/popup-closed-by-user') {
