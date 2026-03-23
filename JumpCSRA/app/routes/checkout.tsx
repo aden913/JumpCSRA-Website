@@ -412,7 +412,7 @@ export default function Checkout() {
   };
 
   // Discount management
-  const { discounts, calculateDiscount, getActiveDiscount } = useDiscounts();
+  const { discounts, calculateDiscount, getActiveDiscount, markDiscountAsUsed, clearDiscounts } = useDiscounts();
   const [discountCalculation, setDiscountCalculation] = useState<any>({
     discountAmount: 0,
     appliedDiscount: null,
@@ -2660,6 +2660,24 @@ export default function Checkout() {
               setPaymentId(`wallet-${Date.now()}`);
               setPaymentCompleted(true);
               
+              // Mark discount as used if applicable
+              if (discountCalculation?.hasValidDiscount && discountCalculation?.appliedDiscount) {
+                try {
+                  const discountMarked = await markDiscountAsUsed(discountCalculation.appliedDiscount);
+                  if (discountMarked) {
+                    console.log(`✅ Discount '${discountCalculation.appliedDiscount}' marked as used for user`);
+                    // Clear discount state from localStorage after successful use
+                    clearDiscounts();
+                    console.log(`✅ Discount state cleared from localStorage`);
+                  } else {
+                    console.warn(`⚠️ Failed to mark discount '${discountCalculation.appliedDiscount}' as used`);
+                  }
+                } catch (discountError) {
+                  console.error('❌ Error marking discount as used:', discountError);
+                  // Don't fail the payment if discount marking fails
+                }
+              }
+              
               // Delete pending/deferred bookings with overlapping items
               if (user && bookingWithWalletCapture.orderDetails?.items) {
                 const itemNames = bookingWithWalletCapture.orderDetails.items.map(item => item.name);
@@ -2882,8 +2900,14 @@ export default function Checkout() {
                 clearCartAbandonment(user.uid);
               }
 
-              // Clear cart
+              // Clear all cart-related localStorage items
               localStorage.removeItem("cart");
+              localStorage.removeItem("cart_wetDrySelections");
+              localStorage.removeItem("cart_duration");
+              localStorage.removeItem("cart_surface");
+              localStorage.removeItem("cart_deliveryTime");
+              localStorage.removeItem("cart_location");
+              localStorage.removeItem("cart_giftCardValues");
               setCart([]);
             }
           }
@@ -3104,6 +3128,24 @@ export default function Checkout() {
             if (success) {
               setPaymentId(captureId);
               setPaymentCompleted(true);
+              
+              // Mark discount as used if applicable
+              if (discountCalculation?.hasValidDiscount && discountCalculation?.appliedDiscount) {
+                try {
+                  const discountMarked = await markDiscountAsUsed(discountCalculation.appliedDiscount);
+                  if (discountMarked) {
+                    console.log(`✅ Discount '${discountCalculation.appliedDiscount}' marked as used for user`);
+                    // Clear discount state from localStorage after successful use
+                    clearDiscounts();
+                    console.log(`✅ Discount state cleared from localStorage`);
+                  } else {
+                    console.warn(`⚠️ Failed to mark discount '${discountCalculation.appliedDiscount}' as used`);
+                  }
+                } catch (discountError) {
+                  console.error('❌ Error marking discount as used:', discountError);
+                  // Don't fail the payment if discount marking fails
+                }
+              }
               
               // Delete pending/deferred bookings with overlapping items
               if (user && bookingWithCaptureIds.orderDetails?.items) {
@@ -3534,8 +3576,14 @@ export default function Checkout() {
                 clearCartAbandonment(user.uid);
               }
               
-              // Clear cart after successful payment
+              // Clear all cart-related localStorage items after successful payment
               localStorage.removeItem("cart");
+              localStorage.removeItem("cart_wetDrySelections");
+              localStorage.removeItem("cart_duration");
+              localStorage.removeItem("cart_surface");
+              localStorage.removeItem("cart_deliveryTime");
+              localStorage.removeItem("cart_location");
+              localStorage.removeItem("cart_giftCardValues");
               setCart([]);
               
               // Debug log removed
@@ -3848,6 +3896,9 @@ export default function Checkout() {
       const eventStartPerItem = nonGiftCardItemCount > 0 ? totalEventStart / nonGiftCardItemCount : 0;
       const surfacePerItem = nonGiftCardItemCount > 0 ? totalSurface / nonGiftCardItemCount : 0;
 
+      // Calculate discount multiplier for proportional discounts (e.g., sunday10)
+      const discountMultiplier = discountCalculation?.appliedDiscount === 'sunday10' ? 0.9 : 1.0;
+
       // Prepare booking data
       const bookingData: BookingData = {
         orderID,
@@ -3872,13 +3923,18 @@ export default function Checkout() {
             ...cart.map((item, index) => {
               const basePrice = item.isGiftCard ? (item.giftCardValue || item.price) : item.price;
               
+              // Check if this item is the free item (for freeGame discount)
+              const isFreeItem = discountCalculation?.appliedDiscount === 'freeGame' && 
+                                item.id === discountCalculation?.freeItemId;
+              
               // For gift cards and memberships, no adjustments
               if (item.isGiftCard || item.isMembership) {
                 return {
                   name: item.name,
                   quantity: item.quantity,
                   price: basePrice,
-                  captureIds: [] // Will be populated when payment is made
+                  captureIds: [], // Will be populated when payment is made
+                  ...(isFreeItem && { discountApplied: 'Free item' })
                 };
               }
               
@@ -3895,16 +3951,28 @@ export default function Checkout() {
               itemSubtotal += eventStartPerItem;
               itemSubtotal += surfacePerItem;
               
-              // Add sales tax to this item's subtotal
+              // Apply proportional discount (e.g., sunday10 = 10% off)
+              if (discountCalculation?.appliedDiscount === 'sunday10') {
+                itemSubtotal = itemSubtotal * discountMultiplier;
+              }
+              
+              // Add sales tax to this item's subtotal (after discount)
               const itemTax = itemSubtotal * 0.08;
-              const adjustedPrice = itemSubtotal + itemTax;
+              let adjustedPrice = itemSubtotal + itemTax;
+              
+              // For free item, set adjusted price to 0
+              if (isFreeItem) {
+                adjustedPrice = 0;
+              }
               
               return {
                 name: item.name,
                 quantity: item.quantity,
                 price: basePrice,
                 adjustedPrice: parseFloat(adjustedPrice.toFixed(2)),
-                captureIds: [] // Will be populated when payment is made
+                captureIds: [], // Will be populated when payment is made
+                ...(isFreeItem && { discountApplied: 'Free item' }),
+                ...(discountCalculation?.appliedDiscount === 'sunday10' && !isFreeItem && { discountApplied: '10% Sunday discount' })
               };
             }),
             ...Object.entries(lastMinuteAdditions)
@@ -3921,7 +3989,12 @@ export default function Checkout() {
                 itemSubtotal += eventStartPerItem;
                 itemSubtotal += surfacePerItem;
                 
-                // Add sales tax to this item's subtotal
+                // Apply proportional discount (e.g., sunday10 = 10% off)
+                if (discountCalculation?.appliedDiscount === 'sunday10') {
+                  itemSubtotal = itemSubtotal * discountMultiplier;
+                }
+                
+                // Add sales tax to this item's subtotal (after discount)
                 const itemTax = itemSubtotal * 0.08;
                 const adjustedPrice = itemSubtotal + itemTax;
                 
@@ -3930,9 +4003,21 @@ export default function Checkout() {
                   quantity,
                   price: basePrice,
                   adjustedPrice: parseFloat(adjustedPrice.toFixed(2)),
-                  captureIds: [] // Will be populated when payment is made
+                  captureIds: [], // Will be populated when payment is made
+                  ...(discountCalculation?.appliedDiscount === 'sunday10' && { discountApplied: '10% Sunday discount' })
                 };
-              })
+              }),
+            // Add BOGO gift cards if applicable
+            ...(discountCalculation?.appliedDiscount === 'bogoGiftCard' && discountCalculation?.addedGiftCards ? 
+              discountCalculation.addedGiftCards.map((giftCard: any) => ({
+                name: `${giftCard.name} (BOGO Free)`,
+                quantity: 1,
+                price: giftCard.value,
+                adjustedPrice: 0,
+                captureIds: [],
+                discountApplied: 'BOGO Gift Card - Free'
+              })) : []
+            )
           ],
           totalAmount: total,
           adjustmentTax: parseFloat(totalTax.toFixed(2)),
@@ -3940,7 +4025,23 @@ export default function Checkout() {
           adjustmentEventDuration: parseFloat(totalEventDuration.toFixed(2)),
           adjustmentSurface: parseFloat(totalSurface.toFixed(2)),
           adjustmentDelivery: parseFloat(totalDelivery.toFixed(2)),
-          ...(tipAmount > 0 && { tip: tipAmount })
+          ...(tipAmount > 0 && { tip: tipAmount }),
+          // Store discount information
+          ...(discountCalculation?.hasValidDiscount && discountCalculation?.discountAmount > 0 && {
+            discount: {
+              type: discountCalculation.appliedDiscount,
+              amount: parseFloat(discountCalculation.discountAmount.toFixed(2)),
+              description: 
+                discountCalculation.appliedDiscount === 'sunday10' ? 'Sunday 10% Off' :
+                discountCalculation.appliedDiscount === 'freeGame' ? 'Free Game' :
+                discountCalculation.appliedDiscount === 'bogoGiftCard' ? 'BOGO Gift Card' :
+                'Discount Applied',
+              ...(discountCalculation.freeItemId && { freeItemId: discountCalculation.freeItemId }),
+              ...(discountCalculation.addedGiftCards && discountCalculation.addedGiftCards.length > 0 && { 
+                addedGiftCards: discountCalculation.addedGiftCards 
+              })
+            }
+          })
         },
         paymentDetails: {
           totalAmount: total,
@@ -3952,7 +4053,15 @@ export default function Checkout() {
           ...(paypalCaptureId && { paypalCaptureId }),
           ...(paypalTransactionId && { paypalTransactionId }),
           paymentStatus: bookingStatus === 'confirmed' ? 'completed' : 'pending',
-          ...(bookingStatus === 'confirmed' && { paymentDate: new Date().toISOString() })
+          ...(bookingStatus === 'confirmed' && { paymentDate: new Date().toISOString() }),
+          // Include discount information in payment details
+          ...(discountCalculation?.hasValidDiscount && discountCalculation?.discountAmount > 0 && {
+            discount: {
+              type: discountCalculation.appliedDiscount,
+              amount: parseFloat(discountCalculation.discountAmount.toFixed(2)),
+              originalAmountBeforeDiscount: parseFloat((subtotalBeforeDiscount + salesTax + deliveryCost + tipAmount).toFixed(2))
+            }
+          })
         },
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()

@@ -57,12 +57,14 @@ function filterOptions(inflateables: any[], selectedCategory: string, selectedWe
   if (selectedWetDry === 'wet') {
     filtered = filtered.filter((item: any) => {
       const isWet = item.wet === true;
-      return isWet;
+      const isNeither = item.wet === false && item.dry === false;
+      return isWet || isNeither; // Show wet items and items that are neither wet nor dry (e.g., gift cards)
     });
   } else if (selectedWetDry === 'dry') {
     filtered = filtered.filter((item: any) => {
       const isDry = item.dry === true;
-      return isDry;
+      const isNeither = item.wet === false && item.dry === false;
+      return isDry || isNeither; // Show dry items and items that are neither wet nor dry (e.g., gift cards)
     });
   }
   

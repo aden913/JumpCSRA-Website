@@ -29,6 +29,7 @@ export interface BookingData {
       price: number; // Original flat product price
       adjustedPrice?: number; // Price including all adjustments (duration, wet, tax, surface, time) except delivery
       captureIds?: string[]; // Track which payments funded this item (for refunds)
+      discountApplied?: string; // Description of discount applied to this item (e.g., "Free item", "10% Sunday discount")
     }>;
     totalAmount: number;
     adjustmentTax?: number; // Total sales tax for the order
@@ -37,6 +38,13 @@ export interface BookingData {
     adjustmentSurface?: number; // Total surface type charges
     adjustmentDelivery?: number; // Delivery cost
     notes?: string;
+    discount?: {
+      type: 'sunday10' | 'freeGame' | 'bogoGiftCard';
+      amount: number;
+      description: string;
+      freeItemId?: string; // ID of the free item (for freeGame discount)
+      addedGiftCards?: Array<{ name: string; value: number }>; // Gift cards added (for BOGO discount)
+    };
   };
   paymentDetails: {
     totalAmount: number;
@@ -58,6 +66,11 @@ export interface BookingData {
       paymentType: 'deposit' | 'full' | 'remaining_balance';
       paymentMethod: string;
     }>;
+    discount?: {
+      type: 'sunday10' | 'freeGame' | 'bogoGiftCard';
+      amount: number;
+      originalAmountBeforeDiscount: number;
+    };
   };
   notes?: Array<{
     type: 'system' | 'admin' | 'customer';
