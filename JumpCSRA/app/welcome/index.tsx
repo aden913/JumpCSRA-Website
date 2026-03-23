@@ -151,6 +151,30 @@ export function Welcome() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [showBookingRecovery, setShowBookingRecovery] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  
+  // Calculate cart subtotal with discount applied
+  const [discountedCartSubtotal, setDiscountedCartSubtotal] = useState<number>(0);
+  
+  useEffect(() => {
+    const calculateCartSubtotal = async () => {
+      const baseSubtotal = logic.cart.reduce((sum: number, item: CartItem) => sum + (item.price * item.quantity), 0);
+      
+      // Calculate discount
+      const discountCalculation = await discountLogic.calculateDiscount(
+        logic.cart, 
+        baseSubtotal, 
+        logic.calendarDateRange
+      );
+      
+      // Apply discount to subtotal
+      const discountAmount = discountCalculation?.discountAmount || 0;
+      const finalSubtotal = Math.max(0, baseSubtotal - discountAmount);
+      
+      setDiscountedCartSubtotal(finalSubtotal);
+    };
+    
+    calculateCartSubtotal();
+  }, [logic.cart, logic.calendarDateRange, discountLogic.discounts]);
 
   // Initialize Firebase Auth
   const auth = getAuth();
@@ -484,7 +508,7 @@ export function Welcome() {
         <RouterNav
           onNavClick={logic.handleNavClick}
           cartCount={logic.cart.reduce((sum: number, item: CartItem) => sum + item.quantity, 0)}
-          cartSubtotal={logic.cart.reduce((sum: number, item: CartItem) => sum + (item.price * item.quantity), 0)}
+          cartSubtotal={discountedCartSubtotal}
           selectedDates={logic.calendarDateRange}
           categories={logic.categories}
           onCategoryChange={handleCategoryChange}
@@ -784,17 +808,16 @@ export function Welcome() {
       </div>
       
       {/* Mobile Bottom Menu */}
-      <MobileBottomMenu
+      <MobileBottomMenu 
         user={user}
         selectedDates={logic.calendarDateRange}
         onCalendarClick={() => logic.handleNavClick("Calendar")}
         cartCount={logic.cart.reduce((sum: number, item: CartItem) => sum + item.quantity, 0)}
-        cartSubtotal={logic.cart.reduce((sum: number, item: CartItem) => sum + (item.price * item.quantity), 0)}
+        cartSubtotal={discountedCartSubtotal}
         onCartClick={() => logic.handleNavClick("Cart")}
         onMenuClick={() => setIsProfileMenuOpen(true)}
       />
       
-      {/* Profile Menu Sidebar */}
       <ProfileMenuSidebar
         isOpen={isProfileMenuOpen}
         onClose={() => setIsProfileMenuOpen(false)}

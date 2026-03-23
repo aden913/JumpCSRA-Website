@@ -26,28 +26,37 @@ export interface DiscountCalculation {
 
 export function useDiscounts() {
   // Discount state - only one can be true at a time
-  const [discounts, setDiscounts] = useState<DiscountState>({
-    sunday10: false,
-    freeGame: false,
-    bogoGiftCard: false,
-  });
-
-  // Load discount state from localStorage on mount
-  useEffect(() => {
+  // Initialize from localStorage immediately to avoid race conditions
+  const [discounts, setDiscounts] = useState<DiscountState>(() => {
+    // Check if we're in the browser (not SSR)
+    if (typeof window === 'undefined') {
+      return {
+        sunday10: false,
+        freeGame: false,
+        bogoGiftCard: false,
+      };
+    }
+    
     const saved = localStorage.getItem('activeDiscounts');
     if (saved) {
       try {
-        const parsed = JSON.parse(saved);
-        setDiscounts(parsed);
+        return JSON.parse(saved);
       } catch (error) {
         console.error('Error loading saved discounts:', error);
       }
     }
-  }, []);
+    return {
+      sunday10: false,
+      freeGame: false,
+      bogoGiftCard: false,
+    };
+  });
 
   // Save discount state to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('activeDiscounts', JSON.stringify(discounts));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('activeDiscounts', JSON.stringify(discounts));
+    }
   }, [discounts]);
 
   // Check if user is authenticated
@@ -174,20 +183,32 @@ export function useDiscounts() {
     error?: string;
     wasActive?: boolean;
   }> => {
+    console.log('\n🎛️ ========== TOGGLE DISCOUNT ==========');
+    console.log('🎯 Attempting to toggle discount:', discountType);
+    console.log('📊 Current discount state:', discounts);
+    
     // Check if user is authenticated
     if (!isUserAuthenticated()) {
+      console.log('❌ User not authenticated');
+      console.log('🎛️ ====================================\n');
       return {
         success: false,
         error: 'Please log in to use discount codes'
       };
     }
 
+    console.log('✅ User is authenticated');
     const wasActive = discounts[discountType];
+    console.log('📍 Discount was previously active:', wasActive);
     
     // If activating discount, check if user has already used it
     if (!wasActive) {
+      console.log('🔍 Checking if user has used this discount before...');
       const hasUsed = await hasUserUsedDiscount(discountType);
+      console.log('📝 User has used discount:', hasUsed);
       if (hasUsed) {
+        console.log('❌ User has already used this discount');
+        console.log('🎛️ ====================================\n');
         return {
           success: false,
           error: 'You have already used this discount code'
@@ -196,6 +217,7 @@ export function useDiscounts() {
     }
 
     // Toggle the discount
+    console.log('🔄 Toggling discount state...');
     setDiscounts(prev => {
       const newState: DiscountState = {
         sunday10: false,
@@ -207,14 +229,20 @@ export function useDiscounts() {
       // Otherwise, activate only this discount
       if (!prev[discountType]) {
         newState[discountType] = true;
+        console.log(`✅ Activated ${discountType} discount`);
+      } else {
+        console.log(`ℹ️ Deactivated ${discountType} discount`);
       }
       
+      console.log('📊 New discount state:', newState);
       return newState;
     });
 
     // NOTE: We don't mark as used here anymore - only when purchase is finalized
     // This allows users to try different discounts without "consuming" them
 
+    console.log('✅ Toggle successful');
+    console.log('🎛️ ====================================\n');
     return {
       success: true,
       wasActive
@@ -249,17 +277,28 @@ export function useDiscounts() {
     cartTotal: number, 
     calendarDateRange: [Date | null, Date | null]
   ): Promise<DiscountCalculation> => {
-   
+    console.log('\n🔄 ========== DISCOUNT CALCULATION START ==========');
+    console.log('📊 Current discount state:', discounts);
+    console.log('🛒 Cart items:', cart.length);
+    console.log('💰 Cart total:', cartTotal);
+    console.log('📅 Calendar date range:', calendarDateRange);
     
     cart.forEach((item, index) => {
-      if (item.isGiftCard || (item.name && item.name.toLowerCase().includes('gift card'))) {
-        // Gift card detected
-      }
+      console.log(`  Cart Item ${index + 1}:`, {
+        name: item.name,
+        category: item.category,
+        price: item.price,
+        quantity: item.quantity,
+        isGiftCard: item.isGiftCard || false
+      });
     });
     
     const activeDiscount = getActiveDiscount();
+    console.log('🎯 Active discount:', activeDiscount);
     
     if (!activeDiscount) {
+      console.log('⚠️ No active discount - returning default calculation');
+      console.log('🔄 ========== DISCOUNT CALCULATION END ==========\n');
       return {
         discountAmount: 0,
         appliedDiscount: null,
@@ -443,12 +482,31 @@ function calculateFreeGameDiscount(
   cart: CartItem[], 
   cartTotal: number
 ): DiscountCalculation {
+  console.log('\n🎮 ========== FREE GAME DISCOUNT CALCULATION ==========');
+  console.log('📊 Cart items:', cart.length);
+  console.log('💰 Cart total:', cartTotal);
+  
+  // Log all cart items with their categories
+  cart.forEach((item, index) => {
+    console.log(`  ${index + 1}. ${item.name}`);
+    console.log(`     - Category: "${item.category}"`);
+    console.log(`     - Price: $${item.price}`);
+    console.log(`     - Includes "game": ${item.category?.toLowerCase().includes('game')}`);
+  });
+  
   // Find all games in the cart
   const games = cart.filter(item => 
     item.category && item.category.toLowerCase().includes('game')
   );
   
+  console.log(`\n🎯 Found ${games.length} game(s) in cart:`);
+  games.forEach((game, index) => {
+    console.log(`  ${index + 1}. ${game.name} - $${game.price}`);
+  });
+  
   if (games.length === 0) {
+    console.log('❌ No games found - discount not applicable');
+    console.log('🎮 ===============================================\n');
     return {
       discountAmount: 0,
       appliedDiscount: 'freeGame',
@@ -463,6 +521,11 @@ function calculateFreeGameDiscount(
   const cheapestGame = games.reduce((cheapest, current) => 
     current.price < cheapest.price ? current : cheapest
   );
+
+  console.log(`\n✅ Cheapest game selected: ${cheapestGame.name}`);
+  console.log(`   - Price (discount amount): $${cheapestGame.price}`);
+  console.log(`   - Item ID: ${cheapestGame.id}`);
+  console.log('🎮 ===============================================\n');
 
   return {
     discountAmount: cheapestGame.price,

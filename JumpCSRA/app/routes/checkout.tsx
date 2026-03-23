@@ -413,6 +413,34 @@ export default function Checkout() {
 
   // Discount management
   const { discounts, calculateDiscount, getActiveDiscount } = useDiscounts();
+  const [discountCalculation, setDiscountCalculation] = useState<any>({
+    discountAmount: 0,
+    appliedDiscount: null,
+    freeItemId: null,
+    addedGiftCards: [],
+    hasValidDiscount: false,
+    userCanUse: true,
+  });
+
+  // Calculate discount whenever cart or dates change
+  useEffect(() => {
+    const calculateDiscountAsync = async () => {
+      console.log('🎯 [CHECKOUT] Calculating discount...');
+      // cartTotal will be calculated within this effect from cart
+      const tempCartTotal = cart.reduce((sum, item) => {
+        if (item.isGiftCard) {
+          return sum + (item.giftCardValue || item.price) * item.quantity;
+        } else {
+          return sum + item.price * item.quantity;
+        }
+      }, 0);
+      const calculation = await calculateDiscount(cart, tempCartTotal, calendarDateRange);
+      console.log('📊 [CHECKOUT] Discount calculation result:', calculation);
+      setDiscountCalculation(calculation);
+    };
+    
+    calculateDiscountAsync();
+  }, [cart, calendarDateRange, discounts.sunday10, discounts.freeGame, discounts.bogoGiftCard]);
 
   // Base location for distance calculation
   const BASE_LOCATION = "410 Carolina Springs Rd, North Augusta, SC 29841";
@@ -1762,9 +1790,12 @@ export default function Checkout() {
   const surfaceAdj = cartSettings.surface ? (surfacePrices[cartSettings.surface] || 0) * nonGiftCardItemCount : 0;
   const timeAdj = cartSettings.deliveryTime ? (timePrices[cartSettings.deliveryTime] || 0) * uniqueNonGiftCardItemCount : 0;
   const pickupFee = cartSettings.duration && pickupTimeFees[cartSettings.duration] ? pickupTimeFees[cartSettings.duration] : 0;
-  const subtotal = cartTotal + lastMinuteTotal + surfaceAdj + timeAdj + pickupFee;
+  const subtotalBeforeDiscount = cartTotal + lastMinuteTotal + surfaceAdj + timeAdj + pickupFee;
+  // Apply discount before calculating tax
+  const discountAmount = discountCalculation?.discountAmount || 0;
+  const subtotal = Math.max(0, subtotalBeforeDiscount - discountAmount);
   // Only calculate sales tax for new bookings, not when resuming a deposited booking (tax was already paid)
-  const salesTax = originalBookingTotal !== null ? 0 : subtotal * 0.08; // 8% sales tax
+  const salesTax = originalBookingTotal !== null ? 0 : subtotal * 0.08; // 8% sales tax on discounted amount
   const totalBeforeDeposit = subtotal + salesTax + deliveryCost + tipAmount;
   // If completing a deposited booking, use the original total to avoid double-taxing
   const total = originalBookingTotal !== null 
@@ -4467,16 +4498,43 @@ export default function Checkout() {
                       marginRight: '0.5rem'
                     }}>
                       {item.name}
+                      {discountCalculation?.freeItemId === item.id && (
+                        <span style={{
+                          marginLeft: '0.5rem',
+                          backgroundColor: '#4CAF50',
+                          color: 'white',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.8rem',
+                          fontWeight: 'bold'
+                        }}>
+                          FREE
+                        </span>
+                      )}
                     </div>
                     <div className="order-item-price" style={{
                       fontSize: '1.2rem',
                       fontWeight: 'bold',
-                      color: '#28a745'
+                      color: discountCalculation?.freeItemId === item.id ? '#4CAF50' : '#28a745'
                     }}>
-                      ${item.isGiftCard 
-                        ? ((item.giftCardValue || item.price) * item.quantity).toFixed(2)
-                        : (getItemDisplayPrice(item, idx) * item.quantity).toFixed(2)
-                      }
+                      {discountCalculation?.freeItemId === item.id ? (
+                        <>
+                          <span style={{ textDecoration: 'line-through', color: '#999', marginRight: '0.5rem' }}>
+                            ${item.isGiftCard 
+                              ? ((item.giftCardValue || item.price) * item.quantity).toFixed(2)
+                              : (getItemDisplayPrice(item, idx) * item.quantity).toFixed(2)
+                            }
+                          </span>
+                          <span style={{ color: '#4CAF50' }}>$0.00</span>
+                        </>
+                      ) : (
+                        <>
+                          ${item.isGiftCard 
+                            ? ((item.giftCardValue || item.price) * item.quantity).toFixed(2)
+                            : (getItemDisplayPrice(item, idx) * item.quantity).toFixed(2)
+                          }
+                        </>
+                      )}
                     </div>
                   </div>
                   
@@ -4515,7 +4573,8 @@ export default function Checkout() {
                             borderRadius: '4px',
                             border: '1px solid #ddd',
                             fontSize: '1rem',
-                            marginRight: '0.5rem'
+                            marginRight: '0.5rem',
+                            minWidth: '100px'
                           }}
                         >
                           {item.category === 'party-essentials' ? (
@@ -5122,6 +5181,66 @@ export default function Checkout() {
             </div>
           )}
           
+          {/* Discount Display */}
+          {discountCalculation?.hasValidDiscount && discountCalculation?.discountAmount > 0 && (
+            <>
+              <div className="pricing-row" style={{ 
+                color: '#4CAF50', 
+                fontWeight: 'bold',
+                borderTop: '1px solid #dee2e6',
+                paddingTop: '0.5rem',
+                marginTop: '0.5rem'
+              }}>
+                <span>
+                   Discount ({
+                    discountCalculation.appliedDiscount === 'sunday10' ? 'Sunday 10% Off' :
+                    discountCalculation.appliedDiscount === 'freeGame' ? 'Free Game' :
+                    discountCalculation.appliedDiscount === 'bogoGiftCard' ? 'BOGO Gift Card' :
+                    'Promo'
+                  }):
+                  {discountCalculation.freeItemId && (() => {
+                    const freeItem = cart.find(item => item.id === discountCalculation.freeItemId);
+                    return freeItem ? (
+                      <div style={{ fontSize: '0.85rem', fontWeight: 'normal', color: '#666', marginTop: '2px' }}>
+                        └ {freeItem.name} (FREE)
+                      </div>
+                    ) : null;
+                  })()}
+                </span>
+                <span>
+                  <span style={{ textDecoration: 'line-through', color: '#888', marginRight: '8px' }}>
+                    ${(subtotal + discountCalculation.discountAmount).toFixed(2)}
+                  </span>
+                  -${discountCalculation.discountAmount.toFixed(2)}
+                </span>
+              </div>
+              <div style={{ 
+                fontSize: '0.8rem', 
+                color: '#856404',
+                backgroundColor: '#fff3cd',
+                padding: '0.5rem',
+                borderRadius: '4px',
+                marginTop: '0.5rem',
+                marginBottom: '0.5rem'
+              }}>
+                 <strong>One-time use:</strong> This discount can only be used once per account.
+              </div>
+            </>
+          )}
+          {!discountCalculation?.userCanUse && discountCalculation?.appliedDiscount && (
+            <div style={{ 
+              fontSize: '0.85rem', 
+              color: '#dc3545',
+              backgroundColor: '#f8d7da',
+              padding: '0.5rem',
+              borderRadius: '4px',
+              marginTop: '0.5rem',
+              marginBottom: '0.5rem'
+            }}>
+              ❌ {discountCalculation.usageError || 'Cannot use this discount'}
+            </div>
+          )}
+          
           {deliveryCost > 0 && (
             <div className="pricing-row">
               <span>Delivery Cost:</span>
@@ -5724,6 +5843,67 @@ export default function Checkout() {
                   <span>${lastMinuteTotal.toFixed(2)}</span>
                 </div>
               )}
+              
+              {/* Discount Display */}
+              {discountCalculation?.hasValidDiscount && discountCalculation?.discountAmount > 0 && (
+                <>
+                  <div className="pricing-row" style={{ 
+                    color: '#4CAF50', 
+                    fontWeight: 'bold',
+                    borderTop: '1px solid #dee2e6',
+                    paddingTop: '0.5rem',
+                    marginTop: '0.5rem'
+                  }}>
+                    <span>
+                      Discount ({
+                        discountCalculation.appliedDiscount === 'sunday10' ? 'Sunday 10% Off' :
+                        discountCalculation.appliedDiscount === 'freeGame' ? 'Free Game' :
+                        discountCalculation.appliedDiscount === 'bogoGiftCard' ? 'BOGO Gift Card' :
+                        'Promo'
+                      }):
+                      {discountCalculation.freeItemId && (() => {
+                        const freeItem = cart.find(item => item.id === discountCalculation.freeItemId);
+                        return freeItem ? (
+                          <div style={{ fontSize: '0.85rem', fontWeight: 'normal', color: '#666', marginTop: '2px' }}>
+                            └ {freeItem.name} (FREE)
+                          </div>
+                        ) : null;
+                      })()}
+                    </span>
+                    <span>
+                      <span style={{ textDecoration: 'line-through', color: '#888', marginRight: '8px' }}>
+                        ${(subtotal + discountCalculation.discountAmount).toFixed(2)}
+                      </span>
+                      -${discountCalculation.discountAmount.toFixed(2)}
+                    </span>
+                  </div>
+                  <div style={{ 
+                    fontSize: '0.8rem', 
+                    color: '#856404',
+                    backgroundColor: '#fff3cd',
+                    padding: '0.5rem',
+                    borderRadius: '4px',
+                    marginTop: '0.5rem',
+                    marginBottom: '0.5rem'
+                  }}>
+                     <strong>One-time use:</strong> This discount can only be used once per account.
+                  </div>
+                </>
+              )}
+              {!discountCalculation?.userCanUse && discountCalculation?.appliedDiscount && (
+                <div style={{ 
+                  fontSize: '0.85rem', 
+                  color: '#dc3545',
+                  backgroundColor: '#f8d7da',
+                  padding: '0.5rem',
+                  borderRadius: '4px',
+                  marginTop: '0.5rem',
+                  marginBottom: '0.5rem'
+                }}>
+                  ❌ {discountCalculation.usageError || 'Cannot use this discount'}
+                </div>
+              )}
+              
               {deliveryCost > 0 && (
                 <div className="pricing-row">
                   <span>Delivery Cost:</span>
