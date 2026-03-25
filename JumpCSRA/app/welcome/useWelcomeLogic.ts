@@ -355,7 +355,7 @@ export function useWelcomeLogic() {
           quantity, 
           category: product.category,
           image: product.image,
-          isGiftCard: false
+          isGiftCard: isGiftCard
         }];
       }
     } else {

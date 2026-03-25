@@ -201,6 +201,39 @@ export function useDiscounts() {
     const wasActive = discounts[discountType];
     console.log('📍 Discount was previously active:', wasActive);
     
+    // Check account age requirement for BOGO gift card
+    if (!wasActive && discountType === 'bogoGiftCard') {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      if (user) {
+        try {
+          const userDocRef = doc(firestore, 'users', user.uid);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            const createdAt = userData?.createdAt;
+            if (createdAt) {
+              const accountDate = new Date(createdAt);
+              const now = new Date();
+              const monthInMs = 30 * 24 * 60 * 60 * 1000; // 30 days
+              const accountAge = now.getTime() - accountDate.getTime();
+              
+              if (accountAge < monthInMs) {
+                console.log('❌ Account too new for BOGO discount');
+                console.log('🎛️ ====================================\n');
+                return {
+                  success: false,
+                  error: 'Promotion is valid for 1 month of membership'
+                };
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error checking account age:', error);
+        }
+      }
+    }
+    
     // If activating discount, check if user has already used it
     if (!wasActive) {
       console.log('🔍 Checking if user has used this discount before...');
@@ -760,7 +793,8 @@ async function createGiftCardInDatabase(
   purchaserEmail: string,
   purchaserName: string,
   isGift: boolean = false,
-  giftedTo?: string
+  giftedTo?: string,
+  restrictedForUserId?: string
 ): Promise<boolean> {
   try {
     const now = new Date();
@@ -780,6 +814,7 @@ async function createGiftCardInDatabase(
       expirationDate: expirationDate.toISOString(),
       isGift,
       giftedTo: giftedTo || null,
+      restrictedForUserId: restrictedForUserId || null, // User ID who cannot redeem this card
       usageHistory: [] as Array<{
         type: 'order' | 'wallet';
         amount: number;

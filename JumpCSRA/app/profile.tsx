@@ -839,7 +839,25 @@ export default function Profile() {
     const savedCart = localStorage.getItem('cart');
     if (savedCart) {
       try {
-        setCart(JSON.parse(savedCart));
+        const parsedCart = JSON.parse(savedCart);
+        
+        // Fix any gift cards that have incorrect isGiftCard flag
+        const fixedCart = parsedCart.map((item: any) => {
+          const isGiftCard = item.name?.toLowerCase().includes('gift card') || item.isGiftCard;
+          if (isGiftCard && !item.isGiftCard) {
+            console.log('🔧 [CART FIX - profile] Fixing gift card flag for:', item.name);
+            return { ...item, isGiftCard: true };
+          }
+          return item;
+        });
+        
+        setCart(fixedCart);
+        
+        // Save fixed cart back to localStorage
+        if (JSON.stringify(parsedCart) !== JSON.stringify(fixedCart)) {
+          localStorage.setItem('cart', JSON.stringify(fixedCart));
+          console.log('✅ [CART FIX - profile] Updated localStorage with corrected gift card flags');
+        }
       } catch (error) {
         console.error('Error loading cart from localStorage:', error);
       }

@@ -178,9 +178,11 @@ export const saveBookingData = async (bookingData: BookingData): Promise<boolean
     };
     
     await set(bookingsRef, dataToSave);
+    console.log('✅ Booking data saved successfully to Firebase');
     return true;
   } catch (error) {
-    // Debug error removed
+    console.error('❌ Error in saveBookingData:', error);
+    console.error('Failed booking data structure:', JSON.stringify(bookingData, null, 2));
     return false;
   }
 };

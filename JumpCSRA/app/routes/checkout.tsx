@@ -264,28 +264,76 @@ export default function Checkout() {
   // Checkout step management - dynamically determine starting step
   type CheckoutStep = 'cart-delivery' | 'party-essentials' | 'contract' | 'payment';
   
-  // Initialize starting step based on cart contents
-  const getInitialStep = (): CheckoutStep => {
-    // All orders start at cart-delivery step
-    return 'cart-delivery';
-  };
+  const [currentStep, setCurrentStep] = useState<CheckoutStep>('cart-delivery');
   
-  const [currentStep, setCurrentStep] = useState<CheckoutStep>('cart-delivery'); // Default to first step
-  const [visitedSteps, setVisitedSteps] = useState<Set<CheckoutStep>>(() => new Set(['cart-delivery'])); // Default to first step
+  const [visitedSteps, setVisitedSteps] = useState<Set<CheckoutStep>>(() => new Set(['cart-delivery']));
 
-  // Update step when cart loads from localStorage
+  // Debug: Log cart changes
   useEffect(() => {
-    if (!loading && user) {
-      const correctStep = getInitialStep();
-      // Debug log removed
+    console.log('🔍 [CART CHANGE] Cart state updated');
+    console.log('  - cart.length:', cart.length);
+    console.log('  - cart:', JSON.stringify(cart.map(item => ({
+      name: item.name,
+      isGiftCard: item.isGiftCard,
+      isMembership: item.isMembership,
+      category: item.category
+    })), null, 2));
+  }, [cart]);
+
+  // Debug: Log step changes
+  useEffect(() => {
+    console.log('🔍 [STEP CHANGE] Current step updated:', currentStep);
+    console.log('  - visitedSteps:', Array.from(visitedSteps));
+  }, [currentStep, visitedSteps]);
+
+  // Update step when cart loads or changes - handle gift card vs rental flow
+  useEffect(() => {
+    console.log('🔍 [CHECKOUT STEP DEBUG] useEffect triggered');
+    console.log('  - loading:', loading);
+    console.log('  - user:', user ? user.email : 'null');
+    console.log('  - cart.length:', cart.length);
+    console.log('  - cart items:', cart.map(item => ({
+      name: item.name,
+      isGiftCard: item.isGiftCard,
+      isMembership: item.isMembership,
+      category: item.category
+    })));
+    
+    if (!loading && user && cart.length > 0) {
+      // Check if current cart has only gift cards/memberships
+      const onlyGiftCards = cart.every(item => item.isGiftCard || item.isMembership);
+      const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
       
-      // Always set the correct step when cart is first loaded
-      if (visitedSteps.size === 1 && visitedSteps.has('cart-delivery')) {
-        setCurrentStep(correctStep);
-        setVisitedSteps(new Set([correctStep]));
+      console.log('  - onlyGiftCards:', onlyGiftCards);
+      console.log('  - hasInflateables:', hasInflateables);
+      console.log('  - currentStep:', currentStep);
+      console.log('  - visitedSteps:', Array.from(visitedSteps));
+      
+      // Only switch steps if user is still on the initial step
+      const isOnInitialStep = currentStep === 'cart-delivery' || (visitedSteps.size === 1 && visitedSteps.has('cart-delivery'));
+      console.log('  - isOnInitialStep:', isOnInitialStep);
+      
+      if (isOnInitialStep) {
+        if (onlyGiftCards) {
+          // Gift cards only: switch to payment
+          console.log('  ✅ SWITCHING TO PAYMENT STEP for gift cards');
+          setCurrentStep('payment');
+          setVisitedSteps(new Set(['payment']));
+        } else if (hasInflateables && currentStep === 'payment') {
+          // Rental items added: switch back to cart-delivery
+          console.log('  ✅ SWITCHING TO CART-DELIVERY for rental items');
+          setCurrentStep('cart-delivery');
+          setVisitedSteps(new Set(['cart-delivery']));
+        } else {
+          console.log('  ⏸️ No step switch needed');
+        }
+      } else {
+        console.log('  ⏸️ Not on initial step, skipping switch');
       }
+    } else {
+      console.log('  ⏸️ Conditions not met for step switch');
     }
-  }, [loading, user, cart.length]); // React to cart length changes to detect when cart is loaded
+  }, [loading, user, cart, cart.length]); // React to cart changes
   
   // Google Places validation state
   const [googlePlacesAddresses, setGooglePlacesAddresses] = useState<Set<string>>(new Set());
@@ -308,6 +356,14 @@ export default function Checkout() {
   
   // Email state for promotional gift cards
   const [promotionalGiftCardEmail, setPromotionalGiftCardEmail] = useState<string>("");
+  const [promotionalEmailConfirmed, setPromotionalEmailConfirmed] = useState<boolean>(false);
+  
+  // Track generated gift card codes for display on success screen
+  const [generatedGiftCards, setGeneratedGiftCards] = useState<Array<{
+    code: string;
+    value: number;
+    isPromotional: boolean;
+  }>>([]);
   
   // Contract state variables
   const [customerInitials, setCustomerInitials] = useState<string>("");
@@ -324,6 +380,12 @@ export default function Checkout() {
   // Contract helper function
   const allSectionsInitialed = (): boolean => {
     return contractSections.length > 0 && contractSections.every(section => section.initialed);
+  };
+  
+  // Email validation helper function
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
   };
   
   // Helper function to get the current cart for display
@@ -442,6 +504,13 @@ export default function Checkout() {
     calculateDiscountAsync();
   }, [cart, calendarDateRange, discounts.sunday10, discounts.freeGame, discounts.bogoGiftCard]);
 
+  // Reset promotional email confirmation when BOGO discount is toggled off
+  useEffect(() => {
+    if (!discounts.bogoGiftCard && promotionalEmailConfirmed) {
+      setPromotionalEmailConfirmed(false);
+    }
+  }, [discounts.bogoGiftCard, promotionalEmailConfirmed]);
+
   // Base location for distance calculation
   const BASE_LOCATION = "410 Carolina Springs Rd, North Augusta, SC 29841";
 
@@ -527,11 +596,22 @@ export default function Checkout() {
   const getStepOrder = (): CheckoutStep[] => {
     const hasInflateables = cart.some(item => !item.isGiftCard && !item.isMembership);
     
+    console.log('🔍 [GET STEP ORDER] Determining step order');
+    console.log('  - cart.length:', cart.length);
+    console.log('  - hasInflateables:', hasInflateables);
+    console.log('  - cart items:', cart.map(item => ({
+      name: item.name,
+      isGiftCard: item.isGiftCard,
+      isMembership: item.isMembership
+    })));
+    
     if (!hasInflateables) {
-      // Gift cards and/or memberships only: skip party-essentials and contract
-      return ['cart-delivery', 'payment'];
+      // Gift cards and/or memberships only: go directly to payment, skip all other steps
+      console.log('  ✅ Returning: [\'payment\'] (gift cards only)');
+      return ['payment'];
     } else {
       // Has inflateables: cart-delivery -> party-essentials -> contract -> payment
+      console.log('  ✅ Returning: full 4-step flow (has rentals)');
       return ['cart-delivery', 'party-essentials', 'contract', 'payment'];
     }
   };
@@ -554,7 +634,9 @@ export default function Checkout() {
         const nextStep = currentStepOrder[currentIndex + 1];
         
         // Special handling for gift card-only and membership-only orders moving to payment
-        if (nextStep === 'payment' && !pendingBookingId) {
+        // Skip booking creation if we're moving to payment from cart-delivery for gift cards
+        // (booking will be created after successful payment)
+        if (nextStep === 'payment' && !pendingBookingId && currentStep !== 'cart-delivery') {
           const onlyGiftCardsAndMemberships = cart.every(item => item.isGiftCard || item.isMembership);
           if (onlyGiftCardsAndMemberships) {
             // Debug log removed
@@ -1530,14 +1612,38 @@ export default function Checkout() {
       if (savedCart) {
         try {
           const parsedCart = JSON.parse(savedCart);
-          // Debug log removed
-          setCart(parsedCart);
+          
+          // Fix any gift cards that have incorrect isGiftCard flag
+          const fixedCart = parsedCart.map((item: CartItem) => {
+            const isGiftCard = item.name?.toLowerCase().includes('gift card') || item.isGiftCard;
+            if (isGiftCard && !item.isGiftCard) {
+              console.log('🔧 [CART FIX] Fixing gift card flag for:', item.name);
+              return { ...item, isGiftCard: true };
+            }
+            return item;
+          });
+          
+          console.log('🔍 [CART LOAD] Loaded cart from localStorage:', fixedCart);
+          console.log('  - Cart items:', fixedCart.map((item: CartItem) => ({
+            name: item.name,
+            isGiftCard: item.isGiftCard,
+            isMembership: item.isMembership,
+            category: item.category
+          })));
+          
+          setCart(fixedCart);
+          
+          // Save fixed cart back to localStorage
+          if (JSON.stringify(parsedCart) !== JSON.stringify(fixedCart)) {
+            localStorage.setItem('cart', JSON.stringify(fixedCart));
+            console.log('✅ [CART FIX] Updated localStorage with corrected gift card flags');
+          }
         } catch (error) {
           console.error("❌ [CART LOAD] Error parsing cart from localStorage:", error);
           setCart([]);
         }
       } else {
-        // Debug log removed
+        console.log('🔍 [CART LOAD] No cart found in localStorage');
       }
       
       // Load calendar date range from localStorage
@@ -1794,8 +1900,17 @@ export default function Checkout() {
   // Apply discount before calculating tax
   const discountAmount = discountCalculation?.discountAmount || 0;
   const subtotal = Math.max(0, subtotalBeforeDiscount - discountAmount);
+  
+  // Calculate sales tax only on non-gift-card items (gift cards are not taxable)
+  const giftCardSubtotal = cart.reduce((sum, item) => {
+    if (item.isGiftCard) {
+      return sum + (item.giftCardValue || item.price) * item.quantity;
+    }
+    return sum;
+  }, 0);
+  const taxableSubtotal = Math.max(0, subtotal - giftCardSubtotal);
   // Only calculate sales tax for new bookings, not when resuming a deposited booking (tax was already paid)
-  const salesTax = originalBookingTotal !== null ? 0 : subtotal * 0.08; // 8% sales tax on discounted amount
+  const salesTax = originalBookingTotal !== null ? 0 : taxableSubtotal * 0.08; // 8% sales tax on taxable items only
   const totalBeforeDeposit = subtotal + salesTax + deliveryCost + tipAmount;
   // If completing a deposited booking, use the original total to avoid double-taxing
   const total = originalBookingTotal !== null 
@@ -2122,19 +2237,17 @@ export default function Checkout() {
 
   // Calculate 50% deposit amount (only for inflatables)
   const calculateDepositAmount = () => {
-    // Calculate gift card portion with tax
-    const giftCardSubtotal = calculateGiftCardTotal();
-    const giftCardTax = giftCardSubtotal * 0.08;
-    const giftCardTotalWithTax = giftCardSubtotal + giftCardTax;
+    // Calculate gift card portion (no tax on gift cards)
+    const giftCardTotal = calculateGiftCardTotal();
     
     // Get the full total amount
     const fullTotal = parseFloat(calculateTotalAmount());
     
     // Remaining after gift cards (this is what we split 50/50)
-    const remainingAmount = fullTotal - giftCardTotalWithTax;
+    const remainingAmount = fullTotal - giftCardTotal;
     
     // Deposit = full gift card amount + 50% of remaining
-    const result = (giftCardTotalWithTax + (remainingAmount * 0.5)).toFixed(2);
+    const result = (giftCardTotal + (remainingAmount * 0.5)).toFixed(2);
     
     return result;
   };
@@ -2162,16 +2275,14 @@ export default function Checkout() {
 
   // Calculate remaining balance after deposit
   const calculateRemainingBalance = () => {
-    // Calculate gift card portion with tax
-    const giftCardSubtotal = calculateGiftCardTotal();
-    const giftCardTax = giftCardSubtotal * 0.08;
-    const giftCardTotalWithTax = giftCardSubtotal + giftCardTax;
+    // Calculate gift card portion (no tax on gift cards)
+    const giftCardTotal = calculateGiftCardTotal();
     
     // Get the full total amount
     const fullTotal = parseFloat(calculateTotalAmount());
     
     // Remaining after gift cards (this is what we split 50/50)
-    const remainingAmount = fullTotal - giftCardTotalWithTax;
+    const remainingAmount = fullTotal - giftCardTotal;
     
     // Remaining balance = 50% of the remaining amount
     return (remainingAmount * 0.5).toFixed(2);
@@ -2533,6 +2644,17 @@ export default function Checkout() {
       : undefined;
 
     try {
+      // Validate BOGO promotional email before processing payment
+      const giftCardsInCart = cart.filter(item => item.isGiftCard);
+      if (discounts.bogoGiftCard && giftCardsInCart.length > 0 && user) {
+        if (!promotionalGiftCardEmail || promotionalGiftCardEmail.trim() === '') {
+          throw new Error("Please enter a recipient email address for the promotional gift card");
+        }
+        if (promotionalGiftCardEmail.toLowerCase() === user.email?.toLowerCase()) {
+          throw new Error("Promotional gift card must be sent to a different email address");
+        }
+      }
+      
       console.log('🏦 Creating PayPal order via Cloud Function:', {
         amount: payPalAmount.toFixed(2),
         saveCard: saveCardInfo,
@@ -2575,6 +2697,17 @@ export default function Checkout() {
     setProcessingPayment(true);
     
     try {
+      // Validate BOGO promotional email before processing payment
+      const giftCardsInCart = cart.filter(item => item.isGiftCard);
+      if (discounts.bogoGiftCard && giftCardsInCart.length > 0 && user) {
+        if (!promotionalGiftCardEmail || promotionalGiftCardEmail.trim() === '') {
+          throw new Error("Please enter a recipient email address for the promotional gift card");
+        }
+        if (promotionalGiftCardEmail.toLowerCase() === user.email?.toLowerCase()) {
+          throw new Error("Promotional gift card must be sent to a different email address");
+        }
+      }
+      
       if (!user || !userWallet || walletAppliedAmount <= 0) {
         throw new Error("Invalid wallet payment conditions");
       }
@@ -2714,6 +2847,12 @@ export default function Checkout() {
                     
                     if (success) {
                       // Debug log removed
+                      // Track generated gift card for display
+                      setGeneratedGiftCards(prev => [...prev, {
+                        code: giftCardCode,
+                        value: giftCardValue,
+                        isPromotional: false
+                      }]);
                     } else {
                       console.error(`❌ WALLET PAYMENT - Failed to create gift card: ${giftCardCode}`);
                     }
@@ -2749,11 +2888,18 @@ export default function Checkout() {
                     user.email || '',
                     user.displayName || '',
                     true, // isGift = true for promotional cards
-                    recipientEmail // giftedTo parameter
+                    recipientEmail, // giftedTo parameter
+                    user.uid // restrictedForUserId - prevent purchaser from redeeming
                   );
                   
                   if (success) {
                     // Debug log removed
+                    // Track promotional gift card for display
+                    setGeneratedGiftCards(prev => [...prev, {
+                      code: promoGiftCardCode,
+                      value: highestValue,
+                      isPromotional: true
+                    }]);
                     
                     // Send separate gift card email for promotional gift card
                     try {
@@ -2910,6 +3056,156 @@ export default function Checkout() {
               localStorage.removeItem("cart_giftCardValues");
               setCart([]);
             }
+          }
+        }
+      } else {
+        // Handle gift card-only orders that don't have a pendingBookingId yet
+        // (These orders went directly to payment step)
+        const onlyGiftCards = cart.every(item => item.isGiftCard || item.isMembership);
+        if (onlyGiftCards && cart.length > 0) {
+          try {
+            // Create the booking/order after successful payment
+            console.log('Creating booking for gift card-only order after wallet payment');
+            
+            // Calculate total (should match what was charged)
+            const giftCardTotal = cart.reduce((sum, item) => {
+              const value = item.isGiftCard ? (item.giftCardValue || item.price) : item.price;
+              return sum + (value * (item.quantity || 1));
+            }, 0);
+            
+            console.log('💰 Wallet gift card order totals:', {
+              giftCardTotal,
+              walletApplied: walletAppliedAmount
+            });
+            
+            // Save booking for wallet payment (no PayPal IDs)
+            const result = await saveBookingAndContract(
+              'confirmed',
+              'full',
+              0 // depositAmount (full payment for gift cards)
+            );
+            
+            if (result) {
+              const { orderID } = result;
+              setPendingBookingId(orderID);
+              setPaymentId(`wallet-${Date.now()}`);
+              setPaymentCompleted(true);
+              setContractSigned(true);
+              
+              // Handle gift card creation
+              const giftCardsInCart = cart.filter(item => item.isGiftCard);
+              
+              if (giftCardsInCart.length > 0) {
+                for (const giftCardItem of giftCardsInCart) {
+                  for (let i = 0; i < giftCardItem.quantity; i++) {
+                    const giftCardCode = await generateUniqueGiftCardCode();
+                    const giftCardValue = giftCardItem.giftCardValue || giftCardItem.price;
+                    
+                    const success = await createGiftCardInDatabase(
+                      giftCardCode,
+                      giftCardValue,
+                      user.uid,
+                      user.email || '',
+                      user.displayName || '',
+                      false
+                    );
+                    
+                    if (success) {
+                      setGeneratedGiftCards(prev => [...prev, {
+                        code: giftCardCode,
+                        value: giftCardValue,
+                        isPromotional: false
+                      }]);
+                    } else {
+                      console.error(`❌ WALLET PAYMENT - Failed to create gift card: ${giftCardCode}`);
+                    }
+                  }
+                }
+              }
+
+              // Create promotional gift card for BOGO discount if applicable
+              if (discounts.bogoGiftCard && giftCardsInCart.length > 0 && user) {
+                try {
+                  let highestValue = 0;
+                  for (const giftCardItem of giftCardsInCart) {
+                    const value = giftCardItem.giftCardValue || giftCardItem.price;
+                    if (value > highestValue) {
+                      highestValue = value;
+                    }
+                  }
+                  
+                  const promoGiftCardCode = await generateUniqueGiftCardCode();
+                  const recipientEmail = promotionalGiftCardEmail || user.email || '';
+                  
+                  const success = await createGiftCardInDatabase(
+                    promoGiftCardCode,
+                    highestValue,
+                    user.uid,
+                    user.email || '',
+                    user.displayName || '',
+                    true,
+                    recipientEmail,
+                    user.uid
+                  );
+                  
+                  if (success) {
+                    setGeneratedGiftCards(prev => [...prev, {
+                      code: promoGiftCardCode,
+                      value: highestValue,
+                      isPromotional: true
+                    }]);
+                  } else {
+                    console.error('❌ Failed to create promotional gift card');
+                  }
+                } catch (promoError) {
+                  console.error('❌ Error creating promotional gift card:', promoError);
+                }
+              }
+              
+              // Mark discount as used if applicable
+              if (discountCalculation?.hasValidDiscount && discountCalculation?.appliedDiscount) {
+                try {
+                  const discountMarked = await markDiscountAsUsed(discountCalculation.appliedDiscount);
+                  if (discountMarked) {
+                    console.log(`✅ Discount '${discountCalculation.appliedDiscount}' marked as used for user`);
+                    clearDiscounts();
+                    console.log(`✅ Discount state cleared from localStorage`);
+                  }
+                } catch (discountError) {
+                  console.error('❌ Error marking discount as used:', discountError);
+                }
+              }
+              
+              notifications.show({
+                title: '✅ Payment Successful!',
+                message: `Full payment of $${walletAppliedAmount.toFixed(2)} completed with wallet.`,
+                color: 'green',
+                autoClose: 8000,
+              });
+
+              // Store cart data before clearing
+              setCompletedOrderCart([...cart]);
+
+              // Clear cart abandonment tracking
+              if (user) {
+                clearCartAbandonment(user.uid);
+              }
+
+              // Clear all cart-related localStorage items
+              localStorage.removeItem("cart");
+              localStorage.removeItem("cart_wetDrySelections");
+              localStorage.removeItem("cart_duration");
+              localStorage.removeItem("cart_surface");
+              localStorage.removeItem("cart_deliveryTime");
+              localStorage.removeItem("cart_location");
+              localStorage.removeItem("cart_giftCardValues");
+              setCart([]);
+            } else {
+              throw new Error("Failed to create booking for gift card order");
+            }
+          } catch (giftCardBookingError) {
+            console.error('❌ Error creating gift card booking:', giftCardBookingError);
+            throw giftCardBookingError;
           }
         }
       }
@@ -3208,6 +3504,12 @@ export default function Checkout() {
                       );
                       if (success) {
                         // Debug log removed
+                        // Track generated gift card for display
+                        setGeneratedGiftCards(prev => [...prev, {
+                          code: giftCardCode,
+                          value: value,
+                          isPromotional: false
+                        }]);
                       } else {
                         console.error(`❌ Failed to create gift card: ${giftCardCode} - $${value}`);
                         anyGiftCardFailed = true;
@@ -3263,11 +3565,18 @@ export default function Checkout() {
                     user.email || '',
                     user.displayName || '',
                     true, // isGift = true for promotional cards
-                    recipientEmail // giftedTo parameter
+                    recipientEmail, // giftedTo parameter
+                    user.uid // restrictedForUserId - prevent purchaser from redeeming
                   );
                   
                   if (success) {
                     // Debug log removed
+                    // Track promotional gift card for display
+                    setGeneratedGiftCards(prev => [...prev, {
+                      code: promoGiftCardCode,
+                      value: highestValue,
+                      isPromotional: true
+                    }]);
                     
                     // Send separate invoice for promotional gift card
                     try {
@@ -3598,7 +3907,188 @@ export default function Checkout() {
           throw new Error("Could not find existing booking to update");
         }
       } else {
-        throw new Error("No pending booking ID found");
+        // Handle gift card-only orders that don't have a pendingBookingId yet
+        // (These orders went directly to payment step)
+        const onlyGiftCards = cart.every(item => item.isGiftCard || item.isMembership);
+        if (onlyGiftCards && cart.length > 0) {
+          try {
+            console.log('Creating booking for gift card-only order after PayPal payment');
+            
+            // Calculate total (should match what was charged)
+            const giftCardTotal = cart.reduce((sum, item) => {
+              const value = item.isGiftCard ? (item.giftCardValue || item.price) : item.price;
+              return sum + (value * (item.quantity || 1));
+            }, 0);
+            
+            console.log('💳 Gift card order totals:', {
+              payPalAmount,
+              giftCardTotal,
+              walletApplied: walletAppliedAmount,
+              totalPaid: totalPaidAmount
+            });
+            
+            // Save booking with payment details
+            const result = await saveBookingAndContract(
+              'confirmed',
+              'full',
+              0, // depositAmount (full payment for gift cards)
+              paypalOrderId,
+              captureId,
+              transactionId
+            );
+            
+            if (result) {
+              const { orderID } = result;
+              setPendingBookingId(orderID);
+              setPaymentId(captureId);
+              setPaymentCompleted(true);
+              setContractSigned(true);
+              
+              // Create gift card database entries for purchased gift cards
+              const giftCardsInCart = cart.filter(item => item.isGiftCard);
+              
+              if (giftCardsInCart.length > 0 && user) {
+                let anyGiftCardFailed = false;
+                try {
+                  for (const giftCardItem of giftCardsInCart) {
+                    const quantity = giftCardItem.quantity || 1;
+                    const value = giftCardItem.giftCardValue || giftCardItem.price;
+                    if (!value || value <= 0) {
+                      console.error('❌ Invalid gift card value:', value, giftCardItem);
+                      anyGiftCardFailed = true;
+                      continue;
+                    }
+                    for (let i = 0; i < quantity; i++) {
+                      const giftCardCode = await generateUniqueGiftCardCode();
+                      const success = await createGiftCardInDatabase(
+                        giftCardCode,
+                        value,
+                        user.uid,
+                        user.email || '',
+                        user.displayName || '',
+                        false
+                      );
+                      if (success) {
+                        setGeneratedGiftCards(prev => [...prev, {
+                          code: giftCardCode,
+                          value: value,
+                          isPromotional: false
+                        }]);
+                      } else {
+                        console.error(`❌ Failed to create gift card: ${giftCardCode} - $${value}`);
+                        anyGiftCardFailed = true;
+                      }
+                    }
+                  }
+                  if (anyGiftCardFailed) {
+                    notifications.show({
+                      title: '⚠️ Gift Card Warning',
+                      message: 'Some gift cards failed to be created. Please contact support.',
+                      color: 'yellow',
+                      autoClose: 12000,
+                    });
+                  }
+                } catch (giftCardError) {
+                  console.error('❌ Exception during gift card creation:', giftCardError);
+                  notifications.show({
+                    title: '⚠️ Gift Card Error',
+                    message: 'Payment successful, but there was an error creating gift card entries. Please contact support.',
+                    color: 'red',
+                    autoClose: 12000,
+                  });
+                }
+              }
+
+              // Create promotional gift card for BOGO discount if applicable
+              if (discounts.bogoGiftCard && giftCardsInCart.length > 0 && user) {
+                try {
+                  let highestValue = 0;
+                  for (const giftCardItem of giftCardsInCart) {
+                    const value = giftCardItem.giftCardValue || giftCardItem.price;
+                    if (value > highestValue) {
+                      highestValue = value;
+                    }
+                  }
+                  
+                  const promoGiftCardCode = await generateUniqueGiftCardCode();
+                  const recipientEmail = promotionalGiftCardEmail || user.email || '';
+                  
+                  const success = await createGiftCardInDatabase(
+                    promoGiftCardCode,
+                    highestValue,
+                    user.uid,
+                    user.email || '',
+                    user.displayName || '',
+                    true,
+                    recipientEmail,
+                    user.uid
+                  );
+                  
+                  if (success) {
+                    setGeneratedGiftCards(prev => [...prev, {
+                      code: promoGiftCardCode,
+                      value: highestValue,
+                      isPromotional: true
+                    }]);
+                  } else {
+                    console.error('❌ Failed to create promotional gift card');
+                  }
+                } catch (promoError) {
+                  console.error('❌ Error creating promotional gift card:', promoError);
+                }
+              }
+              
+              // Mark discount as used if applicable
+              if (discountCalculation?.hasValidDiscount && discountCalculation?.appliedDiscount) {
+                try {
+                  const discountMarked = await markDiscountAsUsed(discountCalculation.appliedDiscount);
+                  if (discountMarked) {
+                    console.log(`✅ Discount '${discountCalculation.appliedDiscount}' marked as used`);
+                    clearDiscounts();
+                  }
+                } catch (discountError) {
+                  console.error('❌ Error marking discount as used:', discountError);
+                }
+              }
+              
+              const message = paymentType === 'deposit' 
+                ? `Deposit of $${totalPaidAmount.toFixed(2)} paid successfully.`
+                : `Full payment of $${totalPaidAmount.toFixed(2)} completed successfully.`;
+              
+              notifications.show({
+                title: '✅ Payment Successful!',
+                message: message,
+                color: 'green',
+                autoClose: 8000,
+              });
+
+              // Store cart data before clearing
+              setCompletedOrderCart([...cart]);
+
+              // Clear cart abandonment tracking
+              if (user) {
+                clearCartAbandonment(user.uid);
+              }
+
+              // Clear all cart-related localStorage items
+              localStorage.removeItem("cart");
+              localStorage.removeItem("cart_wetDrySelections");
+              localStorage.removeItem("cart_duration");
+              localStorage.removeItem("cart_surface");
+              localStorage.removeItem("cart_deliveryTime");
+              localStorage.removeItem("cart_location");
+              localStorage.removeItem("cart_giftCardValues");
+              setCart([]);
+            } else {
+              throw new Error("Failed to create booking for gift card order");
+            }
+          } catch (giftCardBookingError) {
+            console.error('❌ Error creating gift card booking:', giftCardBookingError);
+            throw giftCardBookingError;
+          }
+        } else {
+          throw new Error("No pending booking ID found");
+        }
       }
     } catch (error) {
       console.error("Payment processing error:", error);
@@ -3871,11 +4361,11 @@ export default function Checkout() {
       const orderID = generateOrderID();
       const contractID = generateContractID();
 
-      // Calculate event start and end times
+      // Calculate event start and end times (only for rental orders, not gift cards)
       let eventStart: string | undefined;
       let eventEnd: string | undefined;
       
-      if (calendarDateRange[0] && cartSettings.deliveryTime && cartSettings.duration) {
+      if (!onlyGiftCards && calendarDateRange[0] && cartSettings.deliveryTime && cartSettings.duration) {
         const startTime = calculateEventStart(calendarDateRange[0], cartSettings.deliveryTime);
         const endTime = calculateEventEnd(startTime, cartSettings.duration);
         eventStart = startTime.toISOString();
@@ -3912,11 +4402,12 @@ export default function Checkout() {
           phone: phone
         },
         orderDetails: {
-          eventDate: `${calendarDateRange[0]?.toLocaleDateString()} - ${calendarDateRange[1]?.toLocaleDateString()}`,
-          duration: cartSettings.duration,
-          deliveryAddress: deliveryAddress,
-          surface: cartSettings.surface,
-          deliveryTime: cartSettings.deliveryTime,
+          // For gift card-only orders, provide default values for required rental fields
+          eventDate: onlyGiftCards ? 'N/A - Gift Card Purchase' : `${calendarDateRange[0]?.toLocaleDateString()} - ${calendarDateRange[1]?.toLocaleDateString()}`,
+          duration: onlyGiftCards ? 'N/A' : (cartSettings.duration || 'N/A'),
+          deliveryAddress: onlyGiftCards ? 'N/A - Digital Purchase' : (deliveryAddress || 'N/A'),
+          surface: onlyGiftCards ? 'N/A' : (cartSettings.surface || 'N/A'),
+          deliveryTime: onlyGiftCards ? 'N/A' : (cartSettings.deliveryTime || 'N/A'),
           ...(eventStart && { eventStart }),
           ...(eventEnd && { eventEnd }),
           items: [
@@ -4012,7 +4503,7 @@ export default function Checkout() {
               discountCalculation.addedGiftCards.map((giftCard: any) => ({
                 name: `${giftCard.name} (BOGO Free)`,
                 quantity: 1,
-                price: giftCard.value,
+                price: giftCard.giftCardValue || giftCard.price || 0,
                 adjustedPrice: 0,
                 captureIds: [],
                 discountApplied: 'BOGO Gift Card - Free'
@@ -4072,7 +4563,17 @@ export default function Checkout() {
 
       // If only gift cards, skip contract saving
       if (onlyGiftCards) {
+        console.log('💾 Saving gift card-only booking:', {
+          orderID: bookingData.orderID,
+          customerID: bookingData.customerID,
+          status: bookingData.status,
+          totalAmount: bookingData.paymentDetails.totalAmount,
+          itemCount: bookingData.orderDetails.items.length,
+          eventDate: bookingData.orderDetails.eventDate,
+          deliveryAddress: bookingData.orderDetails.deliveryAddress
+        });
         bookingSaved = await saveBookingData(bookingData);
+        console.log(`💾 Booking save result: ${bookingSaved ? '✅ SUCCESS' : '❌ FAILED'}`);
         contractSaved = true;
       } else {
         // Prepare contract data
@@ -4490,44 +4991,52 @@ export default function Checkout() {
         </div>
       )}
 
-      {/* Progress Indicator */}
-      <div className="progress-indicator">
-        <div className="progress-steps" data-current-step={(() => {
-          const currentStepOrder = getStepOrder();
-          return currentStepOrder.indexOf(currentStep);
-        })()}>
-          {(() => {
-            const currentStepOrder = getStepOrder();
-            return currentStepOrder.map((step, index) => {
-              const isCurrentOrPast = currentStepOrder.indexOf(currentStep) >= index;
-              const canGoBack = visitedSteps.has(step) && index < currentStepOrder.indexOf(currentStep);
-              
-              return (
-                <div 
-                  key={step} 
-                  className={`progress-step ${canGoBack ? 'clickable' : ''}`} 
-                  data-step-index={index}
-                  onClick={() => {
-                    if (canGoBack) {
-                      setCurrentStep(step);
-                    }
-                  }}
-                  style={{
-                    cursor: canGoBack ? 'pointer' : 'default'
-                  }}
-                >
-                  <span className={`progress-step-circle ${isCurrentOrPast ? 'active' : 'inactive'}`}>
-                    {index + 1}
-                  </span>
-                  <label className={`progress-step-label ${isCurrentOrPast ? 'active' : 'inactive'}`}>
-                    {stepTitles[step]}
-                  </label>
-                </div>
-              );
-            });
-          })()}
-        </div>
-      </div>
+      {/* Progress Indicator - Only show for rental orders with multiple steps */}
+      {(() => {
+        const onlyGiftCards = cart.every(item => item.isGiftCard || item.isMembership);
+        // Hide progress indicator for gift-card-only orders
+        if (onlyGiftCards) return null;
+        
+        return (
+          <div className="progress-indicator">
+            <div className="progress-steps" data-current-step={(() => {
+              const currentStepOrder = getStepOrder();
+              return currentStepOrder.indexOf(currentStep);
+            })()}>
+              {(() => {
+                const currentStepOrder = getStepOrder();
+                return currentStepOrder.map((step, index) => {
+                  const isCurrentOrPast = currentStepOrder.indexOf(currentStep) >= index;
+                  const canGoBack = visitedSteps.has(step) && index < currentStepOrder.indexOf(currentStep);
+                  
+                  return (
+                    <div 
+                      key={step} 
+                      className={`progress-step ${canGoBack ? 'clickable' : ''}`} 
+                      data-step-index={index}
+                      onClick={() => {
+                        if (canGoBack) {
+                          setCurrentStep(step);
+                        }
+                      }}
+                      style={{
+                        cursor: canGoBack ? 'pointer' : 'default'
+                      }}
+                    >
+                      <span className={`progress-step-circle ${isCurrentOrPast ? 'active' : 'inactive'}`}>
+                        {index + 1}
+                      </span>
+                      <label className={`progress-step-label ${isCurrentOrPast ? 'active' : 'inactive'}`}>
+                        {stepTitles[step]}
+                      </label>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Step Content */}
       {currentStep === 'cart-delivery' && (
@@ -5356,10 +5865,12 @@ export default function Checkout() {
               <span>${deliveryCost.toFixed(2)}</span>
             </div>
           )}
-          <div className="pricing-row">
-            <span>Sales Tax (8%):</span>
-            <span>${salesTax.toFixed(2)}</span>
-          </div>
+          {salesTax > 0 && (
+            <div className="pricing-row">
+              <span>Sales Tax (8%):</span>
+              <span>${salesTax.toFixed(2)}</span>
+            </div>
+          )}
           <div className="pricing-total">
             <span>Total:</span>
             <span>${total.toFixed(2)}</span>
@@ -5678,6 +6189,526 @@ export default function Checkout() {
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
           
+          {/* Check if cart has only gift cards/memberships */}
+          {(() => {
+            const onlyGiftCards = cart.every(item => item.isGiftCard || item.isMembership);
+            return onlyGiftCards;
+          })() ? (
+            // GIFT CARD ONLY CHECKOUT
+            <>
+              <div style={{ 
+                marginBottom: '2rem',
+                textAlign: 'center',
+                borderBottom: '2px solid #4CAF50',
+                paddingBottom: '1rem'
+              }}>
+                <h2 style={{ margin: '0 0 0.5rem 0', color: '#2e7d32' }}>🎁 Gift Card Purchase</h2>
+                <p style={{ margin: 0, color: '#666', fontSize: '0.95rem' }}>
+                  Complete your gift card order below
+                </p>
+              </div>
+
+              {/* Gift Cards in Cart */}
+              <div style={{ 
+                marginBottom: '2rem',
+                padding: '1rem',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '8px',
+                border: '1px solid #dee2e6'
+              }}>
+                <h3 style={{ margin: '0 0 1rem 0', color: '#333' }}>Your Gift Cards</h3>
+                {cart.filter(item => item.isGiftCard).map((item, index) => (
+                  <div key={index} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '0.75rem',
+                    backgroundColor: 'white',
+                    borderRadius: '4px',
+                    marginBottom: '0.5rem',
+                    border: '1px solid #dee2e6'
+                  }}>
+                    <div>
+                      <strong>{item.name}</strong>
+                      {item.quantity > 1 && <span style={{ color: '#666', marginLeft: '0.5rem' }}>×{item.quantity}</span>}
+                    </div>
+                    <div style={{ fontWeight: 'bold', color: '#2e7d32' }}>
+                      ${((item.giftCardValue || item.price) * item.quantity).toFixed(2)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Pricing Summary */}
+              <div style={{ 
+                marginBottom: '2rem', 
+                padding: '1rem', 
+                backgroundColor: '#f8f9fa', 
+                borderRadius: '4px' 
+              }}>
+                <div className="pricing-breakdown">
+                  <div className="pricing-row">
+                    <span>Subtotal:</span>
+                    <span>${cart.reduce((sum, item) => sum + (item.giftCardValue || item.price) * item.quantity, 0).toFixed(2)}</span>
+                  </div>
+                  
+                  {/* Discount Display */}
+                  {discountCalculation?.hasValidDiscount && discountCalculation?.discountAmount > 0 && (
+                    <>
+                      <div className="pricing-row" style={{ 
+                        color: '#4CAF50', 
+                        fontWeight: 'bold',
+                        borderTop: '1px solid #dee2e6',
+                        paddingTop: '0.5rem',
+                        marginTop: '0.5rem'
+                      }}>
+                        <span>
+                          Discount ({
+                            discountCalculation.appliedDiscount === 'bogoGiftCard' ? 'BOGO Gift Card' : 'Promo'
+                          }):
+                        </span>
+                        <span>-${discountCalculation.discountAmount.toFixed(2)}</span>
+                      </div>
+                      <div style={{ 
+                        fontSize: '0.8rem', 
+                        color: '#856404',
+                        backgroundColor: '#fff3cd',
+                        padding: '0.5rem',
+                        borderRadius: '4px',
+                        marginTop: '0.5rem',
+                        marginBottom: '0.5rem'
+                      }}>
+                        ⚠️ <strong>One-time use:</strong> This discount can only be used once per account.
+                      </div>
+                    </>
+                  )}
+                  
+                  {salesTax > 0 && (
+                    <div className="pricing-row">
+                      <span>Sales Tax (8%):</span>
+                      <span>${salesTax.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="pricing-total">
+                    <span>Total:</span>
+                    <span>${total.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* BOGO Promotion Message */}
+              {discounts.bogoGiftCard && cart.some(item => item.isGiftCard) && (
+                <div style={{ 
+                  marginBottom: '2rem',
+                  padding: '1.5rem',
+                  backgroundColor: '#fff9c4',
+                  border: '2px solid #f9ca24',
+                  borderRadius: '8px'
+                }}>
+                  <h3 style={{ marginTop: 0, marginBottom: '1rem', color: '#f39801' }}>
+                    BOGO Special Offer Active!
+                  </h3>
+                  <p style={{ color: '#8c6d00', marginBottom: '1rem', fontSize: '1rem' }}>
+                    <strong>Buy One, Gift One FREE!</strong> You'll receive a free gift card!
+                    The promotional card must be sent to someone else.
+                  </p>
+                  
+                  {!promotionalEmailConfirmed ? (
+                    <>
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <label style={{ 
+                          display: 'block', 
+                          marginBottom: '0.5rem', 
+                          fontWeight: 'bold',
+                          color: '#8c6d00'
+                        }}>
+                          Recipient's Email Address (Required):
+                        </label>
+                        <input
+                          type="email"
+                          placeholder="Enter recipient's email (cannot be your email)"
+                          value={promotionalGiftCardEmail}
+                          onChange={(e) => setPromotionalGiftCardEmail(e.target.value)}
+                          required
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            border: `2px solid ${
+                              promotionalGiftCardEmail && !isValidEmail(promotionalGiftCardEmail) ? '#dc3545' :
+                              promotionalGiftCardEmail && user?.email && promotionalGiftCardEmail.toLowerCase() === user.email.toLowerCase() ? '#dc3545' : 
+                              '#f9ca24'
+                            }`,
+                            borderRadius: '4px',
+                            fontSize: '1rem',
+                            backgroundColor: '#fffef5'
+                          }}
+                        />
+                        {promotionalGiftCardEmail && !isValidEmail(promotionalGiftCardEmail) && (
+                          <div style={{ 
+                            color: '#dc3545', 
+                            fontSize: '0.9rem', 
+                            marginTop: '0.5rem',
+                            padding: '0.5rem',
+                            backgroundColor: '#f8d7da',
+                            borderRadius: '4px'
+                          }}>
+                            ⚠️ Please enter a valid email address
+                          </div>
+                        )}
+                        {promotionalGiftCardEmail && isValidEmail(promotionalGiftCardEmail) && user?.email && promotionalGiftCardEmail.toLowerCase() === user.email.toLowerCase() && (
+                          <div style={{ 
+                            color: '#dc3545', 
+                            fontSize: '0.9rem', 
+                            marginTop: '0.5rem',
+                            padding: '0.5rem',
+                            backgroundColor: '#f8d7da',
+                            borderRadius: '4px'
+                          }}>
+                            ⚠️ Promotional gift card must be sent to a different email address
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ fontSize: '0.85rem', color: '#8c6d00', fontStyle: 'italic', marginBottom: '1rem' }}>
+                        The promotional gift card will be restricted from use on your account to prevent self-redemption.
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (!promotionalGiftCardEmail || promotionalGiftCardEmail.trim() === '') {
+                            notifications.show({
+                              title: 'Email Required',
+                              message: 'Please enter a recipient email address for the promotional gift card.',
+                              color: 'red',
+                            });
+                            return;
+                          }
+                          if (!isValidEmail(promotionalGiftCardEmail)) {
+                            notifications.show({
+                              title: 'Invalid Email Format',
+                              message: 'Please enter a valid email address (e.g., example@email.com).',
+                              color: 'red',
+                            });
+                            return;
+                          }
+                          if (promotionalGiftCardEmail.toLowerCase() === user?.email?.toLowerCase()) {
+                            notifications.show({
+                              title: 'Invalid Email',
+                              message: 'Promotional gift card must be sent to a different email address.',
+                              color: 'red',
+                            });
+                            return;
+                          }
+                          setPromotionalEmailConfirmed(true);
+                          notifications.show({
+                            title: 'Email Confirmed',
+                            message: `Promotional gift card will be sent to ${promotionalGiftCardEmail}`,
+                            color: 'green',
+                          });
+                        }}
+                        disabled={!promotionalGiftCardEmail || !isValidEmail(promotionalGiftCardEmail) || promotionalGiftCardEmail.toLowerCase() === user?.email?.toLowerCase()}
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          backgroundColor: promotionalGiftCardEmail && isValidEmail(promotionalGiftCardEmail) && promotionalGiftCardEmail.toLowerCase() !== user?.email?.toLowerCase() ? '#f9ca24' : '#ccc',
+                          color: '#333',
+                          border: 'none',
+                          borderRadius: '4px',
+                          fontSize: '1rem',
+                          fontWeight: 'bold',
+                          cursor: promotionalGiftCardEmail && isValidEmail(promotionalGiftCardEmail) && promotionalGiftCardEmail.toLowerCase() !== user?.email?.toLowerCase() ? 'pointer' : 'not-allowed',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        ✓ Confirm Recipient Email
+                      </button>
+                    </>
+                  ) : (
+                    <div>
+                      <div style={{ 
+                        padding: '1rem',
+                        backgroundColor: '#c8e6c9',
+                        borderRadius: '4px',
+                        marginBottom: '1rem'
+                      }}>
+                        <div style={{ fontWeight: 'bold', color: '#1b5e20', marginBottom: '0.5rem' }}>
+                          ✓ Recipient Email Confirmed
+                        </div>
+                        <div style={{ color: '#2e7d32', fontSize: '0.95rem' }}>
+                          Promotional gift card will be sent to: <strong>{promotionalGiftCardEmail}</strong>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setPromotionalEmailConfirmed(false);
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '0.75rem',
+                          backgroundColor: '#fff',
+                          color: '#f39801',
+                          border: '2px solid #f9ca24',
+                          borderRadius: '4px',
+                          fontSize: '1rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        ✏️ Change Recipient Email
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Wallet Section for Gift Cards */}
+              {userWallet && userWallet.balance > 0 && (
+                <div style={{ 
+                  marginBottom: '2rem',
+                  padding: '1rem',
+                  backgroundColor: '#e8f5e8',
+                  border: '2px solid #4CAF50',
+                  borderRadius: '8px'
+                }}>
+                  <h3 style={{ marginBottom: '1rem', color: '#2e7d32' }}>💰 Wallet Balance</h3>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    marginBottom: '1rem'
+                  }}>
+                    <div>
+                      <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#2e7d32' }}>
+                        Available: ${userWallet.balance.toFixed(2)}
+                      </div>
+                      {useWalletFirst && (
+                        <div style={{ fontSize: '0.9rem', color: '#666', marginTop: '0.5rem' }}>
+                          Applied: ${walletAppliedAmount.toFixed(2)} | 
+                          PayPal: ${calculatePayPalAmount().toFixed(2)}
+                        </div>
+                      )}
+                    </div>
+                    <label style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      cursor: 'pointer',
+                      fontSize: '1rem',
+                      color: '#2e7d32',
+                      fontWeight: '600'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={useWalletFirst}
+                        onChange={(e) => setUseWalletFirst(e.target.checked)}
+                        style={{ 
+                          marginRight: '0.5rem',
+                          transform: 'scale(1.2)'
+                        }}
+                      />
+                      Use Wallet First
+                    </label>
+                  </div>
+                  {useWalletFirst && walletAppliedAmount >= parseFloat(calculateTotalAmount()) && (
+                    <div style={{ 
+                      padding: '1rem',
+                      backgroundColor: '#c8e6c9',
+                      borderRadius: '4px',
+                      textAlign: 'center',
+                      fontWeight: 'bold',
+                      color: '#1b5e20'
+                    }}>
+                      🎉 Order fully covered by wallet! No additional payment needed.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Payment Buttons */}
+              <div style={{ marginBottom: '2rem' }}>
+                <h3 style={{ marginBottom: '1rem', color: '#333', textAlign: 'center' }}>
+                  {useWalletFirst && calculatePayPalAmount() > 0 
+                    ? `Complete Payment ($${calculatePayPalAmount().toFixed(2)})`
+                    : useWalletFirst && calculatePayPalAmount() <= 0
+                    ? 'Complete Order'
+                    : 'Complete Payment'}
+                </h3>
+                
+                {/* Wallet-only completion button */}
+                {useWalletFirst && calculatePayPalAmount() <= 0 && (
+                  <>
+                    {/* Show warning message if BOGO is active but email not confirmed */}
+                    {discounts.bogoGiftCard && !promotionalEmailConfirmed ? (
+                      <div style={{ 
+                        padding: '2rem', 
+                        backgroundColor: '#fff9c4', 
+                        borderRadius: '8px',
+                        border: '2px solid #f9ca24',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{ fontSize: '1.2rem', marginBottom: '1rem', color: '#f39801', fontWeight: 'bold' }}>
+                          ⚠️ Confirmation Required
+                        </div>
+                        <p style={{ margin: 0, color: '#8c6d00', fontSize: '1rem' }}>
+                          Please confirm the recipient email address for the promotional gift card above before proceeding to payment.
+                        </p>
+                      </div>
+                    ) : (
+                      <div style={{ 
+                        textAlign: 'center',
+                        padding: '2rem',
+                        backgroundColor: '#e8f5e8',
+                        borderRadius: '8px',
+                        border: '2px solid #4CAF50'
+                      }}>
+                        <div style={{ 
+                          fontSize: '1.3rem', 
+                          color: '#2e7d32',
+                          marginBottom: '1rem',
+                          fontWeight: 'bold'
+                        }}>
+                          🎉 Order fully covered by wallet balance!
+                        </div>
+                        <button
+                          onClick={async () => await onWalletOnlyPayment()}
+                          disabled={processingPayment}
+                          style={{
+                            backgroundColor: '#4CAF50',
+                            color: 'white',
+                            border: 'none',
+                            padding: '1rem 2rem',
+                            borderRadius: '8px',
+                            fontSize: '1.1rem',
+                            fontWeight: 'bold',
+                            cursor: processingPayment ? 'not-allowed' : 'pointer',
+                            opacity: processingPayment ? 0.6 : 1,
+                            boxShadow: '0 4px 8px rgba(76, 175, 80, 0.3)'
+                          }}
+                        >
+                          {processingPayment ? 'Processing...' : 'Complete Order with Wallet'}
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+                
+                {/* PayPal buttons */}
+                {(!useWalletFirst || calculatePayPalAmount() > 0) && (
+                  <>
+                    {/* Show warning message if BOGO is active but email not confirmed */}
+                    {discounts.bogoGiftCard && !promotionalEmailConfirmed ? (
+                      <div style={{ 
+                        padding: '2rem', 
+                        backgroundColor: '#fff9c4', 
+                        borderRadius: '8px',
+                        border: '2px solid #f9ca24',
+                        textAlign: 'center'
+                      }}>
+                        <div style={{ fontSize: '1.2rem', marginBottom: '1rem', color: '#f39801', fontWeight: 'bold' }}>
+                          ⚠️ Confirmation Required
+                        </div>
+                        <p style={{ margin: 0, color: '#8c6d00', fontSize: '1rem' }}>
+                          Please confirm the recipient email address for the promotional gift card above before proceeding to payment.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        {processingPayment && (
+                          <div style={{ 
+                            padding: '1rem', 
+                            backgroundColor: '#e3f2fd', 
+                            borderRadius: '4px', 
+                            marginBottom: '1rem',
+                            textAlign: 'center'
+                          }}>
+                            <p style={{ margin: 0, color: '#1976d2' }}>Processing payment...</p>
+                          </div>
+                        )}
+                        
+                        <div style={{ 
+                          display: 'flex', 
+                          flexDirection: 'column',
+                          gap: '1rem',
+                          width: '100%',
+                          maxWidth: '500px',
+                          margin: '0 auto'
+                        }}>
+                          <PayPalScriptProvider options={{
+                            clientId: "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0",
+                            currency: "USD",
+                            intent: "capture",
+                            components: "buttons,funding-eligibility",
+                            "enable-funding": "card,paylater,venmo",
+                            "disable-funding": ""
+                          }}>
+                            {/* Credit/Debit Card Button */}
+                            <div style={{ width: '100%' }}>
+                              <PayPalButtons
+                                style={{ 
+                                  layout: "vertical",
+                                  color: "black",
+                                  shape: "rect",
+                                  label: "pay",
+                                  height: 45,
+                                  tagline: false
+                                }}
+                                fundingSource="card"
+                                createOrder={createPayPalOrder}
+                                onApprove={onPayPalApprove}
+                                onError={onPayPalError}
+                                disabled={processingPayment}
+                                forceReRender={[calculatePayPalAmount()]}
+                              />
+                            </div>
+                            
+                            {/* PayPal Button */}
+                            <div style={{ width: '100%' }}>
+                              <PayPalButtons
+                                style={{ 
+                                  layout: "vertical",
+                                  color: "gold",
+                                  shape: "rect",
+                                  label: "paypal",
+                                  height: 45,
+                                  tagline: false
+                                }}
+                                fundingSource="paypal"
+                                createOrder={createPayPalOrder}
+                                onApprove={onPayPalApprove}
+                            onError={onPayPalError}
+                            disabled={processingPayment}
+                            forceReRender={[calculatePayPalAmount()]}
+                          />
+                        </div>
+                        
+                        {/* Venmo Button */}
+                        <div style={{ width: '100%' }}>
+                          <PayPalButtons
+                            style={{ 
+                              layout: "vertical",
+                              color: "blue",
+                              shape: "rect",
+                              label: "pay",
+                              height: 45,
+                              tagline: false
+                            }}
+                            fundingSource="venmo"
+                            createOrder={createPayPalOrder}
+                            onApprove={onPayPalApprove}
+                            onError={onPayPalError}
+                            disabled={processingPayment}
+                            forceReRender={[calculatePayPalAmount()]}
+                          />
+                        </div>
+                      </PayPalScriptProvider>
+                    </div>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            </>
+          ) : (
+            // RENTAL ORDER CHECKOUT (EXISTING CODE)
+            <>
           {/* Empty Cart Check for Resumed Bookings */}
           {cart.length === 0 && pendingBookingId && (
             <div style={{
@@ -6019,10 +7050,12 @@ export default function Checkout() {
                   <span>${deliveryCost.toFixed(2)}</span>
                 </div>
               )}
-              <div className="pricing-row">
-                <span>Sales Tax (8%):</span>
-                <span>${salesTax.toFixed(2)}</span>
-              </div>
+              {salesTax > 0 && (
+                <div className="pricing-row">
+                  <span>Sales Tax (8%):</span>
+                  <span>${salesTax.toFixed(2)}</span>
+                </div>
+              )}
               {actualAmountPaid && actualAmountPaid > 0 && (
                 <div className="pricing-row" style={{ color: '#28a745', fontWeight: 'bold' }}>
                   <span>Deposit Already Paid:</span>
@@ -6036,7 +7069,7 @@ export default function Checkout() {
             </div>
           </div>
 
-          {/* Promotional Gift Card Section - Show when GOGO discount is active AND has gift cards */}
+          {/* Promotional Gift Card Section - Show when BOGO discount is active AND has gift cards */}
           {discounts.bogoGiftCard && cart.some(item => item.isGiftCard) && (
             <div style={{ 
               marginBottom: '2rem',
@@ -6045,38 +7078,156 @@ export default function Checkout() {
               border: '2px solid #f9ca24',
               borderRadius: '8px'
             }}>
-              <h3 style={{ marginBottom: '1rem', color: '#f39801' }}>🎁 GOGO Special Offer!</h3>
+              <h3 style={{ marginBottom: '1rem', color: '#f39801' }}>🎁 BOGO Special Offer!</h3>
               <p style={{ color: '#8c6d00', marginBottom: '1rem' }}>
                 You qualify for a FREE gift card with your purchase! 
                 The promotional gift card will be sent separately and must be used by someone else.
               </p>
-              <div style={{ marginBottom: '0.5rem' }}>
-                <label style={{ 
-                  display: 'block', 
-                  marginBottom: '0.5rem', 
-                  fontWeight: 'bold',
-                  color: '#8c6d00'
-                }}>
-                  Send promotional gift card to (optional):
-                </label>
-                <input
-                  type="email"
-                  placeholder="Recipient's email address (leave blank to send to your email)"
-                  value={promotionalGiftCardEmail}
-                  onChange={(e) => setPromotionalGiftCardEmail(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    border: '1px solid #f9ca24',
+              
+              {!promotionalEmailConfirmed ? (
+                <>
+                  <div style={{ marginBottom: '0.5rem' }}>
+                    <label style={{ 
+                      display: 'block', 
+                      marginBottom: '0.5rem', 
+                      fontWeight: 'bold',
+                      color: '#8c6d00'
+                    }}>
+                      Recipient's Email Address (Required):
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="Enter recipient's email (cannot be your email)"
+                      value={promotionalGiftCardEmail}
+                      onChange={(e) => setPromotionalGiftCardEmail(e.target.value)}
+                      required
+                      style={{
+                        width: '100%',
+                        padding: '0.75rem',
+                        border: `2px solid ${
+                          promotionalGiftCardEmail && !isValidEmail(promotionalGiftCardEmail) ? '#dc3545' :
+                          promotionalGiftCardEmail && user?.email && promotionalGiftCardEmail.toLowerCase() === user.email.toLowerCase() ? '#dc3545' : 
+                          '#f9ca24'
+                        }`,
+                        borderRadius: '4px',
+                        fontSize: '1rem',
+                        backgroundColor: '#fffef5'
+                      }}
+                    />
+                    {promotionalGiftCardEmail && !isValidEmail(promotionalGiftCardEmail) && (
+                      <div style={{ 
+                        color: '#dc3545', 
+                        fontSize: '0.9rem', 
+                        marginTop: '0.5rem',
+                        padding: '0.5rem',
+                        backgroundColor: '#f8d7da',
+                        borderRadius: '4px'
+                      }}>
+                        ⚠️ Please enter a valid email address
+                      </div>
+                    )}
+                    {promotionalGiftCardEmail && isValidEmail(promotionalGiftCardEmail) && user?.email && promotionalGiftCardEmail.toLowerCase() === user.email.toLowerCase() && (
+                      <div style={{ 
+                        color: '#dc3545', 
+                        fontSize: '0.9rem', 
+                        marginTop: '0.5rem',
+                        padding: '0.5rem',
+                        backgroundColor: '#f8d7da',
+                        borderRadius: '4px'
+                      }}>
+                        ⚠️ Promotional gift card must be sent to a different email address
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.85rem', color: '#8c6d00', fontStyle: 'italic', marginBottom: '1rem' }}>
+                    The promotional gift card will be restricted from use on your account to prevent self-redemption.
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (!promotionalGiftCardEmail || promotionalGiftCardEmail.trim() === '') {
+                        notifications.show({
+                          title: 'Email Required',
+                          message: 'Please enter a recipient email address for the promotional gift card.',
+                          color: 'red',
+                        });
+                        return;
+                      }
+                      if (!isValidEmail(promotionalGiftCardEmail)) {
+                        notifications.show({
+                          title: 'Invalid Email Format',
+                          message: 'Please enter a valid email address (e.g., example@email.com).',
+                          color: 'red',
+                        });
+                        return;
+                      }
+                      if (promotionalGiftCardEmail.toLowerCase() === user?.email?.toLowerCase()) {
+                        notifications.show({
+                          title: 'Invalid Email',
+                          message: 'Promotional gift card must be sent to a different email address.',
+                          color: 'red',
+                        });
+                        return;
+                      }
+                      setPromotionalEmailConfirmed(true);
+                      notifications.show({
+                        title: 'Email Confirmed',
+                        message: `Promotional gift card will be sent to ${promotionalGiftCardEmail}`,
+                        color: 'green',
+                      });
+                    }}
+                    disabled={!promotionalGiftCardEmail || !isValidEmail(promotionalGiftCardEmail) || promotionalGiftCardEmail.toLowerCase() === user?.email?.toLowerCase()}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      backgroundColor: promotionalGiftCardEmail && isValidEmail(promotionalGiftCardEmail) && promotionalGiftCardEmail.toLowerCase() !== user?.email?.toLowerCase() ? '#f9ca24' : '#ccc',
+                      color: '#333',
+                      border: 'none',
+                      borderRadius: '4px',
+                      fontSize: '1rem',
+                      fontWeight: 'bold',
+                      cursor: promotionalGiftCardEmail && isValidEmail(promotionalGiftCardEmail) && promotionalGiftCardEmail.toLowerCase() !== user?.email?.toLowerCase() ? 'pointer' : 'not-allowed',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    ✓ Confirm Recipient Email
+                  </button>
+                </>
+              ) : (
+                <div>
+                  <div style={{ 
+                    padding: '1rem',
+                    backgroundColor: '#c8e6c9',
                     borderRadius: '4px',
-                    fontSize: '1rem',
-                    backgroundColor: '#fffef5'
-                  }}
-                />
-              </div>
-              <div style={{ fontSize: '0.8rem', color: '#8c6d00', fontStyle: 'italic' }}>
-                * If no email is provided, the promotional gift card will be sent to your account email
-              </div>
+                    marginBottom: '1rem'
+                  }}>
+                    <div style={{ fontWeight: 'bold', color: '#1b5e20', marginBottom: '0.5rem' }}>
+                      ✓ Recipient Email Confirmed
+                    </div>
+                    <div style={{ color: '#2e7d32', fontSize: '0.95rem' }}>
+                      Promotional gift card will be sent to: <strong>{promotionalGiftCardEmail}</strong>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setPromotionalEmailConfirmed(false);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      backgroundColor: '#fff',
+                      color: '#f39801',
+                      border: '2px solid #f9ca24',
+                      borderRadius: '4px',
+                      fontSize: '1rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    ✏️ Change Recipient Email
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -6304,41 +7455,61 @@ export default function Checkout() {
               
               {/* Show wallet-only completion button if fully covered */}
               {useWalletFirst && calculatePayPalAmount() <= 0 && (
-                <div style={{ 
-                  textAlign: 'center',
-                  padding: '2rem',
-                  backgroundColor: '#e8f5e8',
-                  borderRadius: '8px',
-                  border: '2px solid #4CAF50'
-                }}>
-                  <div style={{ 
-                    fontSize: '1.3rem', 
-                    color: '#2e7d32',
-                    marginBottom: '1rem',
-                    fontWeight: 'bold'
-                  }}>
-                    🎉 Order fully covered by wallet balance!
-                  </div>
-                  <button
-                    onClick={async () => {
-                      // Process wallet-only payment
-                      await onWalletOnlyPayment();
-                    }}
-                    style={{
-                      backgroundColor: '#4CAF50',
-                      color: 'white',
-                      border: 'none',
-                      padding: '1rem 2rem',
+                <>
+                  {/* Show warning message if BOGO is active but email not confirmed */}
+                  {discounts.bogoGiftCard && cart.some(item => item.isGiftCard) && !promotionalEmailConfirmed ? (
+                    <div style={{ 
+                      padding: '2rem', 
+                      backgroundColor: '#fff9c4', 
                       borderRadius: '8px',
-                      fontSize: '1.1rem',
-                      fontWeight: 'bold',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 8px rgba(76, 175, 80, 0.3)'
-                    }}
-                  >
-                    Complete Order with Wallet
-                  </button>
-                </div>
+                      border: '2px solid #f9ca24',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: '1.2rem', marginBottom: '1rem', color: '#f39801', fontWeight: 'bold' }}>
+                        ⚠️ Confirmation Required
+                      </div>
+                      <p style={{ margin: 0, color: '#8c6d00', fontSize: '1rem' }}>
+                        Please confirm the recipient email address for the promotional gift card above before proceeding to payment.
+                      </p>
+                    </div>
+                  ) : (
+                    <div style={{ 
+                      textAlign: 'center',
+                      padding: '2rem',
+                      backgroundColor: '#e8f5e8',
+                      borderRadius: '8px',
+                      border: '2px solid #4CAF50'
+                    }}>
+                      <div style={{ 
+                        fontSize: '1.3rem', 
+                        color: '#2e7d32',
+                        marginBottom: '1rem',
+                        fontWeight: 'bold'
+                      }}>
+                        🎉 Order fully covered by wallet balance!
+                      </div>
+                      <button
+                        onClick={async () => {
+                          // Process wallet-only payment
+                          await onWalletOnlyPayment();
+                        }}
+                        style={{
+                          backgroundColor: '#4CAF50',
+                          color: 'white',
+                          border: 'none',
+                          padding: '1rem 2rem',
+                          borderRadius: '8px',
+                          fontSize: '1.1rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          boxShadow: '0 4px 8px rgba(76, 175, 80, 0.3)'
+                        }}
+                      >
+                        Complete Order with Wallet
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
               
               {/* Hide payment options if booking is deferred or if deposit was already paid */}
@@ -6521,31 +7692,49 @@ export default function Checkout() {
               {/* Only show PayPal buttons if there's an amount to pay via PayPal */}
               {/* Always show PayPal buttons if there's an amount to pay via PayPal */}
               {(!useWalletFirst || calculatePayPalAmount() > 0) && (
-                <div style={{ 
-                  display: 'flex', 
-                  flexDirection: 'column',
-                  gap: '1rem',
-                  width: '100%',
-                  maxWidth: '500px',
-                  margin: '0 auto'
-                }}>
-                  <PayPalScriptProvider options={{
-                    clientId: "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0", // Your PayPal sandbox client ID
-                    currency: "USD",
-                    intent: "capture",
-                    components: "buttons,funding-eligibility",
-                    "enable-funding": "card,paylater,venmo",
-                    "disable-funding": ""
-                  }}>
-                    {/* Credit/Debit Card Button */}
-                    <div style={{ width: '100%' }}>
-                      <PayPalButtons
-                        style={{ 
-                          layout: "vertical",
-                          color: "black",
-                          shape: "rect",
-                          label: "pay",
-                          height: 45,
+                <>
+                  {/* Show warning message if BOGO is active but email not confirmed */}
+                  {discounts.bogoGiftCard && cart.some(item => item.isGiftCard) && !promotionalEmailConfirmed ? (
+                    <div style={{ 
+                      padding: '2rem', 
+                      backgroundColor: '#fff9c4', 
+                      borderRadius: '8px',
+                      border: '2px solid #f9ca24',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: '1.2rem', marginBottom: '1rem', color: '#f39801', fontWeight: 'bold' }}>
+                        ⚠️ Confirmation Required
+                      </div>
+                      <p style={{ margin: 0, color: '#8c6d00', fontSize: '1rem' }}>
+                        Please confirm the recipient email address for the promotional gift card above before proceeding to payment.
+                      </p>
+                    </div>
+                  ) : (
+                    <div style={{ 
+                      display: 'flex', 
+                      flexDirection: 'column',
+                      gap: '1rem',
+                      width: '100%',
+                      maxWidth: '500px',
+                      margin: '0 auto'
+                    }}>
+                      <PayPalScriptProvider options={{
+                        clientId: "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0", // Your PayPal sandbox client ID
+                        currency: "USD",
+                        intent: "capture",
+                        components: "buttons,funding-eligibility",
+                        "enable-funding": "card,paylater,venmo",
+                        "disable-funding": ""
+                      }}>
+                        {/* Credit/Debit Card Button */}
+                        <div style={{ width: '100%' }}>
+                          <PayPalButtons
+                            style={{ 
+                              layout: "vertical",
+                              color: "black",
+                              shape: "rect",
+                              label: "pay",
+                              height: 45,
                           tagline: false
                         }}
                         fundingSource="card"
@@ -6598,8 +7787,12 @@ export default function Checkout() {
                     </div>
                   </PayPalScriptProvider>
                 </div>
+                  )}
+                </>
               )}
             </div>
+          )}
+            </>
           )}
         </div>
       )}
@@ -6678,6 +7871,180 @@ export default function Checkout() {
               })()}
             </p>
           </div>
+          
+          {/* Display generated gift card codes */}
+          {generatedGiftCards.length > 0 && (
+            <div style={{ 
+              marginTop: '1.5rem',
+              marginBottom: '1.5rem',
+              textAlign: 'left'
+            }}>
+              <h3 style={{ 
+                marginBottom: '1rem', 
+                color: '#333',
+                textAlign: 'center',
+                borderBottom: '2px solid #28a745',
+                paddingBottom: '0.5rem'
+              }}>
+                🎁 Your Gift Card Codes
+              </h3>
+              
+              {/* Purchased Gift Cards */}
+              {generatedGiftCards.filter(gc => !gc.isPromotional).length > 0 && (
+                <div style={{
+                  backgroundColor: '#e8f5e9',
+                  border: '2px solid #4CAF50',
+                  borderRadius: '8px',
+                  padding: '1rem',
+                  marginBottom: '1rem'
+                }}>
+                  <h4 style={{ 
+                    marginTop: 0, 
+                    marginBottom: '0.75rem',
+                    color: '#2e7d32'
+                  }}>
+                    💳 Purchased Gift Cards
+                  </h4>
+                  {generatedGiftCards
+                    .filter(gc => !gc.isPromotional)
+                    .map((giftCard, index) => (
+                      <div key={index} style={{
+                        backgroundColor: 'white',
+                        border: '1px solid #4CAF50',
+                        borderRadius: '4px',
+                        padding: '0.75rem',
+                        marginBottom: '0.5rem',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <div>
+                          <strong style={{ fontSize: '1.1rem', color: '#2e7d32' }}>
+                            {giftCard.code}
+                          </strong>
+                          <span style={{ marginLeft: '1rem', color: '#666' }}>
+                            ${giftCard.value.toFixed(2)}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(giftCard.code);
+                            notifications.show({
+                              title: 'Copied!',
+                              message: 'Gift card code copied to clipboard',
+                              color: 'green',
+                              autoClose: 2000
+                            });
+                          }}
+                          style={{
+                            backgroundColor: '#4CAF50',
+                            color: 'white',
+                            border: 'none',
+                            padding: '0.5rem 1rem',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem'
+                          }}
+                        >
+                          📋 Copy
+                        </button>
+                      </div>
+                    ))}
+                </div>
+              )}
+              
+              {/* Promotional Gift Card (BOGO) */}
+              {generatedGiftCards.filter(gc => gc.isPromotional).length > 0 && (
+                <div style={{
+                  backgroundColor: '#fff3e0',
+                  border: '2px solid #f9ca24',
+                  borderRadius: '8px',
+                  padding: '1rem'
+                }}>
+                  <h4 style={{ 
+                    marginTop: 0, 
+                    marginBottom: '0.75rem',
+                    color: '#f57f17'
+                  }}>
+                    🎉 Promotional Gift Card (BOGO)
+                  </h4>
+                  {generatedGiftCards
+                    .filter(gc => gc.isPromotional)
+                    .map((giftCard, index) => (
+                      <div key={index}>
+                        <div style={{
+                          backgroundColor: 'white',
+                          border: '1px solid #f9ca24',
+                          borderRadius: '4px',
+                          padding: '0.75rem',
+                          marginBottom: '0.5rem',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}>
+                          <div>
+                            <strong style={{ fontSize: '1.1rem', color: '#f57f17' }}>
+                              {giftCard.code}
+                            </strong>
+                            <span style={{ marginLeft: '1rem', color: '#666' }}>
+                              ${giftCard.value.toFixed(2)}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(giftCard.code);
+                              notifications.show({
+                                title: 'Copied!',
+                                message: 'Promotional code copied to clipboard',
+                                color: 'yellow',
+                                autoClose: 2000
+                              });
+                            }}
+                            style={{
+                              backgroundColor: '#f9ca24',
+                              color: '#333',
+                              border: 'none',
+                              padding: '0.5rem 1rem',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '0.9rem'
+                            }}
+                          >
+                            📋 Copy
+                          </button>
+                        </div>
+                        <div style={{
+                          backgroundColor: '#fff8e1',
+                          border: '1px solid #ffd54f',
+                          borderRadius: '4px',
+                          padding: '0.75rem',
+                          marginTop: '0.5rem',
+                          fontSize: '0.9rem',
+                          color: '#f57f17'
+                        }}>
+                          <strong>⚠️ Important:</strong> This promotional gift card has been sent to{' '}
+                          <strong>{promotionalGiftCardEmail}</strong> and cannot be used on your account.
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+              
+              <div style={{
+                marginTop: '1rem',
+                padding: '0.75rem',
+                backgroundColor: '#e3f2fd',
+                border: '1px solid #2196F3',
+                borderRadius: '4px',
+                fontSize: '0.9rem',
+                color: '#1565c0',
+                textAlign: 'center'
+              }}>
+                💡 <strong>Tip:</strong> Save these codes or take a screenshot! You can also find them later in your email confirmation.
+              </div>
+            </div>
+          )}
+          
           <p style={{ color: '#666' }}>
             You will receive a confirmation email shortly. We'll contact you to confirm delivery details.
           </p>
