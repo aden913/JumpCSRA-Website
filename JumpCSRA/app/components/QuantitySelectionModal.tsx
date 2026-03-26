@@ -22,14 +22,15 @@ export function QuantitySelectionModal({
 }: QuantitySelectionModalProps) {
   if (!open || !product) return null;
 
-  const quantityOptions = Array.from({ length: availableQuantity }, (_, i) => i + 1);
+  const isGiftCard = product.category === 'gift-card' || product.isGiftCard;
+  const quantityOptions = isGiftCard ? [50, 100] : Array.from({ length: availableQuantity }, (_, i) => i + 1);
 
   return (
     <div className="modal-overlay" onClick={onClose} style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}>
       <div className="modal-shadow" />
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>Select Quantity</h3>
+          <h3>{isGiftCard ? 'Select Gift Card Value' : 'Select Quantity'}</h3>
           <button className="modal-close" onClick={onClose}>×</button>
         </div>
         
@@ -41,14 +42,16 @@ export function QuantitySelectionModal({
               style={{ width: "100px", height: "100px", objectFit: "cover", borderRadius: "8px" }}
             />
             <h4 style={{ margin: "1rem 0 0.5rem 0" }}>{product.name}</h4>
-            <p style={{ margin: "0", color: "#666" }}>
-              ${typeof product.weekdayPrice === "number" ? product.weekdayPrice : 0} each
-            </p>
+            {!isGiftCard && (
+              <p style={{ margin: "0", color: "#666" }}>
+                ${typeof product.weekdayPrice === "number" ? product.weekdayPrice : 0} each
+              </p>
+            )}
           </div>
 
           <div style={{ marginBottom: "1.5rem" }}>
             <label style={{ display: "block", marginBottom: "0.5rem", fontWeight: "500" }}>
-              Quantity (up to {availableQuantity} available):
+              {isGiftCard ? `Gift Card Value:` : `Quantity (up to ${availableQuantity} available):`}
             </label>
             <select
               value={selectedQuantity}
@@ -62,24 +65,26 @@ export function QuantitySelectionModal({
               }}
             >
               {quantityOptions.map(qty => (
-                <option key={qty} value={qty}>{qty}</option>
+                <option key={qty} value={qty}>{isGiftCard ? `$${qty}` : qty}</option>
               ))}
             </select>
           </div>
 
-          <div style={{ 
-            marginBottom: "1.5rem", 
-            padding: "1rem", 
-            backgroundColor: "#f8f9fa", 
-            borderRadius: "8px" 
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span>Subtotal:</span>
-              <span style={{ fontWeight: "bold" }}>
-                ${((typeof product.weekdayPrice === "number" ? product.weekdayPrice : 0) * selectedQuantity).toFixed(2)}
-              </span>
+          {!isGiftCard && (
+            <div style={{ 
+              marginBottom: "1.5rem", 
+              padding: "1rem", 
+              backgroundColor: "#f8f9fa", 
+              borderRadius: "8px" 
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>Subtotal:</span>
+                <span style={{ fontWeight: "bold" }}>
+                  ${((typeof product.weekdayPrice === "number" ? product.weekdayPrice : 0) * selectedQuantity).toFixed(2)}
+                </span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="modal-footer">
@@ -88,7 +93,7 @@ export function QuantitySelectionModal({
             onClick={onConfirm}
             style={{ flex: 1 }}
           >
-            Add {selectedQuantity} to Cart
+            {isGiftCard ? `Add $${selectedQuantity} Gift Card` : `Add ${selectedQuantity} to Cart`}
           </button>
         </div>
       </div>

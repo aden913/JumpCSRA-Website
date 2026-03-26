@@ -4384,16 +4384,20 @@ export default function Profile() {
                 <div style={{ marginBottom: '0.5rem' }}>
                   <strong>Expires:</strong> {new Date(giftCardLookupResult.expirationDate).toLocaleDateString()}
                 </div>
-                <div style={{ marginBottom: '1rem' }}>
+                <div style={{ marginBottom: '0.5rem' }}>
                   <strong>Purchased:</strong> {new Date(giftCardLookupResult.purchaseDate).toLocaleDateString()}
                 </div>
               </div>
 
+              {/* Redeem to Wallet Button */}
               {giftCardLookupResult.currentBalance > 0 && (
                 <div style={{ 
-                  borderTop: '1px solid #c3e6cb',
+                  display: 'flex', 
+                  justifyContent: 'center', 
+                  gap: '1rem',
+                  marginTop: '1rem',
                   paddingTop: '1rem',
-                  textAlign: 'center'
+                  borderTop: '1px solid #c3e6cb'
                 }}>
                   <button
                     onClick={() => handleRedeemFromChecker()}
@@ -4404,7 +4408,8 @@ export default function Profile() {
                       padding: '0.75rem 1.5rem',
                       borderRadius: '4px',
                       cursor: 'pointer',
-                      fontWeight: 'bold'
+                      fontWeight: 'bold',
+                      fontSize: '1rem'
                     }}
                   >
                     💰 Add Full Balance to Wallet (${giftCardLookupResult.currentBalance.toFixed(2)})
@@ -4412,6 +4417,7 @@ export default function Profile() {
                 </div>
               )}
 
+              {/* Usage History */}
               {giftCardLookupResult.usageHistory && giftCardLookupResult.usageHistory.length > 0 && (
                 <div style={{ 
                   borderTop: '1px solid #c3e6cb',

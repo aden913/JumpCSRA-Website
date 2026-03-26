@@ -324,7 +324,7 @@ const MembershipCheckout: React.FC<MembershipCheckoutProps> = ({ onSuccess }) =>
               onClick={createSubscription}
               disabled={isProcessing}
             >
-              {isProcessing ? 'Creating Subscription...' : 'Subscribe with PayPal'}
+              {isProcessing ? 'Creating Subscription...' : 'Subscribe '}
             </button>
           </div>
 

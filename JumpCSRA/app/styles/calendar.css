@@ -96,6 +96,9 @@ width:100%;
   cursor: pointer;
   font-size: 1rem;
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  transition: all 0.2s ease;
 }
 .wetdry-option-label > * {
   margin: 0 0.25rem;
@@ -103,12 +106,18 @@ width:100%;
 
 .wetdry-option-label.selected {
   font-weight: bold;
-  color: var(--coral);
+  color: white;
+  background: #51CBC2 !important;
 }
 
 .wetdry-option-label:not(.selected) {
   font-weight: normal;
-  color: var(--lightBlue);
+  color: var(--lightGray);
+  background: transparent;
+}
+
+.wetdry-option-label:not(.selected):hover {
+  background: rgba(81, 203, 194, 0.2);
 }
 
 .wetdry-option-input {

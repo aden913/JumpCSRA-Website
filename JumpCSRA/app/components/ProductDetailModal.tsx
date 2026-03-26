@@ -39,7 +39,8 @@ export function ProductDetailModal({
   if (!open || !product) return null;
 
   const isPartyEssential = product.category === 'party-essentials';
-  const quantityOptions = isPartyEssential && getQuantityOptions ? getQuantityOptions(product.name) : [];
+  const isGiftCard = product.category === 'gift-card' || product.isGiftCard;
+  const quantityOptions = isGiftCard ? [50, 100] : (isPartyEssential && getQuantityOptions ? getQuantityOptions(product.name) : []);
   const availableQuantity = isPartyEssential && getAvailableQuantityForItem ? getAvailableQuantityForItem(product.name) : 0;
   const availability = isPartyEssential && itemAvailability ? itemAvailability.get(product.name) : null;
 
@@ -107,6 +108,29 @@ export function ProductDetailModal({
                 )}
               </>
             )}
+            
+            {isGiftCard && (
+              <>
+                <br />
+                <br />
+                <div style={{ marginTop: '1rem' }}>
+                  <strong>Gift Card Value:</strong>
+                  <select 
+                    value={selectedQuantity} 
+                    onChange={(e) => setSelectedQuantity(Number(e.target.value))}
+                    style={{ 
+                      marginLeft: '10px', 
+                      padding: '5px 10px', 
+                      borderRadius: '4px',
+                      border: '1px solid #ccc'
+                    }}
+                  >
+                    <option value={50}>$50</option>
+                    <option value={100}>$100</option>
+                  </select>
+                </div>
+              </>
+            )}
           </div>
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginTop: "2rem" }}>
@@ -114,7 +138,7 @@ export function ProductDetailModal({
             className="modal-purchase"
             onClick={() => {
               if (onPurchase && product) {
-                const quantity = isPartyEssential ? selectedQuantity : 1;
+                const quantity = (isPartyEssential || isGiftCard) ? selectedQuantity : 1;
                 onPurchase({
                   ...product,
                   wetDry: wetDryLabel,
@@ -127,9 +151,9 @@ export function ProductDetailModal({
               { backgroundColor: "#ccc", cursor: "not-allowed" } : {}
             }
           >
-            {isPartyEssential && selectedQuantity > 1 ? 
-              `Add ${selectedQuantity} to Cart` : 
-              'Add to Cart'
+            {isGiftCard ? `Add $${selectedQuantity} Gift Card` : 
+             isPartyEssential && selectedQuantity > 1 ? `Add ${selectedQuantity} to Cart` : 
+             'Add to Cart'
             }
           </button>
           <button className="modal-close" onClick={onClose}>

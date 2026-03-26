@@ -250,6 +250,12 @@ export default function Checkout() {
   const [tipAmount, setTipAmount] = useState<number>(0);
   const [eventNotes, setEventNotes] = useState<string>('');
   
+  // Promo code state
+  const [promoCode, setPromoCode] = useState<string>("");
+  const [appliedPromoCode, setAppliedPromoCode] = useState<any>(null);
+  const [promoCodeError, setPromoCodeError] = useState<string | null>(null);
+  const [checkingPromoCode, setCheckingPromoCode] = useState<boolean>(false);
+  
   // Store completed order data for display after cart is cleared
   const [completedOrderCart, setCompletedOrderCart] = useState<CartItem[]>([]);
   
@@ -1896,9 +1902,34 @@ export default function Checkout() {
   const surfaceAdj = cartSettings.surface ? (surfacePrices[cartSettings.surface] || 0) * nonGiftCardItemCount : 0;
   const timeAdj = cartSettings.deliveryTime ? (timePrices[cartSettings.deliveryTime] || 0) * uniqueNonGiftCardItemCount : 0;
   const pickupFee = cartSettings.duration && pickupTimeFees[cartSettings.duration] ? pickupTimeFees[cartSettings.duration] : 0;
+  
+  // Calculate promo discount amount
+  const calculatePromoDiscount = (): number => {
+    if (!appliedPromoCode) return 0;
+    
+    const baseSubtotal = cart.reduce((sum, item) => {
+      if (item.isGiftCard) {
+        return sum + (item.giftCardValue || item.price) * item.quantity;
+      }
+      return sum + item.price * item.quantity;
+    }, 0);
+    
+    const totalBeforeTax = baseSubtotal + surfaceAdj + timeAdj + pickupFee + lastMinuteTotal;
+    
+    if (appliedPromoCode.type === 'percent') {
+      return totalBeforeTax * appliedPromoCode.value;
+    } else {
+      return Math.min(appliedPromoCode.value, totalBeforeTax);
+    }
+  };
+  
   const subtotalBeforeDiscount = cartTotal + lastMinuteTotal + surfaceAdj + timeAdj + pickupFee;
-  // Apply discount before calculating tax
-  const discountAmount = discountCalculation?.discountAmount || 0;
+  
+  // Apply either discount OR promo code (not both)
+  const regularDiscountAmount = discountCalculation?.discountAmount || 0;
+  const promoDiscountAmount = calculatePromoDiscount();
+  const discountAmount = appliedPromoCode ? promoDiscountAmount : regularDiscountAmount;
+  
   const subtotal = Math.max(0, subtotalBeforeDiscount - discountAmount);
   
   // Calculate sales tax only on non-gift-card items (gift cards are not taxable)
@@ -2082,9 +2113,23 @@ export default function Checkout() {
     return availableToAdd;
   };
 
+  // Get raw available quantity for party essentials (doesn't subtract cart or current lastMinute quantity)
+  // Used when changing quantity in party essentials step - user sets absolute quantity, not adding more
+  const getAvailableQuantityForPartyEssentials = (itemName: string): number => {
+    const availability = itemAvailability.get(itemName);
+    if (!availability) {
+      return 1; // Default to 1 if no availability data
+    }
+    return Math.max(1, availability.availableQuantity);
+  };
+
   // Generate quantity options based on availability (similar to CartSidebar)
   const getQuantityOptions = (itemName: string): number[] => {
-    const maxQuantity = Math.max(1, getAvailableQuantityForItem(itemName));
+    const maxQuantity = getAvailableQuantityForPartyEssentials(itemName);
+    // Hide dropdown if only 1 is available
+    if (maxQuantity === 1) {
+      return [1];
+    }
     const options = Array.from({ length: maxQuantity }, (_, i) => i + 1);
     
     return options;
@@ -2188,6 +2233,83 @@ export default function Checkout() {
     if (!carouselRef.current) return false;
     const maxScroll = carouselRef.current.scrollWidth - carouselRef.current.clientWidth;
     return carouselScrollPosition < maxScroll - 10; // -10 for small buffer
+  };
+
+  // Promo code functions
+  const handleApplyPromoCode = async () => {
+    if (!promoCode.trim()) return;
+    
+    setCheckingPromoCode(true);
+    setPromoCodeError('');
+    
+    try {
+      const database = getDatabase();
+      const dbRef = ref(database, `dashboardInformation/discounts`);
+      const snapshot = await get(dbRef);
+      
+      if (!snapshot.exists()) {
+        setPromoCodeError('Invalid promo code');
+        setCheckingPromoCode(false);
+        return;
+      }
+      
+      const discounts = snapshot.val();
+      const discountEntry = Object.values(discounts).find(
+        (d: any) => d.code?.toUpperCase() === promoCode.toUpperCase()
+      );
+      
+      if (!discountEntry) {
+        setPromoCodeError('Invalid promo code');
+        setCheckingPromoCode(false);
+        return;
+      }
+      
+      const discount = discountEntry as any;
+      
+      // Check expiration date
+      if (discount.endDate) {
+        const endDate = new Date(discount.endDate);
+        const now = new Date();
+        if (now > endDate) {
+          setPromoCodeError('This promo code has expired');
+          setCheckingPromoCode(false);
+          return;
+        }
+      }
+      
+      // Apply the promo code
+      setAppliedPromoCode({
+        code: discount.code,
+        description: discount.description || '',
+        value: discount.value || 0,
+        type: discount.type || 'static'
+      });
+      
+      setPromoCode('');
+      setCheckingPromoCode(false);
+      
+      notifications.show({
+        title: 'Promo Code Applied!',
+        message: `${discount.code} has been applied to your order`,
+        color: 'green',
+      });
+    } catch (error) {
+      console.error('Error checking promo code:', error);
+      setPromoCodeError('Error validating promo code');
+      setCheckingPromoCode(false);
+    }
+  };
+
+  const handleRemovePromoCode = () => {
+    setAppliedPromoCode(null);
+    setPromoCode('');
+    setPromoCodeError('');
+    
+    notifications.show({
+      title: 'Promo Code Removed',
+      message: 'The promo code has been removed from your order',
+      color: 'blue',
+    });
   };
 
   // Signature handling functions
@@ -4810,7 +4932,20 @@ export default function Checkout() {
               walletBalance={userWallet?.balance || 0}
               userName={user?.displayName || undefined}
               isLoggedIn={!!user}
-          searchBarComponent={
+              cartCount={cart.reduce((sum: number, item: CartItem) => sum + item.quantity, 0)}
+              cartSubtotal={subtotal} // Use discounted subtotal
+              selectedDates={calendarDateRange}
+              onNavClick={(type: string) => {
+                if (type === "Calendar") {
+                  // Save current state and navigate to home with calendar open
+                  navigate('/home?openCalendar=true');
+                } else if (type === "Cart") {
+                  // Cart is non-clickable on checkout page - do nothing
+                  return;
+                }
+              }}
+              hideCartIcon={false} // Show cart icon but make it non-clickable
+            searchBarComponent={
             <SearchBar
               inflateables={inflateables}
               categories={categories}
@@ -4828,7 +4963,7 @@ export default function Checkout() {
               }}
             />
           }
-        />
+            />
       <div className="checkout-container">
      
 
@@ -5192,7 +5327,7 @@ export default function Checkout() {
                             border: '1px solid #ddd',
                             fontSize: '1rem',
                             marginRight: '0.5rem',
-                            minWidth: '100px'
+                            minWidth: '150px'
                           }}
                         >
                           {item.category === 'party-essentials' ? (
@@ -5672,7 +5807,7 @@ export default function Checkout() {
                       }}>
                         <span style={{ color: '#212529' }}>
                           <span style={{ fontSize: '0.85rem', color: '#6c757d' }}>Optional: </span>
-                          Pickup same day after 5pm
+                          Late Pickup Times
                         </span>
                         <select 
                           value={latePickup}
@@ -5711,38 +5846,151 @@ export default function Checkout() {
                 backgroundColor: 'white',
                 marginTop: '1rem'
               }}>
-                <p style={{
+                <div style={{
                   margin: 0,
                   fontSize: '1rem',
-                  color: '#495057'
+                  color: '#495057',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.5rem'
                 }}>
-                  <strong style={{ color: '#212529' }}>Event Dates:</strong>{' '}
                   {(() => {
                     const startDate = calendarDateRange[0];
                     const endDate = calendarDateRange[1];
-                    if (!startDate || !endDate) return 'Not selected';
+                    if (!startDate || !endDate) return <p style={{ margin: 0 }}><strong style={{ color: '#212529' }}>Event Dates:</strong> Not selected</p>;
                     
-                    const timeDisplay = cartSettings.deliveryTime ? ` at ${cartSettings.deliveryTime}` : '';
+                    // Calculate event start and end times
+                    const eventStart = calculateEventStart(startDate, cartSettings.deliveryTime || '');
+                    const eventEnd = calculateEventEnd(eventStart, cartSettings.duration || '24hours');
                     
-                    if (cartSettings.duration === '4hours') {
-                      return `${startDate.toLocaleDateString()}${timeDisplay}`;
-                    } else if (cartSettings.duration === '24hours' || cartSettings.duration.startsWith('24hours-pickup')) {
-                      const nextDay = new Date(startDate);
-                      nextDay.setDate(nextDay.getDate() + 1);
-                      return `${startDate.toLocaleDateString()} - ${nextDay.toLocaleDateString()}${timeDisplay}`;
-                    } else if (cartSettings.duration === '48hours') {
-                      const twoDaysLater = new Date(startDate);
-                      twoDaysLater.setDate(twoDaysLater.getDate() + 2);
-                      return `${startDate.toLocaleDateString()} - ${twoDaysLater.toLocaleDateString()}${timeDisplay}`;
-                    } else {
-                      return `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}${timeDisplay}`;
-                    }
+                    // Format date and time
+                    const formatDateTime = (date: Date) => {
+                      const dateStr = date.toLocaleDateString();
+                      const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                      return `${dateStr} ${timeStr}`;
+                    };
+                    
+                    return (
+                      <>
+                        <p style={{ margin: 0 }}>
+                          <strong style={{ color: '#212529' }}>Event Start:</strong> {formatDateTime(eventStart)}
+                        </p>
+                        <p style={{ margin: 0 }}>
+                          <strong style={{ color: '#212529' }}>Event End:</strong> {formatDateTime(eventEnd)}
+                        </p>
+                      </>
+                    );
                   })()}
-                </p>
+                </div>
               </div>
             </div>
           ) : null;
         })()}
+
+        {/* Promo Code Section - Only show if no regular discounts are active */}
+        {!discountCalculation?.hasValidDiscount && cart.some(item => !item.isGiftCard && !item.isMembership) && (
+          <div style={{
+            backgroundColor: '#f8f9fa',
+            border: '2px solid #007bff',
+            borderRadius: '12px',
+            padding: '1.5rem',
+            marginTop: '1.5rem',
+            marginBottom: '1.5rem'
+          }}>
+            <h4 style={{
+              margin: '0 0 1rem 0',
+              color: '#007bff',
+              fontSize: '1.1rem',
+              fontWeight: '600'
+            }}>
+              🎟️ Have a Promo Code?
+            </h4>
+            
+            {!appliedPromoCode ? (
+              <>
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <input
+                    type="text"
+                    value={promoCode}
+                    onChange={(e) => {
+                      setPromoCode(e.target.value.toUpperCase());
+                      setPromoCodeError(null);
+                    }}
+                    placeholder="Enter promo code"
+                    style={{
+                      flex: 1,
+                      padding: '0.75rem',
+                      border: '2px solid #ddd',
+                      borderRadius: '6px',
+                      fontSize: '1rem',
+                      textTransform: 'uppercase'
+                    }}
+                    disabled={checkingPromoCode}
+                  />
+                  <button
+                    onClick={handleApplyPromoCode}
+                    disabled={checkingPromoCode || !promoCode.trim()}
+                    style={{
+                      backgroundColor: checkingPromoCode || !promoCode.trim() ? '#ccc' : '#007bff',
+                      color: 'white',
+                      border: 'none',
+                      padding: '0.75rem 1.5rem',
+                      borderRadius: '6px',
+                      cursor: checkingPromoCode || !promoCode.trim() ? 'not-allowed' : 'pointer',
+                      fontSize: '1rem',
+                      fontWeight: 'bold',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {checkingPromoCode ? 'Checking...' : 'Apply'}
+                  </button>
+                </div>
+                {promoCodeError && (
+                  <div style={{
+                    color: '#dc3545',
+                    fontSize: '0.9rem',
+                    marginTop: '0.5rem'
+                  }}>
+                    {promoCodeError}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div style={{ 
+                backgroundColor: '#d4edda', 
+                border: '2px solid #28a745',
+                borderRadius: '8px',
+                padding: '1rem'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 'bold', color: '#155724', marginBottom: '0.25rem' }}>
+                      ✓ {appliedPromoCode.code}
+                    </div>
+                    <div style={{ fontSize: '0.9rem', color: '#155724' }}>
+                      {appliedPromoCode.description}
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleRemovePromoCode}
+                    style={{
+                      backgroundColor: '#dc3545',
+                      color: 'white',
+                      border: 'none',
+                      padding: '0.5rem 1rem',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Pricing Breakdown */}
         <div className="pricing-breakdown">
@@ -5800,7 +6048,7 @@ export default function Checkout() {
           )}
           
           {/* Discount Display */}
-          {discountCalculation?.hasValidDiscount && discountCalculation?.discountAmount > 0 && (
+          {((discountCalculation?.hasValidDiscount && discountCalculation?.discountAmount > 0) || appliedPromoCode) && (
             <>
               <div className="pricing-row" style={{ 
                 color: '#4CAF50', 
@@ -5810,26 +6058,38 @@ export default function Checkout() {
                 marginTop: '0.5rem'
               }}>
                 <span>
-                   Discount ({
-                    discountCalculation.appliedDiscount === 'sunday10' ? 'Sunday 10% Off' :
-                    discountCalculation.appliedDiscount === 'freeGame' ? 'Free Game' :
-                    discountCalculation.appliedDiscount === 'bogoGiftCard' ? 'BOGO Gift Card' :
-                    'Promo'
-                  }):
-                  {discountCalculation.freeItemId && (() => {
-                    const freeItem = cart.find(item => item.id === discountCalculation.freeItemId);
-                    return freeItem ? (
-                      <div style={{ fontSize: '0.85rem', fontWeight: 'normal', color: '#666', marginTop: '2px' }}>
-                        └ {freeItem.name} (FREE)
-                      </div>
-                    ) : null;
-                  })()}
+                  {appliedPromoCode ? (
+                    <>Discount (Promo: {appliedPromoCode.code}):</>
+                  ) : (
+                    <>
+                      Discount ({
+                        discountCalculation.appliedDiscount === 'sunday10' ? 'Sunday 10% Off' :
+                        discountCalculation.appliedDiscount === 'freeGame' ? 'Free Game' :
+                        discountCalculation.appliedDiscount === 'bogoGiftCard' ? 'BOGO Gift Card' :
+                        'Promo'
+                      }):
+                      {discountCalculation.freeItemId && (() => {
+                        const freeItem = cart.find(item => item.id === discountCalculation.freeItemId);
+                        return freeItem ? (
+                          <div style={{ fontSize: '0.85rem', fontWeight: 'normal', color: '#666', marginTop: '2px' }}>
+                            └ {freeItem.name} (FREE)
+                          </div>
+                        ) : null;
+                      })()}
+                    </>
+                  )}
                 </span>
                 <span>
-                  <span style={{ textDecoration: 'line-through', color: '#888', marginRight: '8px' }}>
-                    ${(subtotal + discountCalculation.discountAmount).toFixed(2)}
-                  </span>
-                  -${discountCalculation.discountAmount.toFixed(2)}
+                  {appliedPromoCode ? (
+                    <>-${calculatePromoDiscount().toFixed(2)}</>
+                  ) : (
+                    <>
+                      <span style={{ textDecoration: 'line-through', color: '#888', marginRight: '8px' }}>
+                        ${(subtotal + discountCalculation.discountAmount).toFixed(2)}
+                      </span>
+                      -${discountCalculation.discountAmount.toFixed(2)}
+                    </>
+                  )}
                 </span>
               </div>
               <div style={{ 
@@ -5841,7 +6101,7 @@ export default function Checkout() {
                 marginTop: '0.5rem',
                 marginBottom: '0.5rem'
               }}>
-                 <strong>One-time use:</strong> This discount can only be used once per account.
+                ⚠️ <strong>One-time use:</strong> This discount can only be used once per account.
               </div>
             </>
           )}
@@ -6919,6 +7179,100 @@ export default function Checkout() {
             </p>
           </div>
           
+          {/* Promo Code Section - Only show if no regular discount is active */}
+          {!discountCalculation?.hasValidDiscount && (
+            <div style={{
+              backgroundColor: 'white',
+              marginBottom: '1rem',
+              padding: '1rem',
+              borderRadius: '4px',
+              border: '1px solid #dee2e6'
+            }}>
+              <h3 style={{ margin: '0 0 0.75rem 0', fontSize: '1rem', color: '#333' }}>Promo Code</h3>
+              {!appliedPromoCode ? (
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
+                  <div style={{ flex: 1 }}>
+                    <input
+                      type="text"
+                      value={promoCode}
+                      onChange={(e) => {
+                        setPromoCode(e.target.value.toUpperCase());
+                        setPromoCodeError('');
+                      }}
+                      placeholder="Enter promo code"
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem',
+                        border: `1px solid ${promoCodeError ? '#dc3545' : '#ced4da'}`,
+                        borderRadius: '4px',
+                        fontSize: '0.95rem',
+                        textTransform: 'uppercase',
+                        color: '#495057'
+                      }}
+                      disabled={checkingPromoCode}
+                    />
+                    {promoCodeError && (
+                      <div style={{ color: '#dc3545', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+                        {promoCodeError}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleApplyPromoCode}
+                    disabled={!promoCode.trim() || checkingPromoCode}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      backgroundColor: !promoCode.trim() || checkingPromoCode ? '#6c757d' : '#28a745',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      fontSize: '0.95rem',
+                      cursor: !promoCode.trim() || checkingPromoCode ? 'not-allowed' : 'pointer',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {checkingPromoCode ? 'Checking...' : 'Apply'}
+                  </button>
+                </div>
+              ) : (
+                <div style={{
+                  backgroundColor: '#d4edda',
+                  border: '1px solid #c3e6cb',
+                  borderRadius: '4px',
+                  padding: '0.75rem',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <div>
+                    <div style={{ color: '#155724', fontWeight: 'bold', marginBottom: '0.25rem' }}>
+                      ✓ Promo code applied: {appliedPromoCode.code}
+                    </div>
+                    {appliedPromoCode.description && (
+                      <div style={{ color: '#155724', fontSize: '0.85rem' }}>
+                        {appliedPromoCode.description}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={handleRemovePromoCode}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      backgroundColor: '#dc3545',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      fontSize: '0.9rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          
           {/* Detailed Pricing Breakdown */}
           <div style={{ 
             marginBottom: '2rem', 
@@ -6985,7 +7339,7 @@ export default function Checkout() {
               )}
               
               {/* Discount Display */}
-              {discountCalculation?.hasValidDiscount && discountCalculation?.discountAmount > 0 && (
+              {((discountCalculation?.hasValidDiscount && discountCalculation?.discountAmount > 0) || appliedPromoCode) && (
                 <>
                   <div className="pricing-row" style={{ 
                     color: '#4CAF50', 
@@ -6995,26 +7349,38 @@ export default function Checkout() {
                     marginTop: '0.5rem'
                   }}>
                     <span>
-                      Discount ({
-                        discountCalculation.appliedDiscount === 'sunday10' ? 'Sunday 10% Off' :
-                        discountCalculation.appliedDiscount === 'freeGame' ? 'Free Game' :
-                        discountCalculation.appliedDiscount === 'bogoGiftCard' ? 'BOGO Gift Card' :
-                        'Promo'
-                      }):
-                      {discountCalculation.freeItemId && (() => {
-                        const freeItem = cart.find(item => item.id === discountCalculation.freeItemId);
-                        return freeItem ? (
-                          <div style={{ fontSize: '0.85rem', fontWeight: 'normal', color: '#666', marginTop: '2px' }}>
-                            └ {freeItem.name} (FREE)
-                          </div>
-                        ) : null;
-                      })()}
+                      {appliedPromoCode ? (
+                        <>Discount (Promo: {appliedPromoCode.code}):</>
+                      ) : (
+                        <>
+                          Discount ({
+                            discountCalculation.appliedDiscount === 'sunday10' ? 'Sunday 10% Off' :
+                            discountCalculation.appliedDiscount === 'freeGame' ? 'Free Game' :
+                            discountCalculation.appliedDiscount === 'bogoGiftCard' ? 'BOGO Gift Card' :
+                            'Promo'
+                          }):
+                          {discountCalculation.freeItemId && (() => {
+                            const freeItem = cart.find(item => item.id === discountCalculation.freeItemId);
+                            return freeItem ? (
+                              <div style={{ fontSize: '0.85rem', fontWeight: 'normal', color: '#666', marginTop: '2px' }}>
+                                └ {freeItem.name} (FREE)
+                              </div>
+                            ) : null;
+                          })()}
+                        </>
+                      )}
                     </span>
                     <span>
-                      <span style={{ textDecoration: 'line-through', color: '#888', marginRight: '8px' }}>
-                        ${(subtotal + discountCalculation.discountAmount).toFixed(2)}
-                      </span>
-                      -${discountCalculation.discountAmount.toFixed(2)}
+                      {appliedPromoCode ? (
+                        <>-${calculatePromoDiscount().toFixed(2)}</>
+                      ) : (
+                        <>
+                          <span style={{ textDecoration: 'line-through', color: '#888', marginRight: '8px' }}>
+                            ${(subtotal + discountCalculation.discountAmount).toFixed(2)}
+                          </span>
+                          -${discountCalculation.discountAmount.toFixed(2)}
+                        </>
+                      )}
                     </span>
                   </div>
                   <div style={{ 
@@ -7026,7 +7392,7 @@ export default function Checkout() {
                     marginTop: '0.5rem',
                     marginBottom: '0.5rem'
                   }}>
-                     <strong>One-time use:</strong> This discount can only be used once per account.
+                    ⚠️ <strong>One-time use:</strong> This discount can only be used once per account.
                   </div>
                 </>
               )}
@@ -8080,45 +8446,51 @@ export default function Checkout() {
               <p style={{ color: '#666', fontStyle: 'italic' }}>Checking availability...</p>
             ) : (
               <>
-                {getAvailableQuantityForItem(showQuantityModal || '') === 0 ? (
+                {getAvailableQuantityForPartyEssentials(showQuantityModal || '') === 0 ? (
                   <p style={{ color: '#dc3545', fontWeight: 'bold' }}>
                     No more {showQuantityModal} available for your selected dates.
                   </p>
                 ) : (
                   <>
                     <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '1rem' }}>
-                      Available: {getAvailableQuantityForItem(showQuantityModal || '')} items
+                      Available: {getAvailableQuantityForPartyEssentials(showQuantityModal || '')} {getAvailableQuantityForPartyEssentials(showQuantityModal || '') === 1 ? 'item' : 'items'}
                     </p>
-                    <div style={{ marginBottom: '1.5rem' }}>
-                      <label htmlFor="quantity-select" style={{ 
-                        display: 'block', 
-                        marginBottom: '0.5rem',
-                        fontWeight: 'bold',
-                        color: '#333'
-                      }}>
-                        Quantity:
-                      </label>
-                      <select
-                        id="quantity-select"
-                        value={selectedQuantity}
-                        onChange={(e) => setSelectedQuantity(parseInt(e.target.value))}
-                        style={{
-                          width: '100%',
-                          padding: '0.75rem',
-                          fontSize: '1rem',
-                          border: '2px solid #ddd',
-                          borderRadius: '4px',
-                          backgroundColor: 'white',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {getQuantityOptions(showQuantityModal || '').map(qty => (
-                          <option key={qty} value={qty}>
-                            {qty}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    {getQuantityOptions(showQuantityModal || '').length > 1 ? (
+                      <div style={{ marginBottom: '1.5rem' }}>
+                        <label htmlFor="quantity-select" style={{ 
+                          display: 'block', 
+                          marginBottom: '0.5rem',
+                          fontWeight: 'bold',
+                          color: '#333'
+                        }}>
+                          Quantity:
+                        </label>
+                        <select
+                          id="quantity-select"
+                          value={selectedQuantity}
+                          onChange={(e) => setSelectedQuantity(parseInt(e.target.value))}
+                          style={{
+                            width: '100%',
+                            padding: '0.75rem',
+                            fontSize: '1rem',
+                            border: '2px solid #ddd',
+                            borderRadius: '4px',
+                            backgroundColor: 'white',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {getQuantityOptions(showQuantityModal || '').map(qty => (
+                            <option key={qty} value={qty}>
+                              {qty}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <p style={{ marginBottom: '1.5rem', fontSize: '1rem', color: '#333' }}>
+                        Quantity: <strong>1</strong>
+                      </p>
+                    )}
                     <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                       <button
                         id="btn-quantity-submit"

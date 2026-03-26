@@ -704,6 +704,7 @@ function datesOverlap(
 }
 
 function getBookedItemQuantity(items: any[], itemName: string): number {
-  const item = items.find((item: any) => item.name === itemName);
+  // Skip gift cards from availability check
+  const item = items.find((item: any) => item.name === itemName && !item.isGiftCard);
   return item ? (item.quantity || 1) : 0;
 }

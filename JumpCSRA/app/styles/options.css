@@ -230,6 +230,7 @@
   border-radius: 0 !important;
   padding: 0.7rem 2rem;
   font-weight: bolder;
+  margin: 0;
 }
 .swiper-slide {
   flex-shrink: 0;
