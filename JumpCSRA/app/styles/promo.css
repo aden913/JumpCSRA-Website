@@ -4,12 +4,13 @@
 /* Promo cards styles */
 .promo-cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  margin-top: 1.2rem;
-  width: 90%;
-}
-.promo-cards > * {
-  margin: 0.75rem;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+  margin-top: 1.5rem;
+  width: 60%;
+  justify-content: center;
+  margin-left: auto;
+  margin-right: auto;
 }
 .promo-card {
   background: #fff;
@@ -17,8 +18,8 @@
   font-weight: bolder;
   -webkit-border-radius: 32px;
   border-radius: 32px;
-  padding: 2rem 1.5rem;
-  min-height: 250px;
+  padding: 1.8rem 1.5rem;
+  min-height: 17rem;
   display: -webkit-flex;
   display: -ms-flexbox;
   display: flex;
@@ -36,8 +37,10 @@
   -webkit-transition: all 0.3s ease;
   transition: all 0.3s ease;
   cursor: pointer;
-  width: 16rem;
-  height: 23rem;
+  width: 13rem;
+  max-width: 13rem;
+  height: auto;
+  justify-self: center;
 }
 .promo-card:hover {
   -webkit-transform: translateY(-3px);
@@ -47,20 +50,20 @@
   box-shadow: 0 6px 20px rgba(0,0,0,0.15);
 }
 .promo-card img {
-  width: 10rem;
-  height: 10rem;
-  margin-bottom: 0.5rem;
+  width: 9rem;
+  height: 9rem;
+  margin-bottom: 0.8rem;
   margin-top: auto;
 }
 .promo-title {
   text-align: center;
-  font-size: 2rem;
+  font-size: 1.8rem;
   white-space: pre-line;
-  margin-bottom: 0.5rem;
-  line-height: 2rem;
+  margin-bottom: 0.8rem;
+  line-height: 1.9rem;
 }
 .promo-subtext {
-  font-size: 1rem;
-  line-height: 1.2;
+  font-size: 0.95rem;
+  line-height: 1.15rem;
   margin-bottom: -0.3rem;
 }

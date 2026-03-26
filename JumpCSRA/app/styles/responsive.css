@@ -1365,34 +1365,43 @@ font-size: .9rem;
     display: block !important;
   }
 
-  /* Desktop: Keep original 4-column grid for promo cards */
+  /* Desktop: 2x2 grid for promo cards */
   .promo-cards {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 1.5rem;
-    margin-top: 1.2rem;
-    width: 90%;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 2rem !important;
+    margin-top: 1.5rem !important;
+    width: 60% !important;
+    justify-content: center;
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .promo-card {
-    width: 16rem;
-    height: 23rem;
-    padding: 2rem 1.5rem;
+    width: 13rem !important;
+    max-width: 13rem !important;
+    height: auto !important;
+    min-height: 17rem !important;
+    padding: 1.8rem 1.5rem !important;
+    border-radius: 24px !important;
+    justify-self: center;
   }
 
   .promo-card img {
-    width: 10rem;
-    height: 10rem;
+    width: 9rem !important;
+    height: 9rem !important;
+    margin-bottom: 0.8rem !important;
   }
 
   .promo-title {
-    font-size: 2rem;
-    line-height: 2rem;
+    font-size: 1.8rem !important;
+    line-height: 1.9rem !important;
+    margin-bottom: 0.8rem !important;
   }
 
   .promo-subtext {
-    font-size: 1rem;
-    line-height: 1.2;
+    font-size: 0.95rem !important;
+    line-height: 1.15rem !important;
   }
 }
 
@@ -1406,10 +1415,32 @@ font-size: .9rem;
     padding: 2rem 0;
   }
 
-  /* Desktop layout preserved */
+  /* Desktop layout - 2x2 grid with larger cards */
   .promo-cards {
-    gap: 2rem;
-    margin-top: 1.5rem;
+    gap: 2.5rem !important;
+    margin-top: 1.8rem !important;
+    width: 55% !important;
+  }
+
+  .promo-card {
+    width: 14rem !important;
+    max-width: 14rem !important;
+    min-height: 18rem !important;
+    padding: 2rem 1.6rem !important;
+  }
+
+  .promo-card img {
+    width: 9.5rem !important;
+    height: 9.5rem !important;
+  }
+
+  .promo-title {
+    font-size: 1.9rem !important;
+    line-height: 2rem !important;
+  }
+
+  .promo-subtext {
+    font-size: 1rem !important;
   }
 }
 
@@ -1423,42 +1454,31 @@ font-size: .9rem;
     padding: 2.5rem 0;
   }
 
-  /* Desktop layout preserved */
+  /* Desktop layout - 2x2 grid with even larger cards */
   .promo-cards {
-    gap: 2.5rem;
-    margin-top: 2rem;
+    gap: 3rem !important;
+    margin-top: 2rem !important;
+    width: 50% !important;
   }
-}
 
-/* Small laptops ( 1024px) */
-@media (min-width: 1024px) {
-  .landing-page {
-    font-size: 0.85rem;
+  .promo-card {
+    width: 15rem !important;
+    max-width: 15rem !important;
+    min-height: 19rem !important;
+    padding: 2.2rem 1.8rem !important;
   }
-  .main-section {
-    width: 85%;
-    padding: 1.2rem 0;
-  }
-}
 
-/* Desktop ( 1280px) */
-@media (min-width: 1280px) {
-  .landing-page {
-    font-size: 0.9rem;
+  .promo-card img {
+    width: 10rem !important;
+    height: 10rem !important;
   }
-  .main-section {
-    width: 80%;
-    padding: 1.5rem 0;
-  }
-}
 
-/* Large desktop ( 1536px) */
-@media (min-width: 1536px) {
-  .landing-page {
-    font-size: 0.95rem;
+  .promo-title {
+    font-size: 2rem !important;
+    line-height: 2.1rem !important;
   }
-  .main-section {
-    width: 75%;
-    padding: 1.8rem 0;
+
+  .promo-subtext {
+    font-size: 1.05rem !important;
   }
 }
