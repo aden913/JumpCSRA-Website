@@ -2137,8 +2137,8 @@ export default function Checkout() {
 
   // Add item to last-minute additions
   const handleAddLastMinuteItem = (itemName: string, quantity: number) => {
-    // Defensive validation
-    if (!quantity || quantity < 1) {
+    // Defensive validation - allow 0 for removal
+    if (quantity == null || quantity < 0) {
       console.error('❌ Invalid quantity:', quantity, 'for item:', itemName);
       notifications.show({
         title: 'Invalid Quantity',
@@ -2148,19 +2148,21 @@ export default function Checkout() {
       return;
     }
     
-    // Validate availability before adding
-    const availableQuantity = getAvailableQuantityForItem(itemName);
-    
-    if (quantity > availableQuantity) {
-      notifications.show({
-        title: 'Insufficient Availability',
-        message: `Only ${availableQuantity} of ${itemName} available for your selected dates.`,
-        color: 'red',
-      });
-      return;
+    // Validate availability before adding (skip for removal)
+    if (quantity > 0) {
+      const availableQuantity = getAvailableQuantityForItem(itemName);
+      
+      if (quantity > availableQuantity) {
+        notifications.show({
+          title: 'Insufficient Availability',
+          message: `Only ${availableQuantity} of ${itemName} available for your selected dates.`,
+          color: 'red',
+        });
+        return;
+      }
     }
     
-    console.log(`✅ Adding ${itemName}: quantity=${quantity}, price will be calculated as price*${quantity}`);
+    console.log(`✅ ${quantity === 0 ? 'Removing' : 'Adding'} ${itemName}: quantity=${quantity}, price will be calculated as price*${quantity}`);
     
     setLastMinuteAdditions(prev => ({
       ...prev,
@@ -5891,7 +5893,7 @@ export default function Checkout() {
         {!discountCalculation?.hasValidDiscount && cart.some(item => !item.isGiftCard && !item.isMembership) && (
           <div style={{
             backgroundColor: '#f8f9fa',
-            border: '2px solid #007bff',
+            border: '2px solid var(--darkBlue)',
             borderRadius: '12px',
             padding: '1.5rem',
             marginTop: '1.5rem',
@@ -5899,11 +5901,11 @@ export default function Checkout() {
           }}>
             <h4 style={{
               margin: '0 0 1rem 0',
-              color: '#007bff',
+              color: 'var(--darkBlue)',
               fontSize: '1.1rem',
               fontWeight: '600'
             }}>
-              🎟️ Have a Promo Code?
+              Promo Code
             </h4>
             
             {!appliedPromoCode ? (
@@ -6277,13 +6279,15 @@ export default function Checkout() {
                         <br />
                         <small style={{ color: '#666' }}>(includes ${itemTax.toFixed(2)} tax)</small>
                       </p>
-                      <button
-                        id={`btn-change-qty-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
-                        className="btn-change-qty"
-                        onClick={() => handleAddToOrderClick(item.name)}
-                      >
-                        Change Qty
-                      </button>
+                      {getAvailableQuantityForPartyEssentials(item.name) > 1 && (
+                        <button
+                          id={`btn-change-qty-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
+                          className="btn-change-qty"
+                          onClick={() => handleAddToOrderClick(item.name)}
+                        >
+                          Change Qty
+                        </button>
+                      )}
                       <button
                         id={`btn-remove-last-minute-${item.name.replace(/\s+/g, '-').toLowerCase()}`}
                         className="btn-remove-last-minute"
