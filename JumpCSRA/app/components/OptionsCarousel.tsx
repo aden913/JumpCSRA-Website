@@ -28,6 +28,7 @@ export type OptionCardProps = {
   directSelection?: boolean; // New prop to control selection behavior
   isLandingPage?: boolean; // New prop to identify landing page context
   selectedDates?: [Date | null, Date | null]; // New prop for pricing calculation
+  isGiftCard?: boolean; // Flag to identify gift card products
 };
 
 function OptionCard({
