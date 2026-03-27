@@ -11,7 +11,7 @@ import MembershipCheckout from "../components/MembershipCheckout";
 import ContractSigning from "../components/ContractSigning";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, firestore } from "../components/FirebaseConfig";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, updateDoc, arrayUnion } from "firebase/firestore";
 import { getDatabase, ref, push, set, get } from "firebase/database";
 import type { User as FirebaseUser } from "firebase/auth";
 import type { CartItem } from "../components/CartSidebar";
@@ -1923,6 +1923,45 @@ export default function Checkout() {
     }
   };
   
+  // Helper function to track discount usage in RTDB and Firestore
+  const trackDiscountUsage = async (discountInfo: { type: string; code?: string; id?: string; amount: number; description?: string }) => {
+    if (!user) return;
+    
+    try {
+      const database = getDatabase();
+      
+      // Determine discount ID and code
+      let discountId = discountInfo.id || discountInfo.type;
+      let discountCode = discountInfo.code || discountInfo.type;
+      
+      // Create entry in RTDB: userDiscountUsage/{userID}/{discountId}
+      const usageRef = ref(database, `userDiscountUsage/${user.uid}/${discountId}`);
+      await set(usageRef, {
+        discountId: discountId,
+        discountCode: discountCode,
+        discountType: discountInfo.type,
+        discountAmount: discountInfo.amount,
+        description: discountInfo.description || '',
+        usedAt: new Date().toISOString(),
+        userEmail: user.email || ''
+      });
+      
+      console.log(`✅ Discount usage tracked in RTDB: ${discountCode}`);
+      
+      // Add to Firestore usedDiscounts array
+      const userDocRef = doc(firestore, "users", user.uid);
+      await updateDoc(userDocRef, {
+        usedDiscounts: arrayUnion(discountId)
+      });
+      
+      console.log(`✅ Discount added to Firestore usedDiscounts: ${discountId}`);
+      
+    } catch (error) {
+      console.error('❌ Error tracking discount usage:', error);
+      // Don't fail the payment if tracking fails
+    }
+  };
+  
   const subtotalBeforeDiscount = cartTotal + lastMinuteTotal + surfaceAdj + timeAdj + pickupFee;
   
   // Apply either discount OR promo code (not both)
@@ -2241,6 +2280,12 @@ export default function Checkout() {
   const handleApplyPromoCode = async () => {
     if (!promoCode.trim()) return;
     
+    // Check if user has already selected a homepage discount
+    if (discountCalculation?.hasValidDiscount && discountCalculation?.appliedDiscount) {
+      setPromoCodeError('You already have a discount applied from the homepage. Remove it to use a promo code.');
+      return;
+    }
+    
     setCheckingPromoCode(true);
     setPromoCodeError('');
     
@@ -2256,8 +2301,8 @@ export default function Checkout() {
       }
       
       const discounts = snapshot.val();
-      const discountEntry = Object.values(discounts).find(
-        (d: any) => d.code?.toUpperCase() === promoCode.toUpperCase()
+      const discountEntry = Object.entries(discounts).find(
+        ([key, d]: [string, any]) => d.code?.toUpperCase() === promoCode.toUpperCase()
       );
       
       if (!discountEntry) {
@@ -2266,7 +2311,21 @@ export default function Checkout() {
         return;
       }
       
-      const discount = discountEntry as any;
+      const [discountId, discount] = discountEntry as [string, any];
+      
+      // Check if user has already used this promo code in Firestore
+      if (user) {
+        const userDocRef = doc(firestore, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+        const userData = userDoc.data();
+        const usedDiscounts = userData?.usedDiscounts || [];
+        
+        if (usedDiscounts.includes(discountId)) {
+          setPromoCodeError('You have already used this promo code');
+          setCheckingPromoCode(false);
+          return;
+        }
+      }
       
       // Check expiration date
       if (discount.endDate) {
@@ -2279,8 +2338,9 @@ export default function Checkout() {
         }
       }
       
-      // Apply the promo code
+      // Apply the promo code with ID for tracking
       setAppliedPromoCode({
+        id: discountId,
         code: discount.code,
         description: discount.description || '',
         value: discount.value || 0,
@@ -2917,13 +2977,36 @@ export default function Checkout() {
               setPaymentId(`wallet-${Date.now()}`);
               setPaymentCompleted(true);
               
-              // Mark discount as used if applicable
-              if (discountCalculation?.hasValidDiscount && discountCalculation?.appliedDiscount) {
+              // Track discount usage (homepage discounts OR promo codes) - Wallet payment for existing booking
+              if (appliedPromoCode && promoDiscountAmount > 0) {
                 try {
+                  await trackDiscountUsage({
+                    type: 'promoCode',
+                    code: appliedPromoCode.code,
+                    id: appliedPromoCode.id,
+                    amount: promoDiscountAmount,
+                    description: appliedPromoCode.description
+                  });
+                  // Clear promo code after successful use
+                  setAppliedPromoCode(null);
+                  console.log(`✅ Promo code '${appliedPromoCode.code}' tracked and cleared`);
+                } catch (discountError) {
+                  console.error('❌ Error tracking promo code usage:', discountError);
+                }
+              } else if (discountCalculation?.hasValidDiscount && discountCalculation?.appliedDiscount) {
+                try {
+                  // Track in new system
+                  await trackDiscountUsage({
+                    type: discountCalculation.appliedDiscount,
+                    amount: discountCalculation.discountAmount,
+                    description: discountCalculation.appliedDiscount === 'sunday10' ? 'Sunday 10% Off' :
+                                discountCalculation.appliedDiscount === 'freeGame' ? 'Free Game' :
+                                discountCalculation.appliedDiscount === 'bogoGiftCard' ? 'BOGO Gift Card' : 'Discount'
+                  });
+                  // Mark in old system for backward compatibility
                   const discountMarked = await markDiscountAsUsed(discountCalculation.appliedDiscount);
                   if (discountMarked) {
                     console.log(`✅ Discount '${discountCalculation.appliedDiscount}' marked as used for user`);
-                    // Clear discount state from localStorage after successful use
                     clearDiscounts();
                     console.log(`✅ Discount state cleared from localStorage`);
                   } else {
@@ -2931,7 +3014,6 @@ export default function Checkout() {
                   }
                 } catch (discountError) {
                   console.error('❌ Error marking discount as used:', discountError);
-                  // Don't fail the payment if discount marking fails
                 }
               }
               
@@ -3286,9 +3368,30 @@ export default function Checkout() {
                 }
               }
               
-              // Mark discount as used if applicable
-              if (discountCalculation?.hasValidDiscount && discountCalculation?.appliedDiscount) {
+              // Track discount usage (homepage discounts OR promo codes)
+              if (appliedPromoCode && promoDiscountAmount > 0) {
                 try {
+                  await trackDiscountUsage({
+                    type: 'promoCode',
+                    code: appliedPromoCode.code,
+                    id: appliedPromoCode.id,
+                    amount: promoDiscountAmount,
+                    description: appliedPromoCode.description
+                  });
+                  setAppliedPromoCode(null);
+                  console.log(`✅ Promo code '${appliedPromoCode.code}' tracked and cleared`);
+                } catch (discountError) {
+                  console.error('❌ Error tracking promo code usage:', discountError);
+                }
+              } else if (discountCalculation?.hasValidDiscount && discountCalculation?.appliedDiscount) {
+                try {
+                  await trackDiscountUsage({
+                    type: discountCalculation.appliedDiscount,
+                    amount: discountCalculation.discountAmount,
+                    description: discountCalculation.appliedDiscount === 'sunday10' ? 'Sunday 10% Off' :
+                                discountCalculation.appliedDiscount === 'freeGame' ? 'Free Game' :
+                                discountCalculation.appliedDiscount === 'bogoGiftCard' ? 'BOGO Gift Card' : 'Discount'
+                  });
                   const discountMarked = await markDiscountAsUsed(discountCalculation.appliedDiscount);
                   if (discountMarked) {
                     console.log(`✅ Discount '${discountCalculation.appliedDiscount}' marked as used for user`);
@@ -3549,13 +3652,33 @@ export default function Checkout() {
               setPaymentId(captureId);
               setPaymentCompleted(true);
               
-              // Mark discount as used if applicable
-              if (discountCalculation?.hasValidDiscount && discountCalculation?.appliedDiscount) {
+              // Track discount usage (homepage discounts OR promo codes) - PayPal payment for existing booking
+              if (appliedPromoCode && promoDiscountAmount > 0) {
                 try {
+                  await trackDiscountUsage({
+                    type: 'promoCode',
+                    code: appliedPromoCode.code,
+                    id: appliedPromoCode.id,
+                    amount: promoDiscountAmount,
+                    description: appliedPromoCode.description
+                  });
+                  setAppliedPromoCode(null);
+                  console.log(`✅ Promo code '${appliedPromoCode.code}' tracked and cleared`);
+                } catch (discountError) {
+                  console.error('❌ Error tracking promo code usage:', discountError);
+                }
+              } else if (discountCalculation?.hasValidDiscount && discountCalculation?.appliedDiscount) {
+                try {
+                  await trackDiscountUsage({
+                    type: discountCalculation.appliedDiscount,
+                    amount: discountCalculation.discountAmount,
+                    description: discountCalculation.appliedDiscount === 'sunday10' ? 'Sunday 10% Off' :
+                                discountCalculation.appliedDiscount === 'freeGame' ? 'Free Game' :
+                                discountCalculation.appliedDiscount === 'bogoGiftCard' ? 'BOGO Gift Card' : 'Discount'
+                  });
                   const discountMarked = await markDiscountAsUsed(discountCalculation.appliedDiscount);
                   if (discountMarked) {
                     console.log(`✅ Discount '${discountCalculation.appliedDiscount}' marked as used for user`);
-                    // Clear discount state from localStorage after successful use
                     clearDiscounts();
                     console.log(`✅ Discount state cleared from localStorage`);
                   } else {
@@ -3563,7 +3686,6 @@ export default function Checkout() {
                   }
                 } catch (discountError) {
                   console.error('❌ Error marking discount as used:', discountError);
-                  // Don't fail the payment if discount marking fails
                 }
               }
               
@@ -4162,9 +4284,30 @@ export default function Checkout() {
                 }
               }
               
-              // Mark discount as used if applicable
-              if (discountCalculation?.hasValidDiscount && discountCalculation?.appliedDiscount) {
+              // Track discount usage (homepage discounts OR promo codes)
+              if (appliedPromoCode && promoDiscountAmount > 0) {
                 try {
+                  await trackDiscountUsage({
+                    type: 'promoCode',
+                    code: appliedPromoCode.code,
+                    id: appliedPromoCode.id,
+                    amount: promoDiscountAmount,
+                    description: appliedPromoCode.description
+                  });
+                  setAppliedPromoCode(null);
+                  console.log(`✅ Promo code '${appliedPromoCode.code}' tracked and cleared`);
+                } catch (discountError) {
+                  console.error('❌ Error tracking promo code usage:', discountError);
+                }
+              } else if (discountCalculation?.hasValidDiscount && discountCalculation?.appliedDiscount) {
+                try {
+                  await trackDiscountUsage({
+                    type: discountCalculation.appliedDiscount,
+                    amount: discountCalculation.discountAmount,
+                    description: discountCalculation.appliedDiscount === 'sunday10' ? 'Sunday 10% Off' :
+                                discountCalculation.appliedDiscount === 'freeGame' ? 'Free Game' :
+                                discountCalculation.appliedDiscount === 'bogoGiftCard' ? 'BOGO Gift Card' : 'Discount'
+                  });
                   const discountMarked = await markDiscountAsUsed(discountCalculation.appliedDiscount);
                   if (discountMarked) {
                     console.log(`✅ Discount '${discountCalculation.appliedDiscount}' marked as used`);
@@ -4641,9 +4784,17 @@ export default function Checkout() {
           adjustmentSurface: parseFloat(totalSurface.toFixed(2)),
           adjustmentDelivery: parseFloat(totalDelivery.toFixed(2)),
           ...(tipAmount > 0 && { tip: tipAmount }),
-          // Store discount information
-          ...(discountCalculation?.hasValidDiscount && discountCalculation?.discountAmount > 0 && {
-            discount: {
+          // Store discount information (homepage discounts OR promo codes)
+          ...((discountCalculation?.hasValidDiscount && discountCalculation?.discountAmount > 0) || (appliedPromoCode && promoDiscountAmount > 0)) && {
+            discount: appliedPromoCode ? {
+              type: 'promoCode',
+              code: appliedPromoCode.code,
+              id: appliedPromoCode.id,
+              amount: parseFloat(promoDiscountAmount.toFixed(2)),
+              description: appliedPromoCode.description || `Promo code: ${appliedPromoCode.code}`,
+              promoType: appliedPromoCode.type,
+              promoValue: appliedPromoCode.value
+            } : {
               type: discountCalculation.appliedDiscount,
               amount: parseFloat(discountCalculation.discountAmount.toFixed(2)),
               description: 
@@ -4656,7 +4807,7 @@ export default function Checkout() {
                 addedGiftCards: discountCalculation.addedGiftCards 
               })
             }
-          })
+          }
         },
         paymentDetails: {
           totalAmount: total,
@@ -4669,14 +4820,20 @@ export default function Checkout() {
           ...(paypalTransactionId && { paypalTransactionId }),
           paymentStatus: bookingStatus === 'confirmed' ? 'completed' : 'pending',
           ...(bookingStatus === 'confirmed' && { paymentDate: new Date().toISOString() }),
-          // Include discount information in payment details
-          ...(discountCalculation?.hasValidDiscount && discountCalculation?.discountAmount > 0 && {
-            discount: {
+          // Include discount information in payment details (homepage discounts OR promo codes)
+          ...((discountCalculation?.hasValidDiscount && discountCalculation?.discountAmount > 0) || (appliedPromoCode && promoDiscountAmount > 0)) && {
+            discount: appliedPromoCode ? {
+              type: 'promoCode',
+              code: appliedPromoCode.code,
+              id: appliedPromoCode.id,
+              amount: parseFloat(promoDiscountAmount.toFixed(2)),
+              originalAmountBeforeDiscount: parseFloat((subtotalBeforeDiscount + salesTax + deliveryCost + tipAmount).toFixed(2))
+            } : {
               type: discountCalculation.appliedDiscount,
               amount: parseFloat(discountCalculation.discountAmount.toFixed(2)),
               originalAmountBeforeDiscount: parseFloat((subtotalBeforeDiscount + salesTax + deliveryCost + tipAmount).toFixed(2))
             }
-          })
+          }
         },
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()

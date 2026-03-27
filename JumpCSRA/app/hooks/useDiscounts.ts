@@ -849,11 +849,11 @@ async function createGiftCardInDatabase(
 export function getDiscountDescription(discountType: DiscountType | null): string {
   switch (discountType) {
     case 'sunday10':
-      return '10% off when your event includes a Sunday';
+      return '10% off when your event starts on a Sunday';
     case 'freeGame':
-      return 'Free yard game (cheapest game in cart)';
+      return 'Free yard game';
     case 'bogoGiftCard':
-      return 'Buy any gift card, get one of equal value free';
+      return 'Buy a gift card, get one of equal value free';
     default:
       return '';
   }
