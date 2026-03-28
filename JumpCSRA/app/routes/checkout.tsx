@@ -2483,7 +2483,7 @@ export default function Checkout() {
           const currentCartTotal = cartTotal + lastMinuteTotal; // Base cart total before adjustments
           
           if (currentCartTotal < minimumRequired) {
-            setPromoCodeError(`This promo code requires a minimum cart value of $${minimumRequired.toFixed(2)}`);
+            setPromoCodeError(`Your order must have at least $${minimumRequired.toFixed(2)} in your cart`);
             setCheckingPromoCode(false);
             return;
           }
@@ -2498,7 +2498,10 @@ export default function Checkout() {
           );
           
           if (missingProducts.length > 0) {
-            setPromoCodeError(`This promo code requires the following product(s) in your cart: ${missingProducts.join(', ')}`);
+            const productList = missingProducts.length === 1 
+              ? missingProducts[0]
+              : missingProducts.join(', ');
+            setPromoCodeError(`This promotion requires that ${productList} be included in your order`);
             setCheckingPromoCode(false);
             return;
           }
