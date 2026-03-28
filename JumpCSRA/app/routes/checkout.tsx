@@ -2476,6 +2476,35 @@ export default function Checkout() {
         }
       }
       
+      // Check requirements (new validation)
+      if (discount.requirement && discount.requirementType) {
+        if (discount.requirementType === 'minimumCartValue') {
+          const minimumRequired = typeof discount.requirement === 'number' ? discount.requirement : 0;
+          const currentCartTotal = cartTotal + lastMinuteTotal; // Base cart total before adjustments
+          
+          if (currentCartTotal < minimumRequired) {
+            setPromoCodeError(`This promo code requires a minimum cart value of $${minimumRequired.toFixed(2)}`);
+            setCheckingPromoCode(false);
+            return;
+          }
+        } else if (discount.requirementType === 'containsProducts') {
+          const requiredProducts = Array.isArray(discount.requirement) ? discount.requirement : [];
+          const cartProductNames = cart.map(item => item.name.toLowerCase());
+          const lastMinuteProductNames = Object.keys(lastMinuteAdditions).map(name => name.toLowerCase());
+          const allProductNames = [...cartProductNames, ...lastMinuteProductNames];
+          
+          const missingProducts = requiredProducts.filter(
+            (product: string) => !allProductNames.includes(product.toLowerCase())
+          );
+          
+          if (missingProducts.length > 0) {
+            setPromoCodeError(`This promo code requires the following product(s) in your cart: ${missingProducts.join(', ')}`);
+            setCheckingPromoCode(false);
+            return;
+          }
+        }
+      }
+      
       // Apply the promo code with ID for tracking
       setAppliedPromoCode({
         id: discountId,
