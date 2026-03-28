@@ -18,7 +18,7 @@ import type { CartItem } from "../components/CartSidebar";
 import { useInflateables } from "../hooks/useInflateables";
 import { useCartSettings } from "../hooks/useCartSettings";
 import { useCategories } from "../hooks/useCategories";
-import { generateUniqueGiftCardCode, createGiftCardInDatabase, useDiscounts } from "../hooks/useDiscounts";
+import { generateUniqueGiftCardCode, createGiftCardInDatabase, useDiscounts, validateGiftCard } from "../hooks/useDiscounts";
 import { sendOrderConfirmationEmail, createGiftCardInfoFromCart, OrderConfirmationEmailData, GiftCardInfo } from "../utils/emailUtils";
 import { scheduleCartReminderEmail, scheduleDepositReminderEmail, scheduleEventConfirmationEmail, schedulePostEventThanksEmail, scheduleRebookingReminderEmail } from "../utils/backendEmailService";
 import { clearCartAbandonment } from "../utils/cartAbandonmentTracker";
@@ -363,6 +363,12 @@ export default function Checkout() {
   // Email state for promotional gift cards
   const [promotionalGiftCardEmail, setPromotionalGiftCardEmail] = useState<string>("");
   const [promotionalEmailConfirmed, setPromotionalEmailConfirmed] = useState<boolean>(false);
+  
+  // Gift card redemption state
+  const [giftCardCode, setGiftCardCode] = useState<string>("");
+  const [appliedGiftCard, setAppliedGiftCard] = useState<{code: string; balance: number; appliedAmount: number} | null>(null);
+  const [giftCardError, setGiftCardError] = useState<string | null>(null);
+  const [validatingGiftCard, setValidatingGiftCard] = useState<boolean>(false);
   
   // Track generated gift card codes for display on success screen
   const [generatedGiftCards, setGeneratedGiftCards] = useState<Array<{
@@ -1923,6 +1929,66 @@ export default function Checkout() {
     }
   };
   
+  // Gift card redemption functions
+  const handleApplyGiftCard = async () => {
+    if (!giftCardCode.trim()) return;
+    
+    setValidatingGiftCard(true);
+    setGiftCardError('');
+    
+    try {
+      const result = await validateGiftCard(giftCardCode.trim());
+      
+      if (!result.valid || !result.balance) {
+        setGiftCardError(result.message);
+        setValidatingGiftCard(false);
+        return;
+      }
+      
+      // Calculate how much of the gift card to apply
+      const paymentAmount = parseFloat(paymentType === 'deposit' ? calculateDepositAmount() : calculateTotalAmount());
+      const walletApplied = walletAppliedAmount || 0;
+      const remainingAmount = Math.max(0, paymentAmount - walletApplied);
+      const appliedAmount = Math.min(result.balance, remainingAmount);
+      
+      if (appliedAmount <= 0) {
+        setGiftCardError('Order is already fully paid');
+        setValidatingGiftCard(false);
+        return;
+      }
+      
+      setAppliedGiftCard({
+        code: giftCardCode.trim(),
+        balance: result.balance,
+        appliedAmount: appliedAmount
+      });
+      
+      setGiftCardCode('');
+      setValidatingGiftCard(false);
+      
+      notifications.show({
+        title: '🎁 Gift Card Applied!',
+        message: `$${appliedAmount.toFixed(2)} from your gift card will be used for this order`,
+        color: 'green',
+      });
+    } catch (error) {
+      console.error('Error applying gift card:', error);
+      setGiftCardError('Error validating gift card');
+      setValidatingGiftCard(false);
+    }
+  };
+  
+  const handleRemoveGiftCard = () => {
+    setAppliedGiftCard(null);
+    setGiftCardError('');
+    
+    notifications.show({
+      title: 'Gift Card Removed',
+      message: 'The gift card has been removed from your order',
+      color: 'blue',
+    });
+  };
+  
   // Helper function to track discount usage in RTDB and Firestore
   const trackDiscountUsage = async (discountInfo: { type: string; code?: string; id?: string; amount: number; description?: string }) => {
     if (!user) return;
@@ -1962,6 +2028,60 @@ export default function Checkout() {
     }
   };
   
+  // Helper function to track gift card usage in gift card transaction history
+  const trackGiftCardUsage = async (giftCardCode: string, amountUsed: number, orderID: string) => {
+    if (!user) return;
+    
+    try {
+      const database = getDatabase();
+      const giftCardRef = ref(database, `giftCards/${giftCardCode}`);
+      const snapshot = await get(giftCardRef);
+      
+      if (!snapshot.exists()) {
+        console.error('Gift card not found:', giftCardCode);
+        return;
+      }
+      
+      const giftCard = snapshot.val();
+      const newBalance = Math.max(0, giftCard.currentBalance - amountUsed);
+      const isNowEmpty = newBalance <= 0;
+      
+      // Add transaction to transaction history
+      const newTransaction = {
+        type: 'order',
+        amount: amountUsed,
+        date: new Date().toISOString(),
+        description: `Used for order ${orderID}`
+      };
+      
+      // Add usage to usage history
+      const newUsage = {
+        type: 'order',
+        amount: amountUsed,
+        date: new Date().toISOString(),
+        orderID: orderID,
+        description: `Applied to checkout order ${orderID}`
+      };
+      
+      const updatedGiftCard = {
+        ...giftCard,
+        currentBalance: newBalance,
+        status: isNowEmpty ? 'empty' : 'active',
+        transactionHistory: [...(giftCard.transactionHistory || []), newTransaction],
+        usageHistory: [...(giftCard.usageHistory || []), newUsage],
+        ...(isNowEmpty && { emptyDate: new Date().toISOString() }),
+        lastUpdated: new Date().toISOString()
+      };
+      
+      await set(giftCardRef, updatedGiftCard);
+      console.log(`✅ Gift card usage tracked: ${giftCardCode} - $${amountUsed.toFixed(2)}`);
+      
+    } catch (error) {
+      console.error('❌ Error tracking gift card usage:', error);
+      // Don't fail the payment if tracking fails
+    }
+  };
+  
   const subtotalBeforeDiscount = cartTotal + lastMinuteTotal + surfaceAdj + timeAdj + pickupFee;
   
   // Apply either discount OR promo code (not both)
@@ -1986,6 +2106,24 @@ export default function Checkout() {
   const total = originalBookingTotal !== null 
     ? Math.max(0, originalBookingTotal - (actualAmountPaid || 0)) 
     : Math.max(0, totalBeforeDeposit - (actualAmountPaid || 0)); // Subtract deposit already paid
+  
+  // Update applied gift card amount when payment changes or cart updates
+  useEffect(() => {
+    if (appliedGiftCard) {
+      const paymentAmount = parseFloat(paymentType === 'deposit' ? calculateDepositAmount() : calculateTotalAmount());
+      const walletApplied = walletAppliedAmount || 0;
+      const remainingAmount = Math.max(0, paymentAmount - walletApplied);
+      const newAppliedAmount = Math.min(appliedGiftCard.balance, remainingAmount);
+      
+      if (newAppliedAmount !== appliedGiftCard.appliedAmount && newAppliedAmount >= 0) {
+        setAppliedGiftCard({
+          ...appliedGiftCard,
+          appliedAmount: newAppliedAmount
+        });
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentType, walletAppliedAmount, appliedGiftCard?.balance, total]);
 
   // Load inflateables data function (similar to CartSidebar)
   const loadInflateablesData = async (): Promise<any[]> => {
@@ -2515,7 +2653,7 @@ export default function Checkout() {
     return Math.min(userWallet.balance, paymentAmount);
   };
 
-  // Calculate the amount that needs to be paid via PayPal after wallet application
+  // Calculate the amount that needs to be paid via PayPal after wallet and gift card application
   const calculatePayPalAmount = () => {
     const strategy = getDeferredBookingStrategy();
     
@@ -2532,7 +2670,8 @@ export default function Checkout() {
     // so we don't need to subtract it again here
     
     const walletApplied = calculateWalletApplicableAmount();
-    return Math.max(0, totalPayment - walletApplied);
+    const giftCardApplied = appliedGiftCard?.appliedAmount || 0;
+    return Math.max(0, totalPayment - walletApplied - giftCardApplied);
   };
 
   // Smart deferred booking logic - analyze cart composition
@@ -3017,6 +3156,18 @@ export default function Checkout() {
                 }
               }
               
+              // Track gift card usage if applied
+              if (appliedGiftCard && appliedGiftCard.appliedAmount > 0) {
+                try {
+                  await trackGiftCardUsage(appliedGiftCard.code, appliedGiftCard.appliedAmount, pendingBookingId);
+                  console.log(`✅ Gift card usage tracked: ${appliedGiftCard.code}`);
+                  // Clear applied gift card after successful payment
+                  setAppliedGiftCard(null);
+                } catch (giftCardError) {
+                  console.error('❌ Error tracking gift card usage:', giftCardError);
+                }
+              }
+              
               // Delete pending/deferred bookings with overlapping items
               if (user && bookingWithWalletCapture.orderDetails?.items) {
                 const itemNames = bookingWithWalletCapture.orderDetails.items.map(item => item.name);
@@ -3403,6 +3554,17 @@ export default function Checkout() {
                 }
               }
               
+              // Track gift card usage if applied - Wallet gift card order
+              if (appliedGiftCard && appliedGiftCard.appliedAmount > 0) {
+                try {
+                  await trackGiftCardUsage(appliedGiftCard.code, appliedGiftCard.appliedAmount, orderID);
+                  console.log(`✅ Gift card usage tracked: ${appliedGiftCard.code}`);
+                  setAppliedGiftCard(null);
+                } catch (giftCardError) {
+                  console.error('❌ Error tracking gift card usage:', giftCardError);
+                }
+              }
+              
               notifications.show({
                 title: '✅ Payment Successful!',
                 message: `Full payment of $${walletAppliedAmount.toFixed(2)} completed with wallet.`,
@@ -3686,6 +3848,18 @@ export default function Checkout() {
                   }
                 } catch (discountError) {
                   console.error('❌ Error marking discount as used:', discountError);
+                }
+              }
+              
+              // Track gift card usage if applied
+              if (appliedGiftCard && appliedGiftCard.appliedAmount > 0) {
+                try {
+                  await trackGiftCardUsage(appliedGiftCard.code, appliedGiftCard.appliedAmount, pendingBookingId);
+                  console.log(`✅ Gift card usage tracked: ${appliedGiftCard.code}`);
+                  // Clear applied gift card after successful payment
+                  setAppliedGiftCard(null);
+                } catch (giftCardError) {
+                  console.error('❌ Error tracking gift card usage:', giftCardError);
                 }
               }
               
@@ -4318,6 +4492,17 @@ export default function Checkout() {
                 }
               }
               
+              // Track gift card usage if applied - PayPal gift card order
+              if (appliedGiftCard && appliedGiftCard.appliedAmount > 0) {
+                try {
+                  await trackGiftCardUsage(appliedGiftCard.code, appliedGiftCard.appliedAmount, orderID);
+                  console.log(`✅ Gift card usage tracked: ${appliedGiftCard.code}`);
+                  setAppliedGiftCard(null);
+                } catch (giftCardError) {
+                  console.error('❌ Error tracking gift card usage:', giftCardError);
+                }
+              }
+              
               const message = paymentType === 'deposit' 
                 ? `Deposit of $${totalPaidAmount.toFixed(2)} paid successfully.`
                 : `Full payment of $${totalPaidAmount.toFixed(2)} completed successfully.`;
@@ -4833,7 +5018,16 @@ export default function Checkout() {
               amount: parseFloat(discountCalculation.discountAmount.toFixed(2)),
               originalAmountBeforeDiscount: parseFloat((subtotalBeforeDiscount + salesTax + deliveryCost + tipAmount).toFixed(2))
             }
-          }
+          },
+          // Include gift card payment information
+          ...(appliedGiftCard && appliedGiftCard.appliedAmount > 0 && {
+            giftCardPayment: {
+              code: appliedGiftCard.code,
+              amountApplied: parseFloat(appliedGiftCard.appliedAmount.toFixed(2)),
+              originalBalance: appliedGiftCard.balance,
+              appliedAt: new Date().toISOString()
+            }
+          })
         },
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
