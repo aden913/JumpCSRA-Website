@@ -13,7 +13,7 @@ import { useCalendarSidebar } from '../hooks/useCalendarSidebar';
 import { useCategories } from '../hooks/useCategories';
 import { useProductDetails } from '../hooks/useProductDetails';
 import { useCart } from '../hooks/useCart';
-import { useDiscounts, getPromoCardDiscount, getDiscountDescription } from '../hooks/useDiscounts';
+import { useDiscounts, usePromoCards, getPromoCardDiscount, getDiscountDescription, getPromoCardImage, type PromoCard, type DiscountType } from '../hooks/useDiscounts';
 import Login from "../login";
 
 import React, { useEffect, useLayoutEffect, useState, useRef, useMemo } from "react";
@@ -50,13 +50,6 @@ import { getUnavailableInflateables } from '../utils/bookingUtils';
 import { ViewportDebugger } from '../components/ViewportDebugger';
 import { DevModeToggle } from '../components/DevModeToggle';
 import { LocalStorageDebugger } from '../components/LocalStorageDebugger';
-
-const promoCards = [
-  { title: "Become a member", img: "/assets/cartoon-bouncehouse.png" },
-  { title: "10% OFF Sunday", img: "/assets/cartoon-bouncehouse-slide.png" },
-  { title: "Free Game Upgrade", img: "/assets/cartoon-bouncehouse-kids.png" },
-  { title: "GOGO Give One Get One Gift Card", img: "/assets/cartoon-bouncehouse-big.png" },
-];
 
 type OptionCardProps = {
   name: string;
@@ -143,6 +136,7 @@ export function Welcome() {
   const optionsCarouselRef = useRef<OptionsCarouselRef>(null);
   const logic = useWelcomeLogic();
   const discountLogic = useDiscounts();
+  const { promoCards: dynamicPromoCards, loading: promoCardsLoading } = usePromoCards();
   const navigate = useNavigate();
 
   const [unavailableInflateables, setUnavailableInflateables] = useState<Set<string>>(new Set());
@@ -175,6 +169,29 @@ export function Welcome() {
     
     calculateCartSubtotal();
   }, [logic.cart, logic.calendarDateRange, discountLogic.discounts]);
+
+  // Combine static membership card with dynamic promo cards
+  const allPromoCards = useMemo(() => {
+    const membershipCard = { 
+      title: "Become a member", 
+      img: "/assets/cartoon-bouncehouse.png",
+      isMembership: true,
+      code: undefined,
+      notificationTitle: undefined,
+      notificationMessage: undefined,
+    };
+    
+    const dynamicCards = dynamicPromoCards.map((card: PromoCard) => ({
+      title: card.cardText,
+      img: getPromoCardImage(card.code), // Use static image based on code
+      code: card.code,
+      notificationTitle: card.notificationTitle,
+      notificationMessage: card.notificationMessage,
+      isMembership: false,
+    }));
+    
+    return [membershipCard, ...dynamicCards];
+  }, [dynamicPromoCards]);
 
   // Initialize Firebase Auth
   const auth = getAuth();
@@ -597,17 +614,17 @@ export function Welcome() {
 
           {/* Promo Cards */}
           <div className="promo-cards">
-            {promoCards.map((card, idx) => (
+            {allPromoCards.map((card, idx) => (
               <button
                 className="promo-card"
                 key={idx}
                 type="button"
                 onClick={async () => {
-                  if (card.title.includes("Become a member")) {
+                  if (card.isMembership) {
                     logic.setMembershipOpen(true);
                   } else {
-                    // Handle discount promo cards
-                    const discountType = getPromoCardDiscount(card.title);
+                    // Handle discount promo cards using the card's code
+                    const discountType = card.code as DiscountType;
                     if (discountType) {
                       const result = await discountLogic.toggleDiscount(discountType);
                       
@@ -615,14 +632,14 @@ export function Welcome() {
                         if (result.wasActive) {
                           notifications.show({
                             title: 'Discount Removed 🔓',
-                            message: `${getDiscountDescription(discountType)} has been deactivated.`,
+                            message: card.notificationMessage ? `${card.notificationMessage} has been deactivated.` : `Discount has been deactivated.`,
                             color: 'blue',
                             autoClose: 4000,
                           });
                         } else {
                           notifications.show({
-                            title: 'Discount Activated! 🎉',
-                            message: `${getDiscountDescription(discountType)} is now active in your cart!`,
+                            title: card.notificationTitle || 'Discount Activated! 🎉',
+                            message: card.notificationMessage || 'Discount is now active in your cart!',
                             color: 'green',
                             autoClose: 6000,
                           });
@@ -642,7 +659,8 @@ export function Welcome() {
                 style={{
                   // Visual feedback for active discounts
                   ...((() => {
-                    const discountType = getPromoCardDiscount(card.title);
+                    if (card.isMembership) return {};
+                    const discountType = card.code as DiscountType;
                     const isActive = discountType && discountLogic.discounts[discountType];
                     return isActive ? {
                       backgroundColor: '#4CAF50',
@@ -654,25 +672,13 @@ export function Welcome() {
                   })())
                 }}
               >
-                {card.title.includes("Become a member") ? (
+                {card.isMembership ? (
                   <div className="promo-title">{card.title}</div>
-                ) : card.title.includes("Give One Get One") ? (
-                  <div className="promo-title">
-                    GOGO
-                    <br />
-                    <span className="promo-subtext">Give One Get One</span>
-                    <br />
-                    Gift Card
-                    {(() => {
-                      const isActive = discountLogic.discounts.bogoGiftCard;
-                      return isActive ? <div style={{ fontSize: '0.8rem', marginTop: '5px' }}>✅ ACTIVE</div> : null;
-                    })()}
-                  </div>
                 ) : (
                   <div className="promo-title">
                     {card.title}
                     {(() => {
-                      const discountType = getPromoCardDiscount(card.title);
+                      const discountType = card.code as DiscountType;
                       const isActive = discountType && discountLogic.discounts[discountType];
                       return isActive ? <div style={{ fontSize: '0.8rem', marginTop: '5px' }}>✅ ACTIVE</div> : null;
                     })()}

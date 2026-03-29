@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { getAuth } from 'firebase/auth';
 import { getDoc, doc, updateDoc, arrayUnion, setDoc, addDoc, collection } from 'firebase/firestore';
 import { firestore } from '../components/FirebaseConfig';
-import { getDatabase, ref, set } from 'firebase/database';
+import { getDatabase, ref, set, get } from 'firebase/database';
 import type { CartItem } from '../components/CartSidebar';
 
 // Discount types
@@ -22,6 +22,30 @@ export interface DiscountCalculation {
   hasValidDiscount: boolean;
   userCanUse: boolean;
   usageError?: string;
+}
+
+// Promo card configuration from database
+export interface PromoCard {
+  cardText: string;           // Display text on card
+  code: string;               // Discount code/identifier (maps to DiscountType)
+  notificationTitle: string;  // Mantine notification title when activated
+  notificationMessage: string; // Mantine notification message
+  enabled: boolean;           // Whether this card is active
+  slot: 1 | 2 | 3;           // Card slot number (1-3)
+}
+
+// Static image mapping based on discount code
+export function getPromoCardImage(code: string): string {
+  switch (code) {
+    case 'sunday10':
+      return '/assets/cartoon-bouncehouse-slide.png';
+    case 'freeGame':
+      return '/assets/cartoon-bouncehouse-kids.png';
+    case 'bogoGiftCard':
+      return '/assets/cartoon-bouncehouse-big.png';
+    default:
+      return '/assets/cartoon-bouncehouse.png';
+  }
 }
 
 export function useDiscounts() {
@@ -871,6 +895,116 @@ export function getPromoCardDiscount(cardTitle: string): DiscountType | null {
     return 'bogoGiftCard';
   }
   return null;
+}
+
+// Fetch active promo cards from database
+export async function fetchPromoCards(): Promise<PromoCard[]> {
+  try {
+    const db = getDatabase();
+    const promoCards: PromoCard[] = [];
+    
+    // Check each slot (1, 2, 3) for active promo cards
+    for (let slot = 1; slot <= 3; slot++) {
+      const cardRef = ref(db, `dashboardInformation/promoCards/${slot}`);
+      const snapshot = await get(cardRef);
+      
+      if (snapshot.exists()) {
+        const cardData = snapshot.val();
+        
+        // Only include cards that are enabled
+        if (cardData.enabled === true) {
+          promoCards.push({
+            cardText: cardData.cardText || '',
+            code: cardData.code || '',
+            notificationTitle: cardData.notificationTitle || 'Discount Activated!',
+            notificationMessage: cardData.notificationMessage || '',
+            enabled: cardData.enabled,
+            slot: slot as 1 | 2 | 3,
+          });
+        }
+      }
+    }
+    
+    // If no cards found in database, return default cards
+    if (promoCards.length === 0) {
+      return [
+        {
+          cardText: '10% OFF Sunday',
+          code: 'sunday10',
+          notificationTitle: 'Sunday Discount Activated! 🎉',
+          notificationMessage: '10% off when your event starts on a Sunday',
+          enabled: true,
+          slot: 1,
+        },
+        {
+          cardText: 'Free Game Upgrade',
+          code: 'freeGame',
+          notificationTitle: 'Free Game Activated! 🎉',
+          notificationMessage: 'Free yard game included with your order',
+          enabled: true,
+          slot: 2,
+        },
+        {
+          cardText: 'GOGO Give One Get One Gift Card',
+          code: 'bogoGiftCard',
+          notificationTitle: 'GOGO Gift Card Activated! 🎉',
+          notificationMessage: 'Buy a gift card, get one of equal value free',
+          enabled: true,
+          slot: 3,
+        },
+      ];
+    }
+    
+    return promoCards;
+  } catch (error) {
+    console.error('Error fetching promo cards:', error);
+    // Return default cards on error
+    return [
+      {
+        cardText: '10% OFF Sunday',
+        code: 'sunday10',
+        notificationTitle: 'Sunday Discount Activated! 🎉',
+        notificationMessage: '10% off when your event starts on a Sunday',
+        enabled: true,
+        slot: 1,
+      },
+      {
+        cardText: 'Free Game Upgrade',
+        code: 'freeGame',
+        notificationTitle: 'Free Game Activated! 🎉',
+        notificationMessage: 'Free yard game included with your order',
+        enabled: true,
+        slot: 2,
+      },
+      {
+        cardText: 'GOGO Give One Get One Gift Card',
+        code: 'bogoGiftCard',
+        notificationTitle: 'GOGO Gift Card Activated! 🎉',
+        notificationMessage: 'Buy a gift card, get one of equal value free',
+        enabled: true,
+        slot: 3,
+      },
+    ];
+  }
+}
+
+// Hook to manage promo cards state
+export function usePromoCards() {
+  const [promoCards, setPromoCards] = useState<PromoCard[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadPromoCards = async () => {
+      setLoading(true);
+      const cards = await fetchPromoCards();
+      setPromoCards(cards);
+      setLoading(false);
+    };
+
+    loadPromoCards();
+  }, []);
+
+  return { promoCards, loading };
 }
 
 // Export gift card utility functions for use in other components

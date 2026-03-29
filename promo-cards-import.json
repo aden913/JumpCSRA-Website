@@ -1,0 +1,23 @@
+{
+      "1": {
+        "cardText": "10% OFF Sunday",
+        "code": "sunday10",
+        "notificationTitle": "Sunday Discount Activated! 🎉",
+        "notificationMessage": "10% off when your event starts on a Sunday",
+        "enabled": true
+      },
+      "2": {
+        "cardText": "Free Game Upgrade",
+        "code": "freeGame",
+        "notificationTitle": "Free Game Activated! 🎉",
+        "notificationMessage": "Free yard game included with your order",
+        "enabled": true
+      },
+      "3": {
+        "cardText": "GOGO Give One Get One Gift Card",
+        "code": "bogoGiftCard",
+        "notificationTitle": "GOGO Gift Card Activated! 🎉",
+        "notificationMessage": "Buy a gift card, get one of equal value free",
+        "enabled": true
+      }
+    }
