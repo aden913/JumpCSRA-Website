@@ -2008,6 +2008,7 @@ export default function Checkout() {
         discountType: discountInfo.type,
         discountAmount: discountInfo.amount,
         description: discountInfo.description || '',
+        used: true,
         usedAt: new Date().toISOString(),
         userEmail: user.email || ''
       });
@@ -4734,7 +4735,9 @@ export default function Checkout() {
               })
           ],
           totalAmount: total,
-          ...(tipAmount > 0 && { tip: tipAmount })
+          ...(tipAmount > 0 && { tip: tipAmount }),
+          // Include event notes if provided
+          ...(eventNotes && eventNotes.trim() !== '' && { notes: eventNotes })
         },
         agreementSections: contractSections,
         signature: {
@@ -5024,7 +5027,9 @@ export default function Checkout() {
                 addedGiftCards: discountCalculation.addedGiftCards 
               })
             }
-          }
+          },
+          // Include event notes if provided
+          ...(eventNotes && eventNotes.trim() !== '' && { notes: eventNotes })
         },
         paymentDetails: {
           totalAmount: total,
@@ -5228,7 +5233,9 @@ export default function Checkout() {
               })
           ],
           totalAmount: total,
-          ...(tipAmount > 0 && { tip: tipAmount })
+          ...(tipAmount > 0 && { tip: tipAmount }),
+          // Include event notes if provided
+          ...(eventNotes && eventNotes.trim() !== '' && { notes: eventNotes })
         },
         agreementSections: contractSections,
         signature: {
