@@ -1,23 +1,42 @@
 {
-      "1": {
-        "cardText": "10% OFF Sunday",
-        "code": "sunday10",
-        "notificationTitle": "Sunday Discount Activated! 🎉",
-        "notificationMessage": "10% off when your event starts on a Sunday",
-        "enabled": true
-      },
-      "2": {
-        "cardText": "Free Game Upgrade",
-        "code": "freeGame",
-        "notificationTitle": "Free Game Activated! 🎉",
-        "notificationMessage": "Free yard game included with your order",
-        "enabled": true
-      },
-      "3": {
-        "cardText": "GOGO Give One Get One Gift Card",
-        "code": "bogoGiftCard",
-        "notificationTitle": "GOGO Gift Card Activated! 🎉",
-        "notificationMessage": "Buy a gift card, get one of equal value free",
-        "enabled": true
-      }
-    }
+  "1": {
+    "slot": "1",
+    "cardText": "10% OFF Sunday",
+    "code": "sunday10",
+    "enabled": true,
+    "notificationTitle": "Sunday Discount Activated! 🎉",
+    "notificationMessage": "10% off when your event starts on a Sunday",
+    "discountApplication": "price",
+    "discountType": "percent",
+    "discountValue": 10,
+    "itemCategories": [],
+    "requirementType": "byDay",
+    "requirement": "sunday"
+  },
+  "2": {
+    "slot": "2",
+    "cardText": "Free Game Upgrade",
+    "code": "freeGame",
+    "enabled": true,
+    "notificationTitle": "Free Game Activated! 🎉",
+    "notificationMessage": "Free yard game included with your order",
+    "discountApplication": "items",
+    "discountType": "static",
+    "discountValue": 0,
+    "itemCategories": ["game"],
+    "requirementType": "none"
+  },
+  "3": {
+    "slot": "3",
+    "cardText": "GOGO Give One Get One Gift Card",
+    "code": "bogoGiftCard",
+    "enabled": true,
+    "notificationTitle": "GOGO Gift Card Activated! 🎉",
+    "notificationMessage": "Buy a gift card, get one of equal value free",
+    "discountApplication": "price",
+    "discountType": "percent",
+    "discountValue": 100,
+    "itemCategories": [],
+    "requirementType": "none"
+  }
+}

@@ -26,12 +26,22 @@ export interface DiscountCalculation {
 
 // Promo card configuration from database
 export interface PromoCard {
+  id: string;                 // Unique identifier (database key)
+  slot: '1' | '2' | '3';     // Website position slot
   cardText: string;           // Display text on card
-  code: string;               // Discount code/identifier (maps to DiscountType)
+  code: string;               // Discount code/identifier
+  enabled: boolean;           // Whether this card is active
   notificationTitle: string;  // Mantine notification title when activated
   notificationMessage: string; // Mantine notification message
-  enabled: boolean;           // Whether this card is active
-  slot: 1 | 2 | 3;           // Card slot number (1-3)
+  discountApplication: 'price' | 'items' | 'bogo'; // Apply discount to total, specific items, or BOGO
+  discountType: 'percent' | 'static'; // Percentage or fixed amount
+  discountValue: number;      // Discount amount
+  itemCategories: string[];   // Categories when discountApplication is 'items'
+  requirementType: 'none' | 'minimumCartValue' | 'containsProducts' | 'containsCategory' | 'byDay';
+  requirement?: number | string[] | string; // Value depends on requirementType
+  bogoProductId?: string;     // Product ID for BOGO offer (when discountApplication is 'bogo')
+  bogoDiscountType?: 'free' | 'percent' | 'static'; // Type of discount for second item
+  bogoDiscountValue?: number; // Value for BOGO discount (0 for free)
 }
 
 // Static image mapping based on discount code
@@ -901,88 +911,153 @@ export function getPromoCardDiscount(cardTitle: string): DiscountType | null {
 export async function fetchPromoCards(): Promise<PromoCard[]> {
   try {
     const db = getDatabase();
-    const promoCards: PromoCard[] = [];
+    const promoCardsRef = ref(db, 'dashboardInformation/promoCards');
+    const snapshot = await get(promoCardsRef);
     
-    // Check each slot (1, 2, 3) for active promo cards
-    for (let slot = 1; slot <= 3; slot++) {
-      const cardRef = ref(db, `dashboardInformation/promoCards/${slot}`);
-      const snapshot = await get(cardRef);
+    if (snapshot.exists()) {
+      const promoCardsData = snapshot.val();
+      const promoCardsList: PromoCard[] = [];
       
-      if (snapshot.exists()) {
-        const cardData = snapshot.val();
-        
-        // Only include cards that are enabled
-        if (cardData.enabled === true) {
-          promoCards.push({
-            cardText: cardData.cardText || '',
-            code: cardData.code || '',
-            notificationTitle: cardData.notificationTitle || 'Discount Activated!',
-            notificationMessage: cardData.notificationMessage || '',
-            enabled: cardData.enabled,
-            slot: slot as 1 | 2 | 3,
+      Object.entries(promoCardsData).forEach(([id, data]: [string, any]) => {
+        // Only include enabled cards
+        if (data.enabled === true) {
+          promoCardsList.push({
+            id: id,
+            slot: data.slot || (id as '1' | '2' | '3'), // Backward compatibility
+            cardText: data.cardText || '',
+            code: data.code || '',
+            enabled: data.enabled,
+            notificationTitle: data.notificationTitle || 'Discount Activated!',
+            notificationMessage: data.notificationMessage || '',
+            discountApplication: data.discountApplication || 'price',
+            discountType: data.discountType || 'percent',
+            discountValue: data.discountValue || 0,
+            itemCategories: data.itemCategories || [],
+            requirementType: data.requirementType || 'none',
+            requirement: data.requirement,
+            bogoProductId: data.bogoProductId,
+            bogoDiscountType: data.bogoDiscountType || 'free',
+            bogoDiscountValue: data.bogoDiscountValue || 0,
           });
         }
-      }
+      });
+      
+      // Sort by slot to maintain consistent order
+      promoCardsList.sort((a, b) => parseInt(a.slot) - parseInt(b.slot));
+      
+      return promoCardsList;
     }
     
     // If no cards found in database, return default cards
-    if (promoCards.length === 0) {
-      return [
-        {
-          cardText: '10% OFF Sunday',
-          code: 'sunday10',
-          notificationTitle: 'Sunday Discount Activated! 🎉',
-          notificationMessage: '10% off when your event starts on a Sunday',
-          enabled: true,
-          slot: 1,
-        },
-        {
-          cardText: 'Free Game Upgrade',
-          code: 'freeGame',
-          notificationTitle: 'Free Game Activated! 🎉',
-          notificationMessage: 'Free yard game included with your order',
-          enabled: true,
-          slot: 2,
-        },
-        {
-          cardText: 'GOGO Give One Get One Gift Card',
-          code: 'bogoGiftCard',
-          notificationTitle: 'GOGO Gift Card Activated! 🎉',
-          notificationMessage: 'Buy a gift card, get one of equal value free',
-          enabled: true,
-          slot: 3,
-        },
-      ];
-    }
-    
-    return promoCards;
+    return [
+      {
+        id: '1',
+        slot: '1',
+        cardText: '10% OFF Sunday',
+        code: 'sunday10',
+        enabled: true,
+        notificationTitle: 'Sunday Discount Activated! 🎉',
+        notificationMessage: '10% off when your event starts on a Sunday',
+        discountApplication: 'price' as const,
+        discountType: 'percent' as const,
+        discountValue: 10,
+        itemCategories: [],
+        requirementType: 'byDay' as const,
+        requirement: 'sunday',
+        bogoProductId: undefined,
+        bogoDiscountType: 'free' as const,
+        bogoDiscountValue: 0,
+      },
+      {
+        id: '2',
+        slot: '2',
+        cardText: 'Free Game Upgrade',
+        code: 'freeGame',
+        enabled: true,
+        notificationTitle: 'Free Game Activated! 🎉',
+        notificationMessage: 'Free yard game included with your order',
+        discountApplication: 'items' as const,
+        discountType: 'static' as const,
+        discountValue: 0,
+        itemCategories: ['game'],
+        requirementType: 'none' as const,
+        bogoProductId: undefined,
+        bogoDiscountType: 'free' as const,
+        bogoDiscountValue: 0,
+      },
+      {
+        id: '3',
+        slot: '3',
+        cardText: 'GOGO Give One Get One Gift Card',
+        code: 'bogoGiftCard',
+        enabled: true,
+        notificationTitle: 'GOGO Gift Card Activated! 🎉',
+        notificationMessage: 'Buy a gift card, get one of equal value free',
+        discountApplication: 'price' as const,
+        discountType: 'percent' as const,
+        discountValue: 100,
+        itemCategories: [],
+        requirementType: 'none' as const,
+        bogoProductId: undefined,
+        bogoDiscountType: 'free' as const,
+        bogoDiscountValue: 0,
+      },
+    ];
   } catch (error) {
     console.error('Error fetching promo cards:', error);
     // Return default cards on error
     return [
       {
+        id: '1',
+        slot: '1',
         cardText: '10% OFF Sunday',
         code: 'sunday10',
+        enabled: true,
         notificationTitle: 'Sunday Discount Activated! 🎉',
         notificationMessage: '10% off when your event starts on a Sunday',
-        enabled: true,
-        slot: 1,
+        discountApplication: 'price' as const,
+        discountType: 'percent' as const,
+        discountValue: 10,
+        itemCategories: [],
+        requirementType: 'byDay' as const,
+        requirement: 'sunday',
+        bogoProductId: undefined,
+        bogoDiscountType: 'free' as const,
+        bogoDiscountValue: 0,
       },
       {
+        id: '2',
+        slot: '2',
         cardText: 'Free Game Upgrade',
         code: 'freeGame',
+        enabled: true,
         notificationTitle: 'Free Game Activated! 🎉',
         notificationMessage: 'Free yard game included with your order',
-        enabled: true,
-        slot: 2,
+        discountApplication: 'items' as const,
+        discountType: 'static' as const,
+        discountValue: 0,
+        itemCategories: ['game'],
+        requirementType: 'none' as const,
+        bogoProductId: undefined,
+        bogoDiscountType: 'free' as const,
+        bogoDiscountValue: 0,
       },
       {
+        id: '3',
+        slot: '3',
         cardText: 'GOGO Give One Get One Gift Card',
         code: 'bogoGiftCard',
+        enabled: true,
         notificationTitle: 'GOGO Gift Card Activated! 🎉',
         notificationMessage: 'Buy a gift card, get one of equal value free',
-        enabled: true,
-        slot: 3,
+        discountApplication: 'price' as const,
+        discountType: 'percent' as const,
+        discountValue: 100,
+        itemCategories: [],
+        requirementType: 'none' as const,
+        bogoProductId: undefined,
+        bogoDiscountType: 'free' as const,
+        bogoDiscountValue: 0,
       },
     ];
   }

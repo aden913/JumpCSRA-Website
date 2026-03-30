@@ -1,0 +1,88 @@
+{
+  "comment": "Example of a BOGO promo card - Buy one bounce house, get a second one 50% off",
+  "4": {
+    "slot": "1",
+    "cardText": "BOGO Bounce House",
+    "code": "bogobounce50",
+    "enabled": true,
+    "notificationTitle": "BOGO Activated! 🎉",
+    "notificationMessage": "Buy one bounce house, get a second one 50% off!",
+    "discountApplication": "bogo",
+    "discountType": "percent",
+    "discountValue": 0,
+    "itemCategories": [],
+    "requirementType": "none",
+    "bogoProductId": "bounce-house-classic",
+    "bogoDiscountType": "percent",
+    "bogoDiscountValue": 50
+  },
+  
+  "comment2": "Example of a Free BOGO - Buy one slide, get one free",
+  "5": {
+    "slot": "2",
+    "cardText": "Buy 1 Slide Get 1 Free",
+    "code": "freeslide",
+    "enabled": false,
+    "notificationTitle": "Free Slide! 🎉",
+    "notificationMessage": "Buy one slide, get another one completely free!",
+    "discountApplication": "bogo",
+    "discountType": "percent",
+    "discountValue": 0,
+    "itemCategories": [],
+    "requirementType": "none",
+    "bogoProductId": "water-slide-mega",
+    "bogoDiscountType": "free",
+    "bogoDiscountValue": 0
+  },
+
+  "comment3": "Example of Fixed Amount BOGO - Buy one game, get $20 off second",
+  "6": {
+    "slot": "3",
+    "cardText": "Game BOGO - $20 Off",
+    "code": "gamebogo20",
+    "enabled": false,
+    "notificationTitle": "Game Deal! 🎉",
+    "notificationMessage": "Buy one game, get $20 off the second one!",
+    "discountApplication": "bogo",
+    "discountType": "percent",
+    "discountValue": 0,
+    "itemCategories": [],
+    "requirementType": "minimumCartValue",
+    "requirement": 100,
+    "bogoProductId": "cornhole-set",
+    "bogoDiscountType": "static",
+    "bogoDiscountValue": 20
+  },
+
+  "comment4": "Example of containsCategory requirement - 15% off if cart contains obstacle",
+  "7": {
+    "slot": "1",
+    "cardText": "15% OFF Obstacles",
+    "code": "obstacle15",
+    "enabled": false,
+    "notificationTitle": "Obstacle Discount! 🎉",
+    "notificationMessage": "15% off your order when you include an obstacle!",
+    "discountApplication": "price",
+    "discountType": "percent",
+    "discountValue": 15,
+    "itemCategories": [],
+    "requirementType": "containsCategory",
+    "requirement": "obstacle"
+  },
+
+  "comment5": "Example of containsCategory with items discount - Free game if you rent a bounce house",
+  "8": {
+    "slot": "2",
+    "cardText": "Free Game w/ Bounce House",
+    "code": "freegamebounce",
+    "enabled": false,
+    "notificationTitle": "Free Game Added! 🎉",
+    "notificationMessage": "Get a free yard game when you rent a bounce house!",
+    "discountApplication": "items",
+    "discountType": "static",
+    "discountValue": 0,
+    "itemCategories": ["game"],
+    "requirementType": "containsCategory",
+    "requirement": "bounce-house"
+  }
+}
