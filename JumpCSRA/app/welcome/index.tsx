@@ -13,7 +13,7 @@ import { useCalendarSidebar } from '../hooks/useCalendarSidebar';
 import { useCategories } from '../hooks/useCategories';
 import { useProductDetails } from '../hooks/useProductDetails';
 import { useCart } from '../hooks/useCart';
-import { useDiscounts, usePromoCards, getPromoCardDiscount, getDiscountDescription, getPromoCardImage, type PromoCard, type DiscountType } from '../hooks/useDiscounts';
+import { useDiscounts, usePromoCards, getDiscountDescription, getPromoCardImage, type PromoCard, type DiscountType } from '../hooks/useDiscounts';
 import Login from "../login";
 
 import React, { useEffect, useLayoutEffect, useState, useRef, useMemo } from "react";
@@ -179,6 +179,7 @@ export function Welcome() {
       code: undefined,
       notificationTitle: undefined,
       notificationMessage: undefined,
+      promoCard: undefined,
     };
     
     const dynamicCards = dynamicPromoCards.map((card: PromoCard) => ({
@@ -188,6 +189,7 @@ export function Welcome() {
       notificationTitle: card.notificationTitle,
       notificationMessage: card.notificationMessage,
       isMembership: false,
+      promoCard: card, // Include full promo card configuration
     }));
     
     return [membershipCard, ...dynamicCards];
@@ -622,37 +624,54 @@ export function Welcome() {
                 onClick={async () => {
                   if (card.isMembership) {
                     logic.setMembershipOpen(true);
-                  } else {
-                    // Handle discount promo cards using the card's code
-                    const discountType = card.code as DiscountType;
-                    if (discountType) {
-                      const result = await discountLogic.toggleDiscount(discountType);
+                  } else if (card.promoCard) {
+                    // Handle promo card activation using full configuration
+                    const isAuthenticated = getAuth().currentUser !== null;
+                    
+                    if (!isAuthenticated) {
+                      notifications.show({
+                        title: 'Login Required ❌',
+                        message: 'Please log in to use discount codes',
+                        color: 'red',
+                        autoClose: 5000,
+                      });
+                      return;
+                    }
+
+                    // Check if already active
+                    const isCurrentlyActive = discountLogic.activePromoCard?.code === card.promoCard.code;
+
+                    if (isCurrentlyActive) {
+                      // Deactivate
+                      discountLogic.setActivePromoCard(null);
+                      notifications.show({
+                        title: 'Discount Removed 🔓',
+                        message: card.notificationMessage ? `${card.notificationMessage} has been deactivated.` : `Discount has been deactivated.`,
+                        color: 'blue',
+                        autoClose: 4000,
+                      });
+                    } else {
+                      // Check if user has already used this discount
+                      const hasUsed = await discountLogic.hasUserUsedDiscount(card.promoCard.code as DiscountType);
                       
-                      if (result.success) {
-                        if (result.wasActive) {
-                          notifications.show({
-                            title: 'Discount Removed 🔓',
-                            message: card.notificationMessage ? `${card.notificationMessage} has been deactivated.` : `Discount has been deactivated.`,
-                            color: 'blue',
-                            autoClose: 4000,
-                          });
-                        } else {
-                          notifications.show({
-                            title: card.notificationTitle || 'Discount Activated! 🎉',
-                            message: card.notificationMessage || 'Discount is now active in your cart!',
-                            color: 'green',
-                            autoClose: 6000,
-                          });
-                        }
-                      } else {
-                        // Show error notification
+                      if (hasUsed) {
                         notifications.show({
                           title: 'Cannot Use Discount ❌',
-                          message: result.error || 'Unable to apply discount',
+                          message: 'You have already used this discount code',
                           color: 'red',
                           autoClose: 6000,
                         });
+                        return;
                       }
+
+                      // Activate
+                      discountLogic.setActivePromoCard(card.promoCard);
+                      notifications.show({
+                        title: card.notificationTitle || 'Discount Activated! 🎉',
+                        message: card.notificationMessage || 'Discount is now active in your cart!',
+                        color: 'green',
+                        autoClose: 6000,
+                      });
                     }
                   }
                 }}
@@ -660,8 +679,7 @@ export function Welcome() {
                   // Visual feedback for active discounts
                   ...((() => {
                     if (card.isMembership) return {};
-                    const discountType = card.code as DiscountType;
-                    const isActive = discountType && discountLogic.discounts[discountType];
+                    const isActive = card.promoCard && discountLogic.activePromoCard?.code === card.promoCard.code;
                     return isActive ? {
                       backgroundColor: '#4CAF50',
                       color: 'white',
@@ -678,8 +696,7 @@ export function Welcome() {
                   <div className="promo-title">
                     {card.title}
                     {(() => {
-                      const discountType = card.code as DiscountType;
-                      const isActive = discountType && discountLogic.discounts[discountType];
+                      const isActive = card.promoCard && discountLogic.activePromoCard?.code === card.promoCard.code;
                       return isActive ? <div style={{ fontSize: '0.8rem', marginTop: '5px' }}>✅ ACTIVE</div> : null;
                     })()}
                   </div>
