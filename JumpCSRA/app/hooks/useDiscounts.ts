@@ -5,6 +5,13 @@ import { firestore } from '../components/FirebaseConfig';
 import { getDatabase, ref, set, get } from 'firebase/database';
 import type { CartItem } from '../components/CartSidebar';
 
+// Development-only logging helper
+const devLog = (...args: any[]) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(...args);
+  }
+};
+
 // Discount types
 export type DiscountType = 'sunday10' | 'freeGame' | 'bogoGiftCard';
 
@@ -154,7 +161,7 @@ export function useDiscounts() {
           createdAt: new Date().toISOString(),
           lastUpdated: new Date().toISOString(),
         });
-        console.log('✅ Created user document with usedDiscounts array');
+        devLog('✅ Created user document with usedDiscounts array');
       } else {
         // Ensure usedDiscounts array exists in existing document
         const userData = userDoc.data();
@@ -241,23 +248,23 @@ export function useDiscounts() {
     error?: string;
     wasActive?: boolean;
   }> => {
-    console.log('\n🎛️ ========== TOGGLE DISCOUNT ==========');
-    console.log('🎯 Attempting to toggle discount:', discountType);
-    console.log('📊 Current discount state:', discounts);
+    devLog('\n🎛️ ========== TOGGLE DISCOUNT ==========');
+    devLog('🎯 Attempting to toggle discount:', discountType);
+    devLog('📊 Current discount state:', discounts);
     
     // Check if user is authenticated
     if (!isUserAuthenticated()) {
-      console.log('❌ User not authenticated');
-      console.log('🎛️ ====================================\n');
+      devLog('❌ User not authenticated');
+      devLog('🎛️ ====================================\n');
       return {
         success: false,
         error: 'Please log in to use discount codes'
       };
     }
 
-    console.log('✅ User is authenticated');
+    devLog('✅ User is authenticated');
     const wasActive = discounts[discountType];
-    console.log('📍 Discount was previously active:', wasActive);
+    devLog('📍 Discount was previously active:', wasActive);
     
     // Check account age requirement for BOGO gift card
     if (!wasActive && discountType === 'bogoGiftCard') {
@@ -277,8 +284,8 @@ export function useDiscounts() {
               const accountAge = now.getTime() - accountDate.getTime();
               
               if (accountAge < monthInMs) {
-                console.log('❌ Account too new for BOGO discount');
-                console.log('🎛️ ====================================\n');
+                devLog('❌ Account too new for BOGO discount');
+                devLog('🎛️ ====================================\n');
                 return {
                   success: false,
                   error: 'Promotion is valid for 1 month of membership'
@@ -294,12 +301,12 @@ export function useDiscounts() {
     
     // If activating discount, check if user has already used it
     if (!wasActive) {
-      console.log('🔍 Checking if user has used this discount before...');
+      devLog('🔍 Checking if user has used this discount before...');
       const hasUsed = await hasUserUsedDiscount(discountType);
-      console.log('📝 User has used discount:', hasUsed);
+      devLog('📝 User has used discount:', hasUsed);
       if (hasUsed) {
-        console.log('❌ User has already used this discount');
-        console.log('🎛️ ====================================\n');
+        devLog('❌ User has already used this discount');
+        devLog('🎛️ ====================================\n');
         return {
           success: false,
           error: 'You have already used this discount code'
@@ -308,7 +315,7 @@ export function useDiscounts() {
     }
 
     // Toggle the discount
-    console.log('🔄 Toggling discount state...');
+    devLog('🔄 Toggling discount state...');
     setDiscounts(prev => {
       const newState: DiscountState = {
         sunday10: false,
@@ -320,20 +327,20 @@ export function useDiscounts() {
       // Otherwise, activate only this discount
       if (!prev[discountType]) {
         newState[discountType] = true;
-        console.log(`✅ Activated ${discountType} discount`);
+        devLog(`✅ Activated ${discountType} discount`);
       } else {
-        console.log(`ℹ️ Deactivated ${discountType} discount`);
+        devLog(`ℹ️ Deactivated ${discountType} discount`);
       }
       
-      console.log('📊 New discount state:', newState);
+      devLog('📊 New discount state:', newState);
       return newState;
     });
 
     // NOTE: We don't mark as used here anymore - only when purchase is finalized
     // This allows users to try different discounts without "consuming" them
 
-    console.log('✅ Toggle successful');
-    console.log('🎛️ ====================================\n');
+    devLog('✅ Toggle successful');
+    devLog('🎛️ ====================================\n');
     return {
       success: true,
       wasActive
@@ -369,15 +376,15 @@ export function useDiscounts() {
     cartTotal: number, 
     calendarDateRange: [Date | null, Date | null]
   ): Promise<DiscountCalculation> => {
-    console.log('\n🔄 ========== DISCOUNT CALCULATION START ==========');
-    console.log('📊 Current discount state:', discounts);
-    console.log('� Active promo card:', activePromoCard?.cardText || 'None');
-    console.log('🛒 Cart items:', cart.length);
-    console.log('💰 Cart total:', cartTotal);
-    console.log('📅 Calendar date range:', calendarDateRange);
+    devLog('\n🔄 ========== DISCOUNT CALCULATION START ==========');
+    devLog('📊 Current discount state:', discounts);
+    devLog('Active promo card:', activePromoCard?.cardText || 'None');
+    devLog('🛒 Cart items:', cart.length);
+    devLog('💰 Cart total:', cartTotal);
+    devLog('📅 Calendar date range:', calendarDateRange);
     
     cart.forEach((item, index) => {
-      console.log(`  Cart Item ${index + 1}:`, {
+      devLog(`  Cart Item ${index + 1}:`, {
         name: item.name,
         category: item.category,
         price: item.price,
@@ -388,12 +395,12 @@ export function useDiscounts() {
 
     // Check if there's an active promo card
     if (activePromoCard) {
-      console.log('🎯 Processing promo card discount...');
+      devLog('🎯 Processing promo card discount...');
       
       // Check authentication
       const isAuthenticated = isUserAuthenticated();
       if (!isAuthenticated) {
-        console.log('❌ User not authenticated');
+        devLog('❌ User not authenticated');
         return {
           discountAmount: 0,
           appliedDiscount: null,
@@ -408,7 +415,7 @@ export function useDiscounts() {
       // Check if user has already used this promo card
       const hasUsed = await hasUserUsedDiscount(activePromoCard.code as DiscountType);
       if (hasUsed) {
-        console.log('❌ User has already used this discount');
+        devLog('❌ User has already used this discount');
         return {
           discountAmount: 0,
           appliedDiscount: activePromoCard.code as DiscountType,
@@ -429,7 +436,7 @@ export function useDiscounts() {
       );
 
       if (!requirementsMet) {
-        console.log('❌ Promo card requirements not met');
+        devLog('❌ Promo card requirements not met');
         return {
           discountAmount: 0,
           appliedDiscount: activePromoCard.code as DiscountType,
@@ -440,7 +447,7 @@ export function useDiscounts() {
         };
       }
 
-      console.log('✅ Requirements met! Calculating discount...');
+      devLog('✅ Requirements met! Calculating discount...');
 
       // Apply discount based on card configuration
       let discountAmount = 0;
@@ -461,7 +468,7 @@ export function useDiscounts() {
           } else { // static
             discountAmount = activePromoCard.discountValue;
           }
-          console.log(`💰 Price discount: $${discountAmount} (${activePromoCard.discountType})`);
+          devLog(`💰 Price discount: $${discountAmount} (${activePromoCard.discountType})`);
           break;
 
         case 'items':
@@ -477,10 +484,9 @@ export function useDiscounts() {
               // Free item - find cheapest in category
               const cheapestItem = categoryItems.reduce((min, item) =>
                 item.price < min.price ? item : min
-              );
-              freeItemId = cheapestItem.id;
+              );              freeItemId = cheapestItem.id;
               discountAmount = cheapestItem.price;
-              console.log(`🎁 Free item: ${cheapestItem.name} ($${discountAmount})`);
+              devLog(`🎁 Free item: ${cheapestItem.name} ($${discountAmount})`);
             } else {
               // Calculate discount on category items
               const categoryTotal = categoryItems.reduce(
@@ -492,7 +498,7 @@ export function useDiscounts() {
               } else {
                 discountAmount = activePromoCard.discountValue;
               }
-              console.log(`📦 Category discount: $${discountAmount}`);
+              devLog(`📦 Category discount: $${discountAmount}`);
             }
           }
           break;
@@ -503,12 +509,12 @@ export function useDiscounts() {
           return result;
       }
 
-      console.log('\n📊 Final promo card discount result:', {
+      devLog('\n📊 Final promo card discount result:', {
         discountAmount,
         appliedDiscount: activePromoCard.code,
         hasValidDiscount: discountAmount > 0 || freeItemId !== null,
       });
-      console.log('🔄 ========== DISCOUNT CALCULATION END ==========\n');
+      devLog('🔄 ========== DISCOUNT CALCULATION END ==========\n');
 
       return {
         discountAmount,
@@ -522,11 +528,11 @@ export function useDiscounts() {
     
     // Legacy discount system support
     const activeDiscount = getActiveDiscount();
-    console.log('🎯 Active discount (legacy):', activeDiscount);
+    devLog('🎯 Active discount (legacy):', activeDiscount);
     
     if (!activeDiscount) {
-      console.log('⚠️ No active discount - returning default calculation');
-      console.log('🔄 ========== DISCOUNT CALCULATION END ==========\n');
+      devLog('⚠️ No active discount - returning default calculation');
+      devLog('🔄 ========== DISCOUNT CALCULATION END ==========\n');
       return {
         discountAmount: 0,
         appliedDiscount: null,
@@ -537,13 +543,10 @@ export function useDiscounts() {
       };
     }
 
-    console.log('🔍 Checking user authentication and usage...');
+    devLog('🔍 Checking user authentication and usage...');
     
-    // Check if user can use this discount
     const isAuthenticated = isUserAuthenticated();
-    
     if (!isAuthenticated) {
-
       return {
         discountAmount: 0,
         appliedDiscount: activeDiscount,
@@ -556,11 +559,11 @@ export function useDiscounts() {
     }
 
     const hasUsed = await hasUserUsedDiscount(activeDiscount);
-    console.log('🔄 Has user used this discount before:', hasUsed);
+    devLog('🔄 Has user used this discount before:', hasUsed);
     
     if (hasUsed) {
-      console.log('❌ User has already used this discount');
-      console.log('🔄 ========== DISCOUNT CALCULATION END ==========\n');
+      devLog('❌ User has already used this discount');
+      devLog('🔄 ========== DISCOUNT CALCULATION END ==========\n');
       return {
         discountAmount: 0,
         appliedDiscount: activeDiscount,
@@ -572,29 +575,29 @@ export function useDiscounts() {
       };
     }
 
-    console.log('✅ User can use discount - proceeding with calculation...');
-    console.log('\n🎯 Calculating discount for type:', activeDiscount);
+    devLog('✅ User can use discount - proceeding with calculation...');
+    devLog('\n🎯 Calculating discount for type:', activeDiscount);
 
     let result: DiscountCalculation;
     
     switch (activeDiscount) {
       case 'sunday10':
-        console.log('📅 Calculating Sunday 10% discount...');
+        devLog('📅 Calculating Sunday 10% discount...');
         result = calculateSunday10Discount(cart, cartTotal, calendarDateRange);
         break;
       
       case 'freeGame':
-        console.log('🎮 Calculating free game discount...');
+        devLog('🎮 Calculating free game discount...');
         result = calculateFreeGameDiscount(cart, cartTotal);
         break;
       
       case 'bogoGiftCard':
-        console.log('🎁 Calculating BOGO gift card discount...');
+        devLog('🎁 Calculating BOGO gift card discount...');
         result = calculateBogoGiftCardDiscount(cart, cartTotal);
         break;
       
       default:
-        console.log('❓ Unknown discount type');
+        devLog('❓ Unknown discount type');
         result = {
           discountAmount: 0,
           appliedDiscount: null,
@@ -605,14 +608,14 @@ export function useDiscounts() {
         };
     }
     
-    console.log('\n📊 Final discount result:', {
+    devLog('\n📊 Final discount result:', {
       discountAmount: result.discountAmount,
       appliedDiscount: result.appliedDiscount,
       hasValidDiscount: result.hasValidDiscount,
       addedGiftCards: result.addedGiftCards.length,
       userCanUse: result.userCanUse
     });
-    console.log('🔄 ========== DISCOUNT CALCULATION END ==========\n');
+    devLog('🔄 ========== DISCOUNT CALCULATION END ==========\n');
     
     return result;
   };
@@ -682,17 +685,17 @@ function calculateSunday10Discount(
   cartTotal: number, 
   calendarDateRange: [Date | null, Date | null]
 ): DiscountCalculation {
-  console.log('🎯 CALCULATING SUNDAY 10% DISCOUNT:');
-  console.log('Calendar Date Range:', calendarDateRange);
+  devLog('🎯 CALCULATING SUNDAY 10% DISCOUNT:');
+  devLog('Calendar Date Range:', calendarDateRange);
   
   const [startDate, endDate] = calendarDateRange;
   
   // Check if the date range includes a Sunday
   const includesSunday = checkIfRangeIncludesSunday(startDate, endDate);
-  console.log('Sunday qualification result:', includesSunday);
+  devLog('Sunday qualification result:', includesSunday);
   
   if (!includesSunday) {
-    console.log('❌ Sunday discount not qualified - no Sunday detected');
+    devLog('❌ Sunday discount not qualified - no Sunday detected');
     return {
       discountAmount: 0,
       appliedDiscount: 'sunday10',
@@ -713,7 +716,7 @@ function calculateSunday10Discount(
   }, 0);
 
   const discountAmount = discountableTotal * 0.1; // 10% off non-gift card items
-  console.log('✅ Sunday discount qualified! Discount amount:', discountAmount, 'on discountable total:', discountableTotal);
+  devLog('✅ Sunday discount qualified! Discount amount:', discountAmount, 'on discountable total:', discountableTotal);
   
   return {
     discountAmount,
@@ -730,16 +733,16 @@ function calculateFreeGameDiscount(
   cart: CartItem[], 
   cartTotal: number
 ): DiscountCalculation {
-  console.log('\n🎮 ========== FREE GAME DISCOUNT CALCULATION ==========');
-  console.log('📊 Cart items:', cart.length);
-  console.log('💰 Cart total:', cartTotal);
+  devLog('\n🎮 ========== FREE GAME DISCOUNT CALCULATION ==========');
+  devLog('📊 Cart items:', cart.length);
+  devLog('💰 Cart total:', cartTotal);
   
   // Log all cart items with their categories
   cart.forEach((item, index) => {
-    console.log(`  ${index + 1}. ${item.name}`);
-    console.log(`     - Category: "${item.category}"`);
-    console.log(`     - Price: $${item.price}`);
-    console.log(`     - Includes "game": ${item.category?.toLowerCase().includes('game')}`);
+    devLog(`  ${index + 1}. ${item.name}`);
+    devLog(`     - Category: "${item.category}"`);
+    devLog(`     - Price: $${item.price}`);
+    devLog(`     - Includes "game": ${item.category?.toLowerCase().includes('game')}`);
   });
   
   // Find all games in the cart
@@ -747,14 +750,14 @@ function calculateFreeGameDiscount(
     item.category && item.category.toLowerCase().includes('game')
   );
   
-  console.log(`\n🎯 Found ${games.length} game(s) in cart:`);
+  devLog(`\n🎯 Found ${games.length} game(s) in cart:`);
   games.forEach((game, index) => {
-    console.log(`  ${index + 1}. ${game.name} - $${game.price}`);
+    devLog(`  ${index + 1}. ${game.name} - $${game.price}`);
   });
   
   if (games.length === 0) {
-    console.log('❌ No games found - discount not applicable');
-    console.log('🎮 ===============================================\n');
+    devLog('❌ No games found - discount not applicable');
+    devLog('🎮 ===============================================\n');
     return {
       discountAmount: 0,
       appliedDiscount: 'freeGame',
@@ -770,10 +773,10 @@ function calculateFreeGameDiscount(
     current.price < cheapest.price ? current : cheapest
   );
 
-  console.log(`\n✅ Cheapest game selected: ${cheapestGame.name}`);
-  console.log(`   - Price (discount amount): $${cheapestGame.price}`);
-  console.log(`   - Item ID: ${cheapestGame.id}`);
-  console.log('🎮 ===============================================\n');
+  devLog(`\n✅ Cheapest game selected: ${cheapestGame.name}`);
+  devLog(`   - Price (discount amount): $${cheapestGame.price}`);
+  devLog(`   - Item ID: ${cheapestGame.id}`);
+  devLog('🎮 ===============================================\n');
 
   return {
     discountAmount: cheapestGame.price,
@@ -790,9 +793,9 @@ function calculateBogoGiftCardDiscount(
   cart: CartItem[], 
   cartTotal: number
 ): DiscountCalculation {
-  console.log('\n🎁 ========== BOGO GIFT CARD CALCULATION ==========');
-  console.log('📊 Input cart items:', cart.length);
-  console.log('💰 Cart total:', cartTotal);
+  devLog('\n🎁 ========== BOGO GIFT CARD CALCULATION ==========');
+  devLog('📊 Input cart items:', cart.length);
+  devLog('💰 Cart total:', cartTotal);
   
   // Check if there are any gift cards in cart
   const giftCards = cart.filter(item => {
@@ -801,21 +804,21 @@ function calculateBogoGiftCardDiscount(
       (item.category && item.category.toLowerCase().includes('gift')) ||
       item.isGiftCard
     );
-    console.log(`  - ${item.name}: isGiftCard=${isGift}, category=${item.category}`);
+    devLog(`  - ${item.name}: isGiftCard=${isGift}, category=${item.category}`);
     if (isGift && item.giftCardValue) {
-      console.log(`    💳 Gift Card Value: $${item.giftCardValue}`);
+      devLog(`    💳 Gift Card Value: $${item.giftCardValue}`);
     }
     return isGift;
   });
   
-  console.log('🎯 Found', giftCards.length, 'gift cards in cart:');
+  devLog('🎯 Found', giftCards.length, 'gift cards in cart:');
   giftCards.forEach((card, index) => {
-    console.log(`  ${index + 1}. ${card.name} - Price: $${card.price}, Value: $${card.giftCardValue || card.price}`);
+    devLog(`  ${index + 1}. ${card.name} - Price: $${card.price}, Value: $${card.giftCardValue || card.price}`);
   });
   
   if (giftCards.length === 0) {
-    console.log('⚠️ No gift cards found - BOGO not applicable');
-    console.log('🎁 ================================================\n');
+    devLog('⚠️ No gift cards found - BOGO not applicable');
+    devLog('🎁 ================================================\n');
     return {
       discountAmount: 0,
       appliedDiscount: 'bogoGiftCard',
@@ -837,28 +840,28 @@ function calculateBogoGiftCardDiscount(
       return result;
     };
     const code = `${generateSegment()}-${generateSegment()}-${generateSegment()}`;
-    console.log('🎫 Generated gift card code:', code);
+    devLog('🎫 Generated gift card code:', code);
     return code;
   };
 
-  console.log('\n🔄 Finding highest value gift card for BOGO...');
+  devLog('\n🔄 Finding highest value gift card for BOGO...');
   
   // Find the highest value gift card to give one free (not one for each)
   const highestValueGiftCard = giftCards.reduce((highest, current) => {
     const currentValue = current.giftCardValue || current.price;
     const highestValue = highest.giftCardValue || highest.price;
     
-    console.log(`  - Comparing: $${currentValue} vs current highest $${highestValue}`);
+    devLog(`  - Comparing: $${currentValue} vs current highest $${highestValue}`);
     
     return currentValue > highestValue ? current : highest;
   });
   
   const highestValue = highestValueGiftCard.giftCardValue || highestValueGiftCard.price;
   
-  console.log(`\n� Highest value gift card selected:`);
-  console.log(`  - Name: ${highestValueGiftCard.name}`);
-  console.log(`  - Price: $${highestValueGiftCard.price}`);
-  console.log(`  - Gift Card Value: $${highestValue}`);
+  devLog(`\n🎁 Highest value gift card selected:`);
+  devLog(`  - Name: ${highestValueGiftCard.name}`);
+  devLog(`  - Price: $${highestValueGiftCard.price}`);
+  devLog(`  - Gift Card Value: $${highestValue}`);
   
   // Generate ONE free gift card matching the highest value
   const freeCard = {
@@ -874,7 +877,7 @@ function calculateBogoGiftCardDiscount(
     isPromotionalGift: true,
   };
   
-  console.log(`✅ Generated ONE free card:`, {
+  devLog(`✅ Generated ONE free card:`, {
     id: freeCard.id,
     name: freeCard.name,
     value: freeCard.giftCardValue,
@@ -886,12 +889,12 @@ function calculateBogoGiftCardDiscount(
   
   const totalFreeValue = freeGiftCards.reduce((sum, card) => sum + (card.giftCardValue || 0), 0);
   
-  console.log('\n📊 BOGO Summary:');
-  console.log(`  - Total paid gift cards in cart: ${giftCards.length}`);
-  console.log(`  - Static free cards provided: 2 (both $50 and $100 options)`);
-  console.log(`  - CartSidebar will filter and display appropriate free card`);
-  console.log(`  - Has valid discount: ${freeGiftCards.length > 0}`);
-  console.log('🎁 ================================================\n');
+  devLog('\n📊 BOGO Summary:');
+  devLog(`  - Total paid gift cards in cart: ${giftCards.length}`);
+  devLog(`  - Static free cards provided: 2 (both $50 and $100 options)`);
+  devLog(`  - CartSidebar will filter and display appropriate free card`);
+  devLog(`  - Has valid discount: ${freeGiftCards.length > 0}`);
+  devLog('🎁 ================================================\n');
   
   return {
     discountAmount: 0, // The "discount" is the free items added
@@ -909,12 +912,12 @@ function checkIfRangeIncludesDay(
   endDate: Date | null, 
   dayName: string
 ): boolean {
-  console.log(`🔍 CHECKING FOR ${dayName.toUpperCase()}:`);
-  console.log('Start Date:', startDate);
-  console.log('End Date:', endDate);
+  devLog(`🔍 CHECKING FOR ${dayName.toUpperCase()}:`);
+  devLog('Start Date:', startDate);
+  devLog('End Date:', endDate);
   
   if (!startDate || !endDate) {
-    console.log('❌ Missing dates - no day qualification');
+    devLog('❌ Missing dates - no day qualification');
     return false;
   }
   
@@ -931,16 +934,16 @@ function checkIfRangeIncludesDay(
   
   const targetDay = dayMap[dayName.toLowerCase()];
   if (targetDay === undefined) {
-    console.log(`❌ Unknown day name: ${dayName}`);
+    devLog(`❌ Unknown day name: ${dayName}`);
     return false;
   }
   
   const startDay = startDate.getDay();
-  console.log(`Start Day of Week: ${startDay} (0=Sunday, 6=Saturday), Target: ${targetDay}`);
+  devLog(`Start Day of Week: ${startDay} (0=Sunday, 6=Saturday), Target: ${targetDay}`);
   
   // Check if start date matches the target day
   if (startDay === targetDay) {
-    console.log(`✅ Start date is ${dayName}!`);
+    devLog(`✅ Start date is ${dayName}!`);
     return true;
   }
   
@@ -948,12 +951,12 @@ function checkIfRangeIncludesDay(
   const dayBefore = (targetDay - 1 + 7) % 7;
   if (startDay === dayBefore) {
     const durationHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-    console.log(`📅 Day before ${dayName} detected! Duration: ${durationHours} hours`);
+    devLog(`📅 Day before ${dayName} detected! Duration: ${durationHours} hours`);
     if (durationHours >= 48) {
-      console.log(`✅ Day before + 48+ hours = ${dayName} qualification!`);
+      devLog(`✅ Day before + 48+ hours = ${dayName} qualification!`);
       return true;
     } else {
-      console.log(`❌ Day before ${dayName} but less than 48 hours duration`);
+      devLog(`❌ Day before ${dayName} but less than 48 hours duration`);
     }
   }
   
@@ -961,63 +964,18 @@ function checkIfRangeIncludesDay(
   const current = new Date(startDate);
   const end = new Date(endDate);
   
-  console.log(`🔄 Checking each day in range for ${dayName}...`);
+  devLog(`🔄 Checking each day in range for ${dayName}...`);
   while (current <= end) {
     const dayOfWeek = current.getDay();
-    console.log('Checking date:', current.toDateString(), 'Day:', dayOfWeek);
+    devLog('Checking date:', current.toDateString(), 'Day:', dayOfWeek);
     if (dayOfWeek === targetDay) {
-      console.log(`✅ Found ${dayName} in date range!`);
+      devLog(`✅ Found ${dayName} in date range!`);
       return true;
     }
     current.setDate(current.getDate() + 1);
   }
   
-  console.log(`❌ No ${dayName} found in date range`);
-  return false;
-}
-
-// Helper function to check if date range includes a Sunday (legacy support)
-function checkIfRangeIncludesSunday(startDate: Date | null, endDate: Date | null): boolean {
-  console.log('🔍 SUNDAY DETECTION DEBUG:');
-  console.log('Start Date:', startDate);
-  console.log('End Date:', endDate);
-  
-  if (!startDate || !endDate) {
-    console.log('❌ Missing dates - no Sunday qualification');
-    return false;
-  }
-  
-  const startDay = startDate.getDay(); // 0=Sunday, 1=Monday, ... 6=Saturday
-  console.log('Start Day of Week:', startDay, '(0=Sunday, 6=Saturday)');
-  
-  // Check if start date is Saturday and duration is 48+ hours
-  if (startDay === 6) { // Saturday is day 6
-    const durationHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-    console.log('📅 Saturday detected! Duration:', durationHours, 'hours');
-    if (durationHours >= 48) {
-      console.log('✅ Saturday + 48+ hours = Sunday qualification!');
-      return true; // Saturday + 48 hours extends into Sunday
-    } else {
-      console.log('❌ Saturday but less than 48 hours duration');
-    }
-  }
-  
-  // Original logic: check if any day in the range is Sunday
-  const current = new Date(startDate);
-  const end = new Date(endDate);
-  
-  console.log('🔄 Checking each day in range for Sunday...');
-  while (current <= end) {
-    const dayOfWeek = current.getDay();
-    console.log('Checking date:', current.toDateString(), 'Day:', dayOfWeek);
-    if (dayOfWeek === 0) { // Sunday is day 0
-      console.log('✅ Found Sunday in date range!');
-      return true;
-    }
-    current.setDate(current.getDate() + 1);
-  }
-  
-  console.log('❌ No Sunday found in date range');
+  devLog(`❌ No ${dayName} found in date range`);
   return false;
 }
 
@@ -1033,20 +991,20 @@ function checkPromoCardRequirements(
   cartTotal: number,
   calendarDateRange: [Date | null, Date | null]
 ): boolean {
-  console.log('🎯 CHECKING PROMO CARD REQUIREMENTS:');
-  console.log('Card:', card.cardText);
-  console.log('Requirement Type:', card.requirementType);
-  console.log('Requirement:', card.requirement);
+  devLog('🎯 CHECKING PROMO CARD REQUIREMENTS:');
+  devLog('Card:', card.cardText);
+  devLog('Requirement Type:', card.requirementType);
+  devLog('Requirement:', card.requirement);
 
   switch (card.requirementType) {
     case 'none':
-      console.log('✅ No requirements - always valid');
+      devLog('✅ No requirements - always valid');
       return true;
 
     case 'minimumCartValue':
       const minValue = card.requirement as number;
       const meetsMinimum = cartTotal >= minValue;
-      console.log(`Cart total: $${cartTotal}, Minimum: $${minValue}, Meets: ${meetsMinimum}`);
+      devLog(`Cart total: $${cartTotal}, Minimum: $${minValue}, Meets: ${meetsMinimum}`);
       return meetsMinimum;
 
     case 'containsProducts':
@@ -1054,7 +1012,7 @@ function checkPromoCardRequirements(
       const hasAllProducts = requiredProducts.every(productId =>
         cart.some(item => item.id === productId)
       );
-      console.log(`Required products: ${requiredProducts.length}, Has all: ${hasAllProducts}`);
+      devLog(`Required products: ${requiredProducts.length}, Has all: ${hasAllProducts}`);
       return hasAllProducts;
 
     case 'containsCategory':
@@ -1062,22 +1020,26 @@ function checkPromoCardRequirements(
         ? card.requirement 
         : [card.requirement];
       const hasCategory = cart.some(item =>
-        requiredCategories.some(cat =>
-          item.category?.toLowerCase().includes(cat.toLowerCase())
-        )
+        requiredCategories.some(cat => {
+          if (typeof cat !== 'string') return false;
+          const categoryStr = Array.isArray(item.category) 
+            ? item.category.join(',').toLowerCase() 
+            : item.category?.toLowerCase() || '';
+          return categoryStr.includes(cat.toLowerCase());
+        })
       );
-      console.log(`Required categories: ${requiredCategories}, Has category: ${hasCategory}`);
+      devLog(`Required categories: ${requiredCategories}, Has category: ${hasCategory}`);
       return hasCategory;
 
     case 'byDay':
       const requiredDay = card.requirement as string;
       const [startDate, endDate] = calendarDateRange;
       const hasDay = checkIfRangeIncludesDay(startDate, endDate, requiredDay);
-      console.log(`Required day: ${requiredDay}, Event has day: ${hasDay}`);
+      devLog(`Required day: ${requiredDay}, Event has day: ${hasDay}`);
       return hasDay;
 
     default:
-      console.log('❌ Unknown requirement type');
+      devLog('❌ Unknown requirement type');
       return false;
   }
 }
@@ -1107,7 +1069,7 @@ async function isGiftCardCodeUnique(code: string): Promise<boolean> {
 }
 
 // Helper function to generate unique gift card code (ensures uniqueness)
-async function generateUniqueGiftCardCode(): Promise<string> {
+export async function generateUniqueGiftCardCode(): Promise<string> {
   let code: string;
   let isUnique = false;
   let attempts = 0;
@@ -1135,7 +1097,7 @@ async function generateUniqueGiftCardCode(): Promise<string> {
 }
 
 // Helper function to create gift card in database
-async function createGiftCardInDatabase(
+export async function createGiftCardInDatabase(
   code: string,
   amount: number,
   purchaserUserId: string,
@@ -1397,9 +1359,6 @@ export function usePromoCards() {
   return { promoCards, loading };
 }
 
-// Export gift card utility functions for use in other components
-export { generateUniqueGiftCardCode, createGiftCardInDatabase, getGiftCardDetails };
-
 // Gift card redemption and management functions
 export async function redeemGiftCardToWallet(
   giftCardCode: string,
@@ -1506,7 +1465,7 @@ export async function cleanupEmptyGiftCards(): Promise<number> {
     
     // This would typically be run as a server-side function
     // For now, we'll just return 0 as this should be handled by backend
-    console.log('Gift card cleanup should be handled by a server-side scheduled function');
+    devLog('Gift card cleanup should be handled by a server-side scheduled function');
     return 0;
   } catch (error) {
     console.error('Error during gift card cleanup:', error);
@@ -1515,7 +1474,7 @@ export async function cleanupEmptyGiftCards(): Promise<number> {
 }
 
 // Get full gift card details for balance checker
-async function getGiftCardDetails(giftCardCode: string): Promise<{
+export async function getGiftCardDetails(giftCardCode: string): Promise<{
   success: boolean;
   giftCard?: any;
   message: string;
