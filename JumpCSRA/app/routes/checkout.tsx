@@ -3126,6 +3126,7 @@ export default function Checkout() {
             existingBooking.paymentDetails.depositAmount = depositAmount;
             existingBooking.paymentDetails.remainingBalance = totalAmount - depositAmount;
             existingBooking.paymentDetails.tip = tipAmount;
+            existingBooking.orderDetails.notes = eventNotes;
             existingBooking.paymentDetails.paymentStatus = 'completed';
             existingBooking.paymentDetails.paymentDate = new Date().toISOString();
             existingBooking.updatedAt = new Date().toISOString();
@@ -3812,6 +3813,7 @@ export default function Checkout() {
             
             // Update both orderDetails and paymentDetails with correct totalAmount
             updatedBooking.orderDetails.totalAmount = totalAmount;
+            updatedBooking.orderDetails.notes = eventNotes;
             updatedBooking.paymentDetails.totalAmount = totalAmount;
             updatedBooking.paymentDetails.depositAmount = depositAmount;
             updatedBooking.paymentDetails.remainingBalance = totalAmount - depositAmount;
@@ -5199,6 +5201,8 @@ export default function Checkout() {
       const database = getDatabase();
       const contractsRef = ref(database, 'contracts');
       const newContractRef = push(contractsRef);
+
+      console.log('Current eventNotes state:', eventNotes);
       
       const contractMetadata: ContractMetadata = {
         contractId: newContractRef.key || `contract_${user.uid}_${Date.now()}`,
@@ -5234,6 +5238,7 @@ export default function Checkout() {
           ],
           totalAmount: total,
           ...(tipAmount > 0 && { tip: tipAmount }),
+
           // Include event notes if provided
           ...(eventNotes && eventNotes.trim() !== '' && { notes: eventNotes })
         },
