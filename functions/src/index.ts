@@ -3037,8 +3037,15 @@ export const autoProcessBookings = functions.pubsub
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
+      const now = Date.now();
+      const HOLD_EXPIRATION_MS = 24 * 60 * 60 * 1000; // 24 hours
       let cancelledCount = 0;
       let completedCount = 0;
+      
+
+
+
+
       
       // ============= Part 1: Cancel pending bookings (unpaid orders past event date) =============
       console.log('❌ Checking for pending bookings to cancel...');
@@ -3056,6 +3063,39 @@ export const autoProcessBookings = functions.pubsub
             continue;
           }
           
+// Process hold bookings for expiration cancellation
+if (bookingData.status === 'hold') {
+  const holdTimestamp = bookingData.dashboardDetails?.timePlacedOnHold;
+
+  if (holdTimestamp) {
+    try {
+      const holdTime = new Date(holdTimestamp).getTime();
+
+      // Cancel if hold has lasted 24+ hours
+      if (now - holdTime >= HOLD_EXPIRATION_MS) {
+        console.log(`⏰ Cancelling expired hold booking ${bookingId}`);
+
+        await bookingsRef.child(bookingId).update({
+          status: 'cancelled',
+          updatedAt: new Date().toISOString()
+        });
+
+        await bookingsRef.child(`${bookingId}/notes`).push({
+          type: 'system',
+          message: 'Booking auto-cancelled - hold exceeded 24 hours',
+          timestamp: new Date().toISOString()
+        });
+
+        cancelledCount++;
+        continue;
+      }
+    } catch (holdError) {
+      console.error(`❌ Error processing hold expiration for ${bookingId}:`, holdError);
+    }
+  }
+}
+
+
           // Process pending bookings for cancellation
           if (bookingData.status === 'pending') {
             const eventDateStr = bookingData.orderDetails?.eventDate;
@@ -3161,6 +3201,39 @@ export const autoProcessBookings = functions.pubsub
         for (const [bookingId, booking] of Object.entries(membershipBookings)) {
           const bookingData = booking as any;
           
+// Process membership hold bookings for expiration cancellation
+if (bookingData.bookingStatus === 'hold') {
+  const holdTimestamp = bookingData.dashboardDetails?.timePlacedOnHold;
+
+  if (holdTimestamp) {
+    try {
+      const holdTime = new Date(holdTimestamp).getTime();
+
+      // Cancel if hold has lasted 24+ hours
+      if (now - holdTime >= HOLD_EXPIRATION_MS) {
+        console.log(`⏰ Cancelling expired membership hold booking ${bookingId}`);
+
+        await membershipBookingsRef.child(bookingId).update({
+          bookingStatus: 'cancelled',
+          updatedAt: { '.sv': 'timestamp' }
+        });
+
+        await membershipBookingsRef.child(`${bookingId}/notes`).push({
+          type: 'system',
+          message: 'Membership booking auto-cancelled - hold exceeded 24 hours',
+          timestamp: new Date().toISOString()
+        });
+
+        cancelledCount++;
+        continue;
+      }
+    } catch (holdError) {
+      console.error(`❌ Error processing membership hold expiration for ${bookingId}:`, holdError);
+    }
+  }
+}
+
+
           if (bookingData.bookingStatus === 'confirmed') {
             const shouldComplete = await shouldCompleteBooking(bookingData, 'membership');
             
