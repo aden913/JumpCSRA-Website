@@ -21,6 +21,7 @@ export interface BookingData {
     eventDate: string;
     duration: string;
     deliveryAddress: string;
+    location?: string;
     surface: string;
     deliveryTime: string;
     items: Array<{

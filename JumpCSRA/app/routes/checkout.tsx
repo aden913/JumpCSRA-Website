@@ -402,10 +402,20 @@ export default function Checkout() {
   
   // Helper function to get the current cart for display
   // Uses completed order cart if payment is done, otherwise uses active cart
+  const categoryMatches = (category: unknown, target: string): boolean => {
+    const normalizedTarget = target.toLowerCase();
+
+    if (Array.isArray(category)) {
+      return category.some(cat => String(cat).toLowerCase() === normalizedTarget);
+    }
+
+    return String(category ?? '').toLowerCase() === normalizedTarget;
+  };
+
   const convertLastMinuteAdditionsToCartItems = (): CartItem[] => {
     // Filter inflateables directly to get party essentials
     const partyEssentialsItems = inflateables.filter(item => 
-      item.category && item.category.toLowerCase() === "party-essentials" && 
+      categoryMatches(item.category, "party-essentials") && 
       !item.isGiftCard
     );
     
@@ -891,6 +901,9 @@ export default function Checkout() {
           }
           if (bookingSettings.deliveryTime && cartSettings.deliveryTime !== bookingSettings.deliveryTime) {
             cartSettings.setDeliveryTime(bookingSettings.deliveryTime);
+          }
+          if (bookingSettings.location && cartSettings.location !== bookingSettings.location) {
+            cartSettings.setLocation(bookingSettings.location);
           }
         }
 
@@ -1678,7 +1691,7 @@ export default function Checkout() {
 
   // Get party essentials for carousel (must be defined before useEffect that uses it)
   const partyEssentials = inflateables.filter(item => 
-    item.category && item.category.toLowerCase() === "party-essentials" && 
+    categoryMatches(item.category, "party-essentials") && 
     !item.isGiftCard // Exclude gift cards from last-minute additions
   );
 
@@ -4895,6 +4908,7 @@ export default function Checkout() {
           eventDate: onlyGiftCards ? 'N/A - Gift Card Purchase' : `${calendarDateRange[0]?.toLocaleDateString()} - ${calendarDateRange[1]?.toLocaleDateString()}`,
           duration: onlyGiftCards ? 'N/A' : (cartSettings.duration || 'N/A'),
           deliveryAddress: onlyGiftCards ? 'N/A - Digital Purchase' : (deliveryAddress || 'N/A'),
+          location: onlyGiftCards ? 'N/A' : (cartSettings.location || 'N/A'),
           surface: onlyGiftCards ? 'N/A' : (cartSettings.surface || 'N/A'),
           deliveryTime: onlyGiftCards ? 'N/A' : (cartSettings.deliveryTime || 'N/A'),
           ...(eventStart && { eventStart }),
@@ -5219,6 +5233,7 @@ export default function Checkout() {
           eventDate: `${calendarDateRange[0]?.toLocaleDateString()} - ${calendarDateRange[1]?.toLocaleDateString()}`,
           duration: cartSettings.duration,
           deliveryAddress: deliveryAddress,
+          location: cartSettings.location,
           surface: cartSettings.surface,
           deliveryTime: cartSettings.deliveryTime,
           items: [
