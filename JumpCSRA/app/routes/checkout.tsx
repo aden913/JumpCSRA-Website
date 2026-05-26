@@ -377,6 +377,21 @@ export default function Checkout() {
     isPromotional: boolean;
   }>>([]);
   
+  // Pricing rates state
+  interface PricingRate {
+    id: string;
+    name: string;
+    type: 'number' | 'percent';
+    amount: number;
+    active: boolean;
+    startDate: string;
+    endDate: string;
+  }
+  
+  const [dashboardRates, setDashboardRates] = useState<PricingRate[]>([]);
+  const [appliedRates, setAppliedRates] = useState<Array<{ name: string; adjustment: number }>>([]);
+  const [loadingRates, setLoadingRates] = useState<boolean>(false);
+  
   // Contract state variables
   const [customerInitials, setCustomerInitials] = useState<string>("");
   const [typedSignature, setTypedSignature] = useState<string>("");
@@ -1777,6 +1792,68 @@ export default function Checkout() {
     }
   }, [calendarDateRange[0], cart]);
 
+  // Load pricing rates from dashboard when dates change
+  useEffect(() => {
+    const loadPricingRates = async () => {
+      if (!calendarDateRange[0]) {
+        setAppliedRates([]);
+        return;
+      }
+
+      setLoadingRates(true);
+      try {
+        const database = getDatabase();
+        const ratesRef = ref(database, 'dashboardInformation/rates');
+        const snapshot = await get(ratesRef);
+
+        if (!snapshot.exists()) {
+          setAppliedRates([]);
+          setLoadingRates(false);
+          return;
+        }
+
+        const ratesData = snapshot.val();
+        const ratesArray: PricingRate[] = Object.entries(ratesData).map(([id, data]: [string, any]) => ({
+          id,
+          name: data.name || 'Pricing Adjustment',
+          type: data.type || 'number',
+          amount: data.amount || 0,
+          active: data.active || false,
+          startDate: data.startDate || '',
+          endDate: data.endDate || ''
+        }));
+
+        setDashboardRates(ratesArray);
+
+        // Calculate which rates apply
+        const eventStartTime = calendarDateRange[0].getTime();
+        const applicableRates = ratesArray.filter(rate => {
+          if (!rate.active) return false;
+          
+          const rateStart = new Date(rate.startDate).getTime();
+          const rateEnd = new Date(rate.endDate).getTime();
+          
+          return eventStartTime >= rateStart && eventStartTime <= rateEnd;
+        });
+
+        setAppliedRates(
+          applicableRates.map(rate => ({
+            name: rate.name,
+            adjustment: rate.amount,
+            type: rate.type
+          }))
+        );
+      } catch (error) {
+        console.error('Error loading pricing rates:', error);
+        setAppliedRates([]);
+      } finally {
+        setLoadingRates(false);
+      }
+    };
+
+    loadPricingRates();
+  }, [calendarDateRange[0]]);
+
   // Current cart state debug removed
   // Validate and clean cart when dates change
   useEffect(() => {
@@ -1862,13 +1939,46 @@ export default function Checkout() {
     "24hours-pickup8": 40,
   };
 
+  // Calculate total rate adjustments (non-compounding - each applied to original base price)
+  const calculateRateAdjustments = (baseAmount: number, isForLastMinute: boolean = false): { totalAdjustment: number; breakdown: Array<{ name: string; amount: number }> } => {
+    const breakdown: Array<{ name: string; amount: number }> = [];
+    let totalAdjustment = 0;
+
+    dashboardRates.forEach(rate => {
+      if (!rate.active) return;
+      
+      const eventStartTime = calendarDateRange[0]?.getTime();
+      if (!eventStartTime) return;
+      
+      const rateStart = new Date(rate.startDate).getTime();
+      const rateEnd = new Date(rate.endDate).getTime();
+      
+      if (eventStartTime < rateStart || eventStartTime > rateEnd) return;
+      
+      let adjustment = 0;
+      if (rate.type === 'number') {
+        adjustment = rate.amount;
+      } else if (rate.type === 'percent') {
+        adjustment = baseAmount * (rate.amount / 100);
+      }
+      
+      if (adjustment > 0) {
+        breakdown.push({ name: rate.name, amount: adjustment });
+        totalAdjustment += adjustment;
+      }
+    });
+
+    return { totalAdjustment, breakdown };
+  };
+
   // Calculate cart total including last-minute additions
   const durationMultiplier = cartSettings.duration ? durationMultipliers[cartSettings.duration] || 1.0 : 1.0;
   
   // Check if cart contains a membership (for discount calculation)
   const hasMembership = cart.some(item => item.isMembership);
   
-  const cartTotal = cart.reduce((sum, item, index) => {
+  // Calculate base cart total (before rates applied) for rental items only
+  const cartTotalBeforeRates = cart.reduce((sum, item, index) => {
     let itemTotal: number;
     if (item.isGiftCard) {
       itemTotal = (item.giftCardValue || item.price) * item.quantity;
@@ -1894,6 +2004,17 @@ export default function Checkout() {
     }
     return sum + itemTotal;
   }, 0);
+
+  // Calculate rate adjustments for rental items only
+  const rentalItemsBasePrice = cart.reduce((sum, item) => {
+    if (item.isGiftCard || item.isMembership) return sum;
+    return sum + item.price * item.quantity;
+  }, 0);
+  
+  const { totalAdjustment: rentalRateAdjustment, breakdown: rateBreakdown } = calculateRateAdjustments(rentalItemsBasePrice);
+  
+  // Apply rate adjustment to rental items only
+  const cartTotal = cartTotalBeforeRates + rentalRateAdjustment;
 
   // Calculate last-minute additions total
   const lastMinuteTotal = Object.entries(lastMinuteAdditions).reduce((sum, [itemName, quantity]) => {
@@ -5019,6 +5140,13 @@ export default function Checkout() {
           adjustmentEventDuration: parseFloat(totalEventDuration.toFixed(2)),
           adjustmentSurface: parseFloat(totalSurface.toFixed(2)),
           adjustmentDelivery: parseFloat(totalDelivery.toFixed(2)),
+          ...(rentalRateAdjustment > 0 && { 
+            adjustmentRates: parseFloat(rentalRateAdjustment.toFixed(2)),
+            appliedRatesBreakdown: rateBreakdown.map(rate => ({
+              name: rate.name,
+              amount: parseFloat(rate.amount.toFixed(2))
+            }))
+          }),
           ...(tipAmount > 0 && { tip: tipAmount }),
           // Store discount information (homepage discounts OR promo codes)
           ...((discountCalculation?.hasValidDiscount && discountCalculation?.discountAmount > 0) || (appliedPromoCode && promoDiscountAmount > 0)) && {
@@ -6531,6 +6659,18 @@ export default function Checkout() {
             </div>
           )}
           
+          {/* Display applied pricing rates */}
+          {rateBreakdown.length > 0 && (
+            <>
+              {rateBreakdown.map((rate, index) => (
+                <div key={index} className="pricing-row">
+                  <span>{rate.name}:</span>
+                  <span>${rate.amount.toFixed(2)}</span>
+                </div>
+              ))}
+            </>
+          )}
+          
           {deliveryCost > 0 && (
             <div className="pricing-row">
               <span>Delivery Cost:</span>
@@ -7822,6 +7962,18 @@ export default function Checkout() {
                 }}>
                   ❌ {discountCalculation.usageError || 'Cannot use this discount'}
                 </div>
+              )}
+              
+              {/* Display applied pricing rates */}
+              {rateBreakdown.length > 0 && (
+                <>
+                  {rateBreakdown.map((rate, index) => (
+                    <div key={index} className="pricing-row">
+                      <span>{rate.name}:</span>
+                      <span>${rate.amount.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </>
               )}
               
               {deliveryCost > 0 && (
