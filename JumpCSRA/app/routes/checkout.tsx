@@ -1940,7 +1940,9 @@ export default function Checkout() {
   };
 
   // Calculate total rate adjustments (non-compounding - each applied to original base price)
-  const calculateRateAdjustments = (baseAmount: number, isForLastMinute: boolean = false): { totalAdjustment: number; breakdown: Array<{ name: string; amount: number }> } => {
+  // For number type rates: multiply by rental item quantity
+  // For percent type rates: apply to base amount
+  const calculateRateAdjustments = (baseAmount: number, rentalItemQuantity: number = 1): { totalAdjustment: number; breakdown: Array<{ name: string; amount: number }> } => {
     const breakdown: Array<{ name: string; amount: number }> = [];
     let totalAdjustment = 0;
 
@@ -1957,8 +1959,10 @@ export default function Checkout() {
       
       let adjustment = 0;
       if (rate.type === 'number') {
-        adjustment = rate.amount;
+        // Number type: apply per rental item/product
+        adjustment = rate.amount * rentalItemQuantity;
       } else if (rate.type === 'percent') {
+        // Percent type: apply to total base price
         adjustment = baseAmount * (rate.amount / 100);
       }
       
@@ -2011,7 +2015,13 @@ export default function Checkout() {
     return sum + item.price * item.quantity;
   }, 0);
   
-  const { totalAdjustment: rentalRateAdjustment, breakdown: rateBreakdown } = calculateRateAdjustments(rentalItemsBasePrice);
+  // Calculate total quantity of rental items
+  const totalRentalItemQuantity = cart.reduce((sum, item) => {
+    if (item.isGiftCard || item.isMembership) return sum;
+    return sum + item.quantity;
+  }, 0);
+  
+  const { totalAdjustment: rentalRateAdjustment, breakdown: rateBreakdown } = calculateRateAdjustments(rentalItemsBasePrice, totalRentalItemQuantity);
   
   // Apply rate adjustment to rental items only
   const cartTotal = cartTotalBeforeRates + rentalRateAdjustment;
