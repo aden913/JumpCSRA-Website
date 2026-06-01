@@ -6,7 +6,7 @@ import { loadGoogleMapsAPI, isGoogleMapsLoaded } from '../utils/googleMapsLoader
 interface GooglePlacesAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
-  onPlaceSelected?: (place: google.maps.places.PlaceResult) => void;
+  onPlaceSelected?: (place: google.maps.places.PlaceResult, formattedAddress: string) => void;
   disabled?: boolean;
   style?: React.CSSProperties;
   placeholder?: string;
@@ -41,13 +41,20 @@ export function GooglePlacesAutocomplete({
   const inputRef = externalInputRef ?? internalInputRef;
 
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const onChangeRef = useRef(onChange);
+  const onPlaceSelectedRef = useRef(onPlaceSelected);
 
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSelectingPlace, setIsSelectingPlace] = useState(false);
   const [localValue, setLocalValue] = useState(value);
 
+  useEffect(() => {
+    onChangeRef.current = onChange;
+    onPlaceSelectedRef.current = onPlaceSelected;
+  }, [onChange, onPlaceSelected]);
+
   /**
-   * Sync controlled value → local value
+   * Sync controlled value -> local value
    */
   useEffect(() => {
     if (!isSelectingPlace && value !== localValue) {
@@ -70,14 +77,14 @@ export function GooglePlacesAutocomplete({
   }, []);
 
   /**
-   * Initialize Places Autocomplete
+   * Initialize Places Autocomplete once. Callback refs keep handlers current.
    */
   useEffect(() => {
     if (!isLoaded || !inputRef.current || autocompleteRef.current) return;
 
     if (!window.google?.maps?.places?.Autocomplete) return;
 
-    autocompleteRef.current = new google.maps.places.Autocomplete(
+    const autocomplete = new google.maps.places.Autocomplete(
       inputRef.current,
       {
         types: ['address'],
@@ -91,55 +98,57 @@ export function GooglePlacesAutocomplete({
       }
     );
 
-    const autocomplete = autocompleteRef.current;
+    autocompleteRef.current = autocomplete;
 
-    autocomplete.addListener('place_changed', () => {
+    const placeChangedListener = autocomplete.addListener('place_changed', () => {
       const place = autocomplete.getPlace();
 
       if (!place.formatted_address || !place.geometry?.location) {
-        onChange('');
+        onChangeRef.current('');
         return;
       }
 
       setIsSelectingPlace(true);
 
       const zip = getPostalCode(place);
-
       let finalAddress = place.formatted_address;
 
-      // Google often omits ZIP from formatted_address — append it
+      // Google often omits ZIP from formatted_address, so append it for display/storage.
       if (zip && !finalAddress.includes(zip)) {
         finalAddress = `${finalAddress}, ${zip}`;
       }
 
-      // Update immediately
       setLocalValue(finalAddress);
 
       if (inputRef.current) {
         inputRef.current.value = finalAddress;
       }
 
-      onChange(finalAddress);
-      onPlaceSelected?.(place);
+      console.log('[GOOGLE PLACES AUTOCOMPLETE] place_changed', {
+        finalAddress,
+        googleFormattedAddress: place.formatted_address,
+        placeId: place.place_id,
+        hasGeometry: Boolean(place.geometry?.location),
+      });
 
-console.table(
-  place.address_components?.map(c => ({
-    types: c.types.join(", "),
-    value: c.long_name
-  }))
-);
+      onPlaceSelectedRef.current?.(place, finalAddress);
+      onChangeRef.current(finalAddress);
 
+      console.table(
+        place.address_components?.map(c => ({
+          types: c.types.join(', '),
+          value: c.long_name
+        }))
+      );
 
-      // Allow normal typing again
       setTimeout(() => setIsSelectingPlace(false), 100);
     });
 
     return () => {
-      if (autocompleteRef.current) {
-        google.maps.event.clearInstanceListeners(autocompleteRef.current);
-      }
+      google.maps.event.removeListener(placeChangedListener);
+      autocompleteRef.current = null;
     };
-  }, [isLoaded, onChange, onPlaceSelected]);
+  }, [isLoaded, inputRef]);
 
   /**
    * Handle manual typing
