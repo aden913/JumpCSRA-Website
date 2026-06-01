@@ -4,6 +4,12 @@ import { getDoc, doc, updateDoc, arrayUnion, setDoc, addDoc, collection } from '
 import { firestore } from '../components/FirebaseConfig';
 import { getDatabase, ref, set, get } from 'firebase/database';
 import type { CartItem } from '../components/CartSidebar';
+import {
+  getDashboardInformationLastUpdate,
+  isWebsiteCacheStale,
+  readWebsiteCache,
+  writeWebsiteCache,
+} from '../utils/websiteInformationCache';
 
 // Development-only logging helper
 const devLog = (...args: any[]) => {
@@ -1342,15 +1348,42 @@ export async function fetchPromoCards(): Promise<PromoCard[]> {
 
 // Hook to manage promo cards state
 export function usePromoCards() {
-  const [promoCards, setPromoCards] = useState<PromoCard[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [promoCards, setPromoCards] = useState<PromoCard[]>(() => {
+    return readWebsiteCache<PromoCard[]>('promoCards') ?? [];
+  });
+  const [loading, setLoading] = useState(() => {
+    return readWebsiteCache<PromoCard[]>('promoCards') === null;
+  });
 
   useEffect(() => {
     const loadPromoCards = async () => {
-      setLoading(true);
-      const cards = await fetchPromoCards();
-      setPromoCards(cards);
-      setLoading(false);
+      const cachedCards = readWebsiteCache<PromoCard[]>('promoCards');
+
+      try {
+        const sourceLastUpdate = await getDashboardInformationLastUpdate();
+
+        if (cachedCards && !isWebsiteCacheStale(sourceLastUpdate, 'promoCards')) {
+          setPromoCards(cachedCards);
+          setLoading(false);
+          return;
+        }
+
+        setLoading(!cachedCards);
+        const cards = await fetchPromoCards();
+        setPromoCards(cards);
+        writeWebsiteCache('promoCards', cards, sourceLastUpdate);
+      } catch (error) {
+        console.error('Error loading promo cards cache:', error);
+
+        if (cachedCards) {
+          setPromoCards(cachedCards);
+        } else {
+          const cards = await fetchPromoCards();
+          setPromoCards(cards);
+        }
+      } finally {
+        setLoading(false);
+      }
     };
 
     loadPromoCards();
