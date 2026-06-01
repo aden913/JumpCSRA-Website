@@ -343,6 +343,7 @@ export default function Checkout() {
   
   // Google Places validation state
   const [googlePlacesAddresses, setGooglePlacesAddresses] = useState<Set<string>>(new Set());
+  const [selectedPlaceCoordinates, setSelectedPlaceCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const addressInputRef = useRef<HTMLInputElement>(null);
   const [isSelectingGooglePlace, setIsSelectingGooglePlace] = useState<boolean>(false);
   
@@ -1198,70 +1199,58 @@ export default function Checkout() {
   };
 
   // Calculate driving distance using OSRM (free routing service)
-  const calculateDeliveryDistance = async (destinationAddress: string) => {
-    console.log('🔍 [CALCULATE DISTANCE] Function called with destinationAddress:', destinationAddress);
-    console.log('🔍 [CALCULATE DISTANCE] destinationAddress length:', destinationAddress.length);
-    // Delivery cost calculation started
-    // Debug log removed
-    // Debug log removed
-    // Debug log removed
-    // Debug log removed
-    // Debug log removed);
+  const calculateDeliveryDistance = async (
+    destinationAddress: string,
+    destinationCoordinates?: { lat: number; lng: number } | null
+  ): Promise<boolean> => {
+    console.log('[CALCULATE DISTANCE] Function called with destinationAddress:', destinationAddress);
+    console.log('[CALCULATE DISTANCE] destinationAddress length:', destinationAddress.length);
     
     setCalculatingDistance(true);
     try {
-      // First, geocode both addresses
-      // Geocoding step
-      
-      const [baseResponse, destResponse] = await Promise.all([
-        fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(BASE_LOCATION)}`),
-        fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=${encodeURIComponent(destinationAddress)}`)
-      ]);
+      const baseResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(BASE_LOCATION)}`);
+      const baseData = await baseResponse.json();
 
-      const [baseData, destData] = await Promise.all([
-        baseResponse.json(),
-        destResponse.json()
-      ]);
-      
-      // Geocoding results
-
-      if (baseData.length === 0 || destData.length === 0) {
-        console.warn('⚠️ Geocoding failed - Base results:', baseData.length, 'Destination results:', destData.length);
-        
-        // Add this address to failed addresses to prevent infinite retries
-        setFailedAddresses(prev => new Set(prev).add(destinationAddress));
-        
+      if (baseData.length === 0) {
+        console.warn('Base geocoding failed');
         notifications.show({
-          title: '⚠️ Address Verification',
+          title: 'Address Verification',
           message: 'Please enter a complete address with city and state (e.g., "123 Main St, Augusta, GA 30901")',
           color: 'orange',
           autoClose: 5000,
         });
-        return;
+        return false;
       }
 
       const baseLat = parseFloat(baseData[0].lat);
       const baseLon = parseFloat(baseData[0].lon);
-      const destLat = parseFloat(destData[0].lat);
-      const destLon = parseFloat(destData[0].lon);
+      let destLat = destinationCoordinates?.lat;
+      let destLon = destinationCoordinates?.lng;
 
-      // Debug log removed
-      // Debug log removed
-      // Debug log removed
-      // Debug log removed
-      // Debug log removed
+      if (destLat === undefined || destLon === undefined) {
+        const destResponse = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=us&q=${encodeURIComponent(destinationAddress)}`);
+        const destData = await destResponse.json();
+
+        if (destData.length === 0) {
+          console.warn('Destination geocoding failed for:', destinationAddress);
+          setFailedAddresses(prev => new Set(prev).add(destinationAddress));
+          notifications.show({
+            title: 'Address Verification',
+            message: 'Please enter a complete address with city and state (e.g., "123 Main St, Augusta, GA 30901")',
+            color: 'orange',
+            autoClose: 5000,
+          });
+          return false;
+        }
+
+        destLat = parseFloat(destData[0].lat);
+        destLon = parseFloat(destData[0].lon);
+      }
 
       // Use OSRM API for driving distance calculation
       const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${baseLon},${baseLat};${destLon},${destLat}?overview=false`;
-      // Debug log removed
-      // Debug log removed
-      
       const routeResponse = await fetch(osrmUrl);
       const routeData = await routeResponse.json();
-
-      // Debug log removed
-      // Debug log removed
-      // Debug log removed
 
       if (routeData.routes && routeData.routes.length > 0) {
         const distanceMeters = routeData.routes[0].distance;
@@ -1274,39 +1263,26 @@ export default function Checkout() {
           setFailedAddresses(prev => new Set(prev).add(destinationAddress));
           
           notifications.show({
-            title: '❌ Delivery Distance Exceeded',
+            title: 'Delivery Distance Exceeded',
             message: `This address is ${Math.round(distanceMiles)} miles away. We only deliver within 200 miles of our location. Please contact us at (803) 221-0466 for special arrangements.`,
             color: 'red',
             autoClose: 8000,
           });
-          return;
+          return false;
         }
         
         const cost = Math.round(distanceMiles * 6); // $6 per mile, rounded
-        
-        // Debug log removed
-        // Debug log removed
-        // Debug log removed);
-        // Debug log removed
-        // Debug log removed
-        // Debug log removed
-        // Debug log removed
-        // Debug log removed);
-        
         setDeliveryCost(cost);
-        // Delivery cost calculated successfully - no notification needed
-      } else {
-        throw new Error("Could not calculate route");
+        return true;
       }
+
+      throw new Error("Could not calculate route");
     } catch (error) {
-      console.error('❌ DELIVERY COST CALCULATION ERROR:', error);
-      // Debug log removed
-      // Debug log removed
-      // Debug log removed
-      // Set delivery cost to 0 and fail silently
+      console.error('DELIVERY COST CALCULATION ERROR:', error);
       setDeliveryCost(0);
+      setAddressConfirmed(false);
+      return false;
     } finally {
-      // Debug log removed
       setCalculatingDistance(false);
     }
   };
@@ -1325,6 +1301,12 @@ export default function Checkout() {
       // Set flag to prevent manual input from overriding this selection
       setIsSelectingGooglePlace(true);
       
+      const placeCoordinates = {
+        lat: place.geometry.location.lat(),
+        lng: place.geometry.location.lng(),
+      };
+      setSelectedPlaceCoordinates(placeCoordinates);
+      
       // Add this address to the set of valid Google Places addresses
       setGooglePlacesAddresses(prev => new Set(prev).add(place.formatted_address!));
       
@@ -1336,11 +1318,11 @@ export default function Checkout() {
       setTimeout(() => {
         setIsSelectingGooglePlace(false);
         
-        // At this point, deliveryAddress should be set by onChange
-        // Trigger calculation with the current state
-        if (deliveryAddress) {
-          console.log('🔍 [PLACE SELECTED] Triggering calculateDeliveryDistance with:', deliveryAddress);
-          calculateDeliveryDistance(deliveryAddress);
+        // At this point, the input should have the full address from onChange.
+        const selectedAddress = addressInputRef.current?.value?.trim() || deliveryAddress || place.formatted_address;
+        if (selectedAddress) {
+          console.log('[PLACE SELECTED] Triggering calculateDeliveryDistance with:', selectedAddress);
+          calculateDeliveryDistance(selectedAddress, placeCoordinates);
         }
       }, 150); // Longer delay to ensure onChange has updated deliveryAddress
     }
@@ -1358,6 +1340,7 @@ export default function Checkout() {
     if (value !== deliveryAddress) {
       console.log('  - Value changed, resetting failed addresses and delivery cost');
       setFailedAddresses(new Set());
+      setSelectedPlaceCoordinates(null);
       setDeliveryCost(0); // Reset delivery cost for new address
       setAddressConfirmed(false); // Reset confirmation when address changes
     }
@@ -6026,7 +6009,7 @@ export default function Checkout() {
               
               <button
                 id="btn-calculate-delivery"
-                onClick={() => {
+                onClick={async () => {
                   const inputValue = addressInputRef.current?.value?.trim() || '';
                   console.log('🔍 [CALCULATE BUTTON] deliveryAddress state:', deliveryAddress);
                   console.log('🔍 [CALCULATE BUTTON] addressInputRef value:', inputValue);
@@ -6056,10 +6039,12 @@ export default function Checkout() {
                     // IMPORTANT: Save to localStorage immediately when user confirms
                     localStorage.setItem('deliveryAddress', inputValue);
                     console.log('🔍 [CALCULATE BUTTON] Saved to localStorage:', inputValue);
-                    console.log('🔍 [CALCULATE BUTTON] Calling calculateDeliveryDistance with:', inputValue);
-                    calculateDeliveryDistance(inputValue);
-                    // Set address as confirmed when user clicks this button
-                    setAddressConfirmed(true);
+                    console.log('[CALCULATE BUTTON] Calling calculateDeliveryDistance with:', inputValue);
+                    setAddressConfirmed(false);
+                    const calculationSucceeded = await calculateDeliveryDistance(inputValue, selectedPlaceCoordinates);
+                    if (calculationSucceeded) {
+                      setAddressConfirmed(true);
+                    }
                   } else {
                     notifications.show({
                       title: '📍 Address Required',
