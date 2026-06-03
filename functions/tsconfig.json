@@ -15,11 +15,6 @@
   ],
   "exclude": [
     "node_modules",
-    "lib",
-    "test-compilation.ts",
-    "test-compilation.js",
-    "test-email.js",
-    "test-guide.js",
-    "create-test-bookings.js"
+    "lib"
   ]
 }

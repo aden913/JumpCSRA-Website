@@ -5,7 +5,7 @@
  */
 var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getOrderDetails = exports.captureVaultOrder = exports.createVaultOrder = exports.chargeVaultedPayment = exports.createVaultCustomer = exports.processPayPalRefund = exports.testPayPalConnection = exports.createPayPalInvoice = exports.createPayPalInvoicePayload = exports.getPayPalAccessToken = void 0;
+exports.getOrderDetails = exports.captureVaultOrder = exports.createVaultOrder = exports.chargeVaultedPayment = exports.createVaultCustomer = exports.processPayPalRefund = exports.createPayPalInvoice = exports.createPayPalInvoicePayload = exports.getPayPalAccessToken = void 0;
 const functions = require("firebase-functions");
 // PayPal configuration
 const PAYPAL_CLIENT_ID = "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0";
@@ -245,77 +245,6 @@ const createPayPalInvoice = async (data) => {
     }
 };
 exports.createPayPalInvoice = createPayPalInvoice;
-/**
- * Test PayPal connection and create a simple test invoice
- */
-const testPayPalConnection = async () => {
-    try {
-        // Get access token
-        const accessToken = await (0, exports.getPayPalAccessToken)();
-        // Create simple test invoice
-        const testInvoice = {
-            detail: {
-                invoice_number: `TEST-${Date.now()}`,
-                invoice_date: new Date().toISOString().split('T')[0],
-                currency_code: "USD"
-            },
-            invoicer: {
-                name: {
-                    given_name: "JumpCSRA",
-                    surname: "Test"
-                },
-                email_address: "jumpcsra@gmail.com"
-            },
-            primary_recipients: [{
-                    billing_info: {
-                        name: {
-                            given_name: "Test",
-                            surname: "Customer"
-                        },
-                        email_address: "test@example.com"
-                    }
-                }],
-            items: [{
-                    name: "Test Item",
-                    description: "PayPal connection test",
-                    quantity: "1",
-                    unit_amount: {
-                        currency_code: "USD",
-                        value: "1.00"
-                    }
-                }]
-        };
-        const response = await fetch(`${PAYPAL_BASE_URL}/v2/invoicing/invoices`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${accessToken}`,
-                'PayPal-Request-Id': `test-${Date.now()}`
-            },
-            body: JSON.stringify(testInvoice)
-        });
-        if (!response.ok) {
-            const errorData = await response.json();
-            console.error('❌ PayPal test failed:', errorData);
-            throw new Error(`PayPal test failed: ${response.status}`);
-        }
-        const result = await response.json();
-        return {
-            success: true,
-            message: 'PayPal connection working',
-            testInvoiceId: result.id
-        };
-    }
-    catch (error) {
-        console.error('❌ PayPal connection test failed:', error);
-        return {
-            success: false,
-            message: error.message,
-            error: error
-        };
-    }
-};
-exports.testPayPalConnection = testPayPalConnection;
 /**
  * Process a PayPal refund for a capture
  */

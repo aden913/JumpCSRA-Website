@@ -124,6 +124,44 @@ text-decoration: underline;
 .password-icon {
     width:1.5rem;
 }
+.email-opt-in {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    margin: 0.75rem 0 1rem;
+    color: var(--darkBlue);
+    font-size: 0.9rem;
+    line-height: 1.35;
+    cursor: pointer;
+}
+.email-opt-in input[type="checkbox"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    width: 1.2rem;
+    height: 1.2rem;
+    margin-top: 0.05rem;
+    border: 2px solid var(--darkBlue);
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    flex: 0 0 auto;
+    position: relative;
+}
+.email-opt-in input[type="checkbox"]:checked {
+    background: var(--darkBlue);
+}
+.email-opt-in input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    left: 0.32rem;
+    top: 0.12rem;
+    width: 0.28rem;
+    height: 0.58rem;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
 .verify-msg {
     background: #e0f7fa;
     color: #00796b;

@@ -1,7 +1,7 @@
 "use strict";
 var _a, _b, _c, _d, _e, _f;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.capturePayPalVaultOrder = exports.createPayPalVaultOrder = exports.sendChatMessage = exports.createMembershipBooking = exports.dailySubscriptionCleanup = exports.triggerPayPalSetup = exports.debugSubscriptionDatabase = exports.activateSubscription = exports.reactivatePayPalSubscription = exports.cancelPayPalSubscription = exports.getPayPalSubscriptionDetails = exports.paypalSubscriptionWebhook = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.sendMembershipCancellationEmail = exports.sendAccountDeletionEmail = exports.autoProcessBookings = exports.processScheduledEmails = exports.processCampaigns = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendMembershipWelcomeEmail = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = void 0;
+exports.capturePayPalVaultOrder = exports.createPayPalVaultOrder = exports.sendChatMessage = exports.createMembershipBooking = exports.dailySubscriptionCleanup = exports.triggerPayPalSetup = exports.activateSubscription = exports.reactivatePayPalSubscription = exports.cancelPayPalSubscription = exports.getPayPalSubscriptionDetails = exports.paypalSubscriptionWebhook = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.sendMembershipCancellationEmail = exports.sendAccountDeletionEmail = exports.autoProcessBookings = exports.processScheduledEmails = exports.processCampaigns = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendMembershipWelcomeEmail = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const sgMail = require("@sendgrid/mail");
@@ -2567,8 +2567,8 @@ async function processMembershipPostEventEmails(db, now, config) {
         let emailsSent = 0;
         for (const [bookingId, bookingData] of Object.entries(membershipBookings)) {
             const booking = bookingData;
-            // Only process confirmed membership bookings
-            if (booking.bookingStatus !== 'confirmed')
+            // Send after delivery for bookings that are still confirmed or already completed.
+            if (booking.bookingStatus !== 'confirmed' && booking.bookingStatus !== 'completed')
                 continue;
             // Calculate event date from actualDeliveryDate
             let eventDate = null;
@@ -2629,12 +2629,14 @@ exports.autoProcessBookings = functions.pubsub
     .schedule('0 8 * * *') // Run daily at 8 AM
     .timeZone('America/New_York') // EST/EDT timezone
     .onRun(async (context) => {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e, _f;
     console.log('🔄 Running automated booking processing...');
     try {
         const db = admin.database();
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+        const now = Date.now();
+        const HOLD_EXPIRATION_MS = 24 * 60 * 60 * 1000; // 24 hours
         let cancelledCount = 0;
         let completedCount = 0;
         // ============= Part 1: Cancel pending bookings (unpaid orders past event date) =============
@@ -2649,9 +2651,36 @@ exports.autoProcessBookings = functions.pubsub
                 if (bookingId === 'membershipBookings') {
                     continue;
                 }
+                // Process hold bookings for expiration cancellation
+                if (bookingData.status === 'hold') {
+                    const holdTimestamp = (_a = bookingData.dashboardDetails) === null || _a === void 0 ? void 0 : _a.timePlacedOnHold;
+                    if (holdTimestamp) {
+                        try {
+                            const holdTime = new Date(holdTimestamp).getTime();
+                            // Cancel if hold has lasted 24+ hours
+                            if (now - holdTime >= HOLD_EXPIRATION_MS) {
+                                console.log(`⏰ Cancelling expired hold booking ${bookingId}`);
+                                await bookingsRef.child(bookingId).update({
+                                    status: 'cancelled',
+                                    updatedAt: new Date().toISOString()
+                                });
+                                await bookingsRef.child(`${bookingId}/notes`).push({
+                                    type: 'system',
+                                    message: 'Booking auto-cancelled - hold exceeded 24 hours',
+                                    timestamp: new Date().toISOString()
+                                });
+                                cancelledCount++;
+                                continue;
+                            }
+                        }
+                        catch (holdError) {
+                            console.error(`❌ Error processing hold expiration for ${bookingId}:`, holdError);
+                        }
+                    }
+                }
                 // Process pending bookings for cancellation
                 if (bookingData.status === 'pending') {
-                    const eventDateStr = (_a = bookingData.orderDetails) === null || _a === void 0 ? void 0 : _a.eventDate;
+                    const eventDateStr = (_b = bookingData.orderDetails) === null || _b === void 0 ? void 0 : _b.eventDate;
                     if (eventDateStr) {
                         try {
                             const dateRange = eventDateStr.split(' - ');
@@ -2671,7 +2700,7 @@ exports.autoProcessBookings = functions.pubsub
                                     timestamp: new Date().toISOString()
                                 });
                                 // Send cancellation email
-                                if (((_b = bookingData.customerInfo) === null || _b === void 0 ? void 0 : _b.email) && sendGridApiKey) {
+                                if (((_c = bookingData.customerInfo) === null || _c === void 0 ? void 0 : _c.email) && sendGridApiKey) {
                                     try {
                                         const msg = {
                                             to: bookingData.customerInfo.email,
@@ -2687,7 +2716,7 @@ exports.autoProcessBookings = functions.pubsub
                               <h3>Booking Details:</h3>
                               <p><strong>Order ID:</strong> ${bookingData.orderID}</p>
                               <p><strong>Event Date:</strong> ${eventDateStr}</p>
-                              <p><strong>Total Amount:</strong> $${((_d = (_c = bookingData.orderDetails) === null || _c === void 0 ? void 0 : _c.totalAmount) === null || _d === void 0 ? void 0 : _d.toFixed(2)) || '0.00'}</p>
+                              <p><strong>Total Amount:</strong> $${((_e = (_d = bookingData.orderDetails) === null || _d === void 0 ? void 0 : _d.totalAmount) === null || _e === void 0 ? void 0 : _e.toFixed(2)) || '0.00'}</p>
                               <p><strong>Cancelled Date:</strong> ${new Date().toLocaleDateString()}</p>
                             </div>
                             <div style="margin-top: 20px; padding: 15px; background: #d1ecf1; border-radius: 8px;">
@@ -2742,6 +2771,33 @@ exports.autoProcessBookings = functions.pubsub
             const membershipBookings = membershipSnapshot.val();
             for (const [bookingId, booking] of Object.entries(membershipBookings)) {
                 const bookingData = booking;
+                // Process membership hold bookings for expiration cancellation
+                if (bookingData.bookingStatus === 'hold') {
+                    const holdTimestamp = (_f = bookingData.dashboardDetails) === null || _f === void 0 ? void 0 : _f.timePlacedOnHold;
+                    if (holdTimestamp) {
+                        try {
+                            const holdTime = new Date(holdTimestamp).getTime();
+                            // Cancel if hold has lasted 24+ hours
+                            if (now - holdTime >= HOLD_EXPIRATION_MS) {
+                                console.log(`⏰ Cancelling expired membership hold booking ${bookingId}`);
+                                await membershipBookingsRef.child(bookingId).update({
+                                    bookingStatus: 'cancelled',
+                                    updatedAt: { '.sv': 'timestamp' }
+                                });
+                                await membershipBookingsRef.child(`${bookingId}/notes`).push({
+                                    type: 'system',
+                                    message: 'Membership booking auto-cancelled - hold exceeded 24 hours',
+                                    timestamp: new Date().toISOString()
+                                });
+                                cancelledCount++;
+                                continue;
+                            }
+                        }
+                        catch (holdError) {
+                            console.error(`❌ Error processing membership hold expiration for ${bookingId}:`, holdError);
+                        }
+                    }
+                }
                 if (bookingData.bookingStatus === 'confirmed') {
                     const shouldComplete = await shouldCompleteBooking(bookingData, 'membership');
                     if (shouldComplete) {
@@ -3793,72 +3849,6 @@ exports.activateSubscription = functions.region('us-central1').https.onCall(asyn
     catch (error) {
         console.error('❌ ACTIVATE SUBSCRIPTION: Error:', error);
         throw new functions.https.HttpsError('internal', 'Failed to activate subscription', { error: error instanceof Error ? error.message : 'Unknown error' });
-    }
-});
-// Debug function to check subscription database state
-exports.debugSubscriptionDatabase = functions.https.onCall(async (data, context) => {
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
-    }
-    const { userId, subscriptionId } = data;
-    const targetUserId = userId || context.auth.uid;
-    try {
-        const db = admin.firestore();
-        // Get active subscriptions
-        const activeSubscriptionsRef = db.collection('users').doc(targetUserId).collection('activeSubscriptions');
-        const activeSubscriptions = await activeSubscriptionsRef.get();
-        // Get subscription history
-        const historySubscriptionsRef = db.collection('users').doc(targetUserId).collection('subscriptionHistory');
-        const historySubscriptions = await historySubscriptionsRef.get();
-        const activeSubscriptionsList = [];
-        activeSubscriptions.forEach(doc => {
-            const data = doc.data();
-            activeSubscriptionsList.push({
-                documentId: doc.id,
-                collection: 'activeSubscriptions',
-                data: data
-            });
-        });
-        const historySubscriptionsList = [];
-        historySubscriptions.forEach(doc => {
-            const data = doc.data();
-            historySubscriptionsList.push({
-                documentId: doc.id,
-                collection: 'subscriptionHistory',
-                data: data
-            });
-        });
-        // If specific subscriptionId provided, check that document in both collections
-        if (subscriptionId) {
-            const activeDoc = await activeSubscriptionsRef.doc(subscriptionId).get();
-            const historyDoc = await historySubscriptionsRef.doc(subscriptionId).get();
-            if (activeDoc.exists) {
-            }
-            else {
-            }
-            if (historyDoc.exists) {
-            }
-            else {
-            }
-        }
-        // Also check if user document exists
-        const userDoc = await db.collection('users').doc(targetUserId).get();
-        if (userDoc.exists) {
-        }
-        return {
-            success: true,
-            userId: targetUserId,
-            activeSubscriptionsCount: activeSubscriptions.size,
-            historySubscriptionsCount: historySubscriptions.size,
-            activeSubscriptions: activeSubscriptionsList,
-            historySubscriptions: historySubscriptionsList,
-            userDocumentExists: userDoc.exists,
-            userDocumentData: userDoc.exists ? userDoc.data() : null
-        };
-    }
-    catch (error) {
-        console.error('❌ DEBUG ERROR:', error);
-        throw new functions.https.HttpsError('internal', 'Debug function failed', { error: error.message });
     }
 });
 // Simple callable function to trigger PayPal plan setup

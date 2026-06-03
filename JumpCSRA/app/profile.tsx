@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import type { User as FirebaseUser } from "firebase/auth";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { RouterNav } from "./components/RouterNav";
 import { GooglePlacesAutocomplete } from "./components/GooglePlacesAutocomplete";
 import { auth, firestore, functions } from "./components/FirebaseConfig";
@@ -76,6 +76,7 @@ export default function Profile() {
     phone: "",
     company: "",
     address: "", // Full address including street, city, state, zip
+    canEmail: false,
   });
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -783,6 +784,7 @@ export default function Profile() {
           lastName,
           name,
           phone,
+          canEmail: data.canEmail === true,
         }));
         
         // If we have a valid address, add it to known Google addresses
@@ -812,6 +814,7 @@ export default function Profile() {
           phone,
           company: "",
           address: "",
+          canEmail: false,
         });
       }
 
@@ -1003,6 +1006,26 @@ export default function Profile() {
     setPhoneError(null);
   };
 
+  const handleEmailOptInChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const nextCanEmail = e.target.checked;
+    const previousCanEmail = profile.canEmail;
+    setProfile((prev) => ({ ...prev, canEmail: nextCanEmail }));
+
+    if (!user) return;
+
+    try {
+      const db = firestore;
+      const docRef = doc(db, "users", user.uid);
+      await updateDoc(docRef, {
+        canEmail: nextCanEmail,
+      });
+    } catch (err) {
+      console.error("Failed to update email opt-in:", err);
+      setProfile((prev) => ({ ...prev, canEmail: previousCanEmail }));
+      alert("Failed to update your email preference. Please try again.");
+    }
+  };
+
   // Handle Google Places address selection
   const handlePlaceSelected = (place: google.maps.places.PlaceResult) => {
     // Only accept valid places with formatted address and location
@@ -1138,6 +1161,7 @@ export default function Profile() {
       firstName: profile.firstName,
       lastName: profile.lastName,
       name: profile.name, // Combined name for backward compatibility
+      canEmail: profile.canEmail,
     });
 
     // Update local state with formatted phone and correct address
@@ -2321,6 +2345,22 @@ export default function Profile() {
                   inputRef={addressInputRef}
                 />
               </div>
+            </div>
+            <div className="profile-row email-opt-in-row">
+              <label>Email Opt-In:</label>
+              <label className="profile-email-opt-in">
+                <input
+                  type="checkbox"
+                  checked={profile.canEmail}
+                  onChange={handleEmailOptInChange}
+                />
+                <span>
+                  Send me promotional emails, information, and deals from Jump CSRA.
+                  <Link className="privacy-policy-link" to="/privacy-policy">
+                    View Privacy Policy
+                  </Link>
+                </span>
+              </label>
             </div>
 
             <div className="profile-actions">

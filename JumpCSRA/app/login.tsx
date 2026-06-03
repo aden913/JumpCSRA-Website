@@ -89,6 +89,7 @@ export default function Login() {
   const [forgotPwMsg, setForgotPwMsg] = useState<string | null>(null);
   const [needsProfile, setNeedsProfile] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [canEmail, setCanEmail] = useState(false);
 
   // Check if user is already authenticated
   useEffect(() => {
@@ -259,6 +260,7 @@ const handleCompleteProfile = async (e: React.FormEvent) => {
       phone: rawPhone,
       email: pendingUser.email,
       hasPassword: true,
+      canEmail,
       usedDiscounts: [], // Initialize empty array for discount tracking
       lastUpdated: new Date().toISOString(),
     }, { merge: true });
@@ -617,6 +619,7 @@ useEffect(() => {
         phone,
         email: userCred.user.email || email,
         uid: userCred.user.uid,
+        canEmail,
         usedDiscounts: [], // Initialize empty array for discount tracking
         createdAt: new Date().toISOString(),
         lastUpdated: new Date().toISOString(),
@@ -846,6 +849,16 @@ useEffect(() => {
               {showConfirmPassword ? EyeOpen : EyeClosed}
             </span>
           </div>
+          <label className="email-opt-in">
+            <input
+              type="checkbox"
+              checked={canEmail}
+              onChange={(e) => setCanEmail(e.target.checked)}
+            />
+            <span>
+              Send me promotional emails, information, and deals from Jump CSRA.
+            </span>
+          </label>
           <button className="sign-up-btn" type="submit">
             Save Profile
           </button>
@@ -920,6 +933,7 @@ useEffect(() => {
               setPhone("");
               setFirstName("");
               setLastName("");
+              setCanEmail(false);
               setPendingUser(null);
             }}
             style={{ marginTop: "1rem" }}
@@ -1024,6 +1038,17 @@ useEffect(() => {
             required
             placeholder="Enter your last name"
           />
+
+          <label className="email-opt-in">
+            <input
+              type="checkbox"
+              checked={canEmail}
+              onChange={(e) => setCanEmail(e.target.checked)}
+            />
+            <span>
+              Send me promotional emails, information, and deals from Jump CSRA.
+            </span>
+          </label>
 
           <button className="sign-up-btn" type="submit">
             Create Account
@@ -1133,6 +1158,7 @@ useEffect(() => {
           setStep("email");
           setError(null);
           setShowForgotPw(false);
+          setCanEmail(false);
         }}>
         ← Back
       </button>

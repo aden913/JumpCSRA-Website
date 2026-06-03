@@ -96,6 +96,58 @@ html, body{ background-color: white;}
   font-size: 1rem;
   background: #fff;
 }
+.email-opt-in-row {
+  align-items: flex-start;
+}
+.profile-email-opt-in {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  color: #555;
+  line-height: 1.4;
+  cursor: pointer;
+}
+.profile-email-opt-in input[type="checkbox"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  flex: 0 0 auto;
+  width: 1.2rem;
+  height: 1.2rem;
+  margin-top: 0.12rem;
+  border: 2px solid #1976d2;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  position: relative;
+}
+.profile-email-opt-in input[type="checkbox"]:checked {
+  background: #1976d2;
+}
+.profile-email-opt-in input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 0.32rem;
+  top: 0.12rem;
+  width: 0.28rem;
+  height: 0.58rem;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.privacy-policy-link {
+  display: block;
+  width: fit-content;
+  margin-top: 0.35rem;
+  color: #1976d2;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: underline;
+}
+.privacy-policy-link:hover {
+  color: #1565c0;
+}
 .profile-actions {
   display: -webkit-flex;
   display: -ms-flexbox;

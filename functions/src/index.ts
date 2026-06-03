@@ -2957,8 +2957,8 @@ async function processMembershipPostEventEmails(db: admin.database.Database, now
     for (const [bookingId, bookingData] of Object.entries(membershipBookings)) {
       const booking = bookingData as any;
       
-      // Only process confirmed membership bookings
-      if (booking.bookingStatus !== 'confirmed') continue;
+      // Send after delivery for bookings that are still confirmed or already completed.
+      if (booking.bookingStatus !== 'confirmed' && booking.bookingStatus !== 'completed') continue;
       
       // Calculate event date from actualDeliveryDate
       let eventDate: Date | null = null;
@@ -4467,89 +4467,6 @@ export const activateSubscription = functions.region('us-central1').https.onCall
       'internal',
       'Failed to activate subscription',
       { error: error instanceof Error ? error.message : 'Unknown error' }
-    );
-  }
-});
-
-// Debug function to check subscription database state
-export const debugSubscriptionDatabase = functions.https.onCall(async (data, context) => {
-  
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
-  }
-
-  const { userId, subscriptionId } = data;
-  const targetUserId = userId || context.auth.uid;
-  
-  try {
-    const db = admin.firestore();
-    
-    // Get active subscriptions
-    const activeSubscriptionsRef = db.collection('users').doc(targetUserId).collection('activeSubscriptions');
-    const activeSubscriptions = await activeSubscriptionsRef.get();
-    
-    // Get subscription history
-    const historySubscriptionsRef = db.collection('users').doc(targetUserId).collection('subscriptionHistory');
-    const historySubscriptions = await historySubscriptionsRef.get();
-    
-    
-    const activeSubscriptionsList: any[] = [];
-    activeSubscriptions.forEach(doc => {
-      const data = doc.data();
-      activeSubscriptionsList.push({
-        documentId: doc.id,
-        collection: 'activeSubscriptions',
-        data: data
-      });
-    });
-    
-    const historySubscriptionsList: any[] = [];
-    historySubscriptions.forEach(doc => {
-      const data = doc.data();
-      historySubscriptionsList.push({
-        documentId: doc.id,
-        collection: 'subscriptionHistory',
-        data: data
-      });
-    });
-    
-    // If specific subscriptionId provided, check that document in both collections
-    if (subscriptionId) {
-      
-      const activeDoc = await activeSubscriptionsRef.doc(subscriptionId).get();
-      const historyDoc = await historySubscriptionsRef.doc(subscriptionId).get();
-      
-      if (activeDoc.exists) {
-      } else {
-      }
-      
-      if (historyDoc.exists) {
-      } else {
-      }
-    }
-    
-    // Also check if user document exists
-    const userDoc = await db.collection('users').doc(targetUserId).get();
-    if (userDoc.exists) {
-    }
-    
-    return {
-      success: true,
-      userId: targetUserId,
-      activeSubscriptionsCount: activeSubscriptions.size,
-      historySubscriptionsCount: historySubscriptions.size,
-      activeSubscriptions: activeSubscriptionsList,
-      historySubscriptions: historySubscriptionsList,
-      userDocumentExists: userDoc.exists,
-      userDocumentData: userDoc.exists ? userDoc.data() : null
-    };
-    
-  } catch (error: any) {
-    console.error('❌ DEBUG ERROR:', error);
-    throw new functions.https.HttpsError(
-      'internal',
-      'Debug function failed',
-      { error: error.message }
     );
   }
 });

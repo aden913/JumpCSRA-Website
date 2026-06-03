@@ -8,4 +8,5 @@ export default [
   route("checkout", "routes/checkout.tsx"),
   route("subscription-success", "routes/subscription-success.tsx"),
   route("sms-consent", "routes/sms-consent.tsx"),
+  route("privacy-policy", "routes/privacy-policy.tsx"),
 ] satisfies RouteConfig;
