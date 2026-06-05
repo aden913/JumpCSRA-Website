@@ -366,17 +366,16 @@ export const createAndSendPayPalInvoice = async (data: InvoiceData): Promise<{ s
         // Debug error removed
         // Debug error removed
         
-        // Try fallback to order confirmation email
+        // Try fallback to backend booking confirmation email
         // Debug log removed
-        
-        const sendOrderConfirmationEmail = httpsCallable(functions, 'sendOrderConfirmationEmail');
+        const { sendBookingConfirmationEmail } = await import('./backendEmailService');
         
         const emailData = {
           recipientEmail: data.recipientEmail,
           recipientName: data.recipientName,
           orderID: data.orderID,
           orderDate: data.orderDate,
-          eventDate: data.eventDate,
+          eventDate: data.eventDate || data.orderDate || new Date().toISOString(),
           deliveryAddress: data.deliveryAddress,
           deliveryTime: data.deliveryTime,
           duration: data.duration,
@@ -397,7 +396,7 @@ export const createAndSendPayPalInvoice = async (data: InvoiceData): Promise<{ s
           requiresPhoneCall: data.requiresPhoneCall
         };
         
-        const emailResult = await sendOrderConfirmationEmail(emailData);
+        const emailResult = await sendBookingConfirmationEmail(emailData);
         
         // Debug log removed
         

@@ -22,7 +22,7 @@ export function QuantitySelectionModal({
 }: QuantitySelectionModalProps) {
   if (!open || !product) return null;
 
-  const isGiftCard = product.category === 'gift-card' || product.isGiftCard;
+  const isGiftCard = product.category === 'gift-card' || product.isGiftCard || product.name?.toLowerCase().includes('gift card');
   const quantityOptions = isGiftCard ? [50, 100] : Array.from({ length: availableQuantity }, (_, i) => i + 1);
 
   return (

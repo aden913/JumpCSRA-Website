@@ -455,6 +455,10 @@ export function useDiscounts() {
 
       devLog('✅ Requirements met! Calculating discount...');
 
+      if (activePromoCard.code === 'bogoGiftCard') {
+        return calculateBogoGiftCardDiscount(cart, cartTotal);
+      }
+
       // Apply discount based on card configuration
       let discountAmount = 0;
       let freeItemId: string | null = null;
@@ -1276,9 +1280,9 @@ export async function fetchPromoCards(): Promise<PromoCard[]> {
         enabled: true,
         notificationTitle: 'GOGO Gift Card Activated! 🎉',
         notificationMessage: 'Buy a gift card, get one of equal value free',
-        discountApplication: 'price' as const,
-        discountType: 'percent' as const,
-        discountValue: 100,
+        discountApplication: 'bogo' as const,
+        discountType: 'static' as const,
+        discountValue: 0,
         itemCategories: [],
         requirementType: 'none' as const,
         bogoProductId: undefined,
@@ -1333,9 +1337,9 @@ export async function fetchPromoCards(): Promise<PromoCard[]> {
         enabled: true,
         notificationTitle: 'GOGO Gift Card Activated! 🎉',
         notificationMessage: 'Buy a gift card, get one of equal value free',
-        discountApplication: 'price' as const,
-        discountType: 'percent' as const,
-        discountValue: 100,
+        discountApplication: 'bogo' as const,
+        discountType: 'static' as const,
+        discountValue: 0,
         itemCategories: [],
         requirementType: 'none' as const,
         bogoProductId: undefined,
@@ -1536,3 +1540,5 @@ export async function getGiftCardDetails(giftCardCode: string): Promise<{
     return { success: false, message: 'Error retrieving gift card details' };
   }
 }
+
+

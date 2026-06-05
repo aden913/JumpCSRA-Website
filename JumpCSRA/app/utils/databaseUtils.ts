@@ -2,7 +2,7 @@
 
 import { getFirestore, doc, setDoc, getDoc, collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
-import { getDatabase, ref, set, get, child, push, remove } from "firebase/database";
+import { getDatabase, ref, set, get, child, push, remove, update } from "firebase/database";
 
 // Type definitions for new data structures
 export interface BookingData {
@@ -992,7 +992,7 @@ export async function deleteAllUserData(userId: string): Promise<{
       });
       
       if (Object.keys(updates).length > 0) {
-        await set(ref(db), updates);
+        await update(ref(db), updates);
       }
     }
     
@@ -1014,7 +1014,7 @@ export async function deleteAllUserData(userId: string): Promise<{
       });
       
       if (Object.keys(giftCardUpdates).length > 0) {
-        await set(ref(db), giftCardUpdates);
+        await update(ref(db), giftCardUpdates);
       }
     }
     

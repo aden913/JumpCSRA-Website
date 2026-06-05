@@ -1,6 +1,12 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 import * as sgMail from '@sendgrid/mail';
+import {
+  sendAccountDeletionEmail as sendAccountDeletionEmailViaServer,
+  sendDepositReminderEmail as sendDepositReminderEmailViaServer,
+  sendFollowUpRebookingEmail as sendFollowUpRebookingEmailViaServer,
+  sendPostEventThanksEmail as sendPostEventThanksEmailViaServer
+} from './services/emailService';
 
 // Helper function to get the correct base URL for return URLs  
 function getBaseUrl(): string {
@@ -1447,25 +1453,51 @@ async function sendCartAbandonmentEmail(cart: any, userId: string) {
 }
 
 // Deposit reminder email
-async function sendDepositReminderEmail(booking: any, bookingId: string) {
-  try {
-    console.log('📧 Sending deposit reminder email to:', booking.customerEmail);
-    
-    const emailHTML = generateDepositReminderEmailHTML(booking, bookingId);
-    
-    const msg = {
-      to: booking.customerEmail,
-      from: 'jumpcsra@gmail.com',
-      subject: `Final Payment Due Soon - Event ${booking.eventDate} 💰`,
-      html: emailHTML,
-      categories: ['deposit-reminder', 'transactional']
-    };
+function getBookingCustomerEmail(booking: any): string {
+  return booking.customerEmail || booking.customerInfo?.email || booking.email || booking.userEmail || '';
+}
 
-    await sgMail.send(msg);
-    console.log('✅ Deposit reminder email sent successfully');
-    
+function getBookingCustomerName(booking: any): string {
+  return booking.customerName || booking.customerInfo?.name || booking.userName || booking.name || 'Customer';
+}
+
+function getBookingItems(booking: any): any[] {
+  return booking.items || booking.rentalItems || booking.cartItems || booking.bookingDetails?.items || [];
+}
+
+function getScheduledEmailBookingDetails(booking: any) {
+  return {
+    items: getBookingItems(booking),
+    total: booking.totalAmount || booking.total || booking.pricing?.total || 0,
+    amountPaid: booking.amountPaid || booking.paidAmount || booking.pricing?.amountPaid || 0,
+    remainingBalance: booking.remainingBalance || booking.balanceDue || booking.pricing?.remainingBalance || 0,
+    address: booking.deliveryAddress || booking.customerInfo?.address || booking.bookingDetails?.address,
+    setupTime: booking.deliveryTime || booking.bookingDetails?.setupTime,
+    paymentType: booking.paymentType,
+    paymentMethod: booking.paymentMethod,
+    bookingStatus: booking.status
+  };
+}
+
+async function sendDepositReminderEmail(booking: any, bookingId: string, config?: any) {
+  try {
+    const customerEmail = getBookingCustomerEmail(booking);
+    console.log('Sending deposit reminder email via email server to:', customerEmail);
+
+    await sendDepositReminderEmailViaServer({
+      customerEmail,
+      customerName: getBookingCustomerName(booking),
+      customerId: booking.customerId || booking.userId,
+      bookingId,
+      remainingAmount: booking.remainingBalance || booking.balanceDue || booking.pricing?.remainingBalance || 0,
+      dueDate: booking.dueDate || booking.eventDate,
+      eventDate: booking.eventDate,
+      bookingDetails: getScheduledEmailBookingDetails(booking),
+      asm: config?.asm
+    });
+    console.log('Deposit reminder email sent successfully via email server');
   } catch (error) {
-    console.error('❌ Error sending deposit reminder email:', error);
+    console.error('Error sending deposit reminder email:', error);
     throw error;
   }
 }
@@ -1495,53 +1527,47 @@ async function sendEventConfirmationEmail(booking: any, bookingId: string) {
 }
 
 // Post-event thank you email
-async function sendPostEventThanksEmail(booking: any, bookingId: string) {
+async function sendPostEventThanksEmail(booking: any, bookingId: string, config?: any) {
   try {
-    console.log('📧 Sending post-event thank you email to:', booking.customerEmail);
-    
-    const emailHTML = generatePostEventThanksEmailHTML(booking, bookingId);
-    
-    const msg = {
-      to: booking.customerEmail,
-      from: 'jumpcsra@gmail.com',
-      subject: `Thank you for choosing JumpCSRA! 🙏`,
-      html: emailHTML,
-      categories: ['post-event', 'marketing']
-    };
+    const customerEmail = getBookingCustomerEmail(booking);
+    console.log('Sending post-event thank you email via email server to:', customerEmail);
 
-    await sgMail.send(msg);
-    console.log('✅ Post-event thank you email sent successfully');
-    
+    await sendPostEventThanksEmailViaServer({
+      customerEmail,
+      customerName: getBookingCustomerName(booking),
+      customerId: booking.customerId || booking.userId,
+      bookingId,
+      eventDate: booking.eventDate,
+      bookingDetails: getScheduledEmailBookingDetails(booking),
+      asm: config?.asm
+    });
+    console.log('Post-event thank you email sent successfully via email server');
   } catch (error) {
-    console.error('❌ Error sending post-event thank you email:', error);
+    console.error('Error sending post-event thank you email:', error);
     throw error;
   }
 }
 
 // Rebooking reminder email
-async function sendRebookingReminderEmail(booking: any, bookingId: string) {
+async function sendRebookingReminderEmail(booking: any, bookingId: string, config?: any) {
   try {
-    console.log('📧 Sending rebooking reminder email to:', booking.customerEmail);
-    
-    const emailHTML = generateRebookingReminderEmailHTML(booking, bookingId);
-    
-    const msg = {
-      to: booking.customerEmail,
-      from: 'jumpcsra@gmail.com',
-      subject: `Time for Another Party? 🎈 Special Returning Customer Discount!`,
-      html: emailHTML,
-      categories: ['rebooking-reminder', 'marketing']
-    };
+    const customerEmail = getBookingCustomerEmail(booking);
+    console.log('Sending rebooking reminder email via email server to:', customerEmail);
 
-    await sgMail.send(msg);
-    console.log('✅ Rebooking reminder email sent successfully');
-    
+    await sendFollowUpRebookingEmailViaServer({
+      customerEmail,
+      customerName: getBookingCustomerName(booking),
+      customerId: booking.customerId || booking.userId,
+      lastBookingDate: booking.eventDate,
+      lastBookingId: bookingId,
+      asm: config?.asm
+    });
+    console.log('Rebooking reminder email sent successfully via email server');
   } catch (error) {
-    console.error('❌ Error sending rebooking reminder email:', error);
+    console.error('Error sending rebooking reminder email:', error);
     throw error;
   }
 }
-
 // ============================================================================
 // MEMBERSHIP BOOKING EMAIL FUNCTIONS - For Jump Club monthly deliveries
 // ============================================================================
@@ -2353,6 +2379,10 @@ function generateRebookingReminderEmailHTML(booking: any, bookingId: string): st
   `;
 }
 
+void generateDepositReminderEmailHTML;
+void generatePostEventThanksEmailHTML;
+void generateRebookingReminderEmailHTML;
+
 // ============================================================================
 // SCHEDULED EMAIL SYSTEM - Unified Firestore-based email processing
 // ============================================================================
@@ -2715,7 +2745,7 @@ async function processDepositReminderEmails(db: admin.database.Database, now: nu
         const emailSentSnapshot = await emailRef.once('value');
         
         if (!emailSentSnapshot.exists()) {
-          await sendDepositReminderEmail(booking, bookingId);
+          await sendDepositReminderEmail(booking, bookingId, config);
           await emailRef.set({ sentAt: now, type: 'deposit-reminder' });
           emailsSent++;
         }
@@ -2811,7 +2841,7 @@ async function processPostEventEmails(db: admin.database.Database, now: number, 
         const emailSentSnapshot = await emailRef.once('value');
         
         if (!emailSentSnapshot.exists()) {
-          await sendPostEventThanksEmail(booking, bookingId);
+          await sendPostEventThanksEmail(booking, bookingId, config);
           await emailRef.set({ sentAt: now, type: 'post-event-thanks' });
           emailsSent++;
         }
@@ -2859,7 +2889,7 @@ async function processRebookingReminderEmails(db: admin.database.Database, now: 
         const emailSentSnapshot = await emailRef.once('value');
         
         if (!emailSentSnapshot.exists()) {
-          await sendRebookingReminderEmail(booking, bookingId);
+          await sendRebookingReminderEmail(booking, bookingId, config);
           await emailRef.set({ sentAt: now, type: 'rebooking-reminder' });
           emailsSent++;
         }
@@ -3324,6 +3354,25 @@ export const sendAccountDeletionEmail = functions.https.onCall(async (data: {
       throw new functions.https.HttpsError('invalid-argument', 'Missing required email data.');
     }
 
+    if (!data.deletionDate) {
+      throw new functions.https.HttpsError('invalid-argument', 'Missing deletion date.');
+    }
+
+    const result = await sendAccountDeletionEmailViaServer({
+      email: data.userEmail,
+      name: data.userName,
+      deletionDate: data.deletionDate,
+      reason: 'user-request'
+    });
+
+    console.log(`Account deletion email sent successfully to ${data.userEmail} for user ${context.auth.uid}`);
+
+    return {
+      success: true,
+      message: 'Account deletion email sent successfully',
+      emailId: result?.emailId
+    };
+
     if (!sendGridApiKey) {
       throw new functions.https.HttpsError('failed-precondition', 'SendGrid API key not configured.');
     }
@@ -3410,6 +3459,81 @@ export const sendAccountDeletionEmail = functions.https.onCall(async (data: {
     }
     
     throw new functions.https.HttpsError('internal', 'Failed to send account deletion email.');
+  }
+});
+
+// Account deletion data cleanup function
+export const deleteAccountData = functions.https.onCall(async (_data: unknown, context: any) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to delete account data.');
+  }
+
+  const userId = context.auth.uid;
+
+  try {
+    const rtdb = admin.database();
+    const firestore = admin.firestore();
+
+    let walletBalance = 0;
+    const walletSnapshot = await rtdb.ref(`userWallets/${userId}`).once('value');
+    if (walletSnapshot.exists()) {
+      walletBalance = Number(walletSnapshot.val()?.balance || 0);
+    }
+
+    const rtdbUpdates: Record<string, any> = {
+      [`userWallets/${userId}`]: null,
+      [`userPaymentInfo/${userId}`]: null
+    };
+
+    const bookingsSnapshot = await rtdb.ref('bookings').once('value');
+    if (bookingsSnapshot.exists()) {
+      const bookings = bookingsSnapshot.val() || {};
+
+      Object.keys(bookings).forEach((bookingId) => {
+        const booking = bookings[bookingId];
+        if (booking?.customerID === userId || booking?.userId === userId || booking?.customerInfo?.userId === userId) {
+          rtdbUpdates[`bookings/${bookingId}/status`] = 'deleted';
+          rtdbUpdates[`bookings/${bookingId}/customerInfo/deleted`] = true;
+          rtdbUpdates[`bookings/${bookingId}/deletedAt`] = new Date().toISOString();
+        }
+      });
+    }
+
+    const giftCardsSnapshot = await rtdb.ref('giftCards').once('value');
+    if (giftCardsSnapshot.exists()) {
+      const giftCards = giftCardsSnapshot.val() || {};
+
+      Object.keys(giftCards).forEach((giftCardCode) => {
+        const giftCard = giftCards[giftCardCode];
+        if (giftCard?.purchaserUserId === userId && !giftCard?.isGift) {
+          rtdbUpdates[`giftCards/${giftCardCode}/status`] = 'deleted';
+          rtdbUpdates[`giftCards/${giftCardCode}/deletedAt`] = new Date().toISOString();
+        }
+      });
+    }
+
+    await rtdb.ref().update(rtdbUpdates);
+
+    const batch = firestore.batch();
+    batch.delete(firestore.collection('users').doc(userId));
+
+    const paymentInfoSnapshot = await firestore.collection('paymentInfo').where('userId', '==', userId).get();
+    paymentInfoSnapshot.docs.forEach((docSnapshot) => batch.delete(docSnapshot.ref));
+
+    const walletsSnapshot = await firestore.collection('wallets').where('userId', '==', userId).get();
+    walletsSnapshot.docs.forEach((docSnapshot) => batch.delete(docSnapshot.ref));
+
+    await batch.commit();
+
+    console.log(`Deleted account data for user ${userId}`);
+
+    return {
+      success: true,
+      deletedWalletBalance: walletBalance
+    };
+  } catch (error: any) {
+    console.error('Error deleting account data:', error);
+    throw new functions.https.HttpsError('internal', error?.message || 'Failed to delete account data.');
   }
 });
 
@@ -5002,3 +5126,4 @@ export const capturePayPalVaultOrder = functions.https.onCall(async (data, conte
     );
   }
 });
+

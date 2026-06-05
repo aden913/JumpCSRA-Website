@@ -163,9 +163,10 @@ export function useWelcomeLogic() {
       try {
         // Debug log removed
         // Get party essentials from actual inflateables data
-        const partyEssentials = inflateables.filter(item => 
-          item.category && item.category.toLowerCase() === 'party-essentials'
-        );
+        const partyEssentials = inflateables.filter(item => {
+          const isGiftCard = item.name?.toLowerCase().includes('gift card') || item.isGiftCard;
+          return item.category && item.category.toLowerCase() === 'party-essentials' && !isGiftCard;
+        });
         
         // Debug log removed
         
@@ -263,8 +264,10 @@ export function useWelcomeLogic() {
   };
 
   const addToCart = (product: any, quantity: number = 1) => {
+    const isGiftCard = product.name?.toLowerCase().includes('gift card') || product.isGiftCard;
+
     // Check if this is a party essential
-    const isPartyEssential = product.category === 'party-essentials';
+    const isPartyEssential = product.category === 'party-essentials' && !isGiftCard;
     
     if (isPartyEssential) {
       // Show quantity selection modal for party essentials
@@ -302,7 +305,7 @@ export function useWelcomeLogic() {
     const isGiftCard = product.name?.toLowerCase().includes('gift card') || product.isGiftCard;
     
     // Check if this is a party essential
-    const isPartyEssential = product.category === 'party-essentials';
+    const isPartyEssential = product.category === 'party-essentials' && !isGiftCard;
     
     let newCart;
     
@@ -377,11 +380,12 @@ export function useWelcomeLogic() {
       newCart = [...cart, { 
         id: isGiftCard ? `${product.id || product.name}-${Date.now()}` : (product.id || product.name),
         name: product.name, 
-        price, 
+        price: isGiftCard ? quantity : price, 
         wetDry, 
         quantity: 1, 
         category: product.category,
         image: product.image,
+        giftCardValue: isGiftCard ? quantity : undefined,
         isGiftCard: isGiftCard
       }];
     }

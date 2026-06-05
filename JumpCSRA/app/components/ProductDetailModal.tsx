@@ -30,16 +30,17 @@ export function ProductDetailModal({
   useModalScrollLock(open);
   
   const [selectedQuantity, setSelectedQuantity] = useState(1);
+  const selectedProductIsGiftCard = product?.category === 'gift-card' || product?.isGiftCard || product?.name?.toLowerCase().includes('gift card');
   
   // Reset quantity when modal opens/closes or product changes
   useEffect(() => {
-    setSelectedQuantity(1);
-  }, [open, product]);
+    setSelectedQuantity(selectedProductIsGiftCard ? 50 : 1);
+  }, [open, product, selectedProductIsGiftCard]);
 
   if (!open || !product) return null;
 
-  const isPartyEssential = product.category === 'party-essentials';
-  const isGiftCard = product.category === 'gift-card' || product.isGiftCard;
+  const isGiftCard = selectedProductIsGiftCard;
+  const isPartyEssential = product.category === 'party-essentials' && !isGiftCard;
   const quantityOptions = isGiftCard ? [50, 100] : (isPartyEssential && getQuantityOptions ? getQuantityOptions(product.name) : []);
   const availableQuantity = isPartyEssential && getAvailableQuantityForItem ? getAvailableQuantityForItem(product.name) : 0;
   const availability = isPartyEssential && itemAvailability ? itemAvailability.get(product.name) : null;

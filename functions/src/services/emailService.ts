@@ -12,8 +12,40 @@ import {
 } from '../types/email';
 
 // External email server configuration
-const EMAIL_SERVER_BASE_URL = 'http://170.187.145.7:3001';
+const EMAIL_SERVER_BASE_URL = 'http://173.230.132.127:3001';
 const EMAIL_SERVER_API_KEY = 'jumpcsra_secure_api_key_2024';
+
+type ScheduledTemplateEmailData = {
+  customerEmail: string;
+  customerName?: string;
+  customerId?: string;
+  bookingId?: string;
+  remainingAmount?: number;
+  dueDate?: string;
+  eventDate?: string;
+  bookingDetails?: any;
+  lastBookingDate?: string;
+  lastBookingId?: string;
+  asm?: any;
+};
+
+const postToEmailServer = async (endpoint: string, data: any): Promise<any> => {
+  const response = await axios.post(`${EMAIL_SERVER_BASE_URL}/api/email/${endpoint}`, data, {
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': EMAIL_SERVER_API_KEY,
+      'Accept': 'application/json'
+    },
+    timeout: 30000
+  });
+
+  if (response.status !== 200) {
+    console.error(`Email server error for ${endpoint}:`, response.status, response.data);
+    throw new Error(`Email server error: ${response.status} - ${response.statusText}`);
+  }
+
+  return response.data;
+};
 
 /**
  * Send order confirmation email via external email server
@@ -180,5 +212,44 @@ export const sendAccountDeletionEmail = async (data: AccountDeletionEmailData): 
   } catch (error: any) {
     console.error('❌ Error sending account deletion email via email server:', error);
     throw new functions.https.HttpsError('internal', `Failed to send account deletion email: ${error.message}`);
+  }
+};
+
+export const sendDepositReminderEmail = async (data: ScheduledTemplateEmailData): Promise<any> => {
+  if (!data.customerEmail || !data.bookingId) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing required deposit reminder email data.');
+  }
+
+  try {
+    return await postToEmailServer('deposit-reminder', data);
+  } catch (error: any) {
+    console.error('Error sending deposit reminder email via email server:', error);
+    throw new functions.https.HttpsError('internal', `Failed to send deposit reminder email: ${error.message}`);
+  }
+};
+
+export const sendPostEventThanksEmail = async (data: ScheduledTemplateEmailData): Promise<any> => {
+  if (!data.customerEmail || !data.bookingId) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing required post-event email data.');
+  }
+
+  try {
+    return await postToEmailServer('post-event-thanks', data);
+  } catch (error: any) {
+    console.error('Error sending post-event thank you email via email server:', error);
+    throw new functions.https.HttpsError('internal', `Failed to send post-event thank you email: ${error.message}`);
+  }
+};
+
+export const sendFollowUpRebookingEmail = async (data: ScheduledTemplateEmailData): Promise<any> => {
+  if (!data.customerEmail) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing required follow-up email data.');
+  }
+
+  try {
+    return await postToEmailServer('follow-up', data);
+  } catch (error: any) {
+    console.error('Error sending follow-up rebooking email via email server:', error);
+    throw new functions.https.HttpsError('internal', `Failed to send follow-up rebooking email: ${error.message}`);
   }
 };

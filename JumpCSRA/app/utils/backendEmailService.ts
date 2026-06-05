@@ -1,5 +1,7 @@
 // Backend Email Service for JumpCSRA
 // Replaces Firebase Functions with backend API calls
+import { get, ref } from 'firebase/database';
+import { database } from '../components/FirebaseConfig';
 
 interface UserData {
   email: string;
@@ -7,6 +9,25 @@ interface UserData {
   displayName?: string;
   userID?: string;
   uid?: string;
+}
+
+interface AccountDeletionEmailData {
+  email: string;
+  name?: string;
+  deletedWalletBalance?: number;
+  deletionDate: string;
+}
+
+interface GiftCardEmailData {
+  recipientEmail: string;
+  recipientName?: string;
+  senderName?: string;
+  personalMessage?: string;
+  giftCardCode: string;
+  giftCardBalance: number;
+  expirationDate?: string;
+  isPromotional?: boolean;
+  giftedTo?: string;
 }
 
 interface OrderData {
@@ -46,6 +67,23 @@ interface BookingData {
   bookingDetails?: any;
 }
 
+const EMAIL_TEMPLATE_SETTING_KEYS: Record<string, string[]> = {
+  'account-created': ['accountCreation', 'account-created'],
+  'account-deletion': ['accountDeletion', 'account-deletion'],
+  'booking-confirmation': ['bookingConfirmation', 'booking-confirmation'],
+  'cart-reminder': ['cartReminder', 'cart-reminder'],
+  'deferred-booking-payment': ['deferredBookingPayment', 'deferred-booking-payment'],
+  'deposit-reminder': ['depositReminder', 'deposit-reminder'],
+  'follow-up': ['followUpRebooking', 'follow-up'],
+  'gift-card': ['giftCard', 'gift-card'],
+  'membership-cancellation': ['membershipCancellation', 'membership-cancellation'],
+  'membership-confirmation': ['membershipConfirmation', 'membership-confirmation'],
+  'membership-event-confirmation': ['membershipEventConfirmation', 'membership-event-confirmation'],
+  'membership-post-event-thanks': ['membershipPostEventThankYou', 'membership-post-event-thanks'],
+  'payment-confirmation': ['paymentConfirmation', 'payment-confirmation'],
+  'post-event-thanks': ['postEventThanks', 'post-event-thanks']
+};
+
 class BackendEmailService {
   private baseURL: string;
   private apiKey: string;
@@ -57,11 +95,15 @@ class BackendEmailService {
   }
 
   private getBaseURL(): string {
+    const normalizeBaseUrl = (url: string) => url
+      .replace(/\/api\/email\/?\*?$/i, '')
+      .replace(/\/+$/, '');
+
     // Use environment variable or fallback to production
     if (typeof window !== 'undefined' && (window as any).ENV?.EMAIL_SERVICE_URL) {
-      return (window as any).ENV.EMAIL_SERVICE_URL;
+      return normalizeBaseUrl((window as any).ENV.EMAIL_SERVICE_URL);
     }
-    return import.meta.env.VITE_EMAIL_SERVICE_URL || 'http://170.187.145.7:3001';
+    return normalizeBaseUrl(import.meta.env.VITE_EMAIL_SERVICE_URL || 'http://173.230.132.127:3001');
   }
 
   private getApiKey(): string {
@@ -72,8 +114,59 @@ class BackendEmailService {
     return import.meta.env.VITE_EMAIL_API_KEY || 'jumpcsra_secure_api_key_2024';
   }
 
+  private async getTemplateConfig(endpoint: string): Promise<{ templateId: string; templateName?: string } | null> {
+    const settingKeys = EMAIL_TEMPLATE_SETTING_KEYS[endpoint];
+    if (!settingKeys) {
+      return null;
+    }
+
+    try {
+      const snapshot = await get(ref(database, 'dashboardInformation/emails/transactionalTemplates'));
+      if (!snapshot.exists()) {
+        return null;
+      }
+
+      const templates = snapshot.val() || {};
+      const matchedKey = settingKeys.find((key) => templates[key]);
+      if (!matchedKey) {
+        console.warn(`No dashboard template setting found for ${endpoint}.`, {
+          expectedKeys: settingKeys,
+          availableKeys: Object.keys(templates)
+        });
+        return null;
+      }
+
+      const value = templates[matchedKey];
+      if (typeof value === 'string') {
+        return { templateId: value };
+      }
+
+      if (value?.templateId) {
+        return {
+          templateId: String(value.templateId),
+          templateName: value.templateName ? String(value.templateName) : undefined
+        };
+      }
+    } catch (error) {
+      console.warn(`Could not load email template setting for ${endpoint}:`, error);
+    }
+
+    return null;
+  }
+
   private async makeRequest(endpoint: string, data: any = null, method: string = 'POST'): Promise<any> {
     try {
+      let requestData = data;
+      if (data && method !== 'GET' && !data.templateId) {
+        const templateConfig = await this.getTemplateConfig(endpoint);
+        if (templateConfig?.templateId) {
+          requestData = {
+            ...data,
+            ...templateConfig
+          };
+        }
+      }
+
       const config: RequestInit = {
         method,
         headers: {
@@ -82,8 +175,8 @@ class BackendEmailService {
         }
       };
 
-      if (data && method !== 'GET') {
-        config.body = JSON.stringify(data);
+      if (requestData && method !== 'GET') {
+        config.body = JSON.stringify(requestData);
       }
 
       const response = await fetch(`${this.baseURL}/api/email/${endpoint}`, config);
@@ -109,6 +202,19 @@ class BackendEmailService {
     });
   }
 
+  // Account deletion email
+  async sendAccountDeletionEmail(data: AccountDeletionEmailData) {
+    return this.makeRequest('account-deletion', {
+      customerEmail: data.email,
+      customerName: data.name || 'Customer',
+      deletionData: {
+        deletionDate: data.deletionDate,
+        deletedWalletBalance: data.deletedWalletBalance || 0,
+        reason: 'user-request'
+      }
+    });
+  }
+
   // Order confirmation email (replaces enhanced SendGrid function)
   async sendOrderConfirmationEmail(orderData: OrderData) {
     // Transform data to match backend expectations
@@ -129,6 +235,43 @@ class BackendEmailService {
     };
 
     return this.makeRequest('payment-confirmation', transformedData);
+  }
+
+  async sendBookingConfirmationEmail(orderData: OrderData) {
+    return this.makeRequest('booking-confirmation', {
+      customerEmail: orderData.recipientEmail || orderData.customerEmail,
+      customerName: orderData.recipientName || orderData.customerName,
+      bookingId: orderData.orderID,
+      eventDate: orderData.eventDate,
+      bookingDetails: {
+        items: orderData.rentalItems || orderData.items || [],
+        total: orderData.totalAmount,
+        amountPaid: orderData.amountPaid || orderData.totalAmount,
+        remainingBalance: orderData.remainingBalance || 0,
+        address: orderData.deliveryAddress,
+        setupTime: orderData.deliveryTime,
+        paymentType: orderData.paymentType,
+        paymentMethod: orderData.paymentMethod,
+        giftCards: orderData.giftCards || [],
+        bookingStatus: orderData.bookingStatus
+      }
+    });
+  }
+
+  async sendGiftCardEmail(data: GiftCardEmailData) {
+    return this.makeRequest('gift-card', {
+      customerEmail: data.recipientEmail,
+      customerName: data.recipientName || 'Valued Customer',
+      senderName: data.senderName,
+      personalMessage: data.personalMessage,
+      giftCardData: {
+        code: data.giftCardCode,
+        balance: data.giftCardBalance,
+        expirationDate: data.expirationDate,
+        isPromotional: data.isPromotional,
+        giftedTo: data.giftedTo
+      }
+    });
   }
 
   // Schedule cart abandonment reminder
@@ -240,8 +383,17 @@ export default backendEmailService;
 export const sendAccountCreationEmail = (userData: UserData) => 
   backendEmailService.sendAccountCreationEmail(userData);
 
+export const sendAccountDeletionEmail = (data: AccountDeletionEmailData) =>
+  backendEmailService.sendAccountDeletionEmail(data);
+
 export const sendOrderConfirmationEmail = (orderData: OrderData) => 
   backendEmailService.sendOrderConfirmationEmail(orderData);
+
+export const sendBookingConfirmationEmail = (orderData: OrderData) =>
+  backendEmailService.sendBookingConfirmationEmail(orderData);
+
+export const sendGiftCardEmail = (data: GiftCardEmailData) =>
+  backendEmailService.sendGiftCardEmail(data);
 
 export const scheduleCartReminderEmail = (cartData: CartData) => 
   backendEmailService.scheduleCartReminderEmail(cartData);

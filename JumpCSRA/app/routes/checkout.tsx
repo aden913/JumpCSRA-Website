@@ -20,8 +20,7 @@ import { useCartSettings } from "../hooks/useCartSettings";
 import { useCategories } from "../hooks/useCategories";
 import { useDeliveryAddressVerification } from "../hooks/useDeliveryAddressVerification";
 import { generateUniqueGiftCardCode, createGiftCardInDatabase, useDiscounts, validateGiftCard } from "../hooks/useDiscounts";
-import { sendOrderConfirmationEmail, createGiftCardInfoFromCart, OrderConfirmationEmailData, GiftCardInfo } from "../utils/emailUtils";
-import { scheduleCartReminderEmail, scheduleDepositReminderEmail, scheduleEventConfirmationEmail, schedulePostEventThanksEmail, scheduleRebookingReminderEmail } from "../utils/backendEmailService";
+import { scheduleCartReminderEmail, scheduleDepositReminderEmail, scheduleEventConfirmationEmail, schedulePostEventThanksEmail, scheduleRebookingReminderEmail, sendBookingConfirmationEmail, sendGiftCardEmail } from "../utils/backendEmailService";
 import { clearCartAbandonment } from "../utils/cartAbandonmentTracker";
 import { notifications } from '@mantine/notifications';
 import { Notifications } from '@mantine/notifications';
@@ -105,6 +104,7 @@ export default function Checkout() {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [giftCardValueInputs, setGiftCardValueInputs] = useState<{[idx: number]: string}>({});
   const inflateables = useInflateables();
   const categories = useCategories(inflateables);
   
@@ -432,11 +432,14 @@ export default function Checkout() {
     return String(category ?? '').toLowerCase() === normalizedTarget;
   };
 
+  const isGiftCardProduct = (item: any): boolean =>
+    item?.isGiftCard || item?.name?.toLowerCase().includes('gift card');
+
   const convertLastMinuteAdditionsToCartItems = (): CartItem[] => {
     // Filter inflateables directly to get party essentials
     const partyEssentialsItems = inflateables.filter(item => 
       categoryMatches(item.category, "party-essentials") && 
-      !item.isGiftCard
+      !isGiftCardProduct(item)
     );
     
     if (partyEssentialsItems.length === 0) return [];
@@ -481,7 +484,7 @@ export default function Checkout() {
     let basePrice = item.price;
     
     if (item.isGiftCard) {
-      return item.giftCardValue || item.price;
+      return getGiftCardCartValue(item);
     }
     
     if (item.isMembership) {
@@ -501,6 +504,247 @@ export default function Checkout() {
     return displayPrice;
   };
 
+  const getGiftCardCartValue = (item: CartItem): number => {
+    const value = Number(item.giftCardValue ?? item.price);
+    return Number.isFinite(value) && value >= 50 ? value : 50;
+  };
+
+  const updateGiftCardCartValue = (index: number, value: number) => {
+    const normalizedValue = Math.max(50, Math.round(value));
+
+    setCart(prevCart => {
+      const updatedCart = prevCart.map((cartItem, cartIndex) => (
+        cartIndex === index
+          ? {
+              ...cartItem,
+              isGiftCard: true,
+              giftCardValue: normalizedValue,
+              price: normalizedValue
+            }
+          : cartItem
+      ));
+
+      localStorage.setItem('cart', JSON.stringify(updatedCart));
+      return updatedCart;
+    });
+
+    cartSettings.updateGiftCardValue(index, normalizedValue);
+    setGiftCardValueInputs(prev => ({ ...prev, [index]: String(normalizedValue) }));
+  };
+
+  useEffect(() => {
+    const nextValues: {[idx: number]: string} = {};
+    cart.forEach((item, index) => {
+      if (item.isGiftCard) {
+        nextValues[index] = String(getGiftCardCartValue(item));
+      }
+    });
+    setGiftCardValueInputs(nextValues);
+  }, [cart]);
+
+  const renderGiftCardValueInput = (item: CartItem, index: number, idPrefix = 'gift-card-value') => (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      marginRight: '1rem',
+      marginBottom: '0.5rem',
+      gap: '0.5rem',
+      flexWrap: 'wrap'
+    }}>
+      <label htmlFor={`${idPrefix}-${index}`} style={{ fontWeight: '500' }}>
+        Gift Card Value:
+      </label>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+        <span style={{ fontWeight: '500' }}>$</span>
+        <input
+          id={`${idPrefix}-${index}`}
+          type="number"
+          min={50}
+          step={1}
+          inputMode="numeric"
+          value={giftCardValueInputs[index] ?? String(getGiftCardCartValue(item))}
+          onChange={(e) => {
+            const rawValue = e.target.value;
+            setGiftCardValueInputs(prev => ({ ...prev, [index]: rawValue }));
+
+            const parsedValue = Number(rawValue);
+            if (rawValue !== '' && Number.isFinite(parsedValue) && parsedValue >= 50) {
+              updateGiftCardCartValue(index, parsedValue);
+            }
+          }}
+          onBlur={(e) => {
+            const parsedValue = Number(e.target.value);
+            updateGiftCardCartValue(index, Number.isFinite(parsedValue) ? parsedValue : 50);
+          }}
+          style={{
+            width: '120px',
+            padding: '0.5rem',
+            borderRadius: '4px',
+            border: '1px solid #ddd',
+            fontSize: '1rem'
+          }}
+        />
+      </div>
+      <span style={{ fontSize: '0.85rem', color: '#666' }}>Minimum $50</span>
+    </div>
+  );
+
+  const renderBogoGiftCardRecipientPrompt = () => {
+    if (!isBogoGiftCardActive || !cart.some(item => item.isGiftCard)) {
+      return null;
+    }
+
+    const emailIsInvalid = promotionalGiftCardEmail && !isValidEmail(promotionalGiftCardEmail);
+    const emailMatchesUser = promotionalGiftCardEmail && user?.email && promotionalGiftCardEmail.toLowerCase() === user.email.toLowerCase();
+    const canConfirmEmail = promotionalGiftCardEmail && isValidEmail(promotionalGiftCardEmail) && !emailMatchesUser;
+
+    return (
+      <div style={{
+        marginBottom: '2rem',
+        padding: '1rem',
+        backgroundColor: '#fff9c4',
+        border: '2px solid #f9ca24',
+        borderRadius: '8px'
+      }}>
+        <h3 style={{ marginBottom: '1rem', color: '#f39801' }}>BOGO Special Offer!</h3>
+        <p style={{ color: '#8c6d00', marginBottom: '1rem' }}>
+          You qualify for a free ${bogoFreeGiftCardValue.toFixed(2)} gift card with your purchase.
+          The promotional gift card must be sent to someone else.
+        </p>
+
+        {!promotionalEmailConfirmed ? (
+          <>
+            <div style={{ marginBottom: '0.5rem' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '0.5rem',
+                fontWeight: 'bold',
+                color: '#8c6d00'
+              }}>
+                Recipient's Email Address (Required):
+              </label>
+              <input
+                type="email"
+                placeholder="Enter recipient's email (cannot be your email)"
+                value={promotionalGiftCardEmail}
+                onChange={(e) => setPromotionalGiftCardEmail(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: `2px solid ${emailIsInvalid || emailMatchesUser ? '#dc3545' : '#f9ca24'}`,
+                  borderRadius: '4px',
+                  fontSize: '1rem',
+                  backgroundColor: '#fffef5'
+                }}
+              />
+              {emailIsInvalid && (
+                <div style={{
+                  color: '#dc3545',
+                  fontSize: '0.9rem',
+                  marginTop: '0.5rem',
+                  padding: '0.5rem',
+                  backgroundColor: '#f8d7da',
+                  borderRadius: '4px'
+                }}>
+                  Please enter a valid email address.
+                </div>
+              )}
+              {emailMatchesUser && (
+                <div style={{
+                  color: '#dc3545',
+                  fontSize: '0.9rem',
+                  marginTop: '0.5rem',
+                  padding: '0.5rem',
+                  backgroundColor: '#f8d7da',
+                  borderRadius: '4px'
+                }}>
+                  Promotional gift card must be sent to a different email address.
+                </div>
+              )}
+            </div>
+            <div style={{ fontSize: '0.85rem', color: '#8c6d00', fontStyle: 'italic', marginBottom: '1rem' }}>
+              The promotional gift card will be restricted from use on your account to prevent self-redemption.
+            </div>
+            <button
+              onClick={() => {
+                if (!promotionalGiftCardEmail || promotionalGiftCardEmail.trim() === '') {
+                  notifications.show({
+                    title: 'Email Required',
+                    message: 'Please enter a recipient email address for the promotional gift card.',
+                    color: 'red',
+                  });
+                  return;
+                }
+                if (!isValidEmail(promotionalGiftCardEmail)) {
+                  notifications.show({
+                    title: 'Invalid Email Format',
+                    message: 'Please enter a valid email address.',
+                    color: 'red',
+                  });
+                  return;
+                }
+                if (promotionalGiftCardEmail.toLowerCase() === user?.email?.toLowerCase()) {
+                  notifications.show({
+                    title: 'Invalid Email',
+                    message: 'Promotional gift card must be sent to a different email address.',
+                    color: 'red',
+                  });
+                  return;
+                }
+                setPromotionalEmailConfirmed(true);
+                notifications.show({
+                  title: 'Email Confirmed',
+                  message: `Promotional gift card will be sent to ${promotionalGiftCardEmail}`,
+                  color: 'green',
+                });
+              }}
+              disabled={!canConfirmEmail}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                backgroundColor: canConfirmEmail ? '#f9ca24' : '#ccc',
+                color: '#333',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '1rem',
+                fontWeight: 'bold',
+                cursor: canConfirmEmail ? 'pointer' : 'not-allowed',
+                transition: 'all 0.2s'
+              }}
+            >
+              Confirm Recipient Email
+            </button>
+          </>
+        ) : (
+          <div style={{
+            padding: '1rem',
+            backgroundColor: '#d4edda',
+            border: '1px solid #c3e6cb',
+            borderRadius: '4px',
+            color: '#155724'
+          }}>
+            <strong>Recipient confirmed:</strong> {promotionalGiftCardEmail}
+            <button
+              onClick={() => setPromotionalEmailConfirmed(false)}
+              style={{
+                marginLeft: '1rem',
+                padding: '0.25rem 0.5rem',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '3px',
+                cursor: 'pointer'
+              }}
+            >
+              Change
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Helper function to calculate totals for display
   // Uses the display cart (either active or completed order)
   const getDisplayCartTotal = (): number => {
@@ -508,7 +752,7 @@ export default function Checkout() {
     const durationMultiplier = cartSettings.duration ? durationMultipliers[cartSettings.duration] || 1.0 : 1.0;
     return displayCart.reduce((sum, item) => {
       if (item.isGiftCard) {
-        return sum + (item.giftCardValue || item.price) * item.quantity;
+        return sum + getGiftCardCartValue(item) * item.quantity;
       } else {
         return sum + item.price * item.quantity * durationMultiplier;
       }
@@ -516,7 +760,7 @@ export default function Checkout() {
   };
 
   // Discount management
-  const { discounts, calculateDiscount, getActiveDiscount, markDiscountAsUsed, clearDiscounts } = useDiscounts();
+  const { discounts, activePromoCard, calculateDiscount, getActiveDiscount, markDiscountAsUsed, clearDiscounts } = useDiscounts();
   const [discountCalculation, setDiscountCalculation] = useState<any>({
     discountAmount: 0,
     appliedDiscount: null,
@@ -533,7 +777,7 @@ export default function Checkout() {
       // cartTotal will be calculated within this effect from cart
       const tempCartTotal = cart.reduce((sum, item) => {
         if (item.isGiftCard) {
-          return sum + (item.giftCardValue || item.price) * item.quantity;
+          return sum + getGiftCardCartValue(item) * item.quantity;
         } else {
           return sum + item.price * item.quantity;
         }
@@ -544,14 +788,33 @@ export default function Checkout() {
     };
     
     calculateDiscountAsync();
-  }, [cart, calendarDateRange, discounts.sunday10, discounts.freeGame, discounts.bogoGiftCard]);
+  }, [cart, calendarDateRange, discounts.sunday10, discounts.freeGame, discounts.bogoGiftCard, activePromoCard]);
+
+  const hasGiftCardInCart = cart.some(item => item.isGiftCard);
+  const highestGiftCardValueInCart = cart.reduce((highest, item) => (
+    item.isGiftCard ? Math.max(highest, getGiftCardCartValue(item)) : highest
+  ), 0);
+  const hasBogoGiftCardDiscount =
+    (discountCalculation?.hasValidDiscount && discountCalculation?.appliedDiscount === 'bogoGiftCard') ||
+    discounts.bogoGiftCard ||
+    activePromoCard?.code === 'bogoGiftCard' ||
+    activePromoCard?.discountApplication === 'bogo' ||
+    /gogo|give one get one/i.test(activePromoCard?.cardText || '');
+  const isBogoGiftCardActive = Boolean(hasGiftCardInCart && hasBogoGiftCardDiscount);
+  const bogoFreeGiftCard = discountCalculation?.addedGiftCards?.[0] || null;
+  const bogoFreeGiftCardValue = Number(
+    bogoFreeGiftCard?.giftCardValue ||
+    bogoFreeGiftCard?.price ||
+    highestGiftCardValueInCart ||
+    0
+  );
 
   // Reset promotional email confirmation when BOGO discount is toggled off
   useEffect(() => {
-    if (!discounts.bogoGiftCard && promotionalEmailConfirmed) {
+    if (!isBogoGiftCardActive && promotionalEmailConfirmed) {
       setPromotionalEmailConfirmed(false);
     }
-  }, [discounts.bogoGiftCard, promotionalEmailConfirmed]);
+  }, [isBogoGiftCardActive, promotionalEmailConfirmed]);
 
   // Cart settings helper functions and constants
   const locationOptions = [
@@ -1487,9 +1750,18 @@ export default function Checkout() {
           // Fix any gift cards that have incorrect isGiftCard flag
           const fixedCart = parsedCart.map((item: CartItem) => {
             const isGiftCard = item.name?.toLowerCase().includes('gift card') || item.isGiftCard;
-            if (isGiftCard && !item.isGiftCard) {
+            if (isGiftCard) {
+              const giftCardValue = Number(item.giftCardValue ?? item.price);
+              const normalizedGiftCardValue = Number.isFinite(giftCardValue) && giftCardValue >= 50 ? giftCardValue : 50;
+              if (!item.isGiftCard || item.giftCardValue !== normalizedGiftCardValue || item.price !== normalizedGiftCardValue) {
               console.log('🔧 [CART FIX] Fixing gift card flag for:', item.name);
-              return { ...item, isGiftCard: true };
+                return {
+                  ...item,
+                  isGiftCard: true,
+                  giftCardValue: normalizedGiftCardValue,
+                  price: normalizedGiftCardValue
+                };
+              }
             }
             return item;
           });
@@ -1538,7 +1810,7 @@ export default function Checkout() {
   // Get party essentials for carousel (must be defined before useEffect that uses it)
   const partyEssentials = inflateables.filter(item => 
     categoryMatches(item.category, "party-essentials") && 
-    !item.isGiftCard // Exclude gift cards from last-minute additions
+    !isGiftCardProduct(item) // Exclude gift cards from last-minute additions
   );
 
   // Check availability for party essentials when cart or dates change
@@ -1816,7 +2088,7 @@ export default function Checkout() {
   const cartTotalBeforeRates = cart.reduce((sum, item, index) => {
     let itemTotal: number;
     if (item.isGiftCard) {
-      itemTotal = (item.giftCardValue || item.price) * item.quantity;
+      itemTotal = getGiftCardCartValue(item) * item.quantity;
     } else if (item.isMembership) {
       // Membership items don't get duration multiplier or other discounts
       itemTotal = item.price * item.quantity;
@@ -1890,7 +2162,7 @@ export default function Checkout() {
     
     const baseSubtotal = cart.reduce((sum, item) => {
       if (item.isGiftCard) {
-        return sum + (item.giftCardValue || item.price) * item.quantity;
+        return sum + getGiftCardCartValue(item) * item.quantity;
       }
       return sum + item.price * item.quantity;
     }, 0);
@@ -2070,7 +2342,7 @@ export default function Checkout() {
   // Calculate sales tax only on non-gift-card items (gift cards are not taxable)
   const giftCardSubtotal = cart.reduce((sum, item) => {
     if (item.isGiftCard) {
-      return sum + (item.giftCardValue || item.price) * item.quantity;
+      return sum + getGiftCardCartValue(item) * item.quantity;
     }
     return sum;
   }, 0);
@@ -2148,7 +2420,7 @@ export default function Checkout() {
     }
 
     // Skip checking for gift cards and memberships only
-    const itemsToCheck = cart.filter(item => !item.isGiftCard && !item.isMembership);
+    const itemsToCheck = cart.filter(item => !isGiftCardProduct(item) && !item.isMembership);
     if (itemsToCheck.length === 0) {
       setAvailableDurations(new Set(['4hours', '24hours', '48hours']));
       return;
@@ -2545,7 +2817,7 @@ export default function Checkout() {
   const calculateGiftCardTotal = () => {
     return cart.reduce((sum, item) => {
       if (item.isGiftCard) {
-        return sum + (item.giftCardValue || item.price) * item.quantity;
+        return sum + getGiftCardCartValue(item) * item.quantity;
       }
       return sum;
     }, 0);
@@ -2705,7 +2977,7 @@ export default function Checkout() {
     const { giftCardItems, membershipItems, rentalItems } = analyzeCartComposition();
     
     const giftCardTotal = giftCardItems.reduce((sum, item) => {
-      return sum + (item.giftCardValue || item.price) * item.quantity;
+      return sum + getGiftCardCartValue(item) * item.quantity;
     }, 0);
 
     const membershipTotal = membershipItems.reduce((sum, item) => {
@@ -2799,7 +3071,7 @@ export default function Checkout() {
     const scheduleCartReminder = async () => {
       if (cart.length > 0 && user && user.email) {
         try {
-          const cartValue = cart.reduce((sum, item) => sum + item.price, 0);
+          const cartValue = cart.reduce((sum, item) => sum + (item.isGiftCard ? getGiftCardCartValue(item) : item.price), 0);
           
           await scheduleCartReminderEmail({
             userID: user.uid,
@@ -2879,6 +3151,37 @@ export default function Checkout() {
 
     } catch (error) {
       console.error('Failed to schedule automated emails:', error);
+    }
+  };
+
+  const sendCreatedGiftCardEmail = async (
+    giftCardCode: string,
+    giftCardValue: number,
+    recipientEmail: string,
+    options: { recipientName?: string; personalMessage?: string; isPromotional?: boolean } = {}
+  ) => {
+    if (!recipientEmail) {
+      console.error('Gift card email skipped: missing recipient email', { giftCardCode });
+      return;
+    }
+
+    try {
+      const result = await sendGiftCardEmail({
+        recipientEmail,
+        recipientName: options.recipientName || user?.displayName || userProfile?.firstName || 'Customer',
+        giftCardCode,
+        giftCardBalance: giftCardValue,
+        expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString(),
+        personalMessage: options.personalMessage,
+        isPromotional: options.isPromotional,
+        giftedTo: options.isPromotional ? recipientEmail : undefined
+      });
+
+      if (!result?.success) {
+        console.error('Gift card email failed:', result);
+      }
+    } catch (emailError) {
+      console.error('Error sending gift card email:', emailError);
     }
   };
 
@@ -2977,7 +3280,7 @@ export default function Checkout() {
     try {
       // Validate BOGO promotional email before processing payment
       const giftCardsInCart = cart.filter(item => item.isGiftCard);
-      if (discounts.bogoGiftCard && giftCardsInCart.length > 0 && user) {
+      if (isBogoGiftCardActive && giftCardsInCart.length > 0 && user) {
         if (!promotionalGiftCardEmail || promotionalGiftCardEmail.trim() === '') {
           throw new Error("Please enter a recipient email address for the promotional gift card");
         }
@@ -3030,7 +3333,7 @@ export default function Checkout() {
     try {
       // Validate BOGO promotional email before processing payment
       const giftCardsInCart = cart.filter(item => item.isGiftCard);
-      if (discounts.bogoGiftCard && giftCardsInCart.length > 0 && user) {
+      if (isBogoGiftCardActive && giftCardsInCart.length > 0 && user) {
         if (!promotionalGiftCardEmail || promotionalGiftCardEmail.trim() === '') {
           throw new Error("Please enter a recipient email address for the promotional gift card");
         }
@@ -3198,7 +3501,7 @@ export default function Checkout() {
                   // Debug log removed
                   for (let i = 0; i < giftCardItem.quantity; i++) {
                     const giftCardCode = await generateUniqueGiftCardCode();
-                    const giftCardValue = giftCardItem.giftCardValue || giftCardItem.price;
+                    const giftCardValue = getGiftCardCartValue(giftCardItem);
                     
                     // Debug log removed
                     
@@ -3219,6 +3522,9 @@ export default function Checkout() {
                         value: giftCardValue,
                         isPromotional: false
                       }]);
+                      await sendCreatedGiftCardEmail(giftCardCode, giftCardValue, user.email || '', {
+                        recipientName: user.displayName || userProfile?.firstName || 'Customer'
+                      });
                     } else {
                       console.error(`❌ WALLET PAYMENT - Failed to create gift card: ${giftCardCode}`);
                     }
@@ -3229,14 +3535,14 @@ export default function Checkout() {
               }
 
               // Create promotional gift card for GOGO discount if applicable (wallet payment)
-              if (discounts.bogoGiftCard && giftCardsInCart.length > 0 && user) {
+              if (isBogoGiftCardActive && giftCardsInCart.length > 0 && user) {
                 try {
                   // Debug log removed
                   
                   // Find the highest value gift card in the cart
                   let highestValue = 0;
                   for (const giftCardItem of giftCardsInCart) {
-                    const value = giftCardItem.giftCardValue || giftCardItem.price;
+                    const value = getGiftCardCartValue(giftCardItem);
                     if (value > highestValue) {
                       highestValue = value;
                     }
@@ -3244,6 +3550,7 @@ export default function Checkout() {
                   
                   // Debug log removed
                   
+                  highestValue = bogoFreeGiftCardValue || highestValue;
                   const promoGiftCardCode = await generateUniqueGiftCardCode();
                   const recipientEmail = promotionalGiftCardEmail || user.email || '';
                   
@@ -3269,25 +3576,18 @@ export default function Checkout() {
                     
                     // Send separate gift card email for promotional gift card
                     try {
-                      const { getFunctions, httpsCallable } = await import('firebase/functions');
-                      const { app } = await import('../components/FirebaseConfig');
-                      
-                      const functions = getFunctions(app);
-                      const sendGiftCardEmail = httpsCallable(functions, 'sendGiftCardEmail');
-                      
                       const giftCardEmailData = {
                         recipientEmail: recipientEmail,
                         recipientName: user.displayName || 'Customer',
                         giftCardCode: promoGiftCardCode,
                         giftCardBalance: highestValue,
                         expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-                        purchaseDate: new Date().toLocaleDateString(),
+                        personalMessage: 'GOGO Special Offer - Free gift card with your purchase!',
                         isPromotional: true,
-                        promotionalMessage: 'GOGO Special Offer - Free gift card with your purchase!'
+                        giftedTo: recipientEmail
                       };
                       
-                      const emailResult = await sendGiftCardEmail(giftCardEmailData);
-                      const result = emailResult.data as any;
+                      const result = await sendGiftCardEmail(giftCardEmailData);
                       
                       if (result.success) {
                         // Debug log removed
@@ -3316,7 +3616,7 @@ export default function Checkout() {
                 // Convert cart to gift card info (simplified for now)
                 const giftCardInfo = cart.filter(item => item.isGiftCard).map(item => ({
                   code: `GC-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`, // This would be actual gift card codes
-                  balance: item.giftCardValue || item.price,
+                  balance: getGiftCardCartValue(item),
                   expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString(),
                   isPromotional: false
                 }));
@@ -3367,27 +3667,16 @@ export default function Checkout() {
                   paypalTransactionId: undefined
                 };
 
-                // Call Cloud Function to send order confirmation email
+                if (cart.some(item => !item.isGiftCard && !item.isMembership)) {
+                // Send booking confirmation email through the backend email server
                 try {
-                  const { getFunctions, httpsCallable } = await import('firebase/functions');
-                  const { initializeApp, getApps } = await import('firebase/app');
-                  
-                  let app;
-                  if (getApps().length === 0) {
-                    const { firebaseConfig } = await import('../components/FirebaseConfig');
-                    app = initializeApp(firebaseConfig);
-                  } else {
-                    app = getApps()[0];
-                  }
-                  
-                  const functions = getFunctions(app);
-                  const sendOrderConfirmation = httpsCallable(functions, 'sendOrderConfirmationEmail');
-                  const result = await sendOrderConfirmation(invoiceData);
+                  await sendBookingConfirmationEmail(invoiceData);
                 
                   // Debug log removed
                   // Debug log removed
                 } catch (emailError) {
                   console.error(`📧 WALLET PAYMENT - Error sending order confirmation email for order ${pendingBookingId}:`, emailError);
+                }
                 }
               } catch (invoiceError) {
                 console.error(`📧 WALLET PAYMENT - Error sending order confirmation email for order ${pendingBookingId}:`, invoiceError);
@@ -3435,7 +3724,7 @@ export default function Checkout() {
             
             // Calculate total (should match what was charged)
             const giftCardTotal = cart.reduce((sum, item) => {
-              const value = item.isGiftCard ? (item.giftCardValue || item.price) : item.price;
+              const value = item.isGiftCard ? getGiftCardCartValue(item) : item.price;
               return sum + (value * (item.quantity || 1));
             }, 0);
             
@@ -3465,7 +3754,7 @@ export default function Checkout() {
                 for (const giftCardItem of giftCardsInCart) {
                   for (let i = 0; i < giftCardItem.quantity; i++) {
                     const giftCardCode = await generateUniqueGiftCardCode();
-                    const giftCardValue = giftCardItem.giftCardValue || giftCardItem.price;
+                    const giftCardValue = getGiftCardCartValue(giftCardItem);
                     
                     const success = await createGiftCardInDatabase(
                       giftCardCode,
@@ -3482,6 +3771,9 @@ export default function Checkout() {
                         value: giftCardValue,
                         isPromotional: false
                       }]);
+                      await sendCreatedGiftCardEmail(giftCardCode, giftCardValue, user.email || '', {
+                        recipientName: user.displayName || userProfile?.firstName || 'Customer'
+                      });
                     } else {
                       console.error(`❌ WALLET PAYMENT - Failed to create gift card: ${giftCardCode}`);
                     }
@@ -3490,16 +3782,17 @@ export default function Checkout() {
               }
 
               // Create promotional gift card for BOGO discount if applicable
-              if (discounts.bogoGiftCard && giftCardsInCart.length > 0 && user) {
+              if (isBogoGiftCardActive && giftCardsInCart.length > 0 && user) {
                 try {
                   let highestValue = 0;
                   for (const giftCardItem of giftCardsInCart) {
-                    const value = giftCardItem.giftCardValue || giftCardItem.price;
+                    const value = getGiftCardCartValue(giftCardItem);
                     if (value > highestValue) {
                       highestValue = value;
                     }
                   }
                   
+                  highestValue = bogoFreeGiftCardValue || highestValue;
                   const promoGiftCardCode = await generateUniqueGiftCardCode();
                   const recipientEmail = promotionalGiftCardEmail || user.email || '';
                   
@@ -3520,6 +3813,11 @@ export default function Checkout() {
                       value: highestValue,
                       isPromotional: true
                     }]);
+                    await sendCreatedGiftCardEmail(promoGiftCardCode, highestValue, recipientEmail, {
+                      recipientName: user.displayName || userProfile?.firstName || 'Customer',
+                      personalMessage: 'GOGO Special Offer - Free gift card with your purchase!',
+                      isPromotional: true
+                    });
                   } else {
                     console.error('❌ Failed to create promotional gift card');
                   }
@@ -3915,8 +4213,8 @@ export default function Checkout() {
                     // Log all fields for debugging
                     // Debug log removed);
                     const quantity = giftCardItem.quantity || 1;
-                    const value = giftCardItem.giftCardValue || giftCardItem.price;
-                    if (!value || value <= 0) {
+                    const value = getGiftCardCartValue(giftCardItem);
+                    if (!value || value < 50) {
                       console.error('❌ Invalid gift card value:', value, giftCardItem);
                       anyGiftCardFailed = true;
                       continue;
@@ -3940,6 +4238,9 @@ export default function Checkout() {
                           value: value,
                           isPromotional: false
                         }]);
+                        await sendCreatedGiftCardEmail(giftCardCode, value, user.email || '', {
+                          recipientName: user.displayName || userProfile?.firstName || 'Customer'
+                        });
                       } else {
                         console.error(`❌ Failed to create gift card: ${giftCardCode} - $${value}`);
                         anyGiftCardFailed = true;
@@ -3970,14 +4271,14 @@ export default function Checkout() {
               }
 
               // Create promotional gift card for GOGO discount if applicable
-              if (discounts.bogoGiftCard && giftCardsInCart.length > 0 && user) {
+              if (isBogoGiftCardActive && giftCardsInCart.length > 0 && user) {
                 try {
                   // Debug log removed
                   
                   // Find the highest value gift card in the cart
                   let highestValue = 0;
                   for (const giftCardItem of giftCardsInCart) {
-                    const value = giftCardItem.giftCardValue || giftCardItem.price;
+                    const value = getGiftCardCartValue(giftCardItem);
                     if (value > highestValue) {
                       highestValue = value;
                     }
@@ -3985,6 +4286,7 @@ export default function Checkout() {
                   
                   // Debug log removed
                   
+                  highestValue = bogoFreeGiftCardValue || highestValue;
                   const promoGiftCardCode = await generateUniqueGiftCardCode();
                   const recipientEmail = promotionalGiftCardEmail || user.email || '';
                   
@@ -4008,52 +4310,21 @@ export default function Checkout() {
                       isPromotional: true
                     }]);
                     
-                    // Send separate invoice for promotional gift card
+                    // Send separate gift card email for promotional gift card
                     try {
-                      const { createAndSendPayPalInvoice } = await import('../utils/paypalInvoiceUtils');
-                      
-                      const promoInvoiceData = {
-                        recipientEmail: recipientEmail,
+                      await sendCreatedGiftCardEmail(promoGiftCardCode, highestValue, recipientEmail, {
                         recipientName: user.displayName || 'Customer',
-                        orderID: 'PROMO-' + Date.now(),
-                        orderDate: new Date().toISOString(),
-                        rentalItems: [],
-                        lastMinuteAdditions: [],
-                        subtotal: 0,
-                        surfaceAdjustment: 0,
-                        timeAdjustment: 0,
-                        deliveryCost: 0,
-                        totalAmount: 0,
-                        paymentType: 'full' as const,
-                        amountPaid: 0,
-                        remainingBalance: 0,
-                        paymentMethod: 'Promotional Gift Card',
-                        giftCards: [{
-                          code: promoGiftCardCode,
-                          balance: highestValue,
-                          expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-                          isPromotional: true,
-                          promotionalMessage: 'GOGO Special Offer - Free gift card with your purchase!',
-                          recipientEmail: recipientEmail
-                        }],
-                        bookingStatus: 'promotional_gift_card'
-                      };
-                      
-                      const invoiceResult = await createAndSendPayPalInvoice(promoInvoiceData);
-                      
-                      if (invoiceResult.success) {
-                        // Debug log removed
-                        notifications.show({
-                          title: '🎁 Promotional Gift Card Sent!',
-                          message: `A free gift card worth $${highestValue} has been sent to ${recipientEmail}`,
-                          color: 'green',
-                          autoClose: 8000,
-                        });
-                      } else {
-                        console.error('❌ Failed to send promotional gift card invoice:', invoiceResult.error);
-                      }
-                    } catch (invoiceError) {
-                      console.error('❌ Error sending promotional gift card invoice:', invoiceError);
+                        personalMessage: 'GOGO Special Offer - Free gift card with your purchase!',
+                      isPromotional: true
+                    });
+                      notifications.show({
+                        title: '🎁 Promotional Gift Card Sent!',
+                        message: `A free gift card worth $${highestValue} has been sent to ${recipientEmail}`,
+                        color: 'green',
+                        autoClose: 8000,
+                      });
+                    } catch (emailError) {
+                      console.error('❌ Error sending promotional gift card email:', emailError);
                     }
                   } else {
                     console.error(`❌ Failed to create GOGO promotional gift card: ${promoGiftCardCode}`);
@@ -4070,7 +4341,7 @@ export default function Checkout() {
                 // Convert cart to gift card info (simplified for now)
                 const giftCardInfo = cart.filter(item => item.isGiftCard).map(item => ({
                   code: `GC-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`, // This would be actual gift card codes
-                  balance: item.giftCardValue || item.price,
+                  balance: getGiftCardCartValue(item),
                   expirationDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString(),
                   isPromotional: false
                 }));
@@ -4126,22 +4397,10 @@ export default function Checkout() {
 
                 // Debug log removed
 
-                // Call Cloud Function to send order confirmation email
+                if (cart.some(item => !item.isGiftCard && !item.isMembership)) {
+                // Send booking confirmation email through the backend email server
                 try {
-                  const { getFunctions, httpsCallable } = await import('firebase/functions');
-                  const { initializeApp, getApps } = await import('firebase/app');
-                  
-                  let app;
-                  if (getApps().length === 0) {
-                    const { firebaseConfig } = await import('../components/FirebaseConfig');
-                    app = initializeApp(firebaseConfig);
-                  } else {
-                    app = getApps()[0];
-                  }
-                  
-                  const functions = getFunctions(app);
-                  const sendOrderConfirmation = httpsCallable(functions, 'sendOrderConfirmationEmail');
-                  const result = await sendOrderConfirmation(invoiceData);
+                  await sendBookingConfirmationEmail(invoiceData);
                 
                   // Debug log removed
                   // Debug log removed
@@ -4163,6 +4422,7 @@ export default function Checkout() {
                     color: 'yellow',
                     autoClose: 8000,
                   });
+                }
                 }
               } catch (invoiceError) {
                 console.error(`❌ PAYPAL PAYMENT - Error sending order confirmation email for order ${pendingBookingId}:`, invoiceError);
@@ -4346,7 +4606,7 @@ export default function Checkout() {
             
             // Calculate total (should match what was charged)
             const giftCardTotal = cart.reduce((sum, item) => {
-              const value = item.isGiftCard ? (item.giftCardValue || item.price) : item.price;
+              const value = item.isGiftCard ? getGiftCardCartValue(item) : item.price;
               return sum + (value * (item.quantity || 1));
             }, 0);
             
@@ -4382,8 +4642,8 @@ export default function Checkout() {
                 try {
                   for (const giftCardItem of giftCardsInCart) {
                     const quantity = giftCardItem.quantity || 1;
-                    const value = giftCardItem.giftCardValue || giftCardItem.price;
-                    if (!value || value <= 0) {
+                    const value = getGiftCardCartValue(giftCardItem);
+                    if (!value || value < 50) {
                       console.error('❌ Invalid gift card value:', value, giftCardItem);
                       anyGiftCardFailed = true;
                       continue;
@@ -4404,6 +4664,9 @@ export default function Checkout() {
                           value: value,
                           isPromotional: false
                         }]);
+                        await sendCreatedGiftCardEmail(giftCardCode, value, user.email || '', {
+                          recipientName: user.displayName || userProfile?.firstName || 'Customer'
+                        });
                       } else {
                         console.error(`❌ Failed to create gift card: ${giftCardCode} - $${value}`);
                         anyGiftCardFailed = true;
@@ -4430,16 +4693,17 @@ export default function Checkout() {
               }
 
               // Create promotional gift card for BOGO discount if applicable
-              if (discounts.bogoGiftCard && giftCardsInCart.length > 0 && user) {
+              if (isBogoGiftCardActive && giftCardsInCart.length > 0 && user) {
                 try {
                   let highestValue = 0;
                   for (const giftCardItem of giftCardsInCart) {
-                    const value = giftCardItem.giftCardValue || giftCardItem.price;
+                    const value = getGiftCardCartValue(giftCardItem);
                     if (value > highestValue) {
                       highestValue = value;
                     }
                   }
                   
+                  highestValue = bogoFreeGiftCardValue || highestValue;
                   const promoGiftCardCode = await generateUniqueGiftCardCode();
                   const recipientEmail = promotionalGiftCardEmail || user.email || '';
                   
@@ -4460,6 +4724,11 @@ export default function Checkout() {
                       value: highestValue,
                       isPromotional: true
                     }]);
+                    await sendCreatedGiftCardEmail(promoGiftCardCode, highestValue, recipientEmail, {
+                      recipientName: user.displayName || userProfile?.firstName || 'Customer',
+                      personalMessage: 'GOGO Special Offer - Free gift card with your purchase!',
+                      isPromotional: true
+                    });
                   } else {
                     console.error('❌ Failed to create promotional gift card');
                   }
@@ -4700,7 +4969,8 @@ export default function Checkout() {
             ...cart.map(item => ({
               name: item.name,
               quantity: item.quantity,
-              price: item.isGiftCard ? (item.giftCardValue || item.price) : item.price
+              price: item.isGiftCard ? getGiftCardCartValue(item) : item.price,
+              ...(item.isGiftCard && { isGiftCard: true, giftCardValue: getGiftCardCartValue(item) })
             })),
             ...Object.entries(lastMinuteAdditions)
               .filter(([_, quantity]) => quantity > 0)
@@ -4877,7 +5147,7 @@ export default function Checkout() {
           ...(eventEnd && { eventEnd }),
           items: [
             ...cart.map((item, index) => {
-              const basePrice = item.isGiftCard ? (item.giftCardValue || item.price) : item.price;
+              const basePrice = item.isGiftCard ? getGiftCardCartValue(item) : item.price;
               
               // Check if this item is the free item (for freeGame discount)
               const isFreeItem = discountCalculation?.appliedDiscount === 'freeGame' && 
@@ -4889,6 +5159,7 @@ export default function Checkout() {
                   name: item.name,
                   quantity: item.quantity,
                   price: basePrice,
+                  ...(item.isGiftCard && { isGiftCard: true, giftCardValue: basePrice }),
                   captureIds: [], // Will be populated when payment is made
                   ...(isFreeItem && { discountApplied: 'Free item' })
                 };
@@ -4990,7 +5261,7 @@ export default function Checkout() {
           }),
           ...(tipAmount > 0 && { tip: tipAmount }),
           // Store discount information (homepage discounts OR promo codes)
-          ...((discountCalculation?.hasValidDiscount && discountCalculation?.discountAmount > 0) || (appliedPromoCode && promoDiscountAmount > 0)) && {
+          ...((discountCalculation?.hasValidDiscount && (discountCalculation?.discountAmount > 0 || isBogoGiftCardActive)) || (appliedPromoCode && promoDiscountAmount > 0)) && {
             discount: appliedPromoCode ? {
               type: 'promoCode',
               code: appliedPromoCode.code,
@@ -5028,7 +5299,7 @@ export default function Checkout() {
           paymentStatus: bookingStatus === 'confirmed' ? 'completed' : 'pending',
           ...(bookingStatus === 'confirmed' && { paymentDate: new Date().toISOString() }),
           // Include discount information in payment details (homepage discounts OR promo codes)
-          ...((discountCalculation?.hasValidDiscount && discountCalculation?.discountAmount > 0) || (appliedPromoCode && promoDiscountAmount > 0)) && {
+          ...((discountCalculation?.hasValidDiscount && (discountCalculation?.discountAmount > 0 || isBogoGiftCardActive)) || (appliedPromoCode && promoDiscountAmount > 0)) && {
             discount: appliedPromoCode ? {
               type: 'promoCode',
               code: appliedPromoCode.code,
@@ -5209,7 +5480,8 @@ export default function Checkout() {
             ...cart.map(item => ({
               name: item.name,
               quantity: item.quantity,
-              price: item.isGiftCard ? (item.giftCardValue || item.price) : item.price
+              price: item.isGiftCard ? getGiftCardCartValue(item) : item.price,
+              ...(item.isGiftCard && { isGiftCard: true, giftCardValue: getGiftCardCartValue(item) })
             })),
             ...Object.entries(lastMinuteAdditions)
               .filter(([_, quantity]) => quantity > 0)
@@ -5655,7 +5927,7 @@ export default function Checkout() {
                         <>
                           <span style={{ textDecoration: 'line-through', color: '#999', marginRight: '0.5rem' }}>
                             ${item.isGiftCard 
-                              ? ((item.giftCardValue || item.price) * item.quantity).toFixed(2)
+                              ? (getGiftCardCartValue(item) * item.quantity).toFixed(2)
                               : (getItemDisplayPrice(item, idx) * item.quantity).toFixed(2)
                             }
                           </span>
@@ -5664,7 +5936,7 @@ export default function Checkout() {
                       ) : (
                         <>
                           ${item.isGiftCard 
-                            ? ((item.giftCardValue || item.price) * item.quantity).toFixed(2)
+                            ? (getGiftCardCartValue(item) * item.quantity).toFixed(2)
                             : (getItemDisplayPrice(item, idx) * item.quantity).toFixed(2)
                           }
                         </>
@@ -5758,11 +6030,9 @@ export default function Checkout() {
                       </div>
                     )}
                     
-                    {/* Gift Card Price Info */}
+                    {/* Gift Card Value */}
                     {item.isGiftCard && (
-                      <span style={{ fontSize: '0.9rem', color: '#666', marginBottom: '0.5rem' }}>
-                        ${item.giftCardValue || item.price} each
-                      </span>
+                      renderGiftCardValueInput(item, idx)
                     )}
                   </div>
                 </div>
@@ -6341,7 +6611,7 @@ export default function Checkout() {
               // Calculate base price with wet surcharges and duration multiplier
               const baseCartTotal = cart.reduce((sum, item, index) => {
                 if (item.isGiftCard) {
-                  return sum + (item.giftCardValue || item.price) * item.quantity;
+                  return sum + getGiftCardCartValue(item) * item.quantity;
                 } else {
                   return sum + getItemDisplayPrice(item, index) * item.quantity;
                 }
@@ -6389,7 +6659,7 @@ export default function Checkout() {
           )}
           
           {/* Discount Display */}
-          {((discountCalculation?.hasValidDiscount && discountCalculation?.discountAmount > 0) || appliedPromoCode) && (
+          {((discountCalculation?.hasValidDiscount && (discountCalculation?.discountAmount > 0 || isBogoGiftCardActive)) || appliedPromoCode) && (
             <>
               <div className="pricing-row" style={{ 
                 color: '#4CAF50', 
@@ -6417,12 +6687,19 @@ export default function Checkout() {
                           </div>
                         ) : null;
                       })()}
+                      {isBogoGiftCardActive && (
+                        <div style={{ fontSize: '0.85rem', fontWeight: 'normal', color: '#666', marginTop: '2px' }}>
+                          Free ${bogoFreeGiftCardValue.toFixed(2)} gift card for someone else
+                        </div>
+                      )}
                     </>
                   )}
                 </span>
                 <span>
                   {appliedPromoCode ? (
                     <>-${calculatePromoDiscount().toFixed(2)}</>
+                  ) : isBogoGiftCardActive ? (
+                    <>Free ${bogoFreeGiftCardValue.toFixed(2)}</>
                   ) : (
                     <>
                       <span style={{ textDecoration: 'line-through', color: '#888', marginRight: '8px' }}>
@@ -6832,7 +7109,7 @@ export default function Checkout() {
                 border: '1px solid #dee2e6'
               }}>
                 <h3 style={{ margin: '0 0 1rem 0', color: '#333' }}>Your Gift Cards</h3>
-                {cart.filter(item => item.isGiftCard).map((item, index) => (
+                {cart.map((item, index) => item.isGiftCard ? (
                   <div key={index} style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -6843,15 +7120,18 @@ export default function Checkout() {
                     marginBottom: '0.5rem',
                     border: '1px solid #dee2e6'
                   }}>
-                    <div>
+                    <div style={{ flex: 1 }}>
                       <strong>{item.name}</strong>
                       {item.quantity > 1 && <span style={{ color: '#666', marginLeft: '0.5rem' }}>×{item.quantity}</span>}
+                      <div style={{ marginTop: '0.75rem' }}>
+                        {renderGiftCardValueInput(item, index, 'payment-gift-card-value')}
+                      </div>
                     </div>
                     <div style={{ fontWeight: 'bold', color: '#2e7d32' }}>
-                      ${((item.giftCardValue || item.price) * item.quantity).toFixed(2)}
+                      ${(getGiftCardCartValue(item) * item.quantity).toFixed(2)}
                     </div>
                   </div>
-                ))}
+                ) : null)}
               </div>
 
               {/* Pricing Summary */}
@@ -6864,11 +7144,11 @@ export default function Checkout() {
                 <div className="pricing-breakdown">
                   <div className="pricing-row">
                     <span>Subtotal:</span>
-                    <span>${cart.reduce((sum, item) => sum + (item.giftCardValue || item.price) * item.quantity, 0).toFixed(2)}</span>
+                    <span>${cart.reduce((sum, item) => sum + getGiftCardCartValue(item) * item.quantity, 0).toFixed(2)}</span>
                   </div>
                   
                   {/* Discount Display */}
-                  {discountCalculation?.hasValidDiscount && discountCalculation?.discountAmount > 0 && (
+                  {discountCalculation?.hasValidDiscount && (discountCalculation?.discountAmount > 0 || isBogoGiftCardActive) && (
                     <>
                       <div className="pricing-row" style={{ 
                         color: '#4CAF50', 
@@ -6882,8 +7162,17 @@ export default function Checkout() {
                             discountCalculation.appliedDiscount === 'bogoGiftCard' ? 'BOGO Gift Card' : 'Promo'
                           }):
                         </span>
-                        <span>-${discountCalculation.discountAmount.toFixed(2)}</span>
+                        <span>
+                          {isBogoGiftCardActive
+                            ? `Free $${bogoFreeGiftCardValue.toFixed(2)}`
+                            : `-$${discountCalculation.discountAmount.toFixed(2)}`}
+                        </span>
                       </div>
+                      {isBogoGiftCardActive && (
+                        <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.35rem' }}>
+                          Free gifted card will be sent to the recipient email you confirm below.
+                        </div>
+                      )}
                       <div style={{ 
                         fontSize: '0.8rem', 
                         color: '#856404',
@@ -6912,7 +7201,7 @@ export default function Checkout() {
               </div>
 
               {/* BOGO Promotion Message */}
-              {discounts.bogoGiftCard && cart.some(item => item.isGiftCard) && (
+              {isBogoGiftCardActive && cart.some(item => item.isGiftCard) && (
                 <div style={{ 
                   marginBottom: '2rem',
                   padding: '1.5rem',
@@ -7151,7 +7440,7 @@ export default function Checkout() {
                 {useWalletFirst && calculatePayPalAmount() <= 0 && (
                   <>
                     {/* Show warning message if BOGO is active but email not confirmed */}
-                    {discounts.bogoGiftCard && !promotionalEmailConfirmed ? (
+                    {isBogoGiftCardActive && !promotionalEmailConfirmed ? (
                       <div style={{ 
                         padding: '2rem', 
                         backgroundColor: '#fff9c4', 
@@ -7209,7 +7498,7 @@ export default function Checkout() {
                 {(!useWalletFirst || calculatePayPalAmount() > 0) && (
                   <>
                     {/* Show warning message if BOGO is active but email not confirmed */}
-                    {discounts.bogoGiftCard && !promotionalEmailConfirmed ? (
+                    {isBogoGiftCardActive && !promotionalEmailConfirmed ? (
                       <div style={{ 
                         padding: '2rem', 
                         backgroundColor: '#fff9c4', 
@@ -7641,7 +7930,7 @@ export default function Checkout() {
                 <span>${(() => {
                   const baseCartTotal = cart.reduce((sum, item, index) => {
                     if (item.isGiftCard) {
-                      return sum + (item.giftCardValue || item.price) * item.quantity;
+                      return sum + getGiftCardCartValue(item) * item.quantity;
                     } else {
                       return sum + getItemDisplayPrice(item, index) * item.quantity;
                     }
@@ -7694,7 +7983,7 @@ export default function Checkout() {
               )}
               
               {/* Discount Display */}
-              {((discountCalculation?.hasValidDiscount && discountCalculation?.discountAmount > 0) || appliedPromoCode) && (
+              {((discountCalculation?.hasValidDiscount && (discountCalculation?.discountAmount > 0 || isBogoGiftCardActive)) || appliedPromoCode) && (
                 <>
                   <div className="pricing-row" style={{ 
                     color: '#4CAF50', 
@@ -7720,14 +8009,21 @@ export default function Checkout() {
                               <div style={{ fontSize: '0.85rem', fontWeight: 'normal', color: '#666', marginTop: '2px' }}>
                                 └ {freeItem.name} (FREE)
                               </div>
-                            ) : null;
-                          })()}
+                        ) : null;
+                      })()}
+                          {isBogoGiftCardActive && (
+                            <div style={{ fontSize: '0.85rem', fontWeight: 'normal', color: '#666', marginTop: '2px' }}>
+                              Free ${bogoFreeGiftCardValue.toFixed(2)} gift card for someone else
+                            </div>
+                          )}
                         </>
                       )}
                     </span>
                     <span>
                       {appliedPromoCode ? (
                         <>-${calculatePromoDiscount().toFixed(2)}</>
+                      ) : isBogoGiftCardActive ? (
+                        <>Free ${bogoFreeGiftCardValue.toFixed(2)}</>
                       ) : (
                         <>
                           <span style={{ textDecoration: 'line-through', color: '#888', marginRight: '8px' }}>
@@ -7803,7 +8099,7 @@ export default function Checkout() {
           </div>
 
           {/* Promotional Gift Card Section - Show when BOGO discount is active AND has gift cards */}
-          {discounts.bogoGiftCard && cart.some(item => item.isGiftCard) && (
+          {isBogoGiftCardActive && cart.some(item => item.isGiftCard) && (
             <div style={{ 
               marginBottom: '2rem',
               padding: '1rem',
@@ -8190,7 +8486,7 @@ export default function Checkout() {
               {useWalletFirst && calculatePayPalAmount() <= 0 && (
                 <>
                   {/* Show warning message if BOGO is active but email not confirmed */}
-                  {discounts.bogoGiftCard && cart.some(item => item.isGiftCard) && !promotionalEmailConfirmed ? (
+                  {isBogoGiftCardActive && cart.some(item => item.isGiftCard) && !promotionalEmailConfirmed ? (
                     <div style={{ 
                       padding: '2rem', 
                       backgroundColor: '#fff9c4', 
@@ -8427,7 +8723,7 @@ export default function Checkout() {
               {(!useWalletFirst || calculatePayPalAmount() > 0) && (
                 <>
                   {/* Show warning message if BOGO is active but email not confirmed */}
-                  {discounts.bogoGiftCard && cart.some(item => item.isGiftCard) && !promotionalEmailConfirmed ? (
+                  {isBogoGiftCardActive && cart.some(item => item.isGiftCard) && !promotionalEmailConfirmed ? (
                     <div style={{ 
                       padding: '2rem', 
                       backgroundColor: '#fff9c4', 
@@ -8969,3 +9265,7 @@ export default function Checkout() {
     </>
   );
 }
+
+
+
+

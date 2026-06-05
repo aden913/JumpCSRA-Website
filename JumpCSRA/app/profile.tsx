@@ -20,6 +20,7 @@ import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 import { OptionsCarousel } from "./components/OptionsCarousel";
 import type { OptionCardProps } from "./components/OptionsCarousel";
 import { getAvailableMembershipInflateables } from "./utils/availabilityUtils";
+import { sendAccountDeletionEmail } from "./utils/backendEmailService";
 
 // Helper function to clear all localStorage data on sign out
 const clearAllLocalStorage = () => {
@@ -1807,39 +1808,87 @@ export default function Profile() {
         }
       }
       
-      // Delete all user data from database
-      const deletionResult = await deleteAllUserData(user.uid);
+      const providerIds = user.providerData.map((provider) => provider.providerId);
+
+      if (providerIds.includes('password')) {
+        const password = prompt('For security, please enter your password to delete your account:');
+
+        if (!password) {
+          alert('Account deletion cancelled. Password confirmation is required.');
+          return;
+        }
+
+        const { EmailAuthProvider, reauthenticateWithCredential } = await import("firebase/auth");
+        const credential = EmailAuthProvider.credential(user.email || profile.email, password);
+        await reauthenticateWithCredential(user, credential);
+      } else if (providerIds.includes('google.com')) {
+        const { GoogleAuthProvider, reauthenticateWithPopup } = await import("firebase/auth");
+        await reauthenticateWithPopup(user, new GoogleAuthProvider());
+      } else {
+        throw new Error('Please sign out and sign back in, then try deleting your account again.');
+      }
+
+      let deletionResult: {
+        success: boolean;
+        deletedWalletBalance?: number;
+        error?: string;
+      };
+
+      try {
+        const { getFunctions, httpsCallable } = await import('firebase/functions');
+        const functions = getFunctions(undefined, 'us-central1');
+        const deleteAccountData = httpsCallable(functions, 'deleteAccountData');
+        const cleanupResponse = await deleteAccountData({});
+        const cleanupData = cleanupResponse.data as { deletedWalletBalance?: number };
+
+        deletionResult = {
+          success: true,
+          deletedWalletBalance: cleanupData.deletedWalletBalance || walletBalance
+        };
+      } catch (cleanupError) {
+        console.error('Server account cleanup failed, falling back to client cleanup:', cleanupError);
+        deletionResult = await deleteAllUserData(user.uid);
+      }
       
       if (!deletionResult.success) {
         throw new Error(deletionResult.error || 'Failed to delete user data');
       }
       
+      let deletionEmailSent = false;
+
       // Send account deletion email notification since we're on Blaze plan
       try {
-        const { getFunctions, httpsCallable } = await import('firebase/functions');
-        const functions = getFunctions(undefined, 'us-central1');
-        const sendAccountDeletionEmail = httpsCallable(functions, 'sendAccountDeletionEmail');
-        
         await sendAccountDeletionEmail({
-          userEmail: user.email,
-          userName: profile.name || user.displayName || 'Customer',
+          email: user.email || profile.email,
+          name: profile.name || user.displayName || 'Customer',
           deletedWalletBalance: deletionResult.deletedWalletBalance || 0,
           deletionDate: new Date().toISOString()
         });
+
+        deletionEmailSent = true;
         
       } catch (emailError) {
         console.error('Failed to send deletion email:', emailError);
         // Continue with deletion even if email fails
       }
       
-      // Delete Firestore user document
+      // Verify Firestore user document is gone before deleting Firebase Auth user.
       const docRef = doc(firestore, "users", user.uid);
-      await updateDoc(docRef, { 
-        deleted: true,
-        deletedAt: new Date().toISOString(),
-        deletedWalletBalance: deletionResult.deletedWalletBalance || 0
-      });
-      await (await import("firebase/firestore")).deleteDoc(docRef);
+      const docSnapshot = await getDoc(docRef);
+
+      if (docSnapshot.exists()) {
+        await updateDoc(docRef, { 
+          deleted: true,
+          deletedAt: new Date().toISOString(),
+          deletedWalletBalance: deletionResult.deletedWalletBalance || 0
+        });
+        await (await import("firebase/firestore")).deleteDoc(docRef);
+
+        const verificationSnapshot = await getDoc(docRef);
+        if (verificationSnapshot.exists()) {
+          throw new Error('Account data could not be fully removed. Please contact support before trying again.');
+        }
+      }
 
       // Delete Firebase Auth user
       await user.delete();
@@ -1854,7 +1903,7 @@ export default function Profile() {
           ? `Your wallet balance of $${deletionResult.deletedWalletBalance.toFixed(2)} has been forfeited.\n` 
           : ''
         }` +
-        'You will receive an email confirmation shortly.\n\n' +
+        `${deletionEmailSent ? 'You will receive an email confirmation shortly.\n\n' : ''}` +
         'Thank you for using JumpCSRA Party Rentals.'
       );
 
@@ -1870,6 +1919,10 @@ export default function Profile() {
       
       if (err.code === 'auth/requires-recent-login') {
         errorMessage += "Please sign out and sign back in, then try again.";
+      } else if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        errorMessage += "The password you entered was incorrect.";
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        errorMessage += "Google reauthentication was cancelled.";
       } else {
         errorMessage += (err.message || err);
       }
