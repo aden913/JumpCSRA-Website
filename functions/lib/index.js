@@ -1215,9 +1215,14 @@ exports.createPayPalInvoice = functions.https.onCall(async (data, context) => {
 async function sendCartAbandonmentEmail(cart, userId) {
     try {
         console.log('📧 Sending cart abandonment email to:', cart.customerEmail);
+        const customerEmail = cart.customerEmail || cart.userEmail || '';
+        if (!(await canReceiveMarketingEmail({ email: customerEmail, userId }))) {
+            console.log(`Skipping cart abandonment email for opted-out user: ${customerEmail}`);
+            return;
+        }
         const emailHTML = generateCartAbandonmentEmailHTML(cart, userId);
         const msg = {
-            to: cart.customerEmail,
+            to: customerEmail,
             from: 'jumpcsra@gmail.com',
             subject: 'Don\'t forget your bounce house rental! 🏰',
             html: emailHTML,
@@ -1240,26 +1245,86 @@ function getBookingCustomerName(booking) {
     var _a;
     return booking.customerName || ((_a = booking.customerInfo) === null || _a === void 0 ? void 0 : _a.name) || booking.userName || booking.name || 'Customer';
 }
+function getBookingCustomerId(booking) {
+    return booking.customerID || booking.customerId || booking.userId;
+}
 function getBookingItems(booking) {
-    var _a;
-    return booking.items || booking.rentalItems || booking.cartItems || ((_a = booking.bookingDetails) === null || _a === void 0 ? void 0 : _a.items) || [];
+    var _a, _b;
+    return booking.items || booking.rentalItems || booking.cartItems || ((_a = booking.bookingDetails) === null || _a === void 0 ? void 0 : _a.items) || ((_b = booking.orderDetails) === null || _b === void 0 ? void 0 : _b.items) || [];
+}
+function getBookingEventDate(booking) {
+    var _a, _b;
+    return booking.eventDate || ((_a = booking.orderDetails) === null || _a === void 0 ? void 0 : _a.eventDate) || ((_b = booking.bookingDetails) === null || _b === void 0 ? void 0 : _b.eventDate) || '';
+}
+function getBookingEventTimestamp(booking) {
+    const rawEventDate = getBookingEventDate(booking);
+    if (!rawEventDate) {
+        return NaN;
+    }
+    const firstDateInRange = String(rawEventDate).split(' - ')[0].trim();
+    return new Date(firstDateInRange).getTime();
+}
+function getBookingRemainingBalance(booking) {
+    var _a, _b;
+    return Number(booking.remainingBalance ||
+        booking.balanceDue ||
+        ((_a = booking.pricing) === null || _a === void 0 ? void 0 : _a.remainingBalance) ||
+        ((_b = booking.paymentDetails) === null || _b === void 0 ? void 0 : _b.remainingBalance) ||
+        0);
 }
 function getScheduledEmailBookingDetails(booking) {
-    var _a, _b, _c, _d, _e, _f;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
     return {
         items: getBookingItems(booking),
-        total: booking.totalAmount || booking.total || ((_a = booking.pricing) === null || _a === void 0 ? void 0 : _a.total) || 0,
-        amountPaid: booking.amountPaid || booking.paidAmount || ((_b = booking.pricing) === null || _b === void 0 ? void 0 : _b.amountPaid) || 0,
-        remainingBalance: booking.remainingBalance || booking.balanceDue || ((_c = booking.pricing) === null || _c === void 0 ? void 0 : _c.remainingBalance) || 0,
-        address: booking.deliveryAddress || ((_d = booking.customerInfo) === null || _d === void 0 ? void 0 : _d.address) || ((_e = booking.bookingDetails) === null || _e === void 0 ? void 0 : _e.address),
-        setupTime: booking.deliveryTime || ((_f = booking.bookingDetails) === null || _f === void 0 ? void 0 : _f.setupTime),
-        paymentType: booking.paymentType,
-        paymentMethod: booking.paymentMethod,
+        total: booking.totalAmount || booking.total || ((_a = booking.pricing) === null || _a === void 0 ? void 0 : _a.total) || ((_b = booking.orderDetails) === null || _b === void 0 ? void 0 : _b.totalAmount) || ((_c = booking.paymentDetails) === null || _c === void 0 ? void 0 : _c.totalAmount) || 0,
+        amountPaid: booking.amountPaid || booking.paidAmount || ((_d = booking.pricing) === null || _d === void 0 ? void 0 : _d.amountPaid) || ((_e = booking.paymentDetails) === null || _e === void 0 ? void 0 : _e.depositAmount) || 0,
+        remainingBalance: getBookingRemainingBalance(booking),
+        address: booking.deliveryAddress || ((_f = booking.customerInfo) === null || _f === void 0 ? void 0 : _f.address) || ((_g = booking.bookingDetails) === null || _g === void 0 ? void 0 : _g.address) || ((_h = booking.orderDetails) === null || _h === void 0 ? void 0 : _h.deliveryAddress),
+        setupTime: booking.deliveryTime || ((_j = booking.bookingDetails) === null || _j === void 0 ? void 0 : _j.setupTime) || ((_k = booking.orderDetails) === null || _k === void 0 ? void 0 : _k.deliveryTime),
+        paymentType: booking.paymentType || ((_l = booking.paymentDetails) === null || _l === void 0 ? void 0 : _l.paymentType),
+        paymentMethod: booking.paymentMethod || ((_m = booking.paymentDetails) === null || _m === void 0 ? void 0 : _m.paymentMethod),
         bookingStatus: booking.status
     };
 }
+async function markBookingEmailSent(db, bookingId, emailKey, now) {
+    const nestedUpdates = {
+        [emailKey]: true,
+        [`${emailKey}SentAt`]: now
+    };
+    if (emailKey === 'postEventThanks') {
+        nestedUpdates.thanks = true;
+        nestedUpdates.thanksSentAt = now;
+    }
+    if (emailKey === 'rebookingReminder') {
+        nestedUpdates.rebooking = true;
+        nestedUpdates.rebookingSentAt = now;
+    }
+    const updates = {
+        [`bookings/${bookingId}/emailStatusUpdatedAt`]: now
+    };
+    for (const [key, value] of Object.entries(nestedUpdates)) {
+        updates[`bookings/${bookingId}/emails/${key}`] = value;
+    }
+    await db.ref().update(updates);
+    console.log(`Marked booking email flag true for ${bookingId}`, {
+        emailKey,
+        updates
+    });
+}
+function hasBookingEmailBeenSent(booking, emailKey) {
+    var _a, _b, _c;
+    if (((_a = booking.emails) === null || _a === void 0 ? void 0 : _a[emailKey]) === true) {
+        return true;
+    }
+    if (emailKey === 'postEventThanks') {
+        return ((_b = booking.emails) === null || _b === void 0 ? void 0 : _b.thanks) === true;
+    }
+    if (emailKey === 'rebookingReminder') {
+        return ((_c = booking.emails) === null || _c === void 0 ? void 0 : _c.rebooking) === true;
+    }
+    return false;
+}
 async function sendDepositReminderEmail(booking, bookingId, config) {
-    var _a;
     try {
         const customerEmail = getBookingCustomerEmail(booking);
         console.log('Sending deposit reminder email via email server to:', customerEmail);
@@ -1268,9 +1333,9 @@ async function sendDepositReminderEmail(booking, bookingId, config) {
             customerName: getBookingCustomerName(booking),
             customerId: booking.customerId || booking.userId,
             bookingId,
-            remainingAmount: booking.remainingBalance || booking.balanceDue || ((_a = booking.pricing) === null || _a === void 0 ? void 0 : _a.remainingBalance) || 0,
-            dueDate: booking.dueDate || booking.eventDate,
-            eventDate: booking.eventDate,
+            remainingAmount: getBookingRemainingBalance(booking),
+            dueDate: booking.dueDate || getBookingEventDate(booking),
+            eventDate: getBookingEventDate(booking),
             bookingDetails: getScheduledEmailBookingDetails(booking),
             asm: config === null || config === void 0 ? void 0 : config.asm
         });
@@ -1306,6 +1371,13 @@ async function sendPostEventThanksEmail(booking, bookingId, config) {
     try {
         const customerEmail = getBookingCustomerEmail(booking);
         console.log('Sending post-event thank you email via email server to:', customerEmail);
+        if (!(await canReceiveMarketingEmail({
+            email: customerEmail,
+            userId: booking.customerID || booking.customerId || booking.userId
+        }))) {
+            console.log(`Skipping post-event thank you email for opted-out user: ${customerEmail}`);
+            return false;
+        }
         await (0, emailService_1.sendPostEventThanksEmail)({
             customerEmail,
             customerName: getBookingCustomerName(booking),
@@ -1316,6 +1388,7 @@ async function sendPostEventThanksEmail(booking, bookingId, config) {
             asm: config === null || config === void 0 ? void 0 : config.asm
         });
         console.log('Post-event thank you email sent successfully via email server');
+        return true;
     }
     catch (error) {
         console.error('Error sending post-event thank you email:', error);
@@ -1327,15 +1400,23 @@ async function sendRebookingReminderEmail(booking, bookingId, config) {
     try {
         const customerEmail = getBookingCustomerEmail(booking);
         console.log('Sending rebooking reminder email via email server to:', customerEmail);
+        if (!(await canReceiveMarketingEmail({
+            email: customerEmail,
+            userId: booking.customerID || booking.customerId || booking.userId
+        }))) {
+            console.log(`Skipping rebooking reminder email for opted-out user: ${customerEmail}`);
+            return false;
+        }
         await (0, emailService_1.sendFollowUpRebookingEmail)({
             customerEmail,
             customerName: getBookingCustomerName(booking),
-            customerId: booking.customerId || booking.userId,
-            lastBookingDate: booking.eventDate,
+            customerId: getBookingCustomerId(booking),
+            lastBookingDate: getBookingEventDate(booking),
             lastBookingId: bookingId,
             asm: config === null || config === void 0 ? void 0 : config.asm
         });
         console.log('Rebooking reminder email sent successfully via email server');
+        return true;
     }
     catch (error) {
         console.error('Error sending rebooking reminder email:', error);
@@ -1484,11 +1565,19 @@ async function sendMembershipConfirmationEmail(booking, bookingId) {
             new Date(booking.actualDeliveryDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) :
             `${booking.selectedWeekday}s`;
         console.log('📧 MEMBERSHIP EMAIL: Delivery date formatted:', deliveryDate);
+        const customerEmail = booking.customerEmail || booking.userEmail || '';
+        if (!(await canReceiveMarketingEmail({
+            email: customerEmail,
+            userId: booking.customerID || booking.customerId || booking.userId
+        }))) {
+            console.log(`Skipping membership post-event thank you email for opted-out user: ${customerEmail}`);
+            return;
+        }
         // Get the correct inflatable name
         const inflatableName = getInflatableName(booking);
         console.log('📧 MEMBERSHIP EMAIL: Inflatable name extracted:', inflatableName);
         const msg = {
-            to: booking.customerEmail || booking.userEmail,
+            to: customerEmail,
             from: 'jumpcsra@gmail.com',
             subject: `Jump Club Booking Confirmed! 🎪 Your Monthly Delivery is Scheduled`,
             html: `
@@ -2108,9 +2197,44 @@ function generateRebookingReminderEmailHTML(booking, bookingId) {
 void generateDepositReminderEmailHTML;
 void generatePostEventThanksEmailHTML;
 void generateRebookingReminderEmailHTML;
-// ============================================================================
-// SCHEDULED EMAIL SYSTEM - Unified Firestore-based email processing
-// ============================================================================
+async function canReceiveMarketingEmail(recipient) {
+    var _a, _b;
+    try {
+        const firestore = admin.firestore();
+        if (recipient.userId) {
+            const userDoc = await firestore.collection('users').doc(recipient.userId).get();
+            if (userDoc.exists) {
+                return ((_a = userDoc.data()) === null || _a === void 0 ? void 0 : _a.canEmail) !== false;
+            }
+        }
+        if (recipient.email) {
+            const snapshot = await firestore
+                .collection('users')
+                .where('email', '==', recipient.email)
+                .limit(1)
+                .get();
+            if (!snapshot.empty) {
+                return ((_b = snapshot.docs[0].data()) === null || _b === void 0 ? void 0 : _b.canEmail) !== false;
+            }
+        }
+    }
+    catch (error) {
+        console.error('Error checking marketing email opt-in status:', error);
+    }
+    return true;
+}
+async function filterMarketingRecipients(recipients) {
+    const allowedRecipients = [];
+    for (const recipient of recipients) {
+        if (await canReceiveMarketingEmail(recipient)) {
+            allowedRecipients.push(recipient);
+        }
+        else {
+            console.log(`Skipping marketing email for opted-out user: ${recipient.email}`);
+        }
+    }
+    return allowedRecipients;
+}
 // Process one-time campaign emails from Firestore
 exports.processCampaigns = functions.pubsub
     .schedule('* * * * *') // Run every minute
@@ -2138,7 +2262,7 @@ exports.processCampaigns = functions.pubsub
             try {
                 console.log(`📧 Processing campaign: ${campaignId}, Template: ${campaignData.templateId}`);
                 // Get recipients based on audience
-                const recipients = await getAudienceEmails(campaignData.audience);
+                const recipients = await filterMarketingRecipients(await getAudienceEmails(campaignData.audience));
                 if (recipients.length === 0) {
                     console.log(`⚠️ No recipients found for audience: ${campaignData.audience}`);
                     await campaignsRef.child(campaignId).update({
@@ -2277,7 +2401,8 @@ async function getAudienceEmails(audience) {
                         if (sub.status === 'active' && sub.userEmail) {
                             recipients.push({
                                 email: sub.userEmail,
-                                name: sub.userName || sub.userEmail
+                                name: sub.userName || sub.userEmail,
+                                userId: sub.userId || sub.customerId || sub.customerID
                             });
                         }
                     }
@@ -2286,32 +2411,40 @@ async function getAudienceEmails(audience) {
             case 'all':
                 // Get all customers from bookings
                 const bookingsSnapshot = await db.ref('bookings').once('value');
-                const emails = new Set();
+                const emails = new Map();
                 if (bookingsSnapshot.exists()) {
                     const bookings = bookingsSnapshot.val();
                     for (const booking of Object.values(bookings)) {
                         if ((_a = booking.customerInfo) === null || _a === void 0 ? void 0 : _a.email) {
-                            emails.add(booking.customerInfo.email);
+                            emails.set(booking.customerInfo.email, {
+                                email: booking.customerInfo.email,
+                                name: booking.customerInfo.name,
+                                userId: booking.customerID || booking.customerId || booking.userId
+                            });
                         }
                     }
                 }
-                emails.forEach(email => recipients.push({ email }));
+                emails.forEach(recipient => recipients.push(recipient));
                 break;
             case 'recent':
                 // Get customers from bookings in last 6 months
                 const sixMonthsAgo = Date.now() - (6 * 30 * 24 * 60 * 60 * 1000);
                 const recentBookingsSnapshot = await db.ref('bookings').once('value');
-                const recentEmails = new Set();
+                const recentEmails = new Map();
                 if (recentBookingsSnapshot.exists()) {
                     const bookings = recentBookingsSnapshot.val();
                     for (const booking of Object.values(bookings)) {
                         const bookingDate = new Date(booking.orderDate).getTime();
                         if (bookingDate >= sixMonthsAgo && ((_b = booking.customerInfo) === null || _b === void 0 ? void 0 : _b.email)) {
-                            recentEmails.add(booking.customerInfo.email);
+                            recentEmails.set(booking.customerInfo.email, {
+                                email: booking.customerInfo.email,
+                                name: booking.customerInfo.name,
+                                userId: booking.customerID || booking.customerId || booking.userId
+                            });
                         }
                     }
                 }
-                recentEmails.forEach(email => recipients.push({ email }));
+                recentEmails.forEach(recipient => recipients.push(recipient));
                 break;
         }
     }
@@ -2391,12 +2524,33 @@ async function processDepositReminderEmails(db, now, config) {
         let emailsSent = 0;
         for (const [bookingId, bookingData] of Object.entries(bookings)) {
             const booking = bookingData;
+            if (hasBookingEmailBeenSent(booking, 'depositReminder')) {
+                console.log(`Deposit reminder skipped for ${bookingId}: booking emails flag already true`);
+                continue;
+            }
             // Only process bookings with remaining balance (deposit payments)
-            if (!booking.remainingBalance || booking.remainingBalance <= 0)
+            const remainingBalance = getBookingRemainingBalance(booking);
+            if (!remainingBalance || remainingBalance <= 0) {
+                console.log(`Deposit reminder skipped for ${bookingId}: no remaining balance`, {
+                    status: booking.status,
+                    remainingBalance
+                });
                 continue;
-            if (booking.status !== 'confirmed')
+            }
+            if (!['confirmed', 'deposited'].includes(booking.status)) {
+                console.log(`Deposit reminder skipped for ${bookingId}: unsupported status`, {
+                    status: booking.status,
+                    remainingBalance
+                });
                 continue;
-            const eventDate = new Date(booking.eventDate).getTime();
+            }
+            const eventDate = getBookingEventTimestamp(booking);
+            if (Number.isNaN(eventDate)) {
+                console.log(`Deposit reminder skipped for ${bookingId}: invalid event date`, {
+                    eventDate: getBookingEventDate(booking)
+                });
+                continue;
+            }
             const timeUntilEvent = eventDate - now;
             // Send reminder based on configured timing
             if (timeUntilEvent <= TIMING && timeUntilEvent > 0) {
@@ -2406,8 +2560,22 @@ async function processDepositReminderEmails(db, now, config) {
                 if (!emailSentSnapshot.exists()) {
                     await sendDepositReminderEmail(booking, bookingId, config);
                     await emailRef.set({ sentAt: now, type: 'deposit-reminder' });
+                    await markBookingEmailSent(db, bookingId, 'depositReminder', now);
                     emailsSent++;
                 }
+                else {
+                    console.log(`Deposit reminder skipped for ${bookingId}: already sent`, {
+                        emailSentKey
+                    });
+                    await markBookingEmailSent(db, bookingId, 'depositReminder', now);
+                }
+            }
+            else {
+                console.log(`Deposit reminder skipped for ${bookingId}: outside reminder window`, {
+                    eventDate: getBookingEventDate(booking),
+                    timeUntilEvent,
+                    triggerDelay: TIMING
+                });
             }
         }
         console.log(`📧 Sent ${emailsSent} deposit reminder emails`);
@@ -2432,10 +2600,15 @@ async function processEventConfirmationEmails(db, now, config) {
         let emailsSent = 0;
         for (const [bookingId, bookingData] of Object.entries(bookings)) {
             const booking = bookingData;
+            if (hasBookingEmailBeenSent(booking, 'eventConfirmation')) {
+                continue;
+            }
             // Only process confirmed bookings
             if (booking.status !== 'confirmed')
                 continue;
-            const eventDate = new Date(booking.eventDate).getTime();
+            const eventDate = getBookingEventTimestamp(booking);
+            if (Number.isNaN(eventDate))
+                continue;
             const timeUntilEvent = eventDate - now;
             // Send confirmation based on configured timing
             if (timeUntilEvent <= TIMING && timeUntilEvent > 0) {
@@ -2445,7 +2618,11 @@ async function processEventConfirmationEmails(db, now, config) {
                 if (!emailSentSnapshot.exists()) {
                     await sendEventConfirmationEmail(booking, bookingId);
                     await emailRef.set({ sentAt: now, type: 'event-confirmation' });
+                    await markBookingEmailSent(db, bookingId, 'eventConfirmation', now);
                     emailsSent++;
+                }
+                else {
+                    await markBookingEmailSent(db, bookingId, 'eventConfirmation', now);
                 }
             }
         }
@@ -2471,10 +2648,15 @@ async function processPostEventEmails(db, now, config) {
         let emailsSent = 0;
         for (const [bookingId, bookingData] of Object.entries(bookings)) {
             const booking = bookingData;
+            if (hasBookingEmailBeenSent(booking, 'postEventThanks')) {
+                continue;
+            }
             // Only process completed events
             if (booking.status !== 'confirmed' && booking.status !== 'completed')
                 continue;
-            const eventDate = new Date(booking.eventDate).getTime();
+            const eventDate = getBookingEventTimestamp(booking);
+            if (Number.isNaN(eventDate))
+                continue;
             const timeSinceEvent = now - eventDate;
             // Send thank you based on configured timing
             if (timeSinceEvent >= TIMING) {
@@ -2482,9 +2664,15 @@ async function processPostEventEmails(db, now, config) {
                 const emailRef = db.ref(`emailsSent/${emailSentKey}`);
                 const emailSentSnapshot = await emailRef.once('value');
                 if (!emailSentSnapshot.exists()) {
-                    await sendPostEventThanksEmail(booking, bookingId, config);
-                    await emailRef.set({ sentAt: now, type: 'post-event-thanks' });
-                    emailsSent++;
+                    const sent = await sendPostEventThanksEmail(booking, bookingId, config);
+                    if (sent !== false) {
+                        await emailRef.set({ sentAt: now, type: 'post-event-thanks' });
+                        await markBookingEmailSent(db, bookingId, 'postEventThanks', now);
+                        emailsSent++;
+                    }
+                }
+                else {
+                    await markBookingEmailSent(db, bookingId, 'postEventThanks', now);
                 }
             }
         }
@@ -2510,10 +2698,25 @@ async function processRebookingReminderEmails(db, now, config) {
         let emailsSent = 0;
         for (const [bookingId, bookingData] of Object.entries(bookings)) {
             const booking = bookingData;
-            // Only process completed events
-            if (booking.status !== 'completed')
+            if (hasBookingEmailBeenSent(booking, 'rebookingReminder')) {
+                console.log(`Rebooking reminder skipped for ${bookingId}: booking emails flag already true`);
                 continue;
-            const eventDate = new Date(booking.eventDate).getTime();
+            }
+            // Send only after the event is sufficiently in the past. Accept confirmed
+            // as well as completed because completion can be delayed by the daily job.
+            if (booking.status !== 'completed' && booking.status !== 'confirmed') {
+                console.log(`Rebooking reminder skipped for ${bookingId}: unsupported status`, {
+                    status: booking.status
+                });
+                continue;
+            }
+            const eventDate = getBookingEventTimestamp(booking);
+            if (Number.isNaN(eventDate)) {
+                console.log(`Rebooking reminder skipped for ${bookingId}: invalid event date`, {
+                    eventDate: getBookingEventDate(booking)
+                });
+                continue;
+            }
             const timeSinceEvent = now - eventDate;
             // Send reminder based on configured timing
             if (timeSinceEvent >= TIMING) {
@@ -2521,10 +2724,23 @@ async function processRebookingReminderEmails(db, now, config) {
                 const emailRef = db.ref(`emailsSent/${emailSentKey}`);
                 const emailSentSnapshot = await emailRef.once('value');
                 if (!emailSentSnapshot.exists()) {
-                    await sendRebookingReminderEmail(booking, bookingId, config);
-                    await emailRef.set({ sentAt: now, type: 'rebooking-reminder' });
-                    emailsSent++;
+                    const sent = await sendRebookingReminderEmail(booking, bookingId, config);
+                    if (sent !== false) {
+                        await emailRef.set({ sentAt: now, type: 'rebooking-reminder' });
+                        await markBookingEmailSent(db, bookingId, 'rebookingReminder', now);
+                        emailsSent++;
+                    }
                 }
+                else {
+                    await markBookingEmailSent(db, bookingId, 'rebookingReminder', now);
+                }
+            }
+            else {
+                console.log(`Rebooking reminder skipped for ${bookingId}: outside reminder window`, {
+                    eventDate: getBookingEventDate(booking),
+                    timeSinceEvent,
+                    triggerDelay: TIMING
+                });
             }
         }
         console.log(`📧 Sent ${emailsSent} rebooking reminder emails`);

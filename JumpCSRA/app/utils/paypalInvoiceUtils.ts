@@ -28,6 +28,7 @@ interface InvoiceData {
   eventDate?: string;
   deliveryAddress?: string;
   deliveryTime?: string;
+  pickupTime?: string;
   duration?: string;
   surface?: string;
   
@@ -378,6 +379,7 @@ export const createAndSendPayPalInvoice = async (data: InvoiceData): Promise<{ s
           eventDate: data.eventDate || data.orderDate || new Date().toISOString(),
           deliveryAddress: data.deliveryAddress,
           deliveryTime: data.deliveryTime,
+          pickupTime: data.pickupTime,
           duration: data.duration,
           surface: data.surface,
           rentalItems: data.rentalItems,

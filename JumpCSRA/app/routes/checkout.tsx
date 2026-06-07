@@ -3111,14 +3111,17 @@ export default function Checkout() {
   const scheduleAutomatedEmails = async (bookingData: any) => {
     if (!user || !user.email) return;
 
+    const pickupTime = getEmailPickupTime();
+
     const commonBookingData = {
       bookingID: bookingData.orderID,
       customerEmail: user.email,
       customerName: user.displayName || userProfile?.firstName || 'Customer',
       eventDate: calendarDateRange[0]?.toISOString() || new Date().toISOString(),
       bookingDetails: {
-        deliveryAddress: deliveryAddress,
-        deliveryTime: cartSettings.deliveryTime,
+        address: deliveryAddress,
+        setupTime: cartSettings.deliveryTime || 'TBD',
+        pickupTime,
         items: cart.filter(item => !item.isGiftCard).map(item => ({
           name: item.name,
           quantity: item.quantity || 1,
@@ -3151,6 +3154,39 @@ export default function Checkout() {
 
     } catch (error) {
       console.error('Failed to schedule automated emails:', error);
+    }
+  };
+
+  const getEmailPickupTime = (): string => {
+    if (!calendarDateRange[0] || !cartSettings.deliveryTime || !cartSettings.duration) {
+      return 'TBD';
+    }
+
+    const eventStart = calculateEventStart(calendarDateRange[0], cartSettings.deliveryTime);
+    const eventEnd = calculateEventEnd(eventStart, cartSettings.duration);
+    return eventEnd.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  const markBookingConfirmationEmailSent = async (bookingId: string) => {
+    if (!bookingId) {
+      return;
+    }
+
+    try {
+      const database = getDatabase();
+      const now = Date.now();
+      await Promise.all([
+        set(ref(database, `bookings/${bookingId}/emails/eventConfirmation`), true),
+        set(ref(database, `bookings/${bookingId}/emails/eventConfirmationSentAt`), now),
+        set(ref(database, `bookings/${bookingId}/emailStatusUpdatedAt`), now)
+      ]);
+      console.log(`Marked checkout booking confirmation email flag true for ${bookingId}`);
+    } catch (error) {
+      console.error(`Failed to mark booking confirmation email flag for ${bookingId}:`, error);
     }
   };
 
@@ -3632,6 +3668,7 @@ export default function Checkout() {
                   eventDate: calendarDateRange[0]?.toLocaleDateString() || new Date().toLocaleDateString(),
                   deliveryAddress: deliveryAddress || '',
                   deliveryTime: cartSettings.deliveryTime || '',
+                  pickupTime: getEmailPickupTime(),
                   duration: `${cart.length > 0 ? '6' : '6'} hours`, // Default duration, adjust as needed
                   surface: undefined, // Add surface selection if available
                   
@@ -3671,6 +3708,7 @@ export default function Checkout() {
                 // Send booking confirmation email through the backend email server
                 try {
                   await sendBookingConfirmationEmail(invoiceData);
+                  await markBookingConfirmationEmailSent(pendingBookingId || invoiceData.orderID);
                 
                   // Debug log removed
                   // Debug log removed
@@ -4357,6 +4395,7 @@ export default function Checkout() {
                   eventDate: calendarDateRange[0]?.toLocaleDateString() || new Date().toLocaleDateString(),
                   deliveryAddress: deliveryAddress || '',
                   deliveryTime: cartSettings.deliveryTime || '',
+                  pickupTime: getEmailPickupTime(),
                   duration: `${cart.length > 0 ? '6' : '6'} hours`, // Default duration, adjust as needed
                   surface: undefined, // Add surface selection if available
                   
@@ -4401,6 +4440,7 @@ export default function Checkout() {
                 // Send booking confirmation email through the backend email server
                 try {
                   await sendBookingConfirmationEmail(invoiceData);
+                  await markBookingConfirmationEmailSent(pendingBookingId || invoiceData.orderID);
                 
                   // Debug log removed
                   // Debug log removed

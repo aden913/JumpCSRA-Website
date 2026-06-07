@@ -42,6 +42,8 @@ interface OrderData {
   items?: any[];
   deliveryAddress?: string;
   deliveryTime?: string;
+  pickupTime?: string;
+  eventEnd?: string;
   paymentType?: string;
   amountPaid?: number;
   remainingBalance?: number;
@@ -84,6 +86,13 @@ const EMAIL_TEMPLATE_SETTING_KEYS: Record<string, string[]> = {
   'post-event-thanks': ['postEventThanks', 'post-event-thanks']
 };
 
+const MARKETING_TEMPLATE_ENDPOINTS = new Set([
+  'cart-reminder',
+  'follow-up',
+  'membership-post-event-thanks',
+  'post-event-thanks'
+]);
+
 class BackendEmailService {
   private baseURL: string;
   private apiKey: string;
@@ -121,7 +130,10 @@ class BackendEmailService {
     }
 
     try {
-      const snapshot = await get(ref(database, 'dashboardInformation/emails/transactionalTemplates'));
+      const templatePath = MARKETING_TEMPLATE_ENDPOINTS.has(endpoint)
+        ? 'dashboardInformation/emails/marketingTemplates'
+        : 'dashboardInformation/emails/transactionalTemplates';
+      const snapshot = await get(ref(database, templatePath));
       if (!snapshot.exists()) {
         return null;
       }
@@ -131,7 +143,8 @@ class BackendEmailService {
       if (!matchedKey) {
         console.warn(`No dashboard template setting found for ${endpoint}.`, {
           expectedKeys: settingKeys,
-          availableKeys: Object.keys(templates)
+          availableKeys: Object.keys(templates),
+          templatePath
         });
         return null;
       }
@@ -179,7 +192,8 @@ class BackendEmailService {
         config.body = JSON.stringify(requestData);
       }
 
-      const response = await fetch(`${this.baseURL}/api/email/${endpoint}`, config);
+      const requestUrl = `${this.baseURL}/api/email/${endpoint}`;
+      const response = await fetch(requestUrl, config);
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -189,8 +203,48 @@ class BackendEmailService {
       return await response.json();
     } catch (error) {
       console.error(`Backend Email Service Error (${endpoint}):`, error);
+      this.logBrowserRequestDiagnostics(endpoint, error);
       throw error;
     }
+  }
+
+  private logBrowserRequestDiagnostics(endpoint: string, error: unknown) {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const requestUrl = `${this.baseURL}/api/email/${endpoint}`;
+    const pageProtocol = window.location.protocol;
+    const requestProtocol = (() => {
+      try {
+        return new URL(requestUrl).protocol;
+      } catch {
+        return 'unknown:';
+      }
+    })();
+    const failedBeforeResponse =
+      error instanceof TypeError ||
+      String((error as any)?.message || error).toLowerCase().includes('failed to fetch');
+
+    if (!failedBeforeResponse) {
+      return;
+    }
+
+    console.group(`Email request blocked or unreachable: ${endpoint}`);
+    console.error('The browser did not receive a response from the email server.', error);
+    console.info('Request URL:', requestUrl);
+    console.info('Page origin:', window.location.origin);
+    console.info('Page protocol:', pageProtocol);
+    console.info('Email server protocol:', requestProtocol);
+
+    if (pageProtocol === 'https:' && requestProtocol === 'http:') {
+      console.warn('Likely cause: mixed content. An HTTPS page cannot safely call an HTTP email server URL directly.');
+    } else {
+      console.warn('Likely causes include CORS/preflight rejection, server unreachable, incorrect port, blocked network request, or browser extension blocking.');
+    }
+
+    console.info('Check the Network tab for the matching request/preflight. If no request reaches the backend logs, the browser blocked it before the server handled it.');
+    console.groupEnd();
   }
 
   // Account creation email
@@ -230,7 +284,8 @@ class BackendEmailService {
         amountPaid: orderData.amountPaid || orderData.totalAmount,
         remainingBalance: orderData.remainingBalance || 0,
         address: orderData.deliveryAddress,
-        setupTime: orderData.deliveryTime
+        setupTime: orderData.deliveryTime,
+        pickupTime: orderData.pickupTime || orderData.eventEnd
       }
     };
 
@@ -250,6 +305,7 @@ class BackendEmailService {
         remainingBalance: orderData.remainingBalance || 0,
         address: orderData.deliveryAddress,
         setupTime: orderData.deliveryTime,
+        pickupTime: orderData.pickupTime || orderData.eventEnd || 'TBD',
         paymentType: orderData.paymentType,
         paymentMethod: orderData.paymentMethod,
         giftCards: orderData.giftCards || [],

@@ -164,18 +164,37 @@ export const saveBookingData = async (bookingData: BookingData): Promise<boolean
   try {
     const database = getDatabase();
     const bookingsRef = ref(database, `bookings/${bookingData.orderID}`);
+    const existingSnapshot = await get(bookingsRef);
+    const existingBooking = existingSnapshot.exists() ? existingSnapshot.val() : null;
+    const existingEmails = (existingBooking?.emails || {}) as Record<string, any>;
+    const incomingEmails = (bookingData.emails || {}) as Record<string, any>;
+    const mergedEmails = {
+      ...existingEmails,
+      ...incomingEmails,
+      depositReminder: existingEmails.depositReminder === true || incomingEmails.depositReminder === true,
+      eventConfirmation: existingEmails.eventConfirmation === true || incomingEmails.eventConfirmation === true,
+      thanks: existingEmails.thanks === true || incomingEmails.thanks === true || incomingEmails.postEventThanks === true,
+      rebooking: existingEmails.rebooking === true || incomingEmails.rebooking === true || incomingEmails.rebookingReminder === true,
+      ...(existingEmails.depositReminderSentAt || incomingEmails.depositReminderSentAt ? {
+        depositReminderSentAt: existingEmails.depositReminderSentAt || incomingEmails.depositReminderSentAt
+      } : {}),
+      ...(existingEmails.eventConfirmationSentAt || incomingEmails.eventConfirmationSentAt ? {
+        eventConfirmationSentAt: existingEmails.eventConfirmationSentAt || incomingEmails.eventConfirmationSentAt
+      } : {}),
+      ...(existingEmails.thanksSentAt || incomingEmails.thanksSentAt ? {
+        thanksSentAt: existingEmails.thanksSentAt || incomingEmails.thanksSentAt
+      } : {}),
+      ...(existingEmails.rebookingSentAt || incomingEmails.rebookingSentAt ? {
+        rebookingSentAt: existingEmails.rebookingSentAt || incomingEmails.rebookingSentAt
+      } : {})
+    };
     
     // Initialize email tracking collection if it doesn't exist
     const dataToSave = {
       ...bookingData,
       updatedAt: new Date().toISOString(),
       // Initialize email tracking flags for scheduled emails
-      emails: bookingData.emails || {
-        depositReminder: false,
-        eventConfirmation: false,
-        thanks: false,
-        rebooking: false
-      }
+      emails: mergedEmails
     };
     
     await set(bookingsRef, dataToSave);
