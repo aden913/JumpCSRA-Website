@@ -172,7 +172,7 @@ export function Welcome() {
 
   // Combine static membership card with dynamic promo cards
   const allPromoCards = useMemo(() => {
-    const membershipCard = { 
+   /*  const membershipCard = { 
       title: "Become a member", 
       img: "/assets/cartoon-bouncehouse.png",
       isMembership: true,
@@ -180,7 +180,7 @@ export function Welcome() {
       notificationTitle: undefined,
       notificationMessage: undefined,
       promoCard: undefined,
-    };
+    }; */
     
     const dynamicCards = dynamicPromoCards.map((card: PromoCard) => ({
       title: card.cardText,
@@ -192,7 +192,8 @@ export function Welcome() {
       promoCard: card, // Include full promo card configuration
     }));
     
-    return [membershipCard, ...dynamicCards];
+    // return [membershipCard, ...dynamicCards];
+    return [...dynamicCards];
   }, [dynamicPromoCards]);
 
   // Initialize Firebase Auth
