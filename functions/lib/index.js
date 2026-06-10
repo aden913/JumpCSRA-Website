@@ -1211,28 +1211,31 @@ exports.createPayPalInvoice = functions.https.onCall(async (data, context) => {
 // ============================================================================
 // SCHEDULED EMAIL FUNCTIONS - Individual email sending functions
 // ============================================================================
-// Cart abandonment email
-async function sendCartAbandonmentEmail(cart, userId) {
+// Cart reminder email for pending bookings
+async function sendPendingBookingCartReminderEmail(booking, bookingId) {
+    var _a, _b, _c;
     try {
-        console.log('📧 Sending cart abandonment email to:', cart.customerEmail);
-        const customerEmail = cart.customerEmail || cart.userEmail || '';
-        if (!(await canReceiveMarketingEmail({ email: customerEmail, userId }))) {
-            console.log(`Skipping cart abandonment email for opted-out user: ${customerEmail}`);
-            return;
+        const customerEmail = getBookingCustomerEmail(booking);
+        const customerId = getBookingCustomerId(booking);
+        console.log('Sending cart reminder email via email server to:', customerEmail);
+        if (!(await canReceiveMarketingEmail({ email: customerEmail, userId: customerId }))) {
+            console.log(`Skipping cart reminder email for opted-out user: ${customerEmail}`);
+            return false;
         }
-        const emailHTML = generateCartAbandonmentEmailHTML(cart, userId);
-        const msg = {
-            to: customerEmail,
-            from: 'jumpcsra@gmail.com',
-            subject: 'Don\'t forget your bounce house rental! 🏰',
-            html: emailHTML,
-            categories: ['cart-abandonment', 'marketing']
-        };
-        await sgMail.send(msg);
-        console.log('✅ Cart abandonment email sent successfully');
+        await (0, emailService_1.sendCartReminderEmail)({
+            customerEmail,
+            customerName: getBookingCustomerName(booking),
+            customerId,
+            bookingId,
+            cartId: bookingId,
+            cartItems: getBookingItems(booking),
+            cartTotal: booking.totalAmount || booking.total || ((_a = booking.pricing) === null || _a === void 0 ? void 0 : _a.total) || ((_b = booking.orderDetails) === null || _b === void 0 ? void 0 : _b.totalAmount) || ((_c = booking.paymentDetails) === null || _c === void 0 ? void 0 : _c.totalAmount) || 0
+        });
+        console.log('Cart reminder email sent successfully via email server');
+        return true;
     }
     catch (error) {
-        console.error('❌ Error sending cart abandonment email:', error);
+        console.error('Error sending cart reminder email:', error);
         throw error;
     }
 }
@@ -1263,6 +1266,21 @@ function getBookingEventTimestamp(booking) {
     }
     const firstDateInRange = String(rawEventDate).split(' - ')[0].trim();
     return new Date(firstDateInRange).getTime();
+}
+function getBookingCreatedTimestamp(booking) {
+    var _a, _b, _c;
+    const rawCreatedAt = booking.createdAt ||
+        ((_a = booking.orderDetails) === null || _a === void 0 ? void 0 : _a.createdAt) ||
+        ((_b = booking.paymentDetails) === null || _b === void 0 ? void 0 : _b.createdAt) ||
+        ((_c = booking.dashboardDetails) === null || _c === void 0 ? void 0 : _c.createdAt);
+    if (!rawCreatedAt) {
+        return NaN;
+    }
+    if (typeof rawCreatedAt === 'number') {
+        return rawCreatedAt;
+    }
+    const parsed = new Date(rawCreatedAt).getTime();
+    return Number.isNaN(parsed) ? NaN : parsed;
 }
 function getBookingRemainingBalance(booking) {
     var _a, _b;
@@ -1842,81 +1860,6 @@ async function sendMembershipCancellationEmailInternal(membershipData, membershi
 // ============================================================================
 // EMAIL TEMPLATE GENERATORS - HTML templates for scheduled emails
 // ============================================================================
-// Cart abandonment email template
-function generateCartAbandonmentEmailHTML(cart, userId) {
-    const cartItems = cart.cartItems || [];
-    const cartTotal = cart.cartValue || 0;
-    const itemsHTML = cartItems.map((item) => `
-    <tr>
-      <td style="padding: 10px; border-bottom: 1px solid #eee;">
-        <strong>${item.name || item.title}</strong><br>
-        <small style="color: #666;">${item.category || 'Rental Item'}</small>
-      </td>
-      <td style="padding: 10px; border-bottom: 1px solid #eee; text-align: right;">
-        $${(item.price || 0).toFixed(2)}
-      </td>
-    </tr>
-  `).join('');
-    return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <title>Don't Forget Your Bounce House Rental!</title>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; background-color: #f4f4f4; }
-        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; }
-        .header { text-align: center; color: #2c5aa0; margin-bottom: 30px; }
-        .cta-button { display: inline-block; background: #ff6b35; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-        table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        .footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h1>🏰 Don't Forget Your Bounce House Rental!</h1>
-        </div>
-        
-        <p>Hi ${cart.customerName || 'there'}!</p>
-        
-        <p>We noticed you left some amazing bounce houses in your cart. Don't let the fun slip away! Your party rentals are waiting for you:</p>
-        
-        <table>
-          <thead>
-            <tr style="background-color: #f8f9fa;">
-              <th style="padding: 15px; text-align: left;">Item</th>
-              <th style="padding: 15px; text-align: right;">Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsHTML}
-          </tbody>
-          <tfoot>
-            <tr style="background-color: #2c5aa0; color: white;">
-              <th style="padding: 15px; text-align: left;">Total</th>
-              <th style="padding: 15px; text-align: right;">$${cartTotal.toFixed(2)}</th>
-            </tr>
-          </tfoot>
-        </table>
-        
-        <div style="text-align: center;">
-          <a href="https://jumpcsra.com/checkout" class="cta-button">Complete Your Booking Now! 🎉</a>
-        </div>
-        
-        <p>❗ <strong>Important:</strong> Popular items book up fast, especially on weekends. Complete your booking now to secure your date!</p>
-        
-        <p>Questions? Reply to this email or call us at (555) 123-4567.</p>
-        
-        <div class="footer">
-          <p>JumpCSRA Party Rentals - Making Your Celebrations Unforgettable!</p>
-          <p>If you no longer wish to receive these emails, <a href="#">unsubscribe here</a>.</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-}
 // Deposit reminder email template
 function generateDepositReminderEmailHTML(booking, bookingId) {
     const eventDate = new Date(booking.eventDate).toLocaleDateString();
@@ -2317,6 +2260,8 @@ exports.processScheduledEmails = functions.pubsub
     try {
         const db = admin.database();
         const nowMillis = Date.now();
+        const cartReminderSentCount = await processCartReminderEmails(db, nowMillis);
+        console.log(`Processed cartReminder: ${cartReminderSentCount} emails sent`);
         // Get all active scheduled email configurations
         const scheduledRef = db.ref('emails/scheduledEmails');
         const scheduledSnapshot = await scheduledRef.once('value');
@@ -2327,6 +2272,10 @@ exports.processScheduledEmails = functions.pubsub
         const scheduledEmails = scheduledSnapshot.val();
         for (const [emailType, config] of Object.entries(scheduledEmails)) {
             const emailConfig = config;
+            if (emailType === 'cartAbandonment' || emailType === 'cartReminder') {
+                console.log(`Skipping ${emailType} config: cart reminders run automatically from pending bookings`);
+                continue;
+            }
             // Skip if not active
             if (emailConfig.status !== 'active') {
                 continue;
@@ -2341,9 +2290,6 @@ exports.processScheduledEmails = functions.pubsub
                 // Process based on email type
                 let sentCount = 0;
                 switch (emailType) {
-                    case 'cartAbandonment':
-                        sentCount = await processCartAbandonmentEmails(db, nowMillis, emailConfig);
-                        break;
                     case 'depositReminder':
                         sentCount = await processDepositReminderEmails(db, nowMillis, emailConfig);
                         break;
@@ -2473,40 +2419,55 @@ function calculateNextSendTime(recurrence) {
     }
     return nextTime;
 }
-// Helper function to process cart abandonment emails
-async function processCartAbandonmentEmails(db, now, config) {
+// Helper function to process cart reminder emails for pending bookings
+async function processCartReminderEmails(db, now) {
     try {
-        console.log('📧 SCHEDULER: Checking cart abandonment emails...');
-        const TIMING = (config === null || config === void 0 ? void 0 : config.triggerDelay) || (24 * 60 * 60 * 1000); // Default 24 hours
-        const cartsRef = db.ref('carts');
-        const snapshot = await cartsRef.once('value');
+        console.log('SCHEDULER: Checking pending booking cart reminder emails...');
+        const TIMING = 24 * 60 * 60 * 1000; // 24 hours after pending booking creation
+        const bookingsRef = db.ref('bookings');
+        const snapshot = await bookingsRef.once('value');
         if (!snapshot.exists()) {
             return 0;
         }
-        const carts = snapshot.val();
+        const bookings = snapshot.val();
         let emailsSent = 0;
-        for (const [userId, cartData] of Object.entries(carts)) {
-            const cart = cartData;
-            if (!cart.cartItems || cart.cartItems.length === 0)
+        for (const [bookingId, bookingData] of Object.entries(bookings)) {
+            if (bookingId === 'membershipBookings') {
                 continue;
-            const cartLastUpdated = cart.lastUpdated || cart.createdAt || now;
-            const timeSinceUpdate = now - cartLastUpdated;
-            if (timeSinceUpdate >= TIMING) {
-                const emailSentKey = `cartAbandonment_${userId}_${cartLastUpdated}`;
-                const emailRef = db.ref(`emailsSent/${emailSentKey}`);
-                const emailSentSnapshot = await emailRef.once('value');
-                if (!emailSentSnapshot.exists()) {
-                    await sendCartAbandonmentEmail(cart, userId);
-                    await emailRef.set({ sentAt: now, type: 'cart-abandonment' });
-                    emailsSent++;
-                }
+            }
+            const booking = bookingData;
+            if (hasBookingEmailBeenSent(booking, 'cartReminder')) {
+                console.log(`Cart reminder skipped for ${bookingId}: booking emails flag already true`);
+                continue;
+            }
+            if (booking.status !== 'pending') {
+                continue;
+            }
+            const createdAt = getBookingCreatedTimestamp(booking);
+            if (Number.isNaN(createdAt)) {
+                console.log(`Cart reminder skipped for ${bookingId}: invalid createdAt`, {
+                    createdAt: booking.createdAt
+                });
+                continue;
+            }
+            const timeSinceCreated = now - createdAt;
+            if (timeSinceCreated < TIMING) {
+                console.log(`Cart reminder skipped for ${bookingId}: pending booking is too new`, {
+                    timeSinceCreated
+                });
+                continue;
+            }
+            const sent = await sendPendingBookingCartReminderEmail(booking, bookingId);
+            if (sent !== false) {
+                await markBookingEmailSent(db, bookingId, 'cartReminder', now);
+                emailsSent++;
             }
         }
-        console.log(`📧 Sent ${emailsSent} cart abandonment emails`);
+        console.log(`Sent ${emailsSent} pending booking cart reminder emails`);
         return emailsSent;
     }
     catch (error) {
-        console.error('❌ Error processing cart abandonment emails:', error);
+        console.error('Error processing pending booking cart reminder emails:', error);
         return 0;
     }
 }

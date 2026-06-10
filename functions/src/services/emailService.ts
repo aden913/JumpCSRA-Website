@@ -20,6 +20,9 @@ type ScheduledTemplateEmailData = {
   customerName?: string;
   customerId?: string;
   bookingId?: string;
+  cartId?: string;
+  cartItems?: any[];
+  cartTotal?: number;
   remainingAmount?: number;
   dueDate?: string;
   eventDate?: string;
@@ -212,6 +215,19 @@ export const sendAccountDeletionEmail = async (data: AccountDeletionEmailData): 
   } catch (error: any) {
     console.error('❌ Error sending account deletion email via email server:', error);
     throw new functions.https.HttpsError('internal', `Failed to send account deletion email: ${error.message}`);
+  }
+};
+
+export const sendCartReminderEmail = async (data: ScheduledTemplateEmailData): Promise<any> => {
+  if (!data.customerEmail) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing required cart reminder email data.');
+  }
+
+  try {
+    return await postToEmailServer('cart-reminder', data);
+  } catch (error: any) {
+    console.error('Error sending cart reminder email via email server:', error);
+    throw new functions.https.HttpsError('internal', `Failed to send cart reminder email: ${error.message}`);
   }
 };
 

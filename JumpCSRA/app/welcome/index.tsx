@@ -448,75 +448,7 @@ export function Welcome() {
         {/* <LocalStorageDebugger /> */}
         <Notifications position="top-right" />
         
-        {/* Booking Recovery Notification */}
-        {showBookingRecovery && incompleteBookings.length > 0 && (
-          <div style={{
-            position: 'fixed',
-            top: '20px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            backgroundColor: 'white',
-            border: '2px solid var(--lightBlue)',
-            borderRadius: '8px',
-            padding: '15px 20px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            zIndex: 1000,
-            maxWidth: '500px',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontWeight: 'bold', color: 'var(--darkBlue)', marginBottom: '10px' }}>
-              📝 Resume Your Booking
-            </div>
-            <div style={{ color: 'var(--darkBlue)', marginBottom: '15px', fontSize: '14px' }}>
-              You have an incomplete booking from {new Date(incompleteBookings[0].createdAt).toLocaleDateString()}
-            </div>
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-              <button
-                onClick={() => continueIncompleteBooking(incompleteBookings[0])}
-                style={{
-                  backgroundColor: 'var(--lightBlue)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 16px',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 'bold'
-                }}
-              >
-                Continue Booking
-              </button>
-              <button
-                onClick={() => deleteIncompleteBooking(incompleteBookings[0])}
-                style={{
-                  backgroundColor: 'var(--darkBlue)',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 16px',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                Cancel Booking
-              </button>
-              <button
-                onClick={dismissBookingRecovery}
-                style={{
-                  backgroundColor: '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 16px',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        )}
+       
         
         <div className="landing-page">
         {/* Header */}

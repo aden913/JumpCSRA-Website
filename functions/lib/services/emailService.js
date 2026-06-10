@@ -4,7 +4,7 @@
  * Handles all email sending operations by calling the external email server
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendFollowUpRebookingEmail = exports.sendPostEventThanksEmail = exports.sendDepositReminderEmail = exports.sendAccountDeletionEmail = exports.sendGiftCardEmail = exports.sendOrderConfirmationEmail = void 0;
+exports.sendFollowUpRebookingEmail = exports.sendPostEventThanksEmail = exports.sendDepositReminderEmail = exports.sendCartReminderEmail = exports.sendAccountDeletionEmail = exports.sendGiftCardEmail = exports.sendOrderConfirmationEmail = void 0;
 const functions = require("firebase-functions");
 const axios_1 = require("axios");
 // External email server configuration
@@ -176,6 +176,19 @@ const sendAccountDeletionEmail = async (data) => {
     }
 };
 exports.sendAccountDeletionEmail = sendAccountDeletionEmail;
+const sendCartReminderEmail = async (data) => {
+    if (!data.customerEmail) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing required cart reminder email data.');
+    }
+    try {
+        return await postToEmailServer('cart-reminder', data);
+    }
+    catch (error) {
+        console.error('Error sending cart reminder email via email server:', error);
+        throw new functions.https.HttpsError('internal', `Failed to send cart reminder email: ${error.message}`);
+    }
+};
+exports.sendCartReminderEmail = sendCartReminderEmail;
 const sendDepositReminderEmail = async (data) => {
     if (!data.customerEmail || !data.bookingId) {
         throw new functions.https.HttpsError('invalid-argument', 'Missing required deposit reminder email data.');

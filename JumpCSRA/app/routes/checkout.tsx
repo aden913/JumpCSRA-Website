@@ -20,8 +20,7 @@ import { useCartSettings } from "../hooks/useCartSettings";
 import { useCategories } from "../hooks/useCategories";
 import { useDeliveryAddressVerification } from "../hooks/useDeliveryAddressVerification";
 import { generateUniqueGiftCardCode, createGiftCardInDatabase, useDiscounts, validateGiftCard } from "../hooks/useDiscounts";
-import { scheduleCartReminderEmail, scheduleDepositReminderEmail, scheduleEventConfirmationEmail, schedulePostEventThanksEmail, scheduleRebookingReminderEmail, sendBookingConfirmationEmail, sendGiftCardEmail } from "../utils/backendEmailService";
-import { clearCartAbandonment } from "../utils/cartAbandonmentTracker";
+import { scheduleDepositReminderEmail, scheduleEventConfirmationEmail, schedulePostEventThanksEmail, scheduleRebookingReminderEmail, sendBookingConfirmationEmail, sendGiftCardEmail } from "../utils/backendEmailService";
 import { notifications } from '@mantine/notifications';
 import { Notifications } from '@mantine/notifications';
 import { MantineProvider } from '@mantine/core';
@@ -1708,16 +1707,17 @@ export default function Checkout() {
 
   // Load delivery address from localStorage on component mount
   useEffect(() => {
-    if (!loading && user) {
-      const savedDeliveryAddress = localStorage.getItem('deliveryAddress');
-      console.log('🔍 [ADDRESS DEBUG] Load from localStorage effect triggered');
-      console.log('  - savedDeliveryAddress:', savedDeliveryAddress);
-      console.log('  - current deliveryAddress:', deliveryAddress);
-      if (savedDeliveryAddress && !deliveryAddress) {
-        console.log('  - Loading saved address:', savedDeliveryAddress);
-        setDeliveryAddress(savedDeliveryAddress);
-      }
-    }
+    // Disabled auto-fill from saved deliveryAddress in localStorage
+    // if (!loading && user) {
+    //   const savedDeliveryAddress = localStorage.getItem('deliveryAddress');
+    //   console.log('🔍 [ADDRESS DEBUG] Load from localStorage effect triggered');
+    //   console.log('  - savedDeliveryAddress:', savedDeliveryAddress);
+    //   console.log('  - current deliveryAddress:', deliveryAddress);
+    //   if (savedDeliveryAddress && !deliveryAddress) {
+    //     console.log('  - Loading saved address:', savedDeliveryAddress);
+    //     setDeliveryAddress(savedDeliveryAddress);
+    //   }
+    // }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, user]); // Only run when loading/user changes, not deliveryAddress
 
@@ -3064,48 +3064,6 @@ export default function Checkout() {
     setWalletAppliedAmount(calculateWalletApplicableAmount());
   }, [useWalletFirst, paymentType, userWallet?.balance, total]);
 
-  // Cart abandonment tracking
-  useEffect(() => {
-    let cartAbandonmentTimeout: NodeJS.Timeout | null = null;
-
-    const scheduleCartReminder = async () => {
-      if (cart.length > 0 && user && user.email) {
-        try {
-          const cartValue = cart.reduce((sum, item) => sum + (item.isGiftCard ? getGiftCardCartValue(item) : item.price), 0);
-          
-          await scheduleCartReminderEmail({
-            userID: user.uid,
-            cartItems: cart,
-            cartValue: cartValue,
-            customerEmail: user.email,
-            customerName: user.displayName || userProfile?.firstName || 'Customer'
-          });
-          
-          // Debug log removed
-        } catch (error) {
-          console.error('Failed to schedule cart abandonment reminder:', error);
-        }
-      }
-    };
-
-    // Schedule reminder if cart has items and user is logged in
-    if (cart.length > 0 && user) {
-      // Clear any existing timeout
-      if (cartAbandonmentTimeout) {
-        clearTimeout(cartAbandonmentTimeout);
-      }
-      
-      // Schedule reminder for 5 minutes from now (for testing - change to longer in production)
-      cartAbandonmentTimeout = setTimeout(scheduleCartReminder, 5 * 60 * 1000); // 5 minutes for demo
-    }
-
-    // Cleanup function
-    return () => {
-      if (cartAbandonmentTimeout) {
-        clearTimeout(cartAbandonmentTimeout);
-      }
-    };
-  }, [cart, user, userProfile]);
 
   // Schedule automated emails after successful payment
   const scheduleAutomatedEmails = async (bookingData: any) => {
@@ -3734,11 +3692,6 @@ export default function Checkout() {
               // Store cart data before clearing for order summary display
               setCompletedOrderCart([...cart]);
 
-              // Clear cart abandonment tracking (user completed checkout)
-              if (user) {
-                clearCartAbandonment(user.uid);
-              }
-
               // Clear all cart-related localStorage items
               localStorage.removeItem("cart");
               localStorage.removeItem("cart_wetDrySelections");
@@ -3919,11 +3872,6 @@ export default function Checkout() {
 
               // Store cart data before clearing
               setCompletedOrderCart([...cart]);
-
-              // Clear cart abandonment tracking
-              if (user) {
-                clearCartAbandonment(user.uid);
-              }
 
               // Clear all cart-related localStorage items
               localStorage.removeItem("cart");
@@ -4610,11 +4558,6 @@ export default function Checkout() {
               // Store cart data before clearing for order summary display
               setCompletedOrderCart([...cart]);
               
-              // Clear cart abandonment tracking (user completed checkout)
-              if (user) {
-                clearCartAbandonment(user.uid);
-              }
-              
               // Clear all cart-related localStorage items after successful payment
               localStorage.removeItem("cart");
               localStorage.removeItem("cart_wetDrySelections");
@@ -4835,11 +4778,6 @@ export default function Checkout() {
 
               // Store cart data before clearing
               setCompletedOrderCart([...cart]);
-
-              // Clear cart abandonment tracking
-              if (user) {
-                clearCartAbandonment(user.uid);
-              }
 
               // Clear all cart-related localStorage items
               localStorage.removeItem("cart");
