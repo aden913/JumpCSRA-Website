@@ -5,7 +5,7 @@
  */
 var _a;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getOrderDetails = exports.captureVaultOrder = exports.createVaultOrder = exports.chargeVaultedPayment = exports.createVaultCustomer = exports.processPayPalRefund = exports.createPayPalInvoice = exports.createPayPalInvoicePayload = exports.getPayPalAccessToken = void 0;
+exports.getOrderDetails = exports.voidPayPalAuthorization = exports.createAuthorizationHold = exports.captureVaultOrder = exports.createBuyerAuthorizationOrder = exports.captureAuthorizationPayment = exports.createVaultOrder = exports.chargeVaultedPayment = exports.createVaultCustomer = exports.processPayPalRefund = exports.createPayPalInvoice = exports.createPayPalInvoicePayload = exports.getPayPalAccessToken = void 0;
 const functions = require("firebase-functions");
 // PayPal configuration
 const PAYPAL_CLIENT_ID = "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0";
@@ -399,7 +399,7 @@ const createVaultOrder = async (orderData) => {
         });
         const accessToken = await (0, exports.getPayPalAccessToken)();
         const orderPayload = {
-            intent: 'CAPTURE',
+            intent: orderData.intent || 'CAPTURE',
             purchase_units: [
                 {
                     reference_id: orderData.orderId || `order-${Date.now()}`,
@@ -449,6 +449,80 @@ const createVaultOrder = async (orderData) => {
     }
 };
 exports.createVaultOrder = createVaultOrder;
+const captureAuthorizationPayment = async (data) => {
+    var _a;
+    try {
+        const accessToken = await (0, exports.getPayPalAccessToken)();
+        const amount = data.amount.toFixed(2);
+        const response = await fetch(`${PAYPAL_BASE_URL}/v2/payments/authorizations/${data.authorizationId}/capture`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+                'PayPal-Request-Id': `capture-auth-${data.authorizationId}-${Date.now()}`
+            },
+            body: JSON.stringify({
+                amount: {
+                    currency_code: data.currency || 'USD',
+                    value: amount
+                },
+                final_capture: (_a = data.finalCapture) !== null && _a !== void 0 ? _a : false
+            })
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            console.error('❌ Authorization capture failed:', result);
+            throw new Error(`Failed to capture authorization: ${result.message || 'Unknown error'}`);
+        }
+        return result;
+    }
+    catch (error) {
+        console.error('❌ Error capturing authorization:', error);
+        throw error;
+    }
+};
+exports.captureAuthorizationPayment = captureAuthorizationPayment;
+/**
+ * Create a PayPal checkout order that the buyer can approve as an authorization hold.
+ */
+const createBuyerAuthorizationOrder = async (orderData) => {
+    try {
+        const accessToken = await (0, exports.getPayPalAccessToken)();
+        const orderPayload = {
+            intent: 'AUTHORIZE',
+            purchase_units: [
+                {
+                    reference_id: `${orderData.orderId}-authorization-hold`,
+                    description: orderData.description || `JumpCSRA refundable damage hold for booking ${orderData.orderId}`,
+                    amount: {
+                        currency_code: orderData.currency || 'USD',
+                        value: orderData.amount
+                    }
+                }
+            ]
+        };
+        const response = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+                'PayPal-Request-Id': `buyer-hold-${orderData.orderId}-${Date.now()}`
+            },
+            body: JSON.stringify(orderPayload)
+        });
+        const result = await response.json();
+        if (!response.ok) {
+            console.error('âŒ Buyer authorization order creation failed:', result);
+            throw new Error(`Failed to create authorization order: ${result.message || 'Unknown error'}`);
+        }
+        return result;
+    }
+    catch (error) {
+        console.error('âŒ Error creating buyer authorization order:', error);
+        throw error;
+    }
+};
+exports.createBuyerAuthorizationOrder = createBuyerAuthorizationOrder;
 /**
  * Capture PayPal order and retrieve vault information
  * @param orderId - PayPal order ID to capture
@@ -493,6 +567,122 @@ const captureVaultOrder = async (orderId) => {
     }
 };
 exports.captureVaultOrder = captureVaultOrder;
+/**
+ * Create a $ authorization against a vaulted card and return the authorization details.
+ * PayPal authorizations are valid for up to 29 days and should be voided when no longer needed.
+ */
+const createAuthorizationHold = async (data) => {
+    var _a, _b, _c, _d, _e, _f, _g, _h;
+    try {
+        const accessToken = await (0, exports.getPayPalAccessToken)();
+        const amount = data.amount.toFixed(2);
+        const orderPayload = {
+            intent: 'AUTHORIZE',
+            purchase_units: [
+                {
+                    reference_id: `${data.orderId}-damage-hold`,
+                    description: data.description || `JumpCSRA refundable damage hold for booking ${data.orderId}`,
+                    amount: {
+                        currency_code: data.currency || 'USD',
+                        value: amount
+                    }
+                }
+            ],
+            payment_source: {
+                card: {
+                    vault_id: data.vaultId
+                }
+            }
+        };
+        const createResponse = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+                'PayPal-Request-Id': `hold-order-${data.orderId}-${Date.now()}`
+            },
+            body: JSON.stringify(orderPayload)
+        });
+        const orderResult = await createResponse.json();
+        if (!createResponse.ok) {
+            console.error('âŒ Authorization hold order creation failed:', orderResult);
+            throw new Error(`Failed to create authorization hold order: ${orderResult.message || 'Unknown error'}`);
+        }
+        let authorizeResult = orderResult;
+        let authorization = (_d = (_c = (_b = (_a = authorizeResult.purchase_units) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.payments) === null || _c === void 0 ? void 0 : _c.authorizations) === null || _d === void 0 ? void 0 : _d[0];
+        if (!(authorization === null || authorization === void 0 ? void 0 : authorization.id)) {
+            const authorizeResponse = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders/${orderResult.id}/authorize`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${accessToken}`,
+                    'PayPal-Request-Id': `hold-auth-${data.orderId}-${Date.now()}`
+                }
+            });
+            authorizeResult = await authorizeResponse.json();
+            if (!authorizeResponse.ok) {
+                console.error('âŒ Authorization hold failed:', authorizeResult);
+                throw new Error(`Failed to authorize hold: ${authorizeResult.message || 'Unknown error'}`);
+            }
+            authorization = (_h = (_g = (_f = (_e = authorizeResult.purchase_units) === null || _e === void 0 ? void 0 : _e[0]) === null || _f === void 0 ? void 0 : _f.payments) === null || _g === void 0 ? void 0 : _g.authorizations) === null || _h === void 0 ? void 0 : _h[0];
+        }
+        if (!(authorization === null || authorization === void 0 ? void 0 : authorization.id)) {
+            console.error('âŒ No authorization returned for hold:', authorizeResult);
+            throw new Error('PayPal did not return an authorization ID for the hold');
+        }
+        return {
+            orderId: orderResult.id,
+            authorizationId: authorization.id,
+            status: authorization.status,
+            amount: authorization.amount,
+            createTime: authorization.create_time,
+            updateTime: authorization.update_time,
+            expirationTime: authorization.expiration_time,
+            paymentSource: authorizeResult.payment_source,
+            fullResponse: authorizeResult
+        };
+    }
+    catch (error) {
+        console.error('âŒ Error creating authorization hold:', error);
+        throw error;
+    }
+};
+exports.createAuthorizationHold = createAuthorizationHold;
+/**
+ * Void an uncaptured PayPal authorization.
+ */
+const voidPayPalAuthorization = async (authorizationId) => {
+    try {
+        const accessToken = await (0, exports.getPayPalAccessToken)();
+        const response = await fetch(`${PAYPAL_BASE_URL}/v2/payments/authorizations/${authorizationId}/void`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+                'PayPal-Request-Id': `void-auth-${authorizationId}-${Date.now()}`
+            }
+        });
+        if (response.status === 204) {
+            return {
+                success: true,
+                authorizationId,
+                status: 'VOIDED',
+                voidedAt: new Date().toISOString()
+            };
+        }
+        const result = await response.json();
+        if (!response.ok) {
+            console.error('âŒ Authorization void failed:', result);
+            throw new Error(`Failed to void authorization: ${result.message || 'Unknown error'}`);
+        }
+        return result;
+    }
+    catch (error) {
+        console.error('âŒ Error voiding authorization:', error);
+        throw error;
+    }
+};
+exports.voidPayPalAuthorization = voidPayPalAuthorization;
 /**
  * Get full order details (useful when vault status is APPROVED and vault ID isn't immediately available)
  * @param orderId - PayPal order ID

@@ -5254,7 +5254,8 @@ export const createPayPalVaultOrder = functions.https.onCall(async (data, contex
       currency: data.currency || 'USD',
       saveCard: data.saveCard || false,
       customerId: data.customerId || undefined,
-      orderId: data.orderId || undefined
+      orderId: data.orderId || undefined,
+      intent: data.intent === 'AUTHORIZE' ? 'AUTHORIZE' : 'CAPTURE'
     });
 
     return {
@@ -5273,6 +5274,99 @@ export const createPayPalVaultOrder = functions.https.onCall(async (data, contex
     throw new functions.https.HttpsError(
       'internal',
       `Failed to create PayPal order: ${error.message}`,
+      { error: error.message }
+    );
+  }
+});
+
+/**
+ * Create a PayPal AUTHORIZE order for the customer-approved $50 booking hold.
+ */
+export const createPayPalBuyerAuthorizationOrder = functions.https.onCall(async (data, context) => {
+  try {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    if (!data.orderId) {
+      throw new functions.https.HttpsError('invalid-argument', 'Order ID is required');
+    }
+
+    const amount = Number(data.amount || 50);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new functions.https.HttpsError('invalid-argument', 'Invalid authorization amount');
+    }
+
+    const { createBuyerAuthorizationOrder } = require('./services/paypalService');
+    const order = await createBuyerAuthorizationOrder({
+      amount: amount.toFixed(2),
+      currency: data.currency || 'USD',
+      orderId: data.orderId,
+      description: data.description
+    });
+
+    return {
+      success: true,
+      orderId: order.id,
+      order
+    };
+  } catch (error: any) {
+    console.error('âŒ Error creating PayPal buyer authorization order:', error);
+
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+
+    throw new functions.https.HttpsError(
+      'internal',
+      `Failed to create PayPal authorization order: ${error.message}`,
+      { error: error.message }
+    );
+  }
+});
+
+export const capturePayPalAuthorizationPayment = functions.https.onCall(async (data, context) => {
+  try {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    if (!data.authorizationId) {
+      throw new functions.https.HttpsError('invalid-argument', 'Authorization ID is required');
+    }
+
+    const amount = Number(data.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new functions.https.HttpsError('invalid-argument', 'Invalid capture amount');
+    }
+
+    const { captureAuthorizationPayment } = require('./services/paypalService');
+    const capture = await captureAuthorizationPayment({
+      authorizationId: data.authorizationId,
+      amount,
+      currency: data.currency || 'USD',
+      finalCapture: data.finalCapture ?? false
+    });
+
+    return {
+      success: true,
+      captureId: capture.id,
+      status: capture.status,
+      amount: Number(capture.amount?.value || amount),
+      currency: capture.amount?.currency_code || data.currency || 'USD',
+      capturedAt: capture.update_time || capture.create_time || new Date().toISOString(),
+      capture
+    };
+  } catch (error: any) {
+    console.error('❌ Error capturing PayPal authorization payment:', error);
+
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+
+    throw new functions.https.HttpsError(
+      'internal',
+      `Failed to capture PayPal authorization payment: ${error.message}`,
       { error: error.message }
     );
   }
@@ -5343,4 +5437,114 @@ export const capturePayPalVaultOrder = functions.https.onCall(async (data, conte
     );
   }
 });
+
+/**
+ * Create a refundable authorization hold against the vaulted card used for checkout.
+ */
+export const createPayPalAuthorizationHold = functions.https.onCall(async (data, context) => {
+  try {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    if (!data.orderId || !data.vaultId) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Order ID and vaulted card ID are required'
+      );
+    }
+
+    const amount = Number(data.amount || 50);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new functions.https.HttpsError('invalid-argument', 'Invalid hold amount');
+    }
+
+    const { createAuthorizationHold } = require('./services/paypalService');
+    const hold = await createAuthorizationHold({
+      vaultId: data.vaultId,
+      amount,
+      currency: data.currency || 'USD',
+      orderId: data.orderId,
+      description: data.description
+    });
+
+    return {
+      success: true,
+      hold
+    };
+  } catch (error: any) {
+    console.error('âŒ Error creating PayPal authorization hold:', error);
+
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+
+    throw new functions.https.HttpsError(
+      'internal',
+      `Failed to create PayPal authorization hold: ${error.message}`,
+      { error: error.message }
+    );
+  }
+});
+
+/**
+ * Release authorization holds whose requested release time has passed.
+ */
+export const voidExpiredAuthorizationHolds = functions.pubsub.schedule('every 1 hours')
+  .timeZone('America/New_York')
+  .onRun(async () => {
+    const rtdb = admin.database();
+    const now = Date.now();
+    let voidedCount = 0;
+    let errorCount = 0;
+
+    try {
+      const snapshot = await rtdb.ref('bookings').once('value');
+      if (!snapshot.exists()) {
+        console.log('No bookings found while checking authorization holds');
+        return null;
+      }
+
+      const bookings = snapshot.val() || {};
+      const { voidPayPalAuthorization } = require('./services/paypalService');
+
+      for (const [bookingId, booking] of Object.entries(bookings)) {
+        const bookingData = booking as any;
+        const hold = bookingData?.paymentDetails?.authorizationHold;
+
+        if (!hold || hold.status !== 'AUTHORIZED' || !hold.authorizationId || !hold.releaseAfter) {
+          continue;
+        }
+
+        const releaseTime = new Date(hold.releaseAfter).getTime();
+        if (!Number.isFinite(releaseTime) || releaseTime > now) {
+          continue;
+        }
+
+        try {
+          const voidResult = await voidPayPalAuthorization(hold.authorizationId);
+          await rtdb.ref(`bookings/${bookingId}/paymentDetails/authorizationHold`).update({
+            status: 'VOIDED',
+            voidedAt: new Date().toISOString(),
+            voidResult
+          });
+          voidedCount++;
+          console.log(`âœ… Voided authorization hold for booking ${bookingId}`);
+        } catch (voidError: any) {
+          errorCount++;
+          console.error(`âŒ Failed to void authorization hold for booking ${bookingId}:`, voidError);
+          await rtdb.ref(`bookings/${bookingId}/paymentDetails/authorizationHold`).update({
+            lastVoidAttemptAt: new Date().toISOString(),
+            lastVoidError: voidError.message || 'Unknown error'
+          });
+        }
+      }
+
+      console.log(`Authorization hold cleanup complete. Voided: ${voidedCount}, errors: ${errorCount}`);
+      return null;
+    } catch (error) {
+      console.error('âŒ Fatal error voiding expired authorization holds:', error);
+      return null;
+    }
+  });
 

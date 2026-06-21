@@ -248,6 +248,10 @@ export default function Checkout() {
   const [paymentCompleted, setPaymentCompleted] = useState<boolean>(false);
   const [paymentId, setPaymentId] = useState<string>("");
   const [processingPayment, setProcessingPayment] = useState<boolean>(false);
+  const [authorizationHoldRequired, setAuthorizationHoldRequired] = useState<boolean>(false);
+  const [authorizationHoldCompleted, setAuthorizationHoldCompleted] = useState<boolean>(false);
+  const [processingAuthorizationHold, setProcessingAuthorizationHold] = useState<boolean>(false);
+  const [authorizationHoldError, setAuthorizationHoldError] = useState<string | null>(null);
   const [pendingBookingId, setPendingBookingId] = useState<string>("");
   const [requiresPhoneCall, setRequiresPhoneCall] = useState<boolean>(false);
   const [loadingBookingFromUrl, setLoadingBookingFromUrl] = useState<boolean>(false);
@@ -3222,6 +3226,120 @@ export default function Checkout() {
   };
 
   // PayPal payment handlers
+  const buildAuthorizationHoldReleaseAfter = (booking: BookingData): { eventEnd?: string; releaseAfter?: string } => {
+    const eventEnd = (booking.orderDetails as any)?.eventEnd;
+    if (!eventEnd) {
+      return {};
+    }
+
+    const eventEndDate = new Date(eventEnd);
+    if (Number.isNaN(eventEndDate.getTime())) {
+      return {};
+    }
+
+    const releaseDate = new Date(eventEndDate.getTime() + 24 * 60 * 60 * 1000);
+    return {
+      eventEnd: eventEndDate.toISOString(),
+      releaseAfter: releaseDate.toISOString()
+    };
+  };
+
+  const shouldRequireAuthorizationHold = (booking: BookingData): boolean =>
+    Boolean((booking.orderDetails as any)?.eventEnd) &&
+    !booking.orderDetails?.items?.every((item: any) => item.isGiftCard || item.isMembership);
+
+  const shouldRequirePrePaymentAuthorizationHold = (): boolean =>
+    Boolean(pendingBookingId) &&
+    cart.some((item: any) => !item.isGiftCard && !item.isMembership);
+
+  const beginAuthorizationHoldStep = (booking: BookingData) => {
+    if (shouldRequireAuthorizationHold(booking)) {
+      setAuthorizationHoldRequired(true);
+      setAuthorizationHoldCompleted(false);
+      setAuthorizationHoldError(null);
+    } else {
+      setAuthorizationHoldRequired(false);
+      setAuthorizationHoldCompleted(true);
+    }
+  };
+
+  const createPayPalAuthorizationOrder = async () => {
+    if (!pendingBookingId) {
+      throw new Error('Booking ID is required before placing authorization hold');
+    }
+
+    try {
+      const { app } = await import('../components/FirebaseConfig');
+      const { getFunctions, httpsCallable } = await import('firebase/functions');
+      const functions = getFunctions(app);
+      const createAuthorizationOrderFn = httpsCallable(functions, 'createPayPalBuyerAuthorizationOrder');
+      const result = await createAuthorizationOrderFn({
+        orderId: pendingBookingId,
+        amount: 50,
+        currency: 'USD',
+        description: `JumpCSRA refundable damage hold for booking ${pendingBookingId}`
+      });
+      const responseData = result.data as any;
+
+      if (!responseData.success || !responseData.orderId) {
+        throw new Error('Failed to create PayPal authorization order');
+      }
+
+      return responseData.orderId;
+    } catch (error) {
+      console.error('Error creating PayPal authorization order:', error);
+      throw error;
+    }
+  };
+
+  const saveApprovedAuthorizationHold = async (
+    booking: BookingData,
+    authorizationOrderId: string,
+    authorizationDetails: any
+  ) => {
+    const { eventEnd, releaseAfter } = buildAuthorizationHoldReleaseAfter(booking);
+
+    if (!eventEnd || !releaseAfter) {
+      throw new Error('Booking event end time is required before placing authorization hold');
+    }
+
+    const authorization =
+      authorizationDetails?.purchase_units?.[0]?.payments?.authorizations?.[0];
+
+    if (!authorization?.id) {
+      throw new Error('PayPal did not return an authorization ID');
+    }
+
+    const authorizationHold = {
+      amount: Number(authorization.amount?.value || 50),
+      currency: authorization.amount?.currency_code || 'USD',
+      status: 'AUTHORIZED' as const,
+      paypalOrderId: authorizationOrderId,
+      authorizationId: authorization.id,
+      createdAt: authorization.create_time || new Date().toISOString(),
+      releaseAfter,
+      eventEnd,
+      ...(authorization.expiration_time ? { expirationTime: authorization.expiration_time } : {}),
+      ...(booking.paymentDetails?.paypalOrderId ? { sourcePaymentOrderId: booking.paymentDetails.paypalOrderId } : {})
+    };
+
+    const updatedBooking = {
+      ...booking,
+      paymentDetails: {
+        ...booking.paymentDetails,
+        authorizationHold
+      },
+      updatedAt: new Date().toISOString()
+    };
+
+    const success = await saveBookingData(updatedBooking);
+    if (!success) {
+      throw new Error('Failed to save authorization hold to booking');
+    }
+
+    return authorizationHold;
+  };
+
   const createPayPalOrder = async (data: any, actions: any) => {
     // Calculate PayPal amount (total payment minus wallet application)
     const payPalAmount = calculatePayPalAmount();
@@ -3282,7 +3400,7 @@ export default function Checkout() {
           throw new Error("Promotional gift card must be sent to a different email address");
         }
       }
-      
+
       console.log('🏦 Creating PayPal order via Cloud Function:', {
         amount: payPalAmount.toFixed(2),
         saveCard: saveCardInfo,
@@ -3420,6 +3538,7 @@ export default function Checkout() {
             const success = await saveBookingData(bookingWithWalletCapture);
             if (success) {
               setPaymentId(`wallet-${Date.now()}`);
+              beginAuthorizationHoldStep(bookingWithWalletCapture);
               setPaymentCompleted(true);
               
               // Track discount usage (homepage discounts OR promo codes) - Wallet payment for existing booking
@@ -3692,15 +3811,17 @@ export default function Checkout() {
               // Store cart data before clearing for order summary display
               setCompletedOrderCart([...cart]);
 
-              // Clear all cart-related localStorage items
-              localStorage.removeItem("cart");
-              localStorage.removeItem("cart_wetDrySelections");
-              localStorage.removeItem("cart_duration");
-              localStorage.removeItem("cart_surface");
-              localStorage.removeItem("cart_deliveryTime");
-              localStorage.removeItem("cart_location");
-              localStorage.removeItem("cart_giftCardValues");
-              setCart([]);
+              if (!shouldRequireAuthorizationHold(bookingWithWalletCapture)) {
+                // Clear all cart-related localStorage items
+                localStorage.removeItem("cart");
+                localStorage.removeItem("cart_wetDrySelections");
+                localStorage.removeItem("cart_duration");
+                localStorage.removeItem("cart_surface");
+                localStorage.removeItem("cart_deliveryTime");
+                localStorage.removeItem("cart_location");
+                localStorage.removeItem("cart_giftCardValues");
+                setCart([]);
+              }
             }
           }
         }
@@ -3914,7 +4035,7 @@ export default function Checkout() {
       const paypalOrderId = details.id; // This is the order ID (for overall order reference)
       const captureDetails = details.purchase_units[0]?.payments?.captures[0];
       const captureId = captureDetails?.id; // This is the capture ID (used for refunds)
-      const transactionId = captureDetails?.supplementary_data?.related_ids?.order_id || 
+      const transactionId = captureDetails?.supplementary_data?.related_ids?.order_id ||
                            captureDetails?.id; // Transaction ID (appears in PayPal reports)
       const payPalAmount = parseFloat(details.purchase_units[0].amount.value);
       
@@ -4086,7 +4207,7 @@ export default function Checkout() {
             
             // Update all items with capture IDs (wallet if used, plus PayPal capture ID)
             const bookingWithCaptureIds = updateItemCaptureIds(updatedBooking, captureId, useWalletFirst && walletAppliedAmount > 0);
-            
+
             // Add payment to payment history
             if (!bookingWithCaptureIds.paymentDetails.paymentHistory) {
               bookingWithCaptureIds.paymentDetails.paymentHistory = [];
@@ -4106,6 +4227,12 @@ export default function Checkout() {
             const success = await saveBookingData(bookingWithCaptureIds);
             if (success) {
               setPaymentId(captureId);
+              if (bookingWithCaptureIds.paymentDetails.authorizationHold) {
+                setAuthorizationHoldRequired(false);
+                setAuthorizationHoldCompleted(true);
+              } else {
+                beginAuthorizationHoldStep(bookingWithCaptureIds);
+              }
               setPaymentCompleted(true);
               
               // Track discount usage (homepage discounts OR promo codes) - PayPal payment for existing booking
@@ -4557,16 +4684,18 @@ export default function Checkout() {
               
               // Store cart data before clearing for order summary display
               setCompletedOrderCart([...cart]);
-              
-              // Clear all cart-related localStorage items after successful payment
-              localStorage.removeItem("cart");
-              localStorage.removeItem("cart_wetDrySelections");
-              localStorage.removeItem("cart_duration");
-              localStorage.removeItem("cart_surface");
-              localStorage.removeItem("cart_deliveryTime");
-              localStorage.removeItem("cart_location");
-              localStorage.removeItem("cart_giftCardValues");
-              setCart([]);
+
+              if (!shouldRequireAuthorizationHold(bookingWithCaptureIds) || bookingWithCaptureIds.paymentDetails.authorizationHold) {
+                // Clear all cart-related localStorage items after successful payment
+                localStorage.removeItem("cart");
+                localStorage.removeItem("cart_wetDrySelections");
+                localStorage.removeItem("cart_duration");
+                localStorage.removeItem("cart_surface");
+                localStorage.removeItem("cart_deliveryTime");
+                localStorage.removeItem("cart_location");
+                localStorage.removeItem("cart_giftCardValues");
+                setCart([]);
+              }
               
               // Debug log removed
               // Debug log removed
@@ -4811,6 +4940,133 @@ export default function Checkout() {
       setProcessingPayment(false);
     }
   };
+
+  const onPayPalAuthorizationApprove = async (data: any, actions: any) => {
+    if (!pendingBookingId) {
+      setAuthorizationHoldError('Booking ID is missing. Please contact support.');
+      return;
+    }
+
+    setProcessingAuthorizationHold(true);
+    setAuthorizationHoldError(null);
+
+    try {
+      const authorizationDetails = await actions.order.authorize();
+      const bookingToUpdate = await loadBookingData(pendingBookingId);
+
+      if (!bookingToUpdate) {
+        throw new Error('Could not load booking to save authorization hold');
+      }
+
+      const authorizationHold = await saveApprovedAuthorizationHold(
+        bookingToUpdate,
+        authorizationDetails.id || data.orderID,
+        authorizationDetails
+      );
+
+      setAuthorizationHoldCompleted(true);
+      setAuthorizationHoldRequired(false);
+
+      notifications.show({
+        title: 'Authorization Hold Placed',
+        message: `$${authorizationHold.amount.toFixed(2)} hold has been authorized. You can now complete your booking payment.`,
+        color: 'green',
+        autoClose: 8000,
+      });
+    } catch (error: any) {
+      console.error('Authorization hold error:', error);
+      setAuthorizationHoldError(error?.message || 'There was an error placing the authorization hold.');
+      notifications.show({
+        title: 'Authorization Hold Error',
+        message: error?.message || 'There was an error placing the authorization hold. Please try again.',
+        color: 'red',
+        autoClose: 10000,
+      });
+    } finally {
+      setProcessingAuthorizationHold(false);
+    }
+  };
+
+  const renderPrePaymentAuthorizationHold = () => (
+    <div style={{
+      backgroundColor: 'white',
+      padding: '2rem',
+      borderRadius: '8px',
+      marginBottom: '2rem',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      textAlign: 'center'
+    }}>
+      <h2 style={{ marginBottom: '1rem', color: '#333' }}>Refundable Authorization Hold</h2>
+      <p style={{ fontSize: '1.05rem', marginBottom: '1rem', color: '#333' }}>
+        Please authorize a separate refundable $50 hold for the rental before completing your booking payment.
+      </p>
+      <p style={{ fontSize: '0.95rem', marginBottom: '1.5rem', color: '#666' }}>
+        This is not charged now. After the hold is authorized, your booking payment options will appear.
+      </p>
+
+      {authorizationHoldError && (
+        <div style={{
+          padding: '1rem',
+          backgroundColor: '#f8d7da',
+          border: '1px solid #f5c6cb',
+          borderRadius: '4px',
+          color: '#721c24',
+          marginBottom: '1rem'
+        }}>
+          {authorizationHoldError}
+        </div>
+      )}
+
+      <div style={{
+        width: '100%',
+        maxWidth: '500px',
+        margin: '0 auto'
+      }}>
+        <PayPalScriptProvider key={`authorization-hold-${pendingBookingId}`} options={{
+          clientId: "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0",
+          currency: "USD",
+          intent: "authorize",
+          dataNamespace: "paypalAuthHold",
+          components: "buttons,funding-eligibility",
+          "enable-funding": "card,paylater,venmo",
+          "disable-funding": ""
+        }}>
+          <PayPalButtons
+            style={{
+              layout: "vertical",
+              color: "black",
+              shape: "rect",
+              label: "pay",
+              height: 45,
+              tagline: false
+            }}
+            fundingSource="card"
+            createOrder={createPayPalAuthorizationOrder}
+            onApprove={onPayPalAuthorizationApprove}
+            onError={onPayPalError}
+            disabled={processingAuthorizationHold}
+            forceReRender={[pendingBookingId]}
+          />
+          <PayPalButtons
+            style={{
+              layout: "vertical",
+              color: "gold",
+              shape: "rect",
+              label: "paypal",
+              height: 45,
+              tagline: false
+            }}
+            fundingSource="paypal"
+            createOrder={createPayPalAuthorizationOrder}
+            onApprove={onPayPalAuthorizationApprove}
+            onError={onPayPalError}
+            disabled={processingAuthorizationHold}
+            forceReRender={[pendingBookingId]}
+          />
+        </PayPalScriptProvider>
+      </div>
+    </div>
+  );
 
   const onPayPalError = (err: any) => {
     console.error("PayPal error:", err);
@@ -7404,6 +7660,8 @@ export default function Checkout() {
                 </div>
               )}
 
+              {shouldRequirePrePaymentAuthorizationHold() && !authorizationHoldCompleted && renderPrePaymentAuthorizationHold()}
+
               {/* Payment Buttons */}
               <div style={{ marginBottom: '2rem' }}>
                 <h3 style={{ marginBottom: '1rem', color: '#333', textAlign: 'center' }}>
@@ -7415,7 +7673,7 @@ export default function Checkout() {
                 </h3>
                 
                 {/* Wallet-only completion button */}
-                {useWalletFirst && calculatePayPalAmount() <= 0 && (
+                {useWalletFirst && calculatePayPalAmount() <= 0 && (!shouldRequirePrePaymentAuthorizationHold() || authorizationHoldCompleted) && (
                   <>
                     {/* Show warning message if BOGO is active but email not confirmed */}
                     {isBogoGiftCardActive && !promotionalEmailConfirmed ? (
@@ -7451,7 +7709,7 @@ export default function Checkout() {
                         </div>
                         <button
                           onClick={async () => await onWalletOnlyPayment()}
-                          disabled={processingPayment}
+                          disabled={processingPayment || (shouldRequirePrePaymentAuthorizationHold() && !authorizationHoldCompleted)}
                           style={{
                             backgroundColor: '#4CAF50',
                             color: 'white',
@@ -7460,12 +7718,12 @@ export default function Checkout() {
                             borderRadius: '8px',
                             fontSize: '1.1rem',
                             fontWeight: 'bold',
-                            cursor: processingPayment ? 'not-allowed' : 'pointer',
-                            opacity: processingPayment ? 0.6 : 1,
+                            cursor: (processingPayment || (shouldRequirePrePaymentAuthorizationHold() && !authorizationHoldCompleted)) ? 'not-allowed' : 'pointer',
+                            opacity: (processingPayment || (shouldRequirePrePaymentAuthorizationHold() && !authorizationHoldCompleted)) ? 0.6 : 1,
                             boxShadow: '0 4px 8px rgba(76, 175, 80, 0.3)'
                           }}
                         >
-                          {processingPayment ? 'Processing...' : 'Complete Order with Wallet'}
+                          {processingPayment ? 'Processing...' : (shouldRequirePrePaymentAuthorizationHold() && !authorizationHoldCompleted) ? 'Authorize Hold First' : 'Complete Order with Wallet'}
                         </button>
                       </div>
                     )}
@@ -7473,7 +7731,7 @@ export default function Checkout() {
                 )}
                 
                 {/* PayPal buttons */}
-                {(!useWalletFirst || calculatePayPalAmount() > 0) && (
+                {(!useWalletFirst || calculatePayPalAmount() > 0) && (!shouldRequirePrePaymentAuthorizationHold() || authorizationHoldCompleted) && (
                   <>
                     {/* Show warning message if BOGO is active but email not confirmed */}
                     {isBogoGiftCardActive && !promotionalEmailConfirmed ? (
@@ -7513,10 +7771,13 @@ export default function Checkout() {
                           maxWidth: '500px',
                           margin: '0 auto'
                         }}>
-                          <PayPalScriptProvider options={{
+                          <PayPalScriptProvider
+                            key={`paypal-checkout-capture-${pendingBookingId || 'new'}-${calculatePayPalAmount()}`}
+                            options={{
                             clientId: "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0",
                             currency: "USD",
                             intent: "capture",
+                            dataNamespace: "paypalCheckoutCapture",
                             components: "buttons,funding-eligibility",
                             "enable-funding": "card,paylater,venmo",
                             "disable-funding": ""
@@ -8453,6 +8714,8 @@ export default function Checkout() {
             </div>
           )}
 
+          {shouldRequirePrePaymentAuthorizationHold() && !authorizationHoldCompleted && renderPrePaymentAuthorizationHold()}
+
           {/* PayPal Payment */}
           {!requiresPhoneCall && (
             <div style={{ marginBottom: '2rem' }}>
@@ -8461,7 +8724,7 @@ export default function Checkout() {
               </h3>
               
               {/* Show wallet-only completion button if fully covered */}
-              {useWalletFirst && calculatePayPalAmount() <= 0 && (
+              {useWalletFirst && calculatePayPalAmount() <= 0 && (!shouldRequirePrePaymentAuthorizationHold() || authorizationHoldCompleted) && (
                 <>
                   {/* Show warning message if BOGO is active but email not confirmed */}
                   {isBogoGiftCardActive && cart.some(item => item.isGiftCard) && !promotionalEmailConfirmed ? (
@@ -8500,6 +8763,7 @@ export default function Checkout() {
                           // Process wallet-only payment
                           await onWalletOnlyPayment();
                         }}
+                        disabled={processingPayment || (shouldRequirePrePaymentAuthorizationHold() && !authorizationHoldCompleted)}
                         style={{
                           backgroundColor: '#4CAF50',
                           color: 'white',
@@ -8508,11 +8772,12 @@ export default function Checkout() {
                           borderRadius: '8px',
                           fontSize: '1.1rem',
                           fontWeight: 'bold',
-                          cursor: 'pointer',
+                          cursor: (processingPayment || (shouldRequirePrePaymentAuthorizationHold() && !authorizationHoldCompleted)) ? 'not-allowed' : 'pointer',
+                          opacity: (processingPayment || (shouldRequirePrePaymentAuthorizationHold() && !authorizationHoldCompleted)) ? 0.6 : 1,
                           boxShadow: '0 4px 8px rgba(76, 175, 80, 0.3)'
                         }}
                       >
-                        Complete Order with Wallet
+                        {(shouldRequirePrePaymentAuthorizationHold() && !authorizationHoldCompleted) ? 'Authorize Hold First' : 'Complete Order with Wallet'}
                       </button>
                     </div>
                   )}
@@ -8657,7 +8922,7 @@ export default function Checkout() {
               )}
               
               {/* Save card information checkbox */}
-              {(!useWalletFirst || calculatePayPalAmount() > 0) && (
+              {(!useWalletFirst || calculatePayPalAmount() > 0) && (!shouldRequirePrePaymentAuthorizationHold() || authorizationHoldCompleted) && (
                 <div style={{
                   padding: '1rem',
                   backgroundColor: '#f8f9fa',
@@ -8698,7 +8963,7 @@ export default function Checkout() {
               
               {/* Only show PayPal buttons if there's an amount to pay via PayPal */}
               {/* Always show PayPal buttons if there's an amount to pay via PayPal */}
-              {(!useWalletFirst || calculatePayPalAmount() > 0) && (
+              {(!useWalletFirst || calculatePayPalAmount() > 0) && (!shouldRequirePrePaymentAuthorizationHold() || authorizationHoldCompleted) && (
                 <>
                   {/* Show warning message if BOGO is active but email not confirmed */}
                   {isBogoGiftCardActive && cart.some(item => item.isGiftCard) && !promotionalEmailConfirmed ? (
@@ -8725,10 +8990,13 @@ export default function Checkout() {
                       maxWidth: '500px',
                       margin: '0 auto'
                     }}>
-                      <PayPalScriptProvider options={{
+                      <PayPalScriptProvider
+                        key={`paypal-checkout-capture-${pendingBookingId || 'new'}-${calculatePayPalAmount()}`}
+                        options={{
                         clientId: "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0", // Your PayPal sandbox client ID
                         currency: "USD",
                         intent: "capture",
+                        dataNamespace: "paypalCheckoutCapture",
                         components: "buttons,funding-eligibility",
                         "enable-funding": "card,paylater,venmo",
                         "disable-funding": ""
@@ -8849,7 +9117,7 @@ export default function Checkout() {
           </div>
         </div>
 
-      {currentStep === 'payment' && paymentCompleted && (
+      {currentStep === 'payment' && paymentCompleted && (!authorizationHoldRequired || authorizationHoldCompleted) && (
         <div style={{ 
           backgroundColor: 'white', 
           padding: '2rem', 

@@ -452,6 +452,7 @@ export const createVaultOrder = async (orderData: {
   saveCard: boolean;
   customerId?: string;
   orderId?: string;
+  intent?: 'CAPTURE' | 'AUTHORIZE';
 }): Promise<any> => {
   try {
     console.log('🏦 Creating PayPal order with vault attributes:', {
@@ -464,7 +465,7 @@ export const createVaultOrder = async (orderData: {
     const accessToken = await getPayPalAccessToken();
     
     const orderPayload: any = {
-      intent: 'CAPTURE',
+      intent: orderData.intent || 'CAPTURE',
       purchase_units: [
         {
           reference_id: orderData.orderId || `order-${Date.now()}`,
@@ -520,6 +521,96 @@ export const createVaultOrder = async (orderData: {
   }
 };
 
+export const captureAuthorizationPayment = async (data: {
+  authorizationId: string;
+  amount: number;
+  currency?: string;
+  finalCapture?: boolean;
+}): Promise<any> => {
+  try {
+    const accessToken = await getPayPalAccessToken();
+    const amount = data.amount.toFixed(2);
+
+    const response = await fetch(`${PAYPAL_BASE_URL}/v2/payments/authorizations/${data.authorizationId}/capture`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'PayPal-Request-Id': `capture-auth-${data.authorizationId}-${Date.now()}`
+      },
+      body: JSON.stringify({
+        amount: {
+          currency_code: data.currency || 'USD',
+          value: amount
+        },
+        final_capture: data.finalCapture ?? false
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error('❌ Authorization capture failed:', result);
+      throw new Error(`Failed to capture authorization: ${result.message || 'Unknown error'}`);
+    }
+
+    return result;
+  } catch (error: any) {
+    console.error('❌ Error capturing authorization:', error);
+    throw error;
+  }
+};
+
+/**
+ * Create a PayPal checkout order that the buyer can approve as an authorization hold.
+ */
+export const createBuyerAuthorizationOrder = async (orderData: {
+  amount: string;
+  currency?: string;
+  orderId: string;
+  description?: string;
+}): Promise<any> => {
+  try {
+    const accessToken = await getPayPalAccessToken();
+
+    const orderPayload: any = {
+      intent: 'AUTHORIZE',
+      purchase_units: [
+        {
+          reference_id: `${orderData.orderId}-authorization-hold`,
+          description: orderData.description || `JumpCSRA refundable damage hold for booking ${orderData.orderId}`,
+          amount: {
+            currency_code: orderData.currency || 'USD',
+            value: orderData.amount
+          }
+        }
+      ]
+    };
+
+    const response = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'PayPal-Request-Id': `buyer-hold-${orderData.orderId}-${Date.now()}`
+      },
+      body: JSON.stringify(orderPayload)
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error('âŒ Buyer authorization order creation failed:', result);
+      throw new Error(`Failed to create authorization order: ${result.message || 'Unknown error'}`);
+    }
+
+    return result;
+  } catch (error: any) {
+    console.error('âŒ Error creating buyer authorization order:', error);
+    throw error;
+  }
+};
+
 /**
  * Capture PayPal order and retrieve vault information
  * @param orderId - PayPal order ID to capture
@@ -564,6 +655,141 @@ export const captureVaultOrder = async (orderId: string): Promise<any> => {
     return result;
   } catch (error: any) {
     console.error('❌ Error capturing vault order:', error);
+    throw error;
+  }
+};
+
+/**
+ * Create a $ authorization against a vaulted card and return the authorization details.
+ * PayPal authorizations are valid for up to 29 days and should be voided when no longer needed.
+ */
+export const createAuthorizationHold = async (data: {
+  vaultId: string;
+  amount: number;
+  currency?: string;
+  orderId: string;
+  description?: string;
+}): Promise<any> => {
+  try {
+    const accessToken = await getPayPalAccessToken();
+    const amount = data.amount.toFixed(2);
+
+    const orderPayload = {
+      intent: 'AUTHORIZE',
+      purchase_units: [
+        {
+          reference_id: `${data.orderId}-damage-hold`,
+          description: data.description || `JumpCSRA refundable damage hold for booking ${data.orderId}`,
+          amount: {
+            currency_code: data.currency || 'USD',
+            value: amount
+          }
+        }
+      ],
+      payment_source: {
+        card: {
+          vault_id: data.vaultId
+        }
+      }
+    };
+
+    const createResponse = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'PayPal-Request-Id': `hold-order-${data.orderId}-${Date.now()}`
+      },
+      body: JSON.stringify(orderPayload)
+    });
+
+    const orderResult = await createResponse.json();
+
+    if (!createResponse.ok) {
+      console.error('âŒ Authorization hold order creation failed:', orderResult);
+      throw new Error(`Failed to create authorization hold order: ${orderResult.message || 'Unknown error'}`);
+    }
+
+    let authorizeResult = orderResult;
+    let authorization = authorizeResult.purchase_units?.[0]?.payments?.authorizations?.[0];
+
+    if (!authorization?.id) {
+      const authorizeResponse = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders/${orderResult.id}/authorize`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+          'PayPal-Request-Id': `hold-auth-${data.orderId}-${Date.now()}`
+        }
+      });
+
+      authorizeResult = await authorizeResponse.json();
+
+      if (!authorizeResponse.ok) {
+        console.error('âŒ Authorization hold failed:', authorizeResult);
+        throw new Error(`Failed to authorize hold: ${authorizeResult.message || 'Unknown error'}`);
+      }
+
+      authorization = authorizeResult.purchase_units?.[0]?.payments?.authorizations?.[0];
+    }
+
+    if (!authorization?.id) {
+      console.error('âŒ No authorization returned for hold:', authorizeResult);
+      throw new Error('PayPal did not return an authorization ID for the hold');
+    }
+
+    return {
+      orderId: orderResult.id,
+      authorizationId: authorization.id,
+      status: authorization.status,
+      amount: authorization.amount,
+      createTime: authorization.create_time,
+      updateTime: authorization.update_time,
+      expirationTime: authorization.expiration_time,
+      paymentSource: authorizeResult.payment_source,
+      fullResponse: authorizeResult
+    };
+  } catch (error: any) {
+    console.error('âŒ Error creating authorization hold:', error);
+    throw error;
+  }
+};
+
+/**
+ * Void an uncaptured PayPal authorization.
+ */
+export const voidPayPalAuthorization = async (authorizationId: string): Promise<any> => {
+  try {
+    const accessToken = await getPayPalAccessToken();
+
+    const response = await fetch(`${PAYPAL_BASE_URL}/v2/payments/authorizations/${authorizationId}/void`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'PayPal-Request-Id': `void-auth-${authorizationId}-${Date.now()}`
+      }
+    });
+
+    if (response.status === 204) {
+      return {
+        success: true,
+        authorizationId,
+        status: 'VOIDED',
+        voidedAt: new Date().toISOString()
+      };
+    }
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error('âŒ Authorization void failed:', result);
+      throw new Error(`Failed to void authorization: ${result.message || 'Unknown error'}`);
+    }
+
+    return result;
+  } catch (error: any) {
+    console.error('âŒ Error voiding authorization:', error);
     throw error;
   }
 };

@@ -56,6 +56,23 @@ export interface BookingData {
     paypalOrderId?: string; // PayPal Order ID (overall order reference)
     paypalCaptureId?: string; // Capture ID (used for refunds via PayPal API)
     paypalTransactionId?: string; // Transaction ID (appears in PayPal reports/statements)
+    authorizationHold?: {
+      amount: number;
+      currency: string;
+      status: 'AUTHORIZED' | 'VOIDED' | 'CAPTURED' | 'FAILED';
+      paypalOrderId?: string;
+      authorizationId?: string;
+      createdAt: string;
+      releaseAfter?: string;
+      eventEnd?: string;
+      expirationTime?: string;
+      reauthorizedAt?: string;
+      voidedAt?: string;
+      capturedAt?: string;
+      paypalCaptureId?: string;
+      error?: string;
+      sourcePaymentOrderId?: string;
+    };
     paymentStatus: 'pending' | 'completed' | 'failed';
     paymentDate?: string;
     paymentHistory?: Array<{
