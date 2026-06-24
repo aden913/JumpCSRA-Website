@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { notifications } from "@mantine/notifications";
+import { fetchDeliveryDistance } from "../utils/backendPlacesService";
 
 type Coordinates = {
   lat: number;
@@ -16,8 +17,6 @@ type AddressDebugSnapshot = {
   hasCoordinates: boolean;
   lastFailureReason: string | null;
 };
-
-const BASE_COORDINATES: Coordinates = { lat: 33.4858818054199, lng: -81.9477233886719 };
 
 const normalizeAddress = (address: string): string => address.trim().replace(/\s+/g, " ").toLowerCase();
 
@@ -79,15 +78,13 @@ export function useDeliveryAddressVerification() {
         return false;
       }
 
-      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${BASE_COORDINATES.lng},${BASE_COORDINATES.lat};${destLon},${destLat}?overview=false`;
-      const routeResponse = await fetch(osrmUrl);
-      const routeData = await routeResponse.json();
+      const routeData = await fetchDeliveryDistance(destinationAddress, {
+        lat: destLat,
+        lng: destLon,
+      });
 
-      if (routeData.routes && routeData.routes.length > 0) {
-        const distanceMeters = routeData.routes[0].distance;
-        const distanceMiles = distanceMeters * 0.000621371;
-
-        if (distanceMiles > 200) {
+      if (routeData.distanceMeters >= 0) {
+        if (!routeData.withinDeliveryRange) {
           const failureReason = "delivery-distance-exceeded";
           setLastFailureReason(failureReason);
           setDeliveryCost(0);
@@ -95,15 +92,14 @@ export function useDeliveryAddressVerification() {
           setFailedAddresses(prev => new Set(prev).add(destinationAddress));
           notifications.show({
             title: "Delivery Distance Exceeded",
-            message: `This address is ${Math.round(distanceMiles)} miles away. We only deliver within 200 miles of our location. Please contact us at (803) 221-0466 for special arrangements.`,
+            message: `This address is ${Math.round(routeData.distanceMiles)} miles away. We only deliver within ${routeData.maxDeliveryMiles} miles of our location. Please contact us at (803) 221-0466 for special arrangements.`,
             color: "red",
             autoClose: 8000,
           });
           return false;
         }
 
-        const cost = Math.round(distanceMiles * 6);
-        setDeliveryCost(cost);
+        setDeliveryCost(routeData.deliveryCost);
         setLastFailureReason(null);
         return true;
       }

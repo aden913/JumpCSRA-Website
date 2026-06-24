@@ -1,7 +1,11 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import { loadGoogleMapsAPI, isGoogleMapsLoaded } from '../utils/googleMapsLoader';
+import {
+  BackendPlacePrediction,
+  fetchPlaceDetails,
+  fetchPlacePredictions,
+} from '../utils/backendPlacesService';
 
 interface GooglePlacesAutocompleteProps {
   value: string;
@@ -40,13 +44,19 @@ export function GooglePlacesAutocomplete({
   const internalInputRef = useRef<HTMLInputElement>(null);
   const inputRef = externalInputRef ?? internalInputRef;
 
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const onChangeRef = useRef(onChange);
   const onPlaceSelectedRef = useRef(onPlaceSelected);
+  const sessionTokenRef = useRef(
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
 
-  const [isLoaded, setIsLoaded] = useState(false);
   const [isSelectingPlace, setIsSelectingPlace] = useState(false);
   const [localValue, setLocalValue] = useState(value);
+  const [predictions, setPredictions] = useState<BackendPlacePrediction[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const [isLoadingPredictions, setIsLoadingPredictions] = useState(false);
 
   useEffect(() => {
     onChangeRef.current = onChange;
@@ -62,56 +72,72 @@ export function GooglePlacesAutocomplete({
     }
   }, [value, isSelectingPlace, localValue]);
 
-  /**
-   * Load Google Maps API
-   */
   useEffect(() => {
-    if (isGoogleMapsLoaded()) {
-      setIsLoaded(true);
+    const typedValue = localValue.trim();
+
+    if (disabled || isSelectingPlace || typedValue.length < 3) {
+      setPredictions([]);
+      setIsOpen(false);
       return;
     }
 
-    loadGoogleMapsAPI()
-      .then(() => setIsLoaded(true))
-      .catch(() => {});
-  }, []);
-
-  /**
-   * Initialize Places Autocomplete once. Callback refs keep handlers current.
-   */
-  useEffect(() => {
-    if (!isLoaded || !inputRef.current || autocompleteRef.current) return;
-
-    if (!window.google?.maps?.places?.Autocomplete) return;
-
-    const autocomplete = new google.maps.places.Autocomplete(
-      inputRef.current,
-      {
-        types: ['address'],
-        componentRestrictions: { country: 'us' },
-        fields: [
-          'formatted_address',
-          'address_components',
-          'geometry',
-          'place_id'
-        ]
+    const requestId = window.setTimeout(async () => {
+      setIsLoadingPredictions(true);
+      try {
+        const nextPredictions = await fetchPlacePredictions(typedValue, sessionTokenRef.current);
+        setPredictions(nextPredictions);
+        setIsOpen(nextPredictions.length > 0);
+      } catch (error) {
+        console.warn('[PLACES AUTOCOMPLETE] predictions failed', error);
+        setPredictions([]);
+        setIsOpen(false);
+      } finally {
+        setIsLoadingPredictions(false);
       }
-    );
+    }, 250);
 
-    autocompleteRef.current = autocomplete;
+    return () => window.clearTimeout(requestId);
+  }, [disabled, isSelectingPlace, localValue]);
 
-    const placeChangedListener = autocomplete.addListener('place_changed', () => {
-      const place = autocomplete.getPlace();
+  const buildGoogleCompatiblePlace = (
+    placeDetails: Awaited<ReturnType<typeof fetchPlaceDetails>>
+  ): google.maps.places.PlaceResult => ({
+    formatted_address: placeDetails.formatted_address,
+    address_components: placeDetails.address_components,
+    geometry: placeDetails.geometry
+      ? {
+          location: {
+            lat: () => placeDetails.geometry?.location.lat ?? 0,
+            lng: () => placeDetails.geometry?.location.lng ?? 0,
+          } as google.maps.LatLng,
+        } as google.maps.places.PlaceGeometry
+      : undefined,
+    place_id: placeDetails.place_id,
+  });
 
-      if (!place.formatted_address || !place.geometry?.location) {
+  const resetSessionToken = () => {
+    sessionTokenRef.current =
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  };
+
+  const handlePredictionSelect = async (prediction: BackendPlacePrediction) => {
+    setIsSelectingPlace(true);
+    setIsOpen(false);
+    setPredictions([]);
+
+    try {
+      const details = await fetchPlaceDetails(prediction.placeId, sessionTokenRef.current);
+
+      if (!details.formatted_address || !details.geometry?.location) {
         onChangeRef.current('');
         return;
       }
 
-      setIsSelectingPlace(true);
-
+      const place = buildGoogleCompatiblePlace(details);
       const zip = getPostalCode(place);
-      let finalAddress = place.formatted_address;
+      let finalAddress = details.formatted_address;
 
       // Google often omits ZIP from formatted_address, so append it for display/storage.
       if (zip && !finalAddress.includes(zip)) {
@@ -124,10 +150,10 @@ export function GooglePlacesAutocomplete({
         inputRef.current.value = finalAddress;
       }
 
-      console.log('[GOOGLE PLACES AUTOCOMPLETE] place_changed', {
+      console.log('[BACKEND PLACES AUTOCOMPLETE] place_selected', {
         finalAddress,
-        googleFormattedAddress: place.formatted_address,
-        placeId: place.place_id,
+        googleFormattedAddress: details.formatted_address,
+        placeId: details.place_id,
         hasGeometry: Boolean(place.geometry?.location),
       });
 
@@ -141,14 +167,14 @@ export function GooglePlacesAutocomplete({
         }))
       );
 
+      resetSessionToken();
+    } catch (error) {
+      console.warn('[PLACES AUTOCOMPLETE] details failed', error);
+      onChangeRef.current('');
+    } finally {
       setTimeout(() => setIsSelectingPlace(false), 100);
-    });
-
-    return () => {
-      google.maps.event.removeListener(placeChangedListener);
-      autocompleteRef.current = null;
-    };
-  }, [isLoaded, inputRef]);
+    }
+  };
 
   /**
    * Handle manual typing
@@ -158,25 +184,93 @@ export function GooglePlacesAutocomplete({
 
     const typedValue = e.target.value;
     setLocalValue(typedValue);
+    setIsOpen(typedValue.trim().length >= 3);
     onChange(typedValue);
   };
 
   return (
-    <input
-      ref={inputRef}
-      name={name}
-      value={localValue}
-      onChange={handleInputChange}
-      disabled={disabled}
-      placeholder={placeholder}
-      autoComplete="off"
+    <div
       style={{
-        minWidth: '200px',
-        width: `${Math.max(200, localValue.length * 8 + 40)}px`,
-        maxWidth: '100%',
-        transition: 'width 0.2s ease',
-        ...style
+        position: 'relative',
+        display: 'inline-block',
+        maxWidth: '100%'
       }}
-    />
+    >
+      <input
+        ref={inputRef}
+        name={name}
+        value={localValue}
+        onChange={handleInputChange}
+        onFocus={() => {
+          if (predictions.length > 0) setIsOpen(true);
+        }}
+        onBlur={() => {
+          window.setTimeout(() => setIsOpen(false), 150);
+        }}
+        disabled={disabled}
+        placeholder={placeholder}
+        autoComplete="off"
+        style={{
+          minWidth: '200px',
+          width: `${Math.max(200, localValue.length * 8 + 40)}px`,
+          maxWidth: '100%',
+          transition: 'width 0.2s ease',
+          ...style
+        }}
+      />
+      {isOpen && !disabled && (
+        <div
+          role="listbox"
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            minWidth: '280px',
+            marginTop: '4px',
+            background: '#fff',
+            border: '1px solid #d6d6d6',
+            borderRadius: '6px',
+            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.12)',
+            overflow: 'hidden'
+          }}
+        >
+          {isLoadingPredictions && predictions.length === 0 ? (
+            <div style={{ padding: '0.75rem', color: '#666' }}>Searching addresses...</div>
+          ) : (
+            predictions.map((prediction) => (
+              <button
+                key={prediction.placeId}
+                type="button"
+                role="option"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => handlePredictionSelect(prediction)}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '0.75rem',
+                  border: 0,
+                  borderBottom: '1px solid #eee',
+                  background: '#fff',
+                  color: '#1f2933',
+                  textAlign: 'left',
+                  cursor: 'pointer'
+                }}
+              >
+                <strong style={{ display: 'block' }}>
+                  {prediction.structuredFormatting?.main_text || prediction.description}
+                </strong>
+                {prediction.structuredFormatting?.secondary_text && (
+                  <span style={{ display: 'block', color: '#667085', fontSize: '0.85rem', marginTop: '0.15rem' }}>
+                    {prediction.structuredFormatting.secondary_text}
+                  </span>
+                )}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
   );
 }
