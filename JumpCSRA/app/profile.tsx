@@ -45,7 +45,7 @@ import { redeemGiftCardToWallet, validateGiftCard, getGiftCardDetails } from "./
 import { WalletFundingModal } from "./components/WalletFundingModal";
 
 // Base tabs that are always available
-const BASE_TABS = ["Profile Information", "Bookings", "Membership", "Payment Information"];
+const BASE_TABS = ["Profile Information", "Bookings", "Payment Information"];
 
 export default function Profile() {
   const [canEditEmail, setCanEditEmail] = useState(false);
@@ -64,7 +64,13 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined') {
       const savedTab = localStorage.getItem('profile_activeTab');
-      return savedTab ? parseInt(savedTab, 10) : 0;
+      const parsedTab = savedTab ? parseInt(savedTab, 10) : 0;
+
+      if (Number.isNaN(parsedTab)) return 0;
+      if (parsedTab === 2) return 0; // Old Membership tab index
+      if (parsedTab === 3) return 2; // Old Payment Information tab index
+
+      return parsedTab >= 0 && parsedTab < BASE_TABS.length ? parsedTab : 0;
     }
     return 0;
   });
@@ -178,11 +184,11 @@ export default function Profile() {
     userSubscription?.status === 'Active' ||
     userSubscription?.status === 'CANCELLED' ||
     userSubscription?.status === 'Cancelled';
-  const TABS = BASE_TABS; // Use base tabs only - membership booking moved to membership tab
+  const TABS = BASE_TABS;
   
   // Adjust active tab index when tabs change (simplified since tabs are now consistent)
   const adjustActiveTabForSubscription = () => {
-    return activeTab; // No adjustment needed since tabs are consistent
+    return activeTab >= 0 && activeTab < TABS.length ? activeTab : 0;
   };
   const [loadingGiftCardLookup, setLoadingGiftCardLookup] = useState(false);
   const [giftCardError, setGiftCardError] = useState<string | null>(null);
@@ -202,7 +208,7 @@ export default function Profile() {
     const urlParams = new URLSearchParams(window.location.search);
     const tab = urlParams.get('tab');
     if (tab === 'membership') {
-      setActiveTab(2); // Membership tab
+      setActiveTab(0);
     }
   }, [isActiveSubscriber]);
 
@@ -238,8 +244,8 @@ export default function Profile() {
     switch (tabName) {
       case 'profile': return 0;
       case 'bookings': return 1;
-      case 'membership': return 2;
-      case 'payment': return 3;
+      case 'membership': return -1;
+      case 'payment': return 2;
       default: return 0;
     }
   };
@@ -1175,7 +1181,7 @@ export default function Profile() {
 
   // Payment Information tab functions
   const loadPaymentTabData = async () => {
-    if (!user || activeTab !== 3) return;
+    if (!user || activeTab !== getTabIndex('payment')) return;
     
     setLoadingWallet(true);
     setLoadingPaymentInfo(true);
