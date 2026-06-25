@@ -1,4 +1,4 @@
-import { json, type ActionFunctionArgs } from "@remix-run/node";
+import type { ActionFunctionArgs } from "react-router";
 import postal from "node-postal";
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -6,7 +6,7 @@ export async function action({ request }: ActionFunctionArgs) {
   const address = formData.get("address") as string;
 
   if (!address) {
-    return json({ error: "No address provided" }, { status: 400 });
+    return Response.json({ error: "No address provided" }, { status: 400 });
   }
 
   try {
@@ -27,7 +27,7 @@ export async function action({ request }: ActionFunctionArgs) {
       const hasZip = address.match(/\b\d{5}(?:-\d{4})?\b/);
       const addressWithZip = hasZip ? address : `${address} ${zip}`;
       
-      return json({ 
+      return Response.json({ 
         success: true,
         hasZip: true,
         address: addressWithZip,
@@ -37,7 +37,7 @@ export async function action({ request }: ActionFunctionArgs) {
     }
 
     // If no zip found, return original address
-    return json({
+    return Response.json({
       success: true,
       hasZip: false,
       address: address,
@@ -47,6 +47,6 @@ export async function action({ request }: ActionFunctionArgs) {
 
   } catch (error) {
     console.error("Error parsing address:", error);
-    return json({ error: "Failed to parse address", details: String(error) }, { status: 500 });
+    return Response.json({ error: "Failed to parse address", details: String(error) }, { status: 500 });
   }
 }
