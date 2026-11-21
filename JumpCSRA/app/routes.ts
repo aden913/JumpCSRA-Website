@@ -6,6 +6,7 @@ export default [
   route("home", "routes/home.tsx"),
   route("profile", "profile.tsx"),
   route("checkout", "routes/checkout.tsx"),
+  route("api/places/:operation", "routes/api.places.ts"),
   route("subscription-success", "routes/subscription-success.tsx"),
   route("sms-consent", "routes/sms-consent.tsx"),
   route("privacy-policy", "routes/privacy-policy.tsx"),

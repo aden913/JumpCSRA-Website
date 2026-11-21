@@ -33,46 +33,11 @@ type Coordinates = {
   lng: number;
 };
 
-const normalizeBaseUrl = (url: string) => url
-  .replace(/\/api\/(?:email|places)\/?\*?$/i, '')
-  .replace(/\/+$/, '');
-
-function getBaseURL(): string {
-  if (typeof window !== 'undefined' && (window as any).ENV?.PLACES_SERVICE_URL) {
-    return normalizeBaseUrl((window as any).ENV.PLACES_SERVICE_URL);
-  }
-
-  if (typeof window !== 'undefined' && (window as any).ENV?.EMAIL_SERVICE_URL) {
-    return normalizeBaseUrl((window as any).ENV.EMAIL_SERVICE_URL);
-  }
-
-  return normalizeBaseUrl(
-    import.meta.env.VITE_PLACES_SERVICE_URL ||
-    import.meta.env.VITE_EMAIL_SERVICE_URL ||
-    'http://173.230.132.127:3001'
-  );
-}
-
-function getApiKey(): string {
-  if (typeof window !== 'undefined' && (window as any).ENV?.PLACES_API_KEY) {
-    return (window as any).ENV.PLACES_API_KEY;
-  }
-
-  if (typeof window !== 'undefined' && (window as any).ENV?.EMAIL_API_KEY) {
-    return (window as any).ENV.EMAIL_API_KEY;
-  }
-
-  return import.meta.env.VITE_PLACES_API_KEY ||
-    import.meta.env.VITE_EMAIL_API_KEY ||
-    'jumpcsra_secure_api_key_2024';
-}
-
 async function placesRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${getBaseURL()}/api/places${path}`, {
+  const response = await fetch(`/api/places${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
-      'X-API-Key': getApiKey(),
       ...(init.headers || {}),
     },
   });
