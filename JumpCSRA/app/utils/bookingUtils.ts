@@ -1,3 +1,4 @@
+import { isPartyEssentialProduct } from "./availabilityUtils";
 import { getDatabase, ref, get } from "firebase/database";
 import { initializeApp, getApps } from "firebase/app";
 import { firebaseConfig } from "../components/FirebaseConfig";
@@ -178,7 +179,7 @@ export async function validateAndCleanCart(
   const removedItems: any[] = [];
   
   cartItems.forEach(item => {
-    if (unavailableItems.has(item.name)) {
+    if (!isPartyEssentialProduct(item) && unavailableItems.has(item.name)) {
       // Removing unavailable item from cart
       removedItems.push(item);
     } else {

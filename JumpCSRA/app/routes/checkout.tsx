@@ -332,14 +332,20 @@ export default function Checkout() {
   const [carouselScrollPosition, setCarouselScrollPosition] = useState<number>(0);
   const carouselRef = useRef<HTMLDivElement>(null);
   
-  // Availability tracking state
+  // Start with the saved event dates and refine the stock check when a duration is chosen.
+  const availabilityStart = calendarDateRange[0];
+  const availabilityEnd = calendarDateRange[1] ?? availabilityStart;
+  const rentalDuration = cartSettings.duration;
   const [availabilityResult, setAvailabilityResult] = useState<{
     start: Date;
+    end: Date;
     duration: string;
     counts: Map<string, number>;
   } | null>(null);
-  const itemAvailability = availabilityResult?.start === calendarDateRange[0] &&
-    availabilityResult.duration === cartSettings.duration ? availabilityResult.counts : new Map<string, number>();
+  const itemAvailability = availabilityResult?.start === availabilityStart &&
+    availabilityResult.end === availabilityEnd && availabilityResult.duration === rentalDuration
+      ? availabilityResult.counts
+      : new Map<string, number>();
   const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [availabilityFailed, setAvailabilityFailed] = useState(false);
   const [availabilityAttempt, setAvailabilityAttempt] = useState(0);
@@ -1800,12 +1806,10 @@ export default function Checkout() {
     !isGiftCardProduct(item) // Exclude gift cards from last-minute additions
   );
 
-  const availabilityStart = calendarDateRange[0];
-  const rentalDuration = cartSettings.duration;
   useEffect(() => {
     setAvailabilityResult(null);
     setAvailabilityFailed(false);
-    if (!availabilityStart || !rentalDuration || partyEssentials.length === 0) {
+    if (!availabilityStart || !availabilityEnd || partyEssentials.length === 0) {
       setLoadingAvailability(false);
       return;
     }
@@ -1821,10 +1825,11 @@ export default function Checkout() {
     setLoadingAvailability(true);
     getAvailability({
       start: dateKey(availabilityStart),
-      end: dateKey(calculateEndDate(availabilityStart, rentalDuration)),
+      end: dateKey(rentalDuration ? calculateEndDate(availabilityStart, rentalDuration) : availabilityEnd),
     }).then(({ data }) => {
       if (!cancelled) setAvailabilityResult({
         start: availabilityStart,
+        end: availabilityEnd,
         duration: rentalDuration,
         counts: new Map(data.map(item => [item.itemName, item.availableQuantity])),
       });
@@ -1838,7 +1843,7 @@ export default function Checkout() {
     });
 
     return () => { cancelled = true; };
-  }, [availabilityStart, rentalDuration, partyEssentials.length, availabilityAttempt]);
+  }, [availabilityStart, availabilityEnd, rentalDuration, partyEssentials.length, availabilityAttempt]);
 
   // Update carousel scroll position when party essentials step is active
   useEffect(() => {
@@ -6184,7 +6189,7 @@ export default function Checkout() {
                           <>Couldn’t check stock. <button type="button" onClick={() => setAvailabilityAttempt(attempt => attempt + 1)}>Retry</button></>
                         ) : loadingAvailability ? 'Checking availability…' : itemAvailability.has(item.name)
                           ? 'No stock available for these dates.'
-                          : availabilityStart && rentalDuration ? 'Stock information is unavailable for this item.' : 'Select dates and a rental duration to check stock.'}
+                          : availabilityStart ? 'Stock information is unavailable for this item.' : 'Select event dates to check stock.'}
                       </span>
                     )}
 
