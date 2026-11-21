@@ -9,22 +9,13 @@ export type ProductDetailModalProps = {
   product: OptionCardProps | null;
   onClose: () => void;
   onPurchase?: (product: OptionCardProps, quantity?: number) => void;
-  // Party essentials availability props
-  getQuantityOptions?: (itemName: string) => number[];
-  getAvailableQuantityForItem?: (itemName: string) => number;
-  itemAvailability?: Map<string, any>;
-  hasValidDates?: boolean;
 };
 
 export function ProductDetailModal({ 
   open, 
   product, 
   onClose, 
-  onPurchase,
-  getQuantityOptions,
-  getAvailableQuantityForItem,
-  itemAvailability,
-  hasValidDates 
+  onPurchase
 }: ProductDetailModalProps) {
   // Prevent background scrolling when modal is open
   useModalScrollLock(open);
@@ -40,11 +31,6 @@ export function ProductDetailModal({
   if (!open || !product) return null;
 
   const isGiftCard = selectedProductIsGiftCard;
-  const isPartyEssential = product.category === 'party-essentials' && !isGiftCard;
-  const quantityOptions = isGiftCard ? [50, 100] : (isPartyEssential && getQuantityOptions ? getQuantityOptions(product.name) : []);
-  const availableQuantity = isPartyEssential && getAvailableQuantityForItem ? getAvailableQuantityForItem(product.name) : 0;
-  const availability = isPartyEssential && itemAvailability ? itemAvailability.get(product.name) : null;
-
   const mainImg = product.img;
   const detailImages = product.detailImages || [];
   const images = detailImages.includes(mainImg) ? detailImages : [mainImg, ...detailImages];
@@ -70,45 +56,6 @@ export function ProductDetailModal({
             <br />
             <br />
             <strong>Dimensions:</strong> {product.dimensions || "N/A"}
-            
-            {isPartyEssential && (
-              <>
-                <br />
-                <br />
-                <div className="availability-section">
-                  <strong>Availability:</strong>
-                  {!hasValidDates ? (
-                    <span style={{ color: '#666' }}> Please select event dates to check availability</span>
-                  ) : availability?.isAvailable === false ? (
-                    <span style={{ color: 'red' }}> Not available for selected dates</span>
-                  ) : availableQuantity > 0 ? (
-                    <span style={{ color: 'green' }}> {availableQuantity} available</span>
-                  ) : (
-                    <span style={{ color: 'orange' }}> Checking availability...</span>
-                  )}
-                </div>
-                
-                {hasValidDates && availableQuantity > 0 && (
-                  <div style={{ marginTop: '1rem' }}>
-                    <strong>Quantity:</strong>
-                    <select 
-                      value={selectedQuantity} 
-                      onChange={(e) => setSelectedQuantity(Number(e.target.value))}
-                      style={{ 
-                        marginLeft: '10px', 
-                        padding: '5px 10px', 
-                        borderRadius: '4px',
-                        border: '1px solid #ccc'
-                      }}
-                    >
-                      {quantityOptions.map(qty => (
-                        <option key={qty} value={qty}>{qty}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </>
-            )}
             
             {isGiftCard && (
               <>
@@ -139,22 +86,16 @@ export function ProductDetailModal({
             className="modal-purchase"
             onClick={() => {
               if (onPurchase && product) {
-                const quantity = (isPartyEssential || isGiftCard) ? selectedQuantity : 1;
+                const purchaseQuantity = isGiftCard ? selectedQuantity : 1;
                 onPurchase({
                   ...product,
                   wetDry: wetDryLabel,
                   category: product.category || ""
-                }, quantity);
+                }, purchaseQuantity);
               }
             }}
-            disabled={isPartyEssential && (!hasValidDates || availableQuantity <= 0)}
-            style={isPartyEssential && (!hasValidDates || availableQuantity <= 0) ? 
-              { backgroundColor: "#ccc", cursor: "not-allowed" } : {}
-            }
           >
-            {isGiftCard ? `Add $${selectedQuantity} Gift Card` : 
-             isPartyEssential && selectedQuantity > 1 ? `Add ${selectedQuantity} to Cart` : 
-             'Add to Cart'
+            {isGiftCard ? `Add $${selectedQuantity} Gift Card` : 'Add to Cart'
             }
           </button>
           <button className="modal-close" onClick={onClose}>

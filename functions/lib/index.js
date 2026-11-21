@@ -1,7 +1,7 @@
 "use strict";
 var _a, _b, _c, _d, _e, _f;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.voidExpiredAuthorizationHolds = exports.createPayPalAuthorizationHold = exports.capturePayPalVaultOrder = exports.capturePayPalAuthorizationPayment = exports.createPayPalBuyerAuthorizationOrder = exports.createPayPalVaultOrder = exports.sendChatMessage = exports.createMembershipBooking = exports.dailySubscriptionCleanup = exports.triggerPayPalSetup = exports.activateSubscription = exports.reactivatePayPalSubscription = exports.cancelPayPalSubscription = exports.getPayPalSubscriptionDetails = exports.paypalSubscriptionWebhook = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.sendMembershipCancellationEmail = exports.deleteAccountData = exports.sendAccountDeletionEmail = exports.autoProcessBookings = exports.processScheduledEmails = exports.processCampaigns = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendMembershipWelcomeEmail = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = void 0;
+exports.getPartyEssentialsAvailability = exports.voidExpiredAuthorizationHolds = exports.createPayPalAuthorizationHold = exports.capturePayPalVaultOrder = exports.capturePayPalAuthorizationPayment = exports.createPayPalBuyerAuthorizationOrder = exports.createPayPalVaultOrder = exports.sendChatMessage = exports.createMembershipBooking = exports.dailySubscriptionCleanup = exports.triggerPayPalSetup = exports.activateSubscription = exports.reactivatePayPalSubscription = exports.cancelPayPalSubscription = exports.getPayPalSubscriptionDetails = exports.paypalSubscriptionWebhook = exports.createMembershipSubscription = exports.setupPayPalPlans = exports.sendMembershipCancellationEmail = exports.deleteAccountData = exports.sendAccountDeletionEmail = exports.autoProcessBookings = exports.processScheduledEmails = exports.processCampaigns = exports.createPayPalInvoice = exports.sendOrderConfirmationEmail = exports.sendEnhancedOrderConfirmation = exports.sendMembershipWelcomeEmail = exports.sendGiftCardEmailOnCreate = exports.sendGiftCardEmail = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const sgMail = require("@sendgrid/mail");
@@ -23,14 +23,16 @@ function getBaseUrl() {
 }
 // Initialize Firebase Admin
 admin.initializeApp();
+// The v2 inventory function does not use the legacy v1 runtime configuration.
+const legacyConfig = process.env.K_SERVICE ? {} : functions.config();
 // Initialize SendGrid with API key from environment variables
-const sendGridApiKey = (_a = functions.config().sendgrid) === null || _a === void 0 ? void 0 : _a.api_key;
+const sendGridApiKey = (_a = legacyConfig.sendgrid) === null || _a === void 0 ? void 0 : _a.api_key;
 if (sendGridApiKey) {
     sgMail.setApiKey(sendGridApiKey);
 }
 // PayPal configuration
 const PAYPAL_CLIENT_ID = "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0";
-const PAYPAL_CLIENT_SECRET = ((_b = functions.config().paypal) === null || _b === void 0 ? void 0 : _b.client_secret) || "YOUR_PAYPAL_CLIENT_SECRET";
+const PAYPAL_CLIENT_SECRET = ((_b = legacyConfig.paypal) === null || _b === void 0 ? void 0 : _b.client_secret) || "YOUR_PAYPAL_CLIENT_SECRET";
 const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"; // Use https://api-m.paypal.com for production
 // Enhanced HTML email template with invoice-style formatting
 const generateEnhancedOrderEmailHTML = (data) => {
@@ -4386,10 +4388,10 @@ exports.createMembershipBooking = functions.region('us-central1').https.onCall(a
 // CHAT SUPPORT - Twilio SMS Integration
 // ============================================================================
 // Get Twilio configuration from environment variables
-const twilioAccountSid = (_c = functions.config().twilio) === null || _c === void 0 ? void 0 : _c.account_sid;
-const twilioAuthToken = (_d = functions.config().twilio) === null || _d === void 0 ? void 0 : _d.auth_token;
-const twilioFromNumber = ((_e = functions.config().twilio) === null || _e === void 0 ? void 0 : _e.from_number) || '+18032210466';
-const twilioToNumber = ((_f = functions.config().twilio) === null || _f === void 0 ? void 0 : _f.to_number) || '+18032920097'; // Testing number
+const twilioAccountSid = (_c = legacyConfig.twilio) === null || _c === void 0 ? void 0 : _c.account_sid;
+const twilioAuthToken = (_d = legacyConfig.twilio) === null || _d === void 0 ? void 0 : _d.auth_token;
+const twilioFromNumber = ((_e = legacyConfig.twilio) === null || _e === void 0 ? void 0 : _e.from_number) || '+18032210466';
+const twilioToNumber = ((_f = legacyConfig.twilio) === null || _f === void 0 ? void 0 : _f.to_number) || '+18032920097'; // Testing number
 // Initialize Twilio client
 let twilioClient = null;
 if (twilioAccountSid && twilioAuthToken) {
@@ -4727,4 +4729,6 @@ exports.voidExpiredAuthorizationHolds = functions.pubsub.schedule('every 1 hours
         return null;
     }
 });
+var partyEssentialsAvailability_1 = require("./partyEssentialsAvailability");
+Object.defineProperty(exports, "getPartyEssentialsAvailability", { enumerable: true, get: function () { return partyEssentialsAvailability_1.getPartyEssentialsAvailability; } });
 //# sourceMappingURL=index.js.map

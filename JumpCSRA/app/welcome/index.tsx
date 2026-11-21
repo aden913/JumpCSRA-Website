@@ -1,7 +1,6 @@
 import { ModalCarousel } from "../components/ModalCarousel";
 import { OptionsCarousel, OptionsCarouselRef } from "../components/OptionsCarousel";
 import { ProductDetailModal } from "../components/ProductDetailModal";
-import { QuantitySelectionModal } from "../components/QuantitySelectionModal";
 import { CalendarSidebar } from "../components/CalendarSidebar";
 import { MobileBottomMenu } from "../components/MobileBottomMenu";
 import { ProfileMenuSidebar } from "../components/ProfileMenuSidebar";
@@ -47,6 +46,7 @@ import "../styles/mobile-bottom-menu.css";
 import { MantineProvider } from "@mantine/core";
 import { useWelcomeLogic } from './useWelcomeLogic';
 import { getUnavailableInflateables } from '../utils/bookingUtils';
+import { isPartyEssentialProduct } from '../utils/availabilityUtils';
 import { ViewportDebugger } from '../components/ViewportDebugger';
 import { DevModeToggle } from '../components/DevModeToggle';
 import { LocalStorageDebugger } from '../components/LocalStorageDebugger';
@@ -334,7 +334,7 @@ export function Welcome() {
         setUnavailableInflateables(new Set());
       }
     }
-    fetchUnavailable();
+    fetchUnavailable().catch(error => console.warn("Unable to check inflatable availability:", error));
   }, [logic.calendarDateRange]);
 
    // Load dates from localStorage on mount
@@ -528,7 +528,7 @@ export function Welcome() {
           <OptionsCarousel
             ref={optionsCarouselRef}
             options={logic.filteredOptions.map((opt: any) => {
-              const isUnavailable = unavailableInflateables.has(opt.name);
+              const isUnavailable = !isPartyEssentialProduct(opt) && unavailableInflateables.has(opt.name);
               return {
                 ...opt,
                 unavailable: isUnavailable,
@@ -644,29 +644,15 @@ export function Welcome() {
         <ModalCarousel
           open={logic.modalOpen}
           onClose={() => logic.setModalOpen(false)}
-          options={logic.filteredOptions.map((opt: any) => ({ ...opt, onOrder: logic.handleOrderNow, ...opt }))}
+          options={logic.filteredOptions}
+          onProductOpen={logic.handleOrderNow}
           title={logic.modalType || ""}
         />
         <ProductDetailModal
           open={logic.productOpen}
-          product={logic.selectedProduct ? { ...logic.selectedProduct } : null}
+          product={logic.selectedProduct}
           onClose={() => logic.setProductOpen(false)}
           onPurchase={(product, quantity) => logic.addToCart(product, quantity)}
-          getQuantityOptions={logic.getQuantityOptions}
-          getAvailableQuantityForItem={logic.getAvailableQuantityForItem}
-          itemAvailability={logic.itemAvailability}
-          hasValidDates={!!logic.hasValidDates}
-        />
-        
-        {/* Quantity Selection Modal for Party Essentials */}
-        <QuantitySelectionModal
-          open={logic.showQuantityModal}
-          product={logic.quantityModalItem}
-          selectedQuantity={logic.selectedQuantity}
-          setSelectedQuantity={logic.setSelectedQuantity}
-          availableQuantity={logic.quantityModalItem ? logic.getAvailableQuantityForItem(logic.quantityModalItem.name) : 0}
-          onConfirm={logic.handleQuantityModalConfirm}
-          onClose={logic.handleQuantityModalClose}
         />
 
         {/* Cart Sidebar - Removed: Cart button now navigates directly to checkout */}

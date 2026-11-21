@@ -1,6 +1,17 @@
 import { getDatabase, ref, get } from "firebase/database";
 import type { BookingData } from "./databaseUtils";
 
+export function isPartyEssentialProduct(product: {
+  category?: string | string[];
+  name?: string;
+  isGiftCard?: boolean;
+}): boolean {
+  const categories = Array.isArray(product.category) ? product.category : [product.category];
+  return !product.isGiftCard && !product.name?.toLowerCase().includes("gift card") &&
+    !categories.some(category => category?.toLowerCase() === "gift-card") &&
+    categories.some(category => category?.toLowerCase() === "party-essentials");
+}
+
 export interface ItemAvailability {
   itemName: string;
   totalQuantity: number;

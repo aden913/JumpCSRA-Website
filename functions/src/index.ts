@@ -28,15 +28,18 @@ function getBaseUrl(): string {
 // Initialize Firebase Admin
 admin.initializeApp();
 
+// The v2 inventory function does not use the legacy v1 runtime configuration.
+const legacyConfig = process.env.K_SERVICE ? {} : functions.config();
+
 // Initialize SendGrid with API key from environment variables
-const sendGridApiKey = functions.config().sendgrid?.api_key;
+const sendGridApiKey = legacyConfig.sendgrid?.api_key;
 if (sendGridApiKey) {
   sgMail.setApiKey(sendGridApiKey);
 }
 
 // PayPal configuration
 const PAYPAL_CLIENT_ID = "AWT5np0jyr8BIdzyJvoWm0X9158l2F0l0rPjE6q925D5VnZVix4uwDRSivBe8Vs4sjCO8Hu-io5mSxM0";
-const PAYPAL_CLIENT_SECRET = functions.config().paypal?.client_secret || "YOUR_PAYPAL_CLIENT_SECRET";
+const PAYPAL_CLIENT_SECRET = legacyConfig.paypal?.client_secret || "YOUR_PAYPAL_CLIENT_SECRET";
 const PAYPAL_BASE_URL = "https://api-m.sandbox.paypal.com"; // Use https://api-m.paypal.com for production
 
 // Enhanced HTML email template with invoice-style formatting
@@ -5119,10 +5122,10 @@ export const createMembershipBooking = functions.region('us-central1').https.onC
 // ============================================================================
 
 // Get Twilio configuration from environment variables
-const twilioAccountSid = functions.config().twilio?.account_sid;
-const twilioAuthToken = functions.config().twilio?.auth_token;
-const twilioFromNumber = functions.config().twilio?.from_number || '+18032210466';
-const twilioToNumber = functions.config().twilio?.to_number || '+18032920097'; // Testing number
+const twilioAccountSid = legacyConfig.twilio?.account_sid;
+const twilioAuthToken = legacyConfig.twilio?.auth_token;
+const twilioFromNumber = legacyConfig.twilio?.from_number || '+18032210466';
+const twilioToNumber = legacyConfig.twilio?.to_number || '+18032920097'; // Testing number
 
 // Initialize Twilio client
 let twilioClient: any = null;
@@ -5548,3 +5551,5 @@ export const voidExpiredAuthorizationHolds = functions.pubsub.schedule('every 1 
     }
   });
 
+
+export { getPartyEssentialsAvailability } from "./partyEssentialsAvailability";

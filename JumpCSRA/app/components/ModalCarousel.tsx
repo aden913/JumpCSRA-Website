@@ -10,9 +10,10 @@ type ModalCarouselProps = {
   onClose: () => void;
   options: OptionCardProps[];
   title: string;
+  onProductOpen: (product: OptionCardProps) => void;
 };
 
-export function ModalCarousel({ open, onClose, options, title }: ModalCarouselProps) {
+export function ModalCarousel({ open, onClose, options, title, onProductOpen }: ModalCarouselProps) {
   const dragRef = React.useRef(false);
   
   // Prevent background scrolling when modal is open
@@ -43,7 +44,7 @@ export function ModalCarousel({ open, onClose, options, title }: ModalCarouselPr
       <div className="modal-shadow" />
       <div className="modal-content popup" onClick={e => e.stopPropagation()}>
         <h2 className="modal-title">{title}</h2>
-        <OptionsCarousel options={options} />
+        <OptionsCarousel options={options} onCardClick={onProductOpen} onPurchase={onProductOpen} disableModal />
         <button className="modal-close" onClick={onClose}>Close</button>
       </div>
     </div>
