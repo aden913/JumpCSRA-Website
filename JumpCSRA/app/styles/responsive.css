@@ -576,14 +576,10 @@ font-size: .9rem;
     transform: translateY(-2px);
   }
 
-  /* Mobile Promo Cards - 2x2 Grid */
+  /* Promo card spacing */
   .promo-cards {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
     gap: 1rem !important;
     margin-top: 1rem !important;
-    width: 100% !important;
-    justify-content: center;
   }
 
   .promo-card {
@@ -911,16 +907,10 @@ font-size: .9rem;
     outline: none;
   }
 
-  /* Small Tablet Promo Cards - 2x2 Grid */
+  /* Promo card spacing */
   .promo-cards {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
     gap: 1.2rem !important;
     margin-top: 1.2rem !important;
-    width: 90% !important;
-    justify-content: center;
-    margin-left: auto;
-    margin-right: auto;
   }
 
   .promo-card {
@@ -1254,16 +1244,10 @@ font-size: .9rem;
     margin-top: 0;
   }
 
-  /* Tablet Promo Cards - 2x2 Grid */
+  /* Promo card spacing */
   .promo-cards {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
     gap: 1.5rem !important;
     margin-top: 1.5rem !important;
-    width: 80% !important;
-    justify-content: center;
-    margin-left: auto;
-    margin-right: auto;
   }
 
   .promo-card {
@@ -1478,16 +1462,10 @@ font-size: .9rem;
     display: block !important;
   }
 
-  /* Desktop: 2x2 grid for promo cards */
+  /* Promo card spacing */
   .promo-cards {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
     gap: 2rem !important;
     margin-top: 1.5rem !important;
-    width: 60% !important;
-    justify-content: center;
-    margin-left: auto;
-    margin-right: auto;
   }
 
   .promo-card {
@@ -1528,11 +1506,10 @@ font-size: .9rem;
     padding: 2rem 0;
   }
 
-  /* Desktop layout - 2x2 grid with larger cards */
+  /* Promo card spacing */
   .promo-cards {
     gap: 2.5rem !important;
     margin-top: 1.8rem !important;
-    width: 55% !important;
   }
 
   .promo-card {
@@ -1567,11 +1544,10 @@ font-size: .9rem;
     padding: 2.5rem 0;
   }
 
-  /* Desktop layout - 2x2 grid with even larger cards */
+  /* Promo card spacing */
   .promo-cards {
     gap: 3rem !important;
     margin-top: 2rem !important;
-    width: 50% !important;
   }
 
   .promo-card {
