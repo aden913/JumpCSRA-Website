@@ -25,6 +25,8 @@ export function RouterNav({ onNavClick, cartCount, cartSubtotal, selectedDates, 
   const formatDate = (date: Date | null) => date ? date.toLocaleDateString() : "--";
   const navigate = useNavigate();
   const location = useLocation();
+  const isHome = location.pathname === "/home";
+  const [startDate, endDate] = selectedDates ?? [];
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [sidebarSearchTerm, setSidebarSearchTerm] = useState("");
@@ -120,7 +122,7 @@ export function RouterNav({ onNavClick, cartCount, cartSubtotal, selectedDates, 
       {/* Sticky navbar spacer to prevent layout shift */}
       {isSticky && <div className="navbar-spacer" style={{ height: navRef.current?.offsetHeight || 0 }} />}
 
-      <nav ref={navRef} className={`nav-bar ${isSticky ? 'nav-bar-sticky' : ''}`}>
+      <nav ref={navRef} className={`nav-bar ${isSticky ? 'nav-bar-sticky' : ''}${isHome ? ' home-nav' : ''}`}>
         <ul>
           {/* Logo */}
           <li>
@@ -191,11 +193,18 @@ export function RouterNav({ onNavClick, cartCount, cartSubtotal, selectedDates, 
             {!isMobile && (
               <div className="icon-container">
                 <li style={{ position: "relative" }}>
-                  <button type="button" className="nav-btn calendar-btn" onClick={() => {
-                    console.log("Calendar icon clicked");
-                    onNavClick && onNavClick("Calendar");
-                  }} style={{ position: "relative", padding: 0, background: "none", border: "none" }}>
-                    {selectedDates && selectedDates[0] && selectedDates[1] && (
+                  <button
+                    type="button"
+                    className={`nav-btn calendar-btn${isHome ? " home-calendar-btn" : ""}`}
+                    onClick={() => onNavClick?.("Calendar")}
+                  >
+                    {isHome ? (
+                      startDate
+                        ? endDate && startDate.toDateString() !== endDate.toDateString()
+                          ? `${formatDate(startDate)} – ${formatDate(endDate)}`
+                          : formatDate(startDate)
+                        : "Select Date"
+                    ) : startDate && endDate && (
                       <span
                         className="calendar-dates-overlay"
                         style={{
@@ -211,7 +220,7 @@ export function RouterNav({ onNavClick, cartCount, cartSubtotal, selectedDates, 
                           pointerEvents: "none"
                         }}
                       >
-                        {formatDate(selectedDates[0])} - {formatDate(selectedDates[1])}
+                        {formatDate(startDate)} - {formatDate(endDate)}
                       </span>
                     )}
                   </button>

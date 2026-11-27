@@ -714,7 +714,7 @@ export function Welcome() {
               JumpCSRA@gmail.com
             </a>
           </div>
-          <div className="social-icons">
+          <div className="home-footer-socials">
             <a href="https://www.instagram.com/jumpcsra/" target="_blank" rel="noopener noreferrer">
               <img src="/assets/instagram-icon.avif" alt="Instagram Logo" className="footer-icons" />
             </a>

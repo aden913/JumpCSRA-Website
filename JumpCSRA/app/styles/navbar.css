@@ -105,6 +105,32 @@
   padding: 0;
 }
 
+.nav-btn.home-calendar-btn {
+  min-width: 8rem;
+  min-height: 2.75rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 0.65rem;
+  background: white;
+  color: var(--darkBlue);
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.nav-btn.home-calendar-btn:hover {
+  background: #f1fbfa;
+}
+
+@media (min-width: 769px) {
+  .home-nav .navbar-search-container {
+    min-width: 0;
+  }
+
+  .home-nav .navbar-search-container .search-bar-input {
+    width: 100%;
+  }
+}
+
 .nav-btn.cart-btn {
   display: -webkit-flex;
   display: -ms-flexbox;
