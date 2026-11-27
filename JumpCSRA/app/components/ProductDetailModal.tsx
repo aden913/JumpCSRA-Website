@@ -44,13 +44,15 @@ export function ProductDetailModal({
     <div className="modal-overlay fade-in" onClick={onClose}>
       <div className="modal-shadow" />
       <div
-        className="modal-content popup"
+        className="modal-content popup product-detail-modal"
         style={{ maxHeight: "80vh", overflowY: "auto", display: "flex", flexDirection: "column" }}
         onClick={e => e.stopPropagation()}
       >
         <h2 className="modal-title" style={{ textAlign: "center", marginBottom: "2rem" }}>{product.name}</h2>
-        <div className="modal-div" style={{ display: "flex", flexDirection: "row", alignItems: "center" }}>
-          <ProductImageGallery images={images.filter(Boolean)} />
+        <div className="modal-div product-detail-layout">
+          <div className="product-detail-gallery">
+            <ProductImageGallery images={images.filter(Boolean)} />
+          </div>
           <div className="modal-info">
             <strong>Description:</strong> {product.description || "No description yet."}
             <br />
@@ -80,10 +82,9 @@ export function ProductDetailModal({
               </>
             )}
           </div>
-        </div>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginTop: "2rem" }}>
           <button
             className="modal-purchase"
+            type="button"
             onClick={() => {
               if (onPurchase && product) {
                 const purchaseQuantity = isGiftCard ? selectedQuantity : 1;
@@ -98,10 +99,10 @@ export function ProductDetailModal({
             {isGiftCard ? `Add $${selectedQuantity} Gift Card` : 'Add to Cart'
             }
           </button>
-          <button className="modal-close" onClick={onClose}>
-            X
-          </button>
         </div>
+        <button className="modal-close" onClick={onClose}>
+          X
+        </button>
       </div>
     </div>
   );
