@@ -13,6 +13,8 @@
     display: -webkit-flex;
     display: -ms-flexbox;
     display:flex;
+    height: 100dvh;
+    overflow-y: auto;
     -webkit-align-items: center;
     -ms-flex-align: center;
     align-items: center;

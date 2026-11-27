@@ -105,10 +105,20 @@
 }
 
 .search-suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   padding: 8px 12px;
   border-bottom: 1px solid #eee;
   cursor: pointer;
   background: white;
+}
+
+.search-suggestion-image {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  object-fit: contain;
 }
 
 .search-suggestion-item:hover {

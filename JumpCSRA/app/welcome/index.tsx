@@ -489,16 +489,13 @@ export function Welcome() {
           open={logic.calendarOpen || !logic.hasValidDates}
           onClose={logic.handleCalendarClose}
           value={logic.calendarDateRange}
-          onChange={logic.setCalendarDateRange}
-          selectedWetDry={logic.selectedWetDry}
-          onWetDryChange={(wetDry: string) => {
-            // Debug log removed
-            logic.setSelectedWetDry(wetDry);
-            setTimeout(() => {
-              // Debug log removed
-              // Debug log removed
-            }, 50);
+          onChange={range => {
+            // Choosing a date satisfies the required-date check. Keep the sidebar open for Wet/Dry and Confirm.
+            logic.setCalendarOpen(true);
+            logic.setCalendarDateRange(range);
           }}
+          selectedWetDry={logic.selectedWetDry}
+          onWetDryChange={logic.setSelectedWetDry}
         />
         {/* Options Section */}
         <section className="options-section">

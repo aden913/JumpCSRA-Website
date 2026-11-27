@@ -111,6 +111,12 @@ export function useDeliveryAddressVerification() {
       console.error("[DELIVERY ADDRESS] Delivery cost calculation error", error);
       setDeliveryCost(0);
       setAddressConfirmed(false);
+      notifications.show({
+        title: "Delivery Distance Unavailable",
+        message: "We couldn't calculate the driving distance. Please try confirming this address again.",
+        color: "red",
+        autoClose: 7000,
+      });
       return false;
     } finally {
       setCalculatingDistance(false);
@@ -139,14 +145,7 @@ export function useDeliveryAddressVerification() {
     selectedGooglePlaceAddressRef.current = selectedAddress;
     selectedPlaceCoordinatesRef.current = placeCoordinates;
     setLastFailureReason(null);
-
-    setTimeout(() => {
-      const addressForCalculation = addressInputRef.current?.value?.trim() || selectedAddress;
-      if (addressForCalculation) {
-        calculateDeliveryDistance(addressForCalculation, placeCoordinates);
-      }
-    }, 150);
-  }, [calculateDeliveryDistance]);
+  }, []);
 
   const handleAddressChange = useCallback((value: string) => {
     console.log("[DELIVERY ADDRESS] handleAddressChange", {

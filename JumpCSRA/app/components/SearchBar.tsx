@@ -18,83 +18,77 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchBarRef = useRef<HTMLDivElement>(null);
 
-  // Build searchable list (names + categories)
-  const searchableList = useMemo(() => {
-    const names = inflateables.map((i: any) => i.name);
-  const list = [...categories, ...names.filter((n: string) => !categories.includes(n))];
-  return list;
-  }, [inflateables, categories]);
-
-  useEffect(() => {
-    if (!searchTerm.trim()) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
+  const suggestions = useMemo(() => {
+    if (!searchTerm.trim()) return [];
     const term = searchTerm.toLowerCase();
-    const filtered = searchableList.filter((item: string) => item.toLowerCase().includes(term));
-    setSuggestions(filtered);
-    setShowSuggestions(filtered.length > 0);
-  }, [searchTerm, searchableList]);
+    return [
+      ...categories.map(name => ({ name, product: null })),
+      ...inflateables
+        .filter(product => !categories.includes(product.name))
+        .map(product => ({ name: product.name, product })),
+    ].filter(({ name }) => name.toLowerCase().includes(term));
+  }, [searchTerm, inflateables, categories]);
 
-  const handleSuggestionClick = (item: string) => {
+  const handleSuggestionClick = ({ name, product }: (typeof suggestions)[number]) => {
     setSearchTerm("");
     setShowSuggestions(false);
-    if (categories.includes(item)) {
-      onCategorySelect(item);
-      if (focusCarousel) {
-        setTimeout(() => {
-          focusCarousel();
-        }, 100);
-      }
+    if (product) {
+      onInflateableSelect(product);
     } else {
-      // Find the full product object
-      const product = inflateables.find((i: any) => (i.name || "").trim().toLowerCase() === item.trim().toLowerCase());
-      if (product) {
-        onInflateableSelect(product);
+      onCategorySelect(name);
+      if (focusCarousel) {
+        setTimeout(focusCarousel, 100);
       }
     }
   };
 
   useEffect(() => {
-  function handleEsc(e: KeyboardEvent) {
-    if (e.key === "Escape") {
-      setShowSuggestions(false);
+    function handleEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") setShowSuggestions(false);
     }
-  }
+
+    function handleOutsidePress(e: PointerEvent) {
+      if (e.target instanceof Node && !searchBarRef.current?.contains(e.target)) {
+        setShowSuggestions(false);
+      }
+    }
+
     document.addEventListener("keydown", handleEsc);
+    document.addEventListener("pointerdown", handleOutsidePress, true);
     return () => {
       document.removeEventListener("keydown", handleEsc);
+      document.removeEventListener("pointerdown", handleOutsidePress, true);
     };
   }, []);
 
   return (
-    <div className="search-bar-container">
+    <div ref={searchBarRef} className="search-bar-container">
       <input
         type="text"
         placeholder="Search by Name..."
         value={searchTerm}
         onChange={e => {
           setSearchTerm(e.target.value);
+          setShowSuggestions(true);
         }}
-        ref={searchInputRef}
         className="search-bar-input"
-        onFocus={() => {
-          setShowSuggestions(suggestions.length > 0);
-        }}
+        onFocus={() => setShowSuggestions(true)}
+        onClick={() => setShowSuggestions(true)}
       />
-      {showSuggestions && (
+      {showSuggestions && suggestions.length > 0 && (
         <ul className="search-suggestions">
           {suggestions.map((item) => (
             <li
-              key={item}
+              key={item.name}
               className="search-suggestion-item"
               onClick={() => handleSuggestionClick(item)}
             >
-              {item}
+              {item.product?.img && (
+                <img className="search-suggestion-image" src={item.product.img} alt="" />
+              )}
+              {item.name}
             </li>
           ))}
         </ul>
