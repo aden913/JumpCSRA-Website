@@ -52,6 +52,26 @@
   -webkit-box-shadow: 0 6px 20px rgba(0,0,0,0.15);
   box-shadow: 0 6px 20px rgba(0,0,0,0.15);
 }
+.promo-card.promo-card-active {
+  background-color: #4caf50;
+  color: white;
+  box-shadow: inset 0 0 0 3px #2e7d32, 0 4px 15px rgba(76, 175, 80, 0.4);
+}
+.promo-active-badge {
+  display: inline-block;
+  visibility: hidden;
+  margin-top: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 0.5rem;
+  background: white;
+  color: #205c24;
+  font-size: 1rem;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.promo-card-active .promo-active-badge {
+  visibility: visible;
+}
 .promo-card img {
   width: 9rem;
   height: 9rem;
