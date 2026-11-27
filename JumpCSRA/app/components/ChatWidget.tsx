@@ -126,7 +126,7 @@ const ChatWidget: React.FC = () => {
   return (
     <div className="fixed bottom-4 right-4 z-50">
       {isOpen ? (
-        <div className="bg-white rounded-lg shadow-2xl border border-gray-200 w-80 max-h-96">
+        <div className="bg-white rounded-lg shadow-2xl border border-gray-200 w-80 max-h-96 overflow-y-auto">
           {/* Header */}
           <div className="bg-blue-600 text-white p-4 rounded-t-lg flex justify-between items-center">
             <h3 className="font-semibold">Need Help?</h3>
@@ -140,6 +140,12 @@ const ChatWidget: React.FC = () => {
 
           {/* Content */}
           <div className="p-4">
+            <a
+              href="tel:+18032210466"
+              className="mb-3 block rounded-lg bg-blue-50 px-3 py-2 text-center font-semibold text-blue-700 hover:bg-blue-100"
+            >
+              Call us at 803-221-0466
+            </a>
             {sendStatus === 'success' ? (
               <div className="text-center py-6">
                 <div className="text-green-600 text-4xl mb-2">✓</div>
